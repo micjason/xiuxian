@@ -14,6 +14,20 @@
 - **状态**：占位、待审核、已批准、待替换或禁用。
 - **备注**：提示词、编辑过程、署名文本和风险。
 
+## app_icon
+
+```yaml
+id: app_icon
+file: game/assets/art/ui/app_icon.svg
+type_and_purpose: Android Demo 应用图标
+source: 项目内创建的原创几何图形
+license: 项目所有
+acquired_at: 2026-09-09
+budget: 512x512 SVG
+status: 占位
+notes: 月亮、山峰与云线构成；正式美术确定后替换
+```
+
 ## 登记模板
 
 每项素材使用一个二级标题并复制以下字段：
@@ -30,4 +44,3 @@ status: 占位
 notes: 无
 ```
 
-当前尚无真实素材记录。

@@ -2,7 +2,7 @@
 
 ## 边界
 
-第一层更新配置、文本、图片、音频等内容；第二层更新 APK 程序。首期只预留接口，不实现服务、不购买服务器、不自动发布。
+第一层更新配置、文本、图片、音频等内容；第二层更新 APK 程序。当前已用公开 GitHub Releases 完成 APK 更新 Demo；内容包更新仍只保留设计，不购买业务服务器。
 
 日常内容更新不应把任意未审核脚本当作资源下发。涉及原生插件、引擎、权限或核心逻辑兼容性时发布新 APK。
 
@@ -45,7 +45,13 @@ manifest 至少包含：
 
 ## 托管建议
 
-早期只需要 HTTPS 对象存储加 CDN，不需要常驻业务服务器。建议区分不可变版本目录和一个小型渠道 manifest；切换 manifest 是发布动作，必须人工确认。
+Demo 使用公开仓库 `micjason/xiuxian-releases`，不购买业务服务器：
+
+- 清单和签名放在 `main` 分支，客户端从 jsDelivr 读取。
+- APK 放在 GitHub Releases，清单里的 `apk_url` 使用 Releases Assets API。
+- 客户端请求必须带 `User-Agent`；下载 APK 时还要带 `Accept: application/octet-stream`。
+
+`github.com` 网页下载和 `raw.githubusercontent.com` 在目标地区经常超时，不能作为客户端默认地址。正式运营前应再评估对象存储和 CDN。
 
 ## 回滚与兼容
 

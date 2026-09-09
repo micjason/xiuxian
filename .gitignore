@@ -16,6 +16,8 @@ builds/**
 game/android/build/
 game/android/.gradle/
 game/android/local.properties
+tools/android-updater-plugin/.gradle/
+tools/android-updater-plugin/plugin/build/
 
 # Logs, test reports, coverage and temporary downloads
 *.log

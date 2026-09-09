@@ -4,14 +4,27 @@
 
 `挂机获得修为 → 突破境界 → 提高修炼效率`
 
-当前阶段只建设项目规范、架构文档和 AI 工作流，不包含玩法代码。
+当前已完成 Android 应用内更新 Demo，不包含正式玩法数值。
+
+## 当前 Demo
+
+- 应用名：修仙
+- Android 包名：`com.micjason.xiuxian`
+- 当前源码版本：`0.1.1`
+- 首次安装测试包：`builds/development/0.1.0/xiuxian.apk`
+- 公开更新页：`https://github.com/micjason/xiuxian-releases/releases/latest`
+- 客户端清单：`https://cdn.jsdelivr.net/gh/micjason/xiuxian-releases@main/update.json`
+- 更新流程：启动检查 → 提示 → 下载 → 安全校验 → Android 系统确认覆盖安装
+
+Android 不允许普通应用静默覆盖安装，下载完成后必须由用户在系统页面确认。
 
 ## 固定环境
 
 - Godot：4.7.2 stable
 - Godot 命令：`/Volumes/kaixia/GodotDev/bin/godot`
 - 仓库：`/Volumes/kaixia/projects/xiuxian`
-- Godot 工程根目录：`game/`（创建工程后）
+- Godot 工程根目录：`game/`
+- 本项目 Android 工具：`/Volumes/kaixia/GodotDev/xiuxian/android`
 - 首发平台：Android
 - 脚本语言：强类型 GDScript
 
@@ -35,5 +48,7 @@
 3. 每项功能先写验收标准，再实现，再运行与风险相匹配的验证。
 4. 大型二进制文件按 `.gitattributes` 使用 Git LFS；密钥、签名文件和构建产物不得提交。
 5. 重要技术决定写入 `docs/decisions/`，不要只保留在聊天记录中。
+6. 绝不修改或删除已有 Android/iOS 项目、SDK、证书和配置；本项目工具使用外接盘独立路径。
 
-详细边界见 `docs/product/mvp-scope.md`，开发时遵循 `.cursor/rules/`。
+详细边界见 `docs/product/mvp-scope.md`，更新测试步骤见
+`docs/operations/android-update-demo.md`，开发时遵循 `.cursor/rules/`。

@@ -35,7 +35,7 @@ jsDelivr 对 `@main` 按分支缓存，最长约 12 小时，且不能可靠刷�
 - 公开仓频道标签：`v0.1.11`（jsDelivr `@latest` 指向这里，不要复用已取过的版本号）。
 - `@latest` 已走通：清单、签名、APK 哈希一致，安装包可下载。
 - `@main`（0.1.3 客户端）一度被刷新成旧 asset id，随后该 id 被 `--clobber` 删掉，当前下载 404。jsDelivr 分支缓存最长 12 小时，purge 对 `@main` 不可靠且会节流。节流结束后用 `tools/release/refresh_main_cdn.sh`，再用 `tools/release/check_update_channel.sh` 确认 `jsdelivr-main` 的哈希已与 `github-main` 一致、且 `apk_http` 不是 4xx。
-- 在 `@main` 恢复前，不要再覆盖 `v0.1.4` 的 `xiuxian.apk`。0.1.3 手机请用 `tools/release/install_local_apk.sh` 覆盖安装，不要点检查更新。该脚本会先核对本机 APK 与 GitHub `main` 清单哈希一致。
+- 在 `@main` 恢复前，不要再覆盖 `v0.1.4` 的 `xiuxian.apk`。0.1.3 手机请用 `tools/release/install_local_apk.sh` 覆盖安装，不要点检查更新。人不在电脑旁时用 `tools/release/wait_and_install_local_apk.sh`，插上已授权的手机就会装。该脚本会先核对本机 APK 与 GitHub `main` 清单哈希一致。
 - 以后发更新用 `tools/release/publish_update_channel.sh`：通道预检失败会直接退出，并且不会 `--clobber` 已有 APK。
 
 ## 真机验收记录（2026-09-09）

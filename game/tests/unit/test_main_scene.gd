@@ -1,6 +1,7 @@
 extends GutTest
 
 const REQUIRED_UNIQUE_NODES := [
+	"Title",
 	"VersionLabel",
 	"UpgradeBadge",
 	"DataMarker",

@@ -3,6 +3,7 @@ extends Control
 const DATA_MARKER_PATH := "user://demo_install_marker.txt"
 const TICK_SECONDS := 1.0
 
+@onready var title_label: Label = %Title
 @onready var version_label: Label = %VersionLabel
 @onready var data_marker: Label = %DataMarker
 @onready var upgrade_badge: Label = %UpgradeBadge
@@ -43,6 +44,9 @@ var _update_check_pending := true
 
 func _ready() -> void:
 	theme = MainTheme.make()
+	title_label.add_theme_font_override("font", MainTheme.title_font())
+	realm_label.add_theme_font_override("font", MainTheme.title_font())
+	cultivation_label.add_theme_font_override("font", MainTheme.title_font())
 	cultivation_card.add_theme_stylebox_override("panel", MainTheme.hero_panel())
 	stats_card.add_theme_stylebox_override("panel", MainTheme.inner_panel())
 	journal_card.add_theme_stylebox_override("panel", MainTheme.inner_panel())
@@ -52,6 +56,7 @@ func _ready() -> void:
 	_style_secondary_button(check_button)
 	_style_secondary_button(install_button)
 	download_progress.visible = false
+	status_label.visible = false
 
 	_session = CultivationSession.new()
 	_session.state_changed.connect(_refresh_cultivation)
@@ -217,6 +222,7 @@ func _maybe_check_update() -> void:
 
 func _on_status_changed(message: String) -> void:
 	status_label.text = message
+	status_label.visible = not message.strip_edges().is_empty()
 
 
 func _on_update_available(info: Dictionary) -> void:

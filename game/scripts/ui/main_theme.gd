@@ -12,8 +12,38 @@ const IVORY := Color(0.93, 0.91, 0.84, 1)
 const MUTED := Color(0.58, 0.64, 0.61, 1)
 
 
+static func body_font() -> SystemFont:
+	var font := SystemFont.new()
+	font.font_names = PackedStringArray([
+		"PingFang SC",
+		"Hiragino Sans GB",
+		"Noto Sans CJK SC",
+		"Source Han Sans SC",
+		"Noto Sans SC",
+		"sans-serif",
+	])
+	return font
+
+
+static func title_font() -> SystemFont:
+	var font := SystemFont.new()
+	font.font_names = PackedStringArray([
+		"Songti SC",
+		"STSong",
+		"Noto Serif CJK SC",
+		"Source Han Serif SC",
+		"Noto Serif SC",
+		"serif",
+	])
+	return font
+
+
 static func make() -> Theme:
 	var theme := Theme.new()
+	var text_font := body_font()
+	theme.set_default_font(text_font)
+	theme.set_font("font", "Label", text_font)
+	theme.set_font("font", "Button", text_font)
 	theme.set_color("font_color", "Label", IVORY)
 	theme.set_color("font_color", "Button", Color(0.12, 0.1, 0.06, 1))
 	theme.set_color("font_hover_color", "Button", Color(0.12, 0.1, 0.06, 1))

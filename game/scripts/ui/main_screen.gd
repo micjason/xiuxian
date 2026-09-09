@@ -137,11 +137,7 @@ func _on_breakthrough_pressed() -> void:
 
 
 func _on_breakthrough_succeeded(from_name: String, to_name: String, new_rate: float) -> void:
-	breakthrough_banner.text = "突破成功  %s → %s\n修炼效率提升至 %s" % [
-		from_name,
-		to_name,
-		CultivationFormat.rate(new_rate),
-	]
+	breakthrough_banner.text = BreakthroughCopy.banner(from_name, to_name, new_rate)
 	breakthrough_banner.visible = true
 	offline_label.text = ""
 	_play_breakthrough_flash()

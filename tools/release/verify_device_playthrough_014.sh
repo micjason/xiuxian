@@ -108,10 +108,19 @@ fi
 start_game
 shot "device_launch.png"
 
-# Leave long enough for one online tick, then reopen to force offline settlement.
+# Prefer a checksum-valid 9-hour save so the 闭关 dialog shows the 8-hour cap.
+# If the release package blocks writes, fall back to a short force-stop.
 sleep 3
 "$ADB" shell am force-stop "$PKG" >/dev/null
-sleep 8
+SEED_PUSH="/Volumes/kaixia/projects/xiuxian/tools/release/push_capped_offline_save.sh"
+set +e
+"$SEED_PUSH"
+seed_code=$?
+set -e
+if [ "$seed_code" -ne 0 ]; then
+	echo "Seeded save unavailable (exit $seed_code); waiting 8s for a short offline settlement."
+	sleep 8
+fi
 start_game
 shot "device_offline.png"
 

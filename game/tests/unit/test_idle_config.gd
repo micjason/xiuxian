@@ -90,3 +90,12 @@ func test_first_three_realms_break_through_quickly() -> void:
 		assert_lte(seconds, 30.0)
 		total += seconds
 	assert_lte(total, 90.0)
+
+
+func test_display_path_shows_current_and_next_realms() -> void:
+	var config := IdleConfig.from_resource("res://resources/config/idle_rules.json")
+	assert_eq(
+		config.display_path(config.starting_realm()),
+		"凡人  →  炼气初期  →  炼气中期"
+	)
+	assert_eq(config.display_path(config.realm_by_id("foundation_late")), "筑基后期")

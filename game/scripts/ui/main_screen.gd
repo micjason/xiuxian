@@ -95,7 +95,7 @@ func _refresh_cultivation() -> void:
 	if realm == null or _session.state == null:
 		return
 	realm_label.text = realm.display_name
-	realm_path.text = _realm_path_text(realm)
+	realm_path.text = _session.config.display_path(realm)
 	cultivation_label.text = CultivationFormat.amount(_session.state.cultivation)
 	rate_label.text = CultivationFormat.rate(realm.gain_per_second)
 	cultivation_progress.value = _session.progress() * 100.0
@@ -122,15 +122,6 @@ func _refresh_cultivation() -> void:
 		breakthrough_button.text = "突破境界" if can_break else "修为不足"
 		cultivation_progress.add_theme_stylebox_override("fill", MainTheme.progress_fill(can_break))
 		_set_ready_pulse(can_break)
-
-
-func _realm_path_text(realm: RealmDef) -> String:
-	var names: PackedStringArray = []
-	var current := realm
-	while current != null and names.size() < 3:
-		names.append(current.display_name)
-		current = _session.config.next_realm(current)
-	return "  →  ".join(names)
 
 
 func _on_breakthrough_pressed() -> void:

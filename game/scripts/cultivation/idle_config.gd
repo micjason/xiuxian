@@ -105,3 +105,12 @@ func next_realm(realm: RealmDef) -> RealmDef:
 	if realm == null or not realm.has_next():
 		return null
 	return realm_by_id(realm.next_id)
+
+
+func display_path(realm: RealmDef, limit: int = 3) -> String:
+	var names: PackedStringArray = []
+	var current := realm
+	while current != null and names.size() < limit:
+		names.append(current.display_name)
+		current = next_realm(current)
+	return "  →  ".join(names)

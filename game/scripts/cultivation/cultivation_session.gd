@@ -3,6 +3,7 @@ extends RefCounted
 
 signal state_changed
 signal offline_settled(result: SettlementResult)
+signal breakthrough_succeeded(from_name: String, to_name: String, new_rate: float)
 
 const CONFIG_PATH := "res://resources/config/idle_rules.json"
 const ONLINE_CAP_SECONDS := 0
@@ -13,6 +14,7 @@ var save_service: SaveService
 var state: CultivationState
 var app_version: String
 var last_offline_result: SettlementResult
+var journal := CultivationJournal.new()
 
 
 func _init(
@@ -37,6 +39,7 @@ func start() -> bool:
 	state = save_service.load_state()
 	if state == null or config.realm_by_id(state.realm_id) == null:
 		state = _new_state()
+		journal.add("踏入修行，当前境界为 %s。" % config.starting_realm().display_name)
 	else:
 		_settle_offline()
 	_persist()
@@ -65,10 +68,19 @@ func tick_online() -> void:
 func try_breakthrough() -> bool:
 	var current := current_realm()
 	var next_realm := config.next_realm(current)
+	if current == null or next_realm == null:
+		return false
+	var from_name := current.display_name
 	if not CultivationRules.breakthrough(state, current, next_realm):
 		return false
+	journal.add("突破成功：%s → %s，效率变为 %s" % [
+		from_name,
+		next_realm.display_name,
+		CultivationFormat.rate(next_realm.gain_per_second),
+	])
 	_persist()
 	state_changed.emit()
+	breakthrough_succeeded.emit(from_name, next_realm.display_name, next_realm.gain_per_second)
 	return true
 
 
@@ -98,7 +110,18 @@ func _settle_offline() -> void:
 		config.offline_cap_seconds
 	)
 	state.last_settled_unix = time_service.now_unix()
-	if last_offline_result.gained > 0.0 or last_offline_result.clock_rewound:
+	if last_offline_result.clock_rewound:
+		journal.add("检测到时间回拨，未扣除修为。")
+		offline_settled.emit(last_offline_result)
+		return
+	if last_offline_result.gained > 0.0:
+		var line := "闭关归来，获得修为 %s，结算 %s" % [
+			CultivationFormat.amount(last_offline_result.gained),
+			CultivationFormat.duration_hours(last_offline_result.applied_seconds),
+		]
+		if last_offline_result.hit_cap:
+			line += "，已顶到 %s 上限" % CultivationFormat.duration_hours(config.offline_cap_seconds)
+		journal.add(line)
 		offline_settled.emit(last_offline_result)
 
 

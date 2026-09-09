@@ -47,6 +47,7 @@ func test_first_start_is_mortal_with_zero_cultivation() -> void:
 	assert_true(session.start())
 	assert_eq(session.state.realm_id, "mortal")
 	assert_almost_eq(session.state.cultivation, 0.0, 0.0001)
+	assert_true(session.journal.as_text().contains("凡人"))
 
 
 func test_offline_gain_is_applied_once() -> void:
@@ -80,3 +81,4 @@ func test_offline_cap_and_breakthrough_use_config() -> void:
 	assert_true(resumed.try_breakthrough())
 	assert_eq(resumed.state.realm_id, "qi_early")
 	assert_almost_eq(resumed.state.cultivation, 90.0, 0.0001)
+	assert_true(resumed.journal.as_text().contains("突破成功"))

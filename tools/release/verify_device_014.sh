@@ -33,9 +33,18 @@ fi
 
 mkdir -p "$OUTDIR"
 "$ADB" shell input keyevent KEYCODE_WAKEUP >/dev/null 2>&1 || true
+"$ADB" shell input swipe 540 2000 540 700 220 >/dev/null 2>&1 || true
 "$ADB" shell am force-stop "$PKG" >/dev/null 2>&1 || true
 "$ADB" shell am start -n "$PKG/$ACTIVITY" >/dev/null
-sleep 5
+i=0
+while [ "$i" -lt 20 ]; do
+	if "$ADB" shell pidof "$PKG" >/dev/null 2>&1; then
+		break
+	fi
+	sleep 1
+	i=$((i + 1))
+done
+sleep 8
 "$ADB" exec-out screencap -p > "$SHOT"
 
 SIZE=$(/usr/bin/stat -f%z "$SHOT")

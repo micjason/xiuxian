@@ -70,7 +70,34 @@ PY
 	fi
 }
 
-"$ADB" shell input keyevent KEYCODE_WAKEUP >/dev/null 2>&1 || true
+wake() {
+	"$ADB" shell input keyevent KEYCODE_WAKEUP >/dev/null 2>&1 || true
+	"$ADB" shell input keyevent KEYCODE_MENU >/dev/null 2>&1 || true
+	# Swipe-up lock screens only; PIN/pattern still needs a person.
+	"$ADB" shell input swipe 540 2000 540 700 220 >/dev/null 2>&1 || true
+}
+
+wait_game() {
+	i=0
+	while [ "$i" -lt 25 ]; do
+		if "$ADB" shell pidof "$PKG" >/dev/null 2>&1; then
+			sleep 8
+			return 0
+		fi
+		sleep 1
+		i=$((i + 1))
+	done
+	echo "Game process did not start." >&2
+	return 1
+}
+
+start_game() {
+	wake
+	"$ADB" shell am start -n "$PKG/$ACTIVITY" >/dev/null
+	wait_game
+}
+
+wake
 
 if [ "$CLEAR" = "1" ]; then
 	echo "Clearing app data for a clean first-three-realms run."
@@ -78,16 +105,14 @@ if [ "$CLEAR" = "1" ]; then
 fi
 
 "$ADB" shell am force-stop "$PKG" >/dev/null 2>&1 || true
-"$ADB" shell am start -n "$PKG/$ACTIVITY" >/dev/null
-sleep 4
+start_game
 shot "device_launch.png"
 
 # Leave long enough for one online tick, then reopen to force offline settlement.
 sleep 3
 "$ADB" shell am force-stop "$PKG" >/dev/null
 sleep 8
-"$ADB" shell am start -n "$PKG/$ACTIVITY" >/dev/null
-sleep 4
+start_game
 shot "device_offline.png"
 
 # Dismiss the 闭关 dialog if it is up.

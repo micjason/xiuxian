@@ -37,6 +37,7 @@ var _session: CultivationSession
 var _tick: Timer
 var _banner_tween: Tween
 var _ready_pulse: Tween
+var _banner_generation := 0
 
 
 func _ready() -> void:
@@ -140,6 +141,12 @@ func _on_breakthrough_succeeded(from_name: String, to_name: String, new_rate: fl
 	offline_label.text = ""
 	_play_breakthrough_flash()
 	_refresh_cultivation()
+	_banner_generation += 1
+	var generation := _banner_generation
+	get_tree().create_timer(3.6).timeout.connect(func() -> void:
+		if generation == _banner_generation:
+			breakthrough_banner.visible = false
+	)
 
 
 func _style_secondary_button(button: Button) -> void:

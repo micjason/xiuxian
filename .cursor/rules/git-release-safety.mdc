@@ -1,0 +1,17 @@
+---
+description: Git 提交、密钥保护、构建和对外发布的安全边界
+alwaysApply: true
+---
+
+# Git 与发布安全
+
+- 使用小而完整的里程碑提交，提交前检查 diff 和验证结果。
+- 提交信息采用 Conventional Commits，例如 `feat(cultivation): add offline gain calculation`。
+- 不提交 `.godot/`、构建产物、测试报告、下载临时文件和本地环境配置。
+- 大型二进制资源遵循 `.gitattributes` 和 Git LFS，不绕过 LFS 提交。
+- 禁止提交 keystore、证书、密码、令牌、私钥及真实 `.env`；发现后立即停止并报告。
+- 不使用 `git reset --hard`、强制推送或改写共享历史，除非用户明确批准。
+- 不擅自丢弃、覆盖或混入用户已有改动；无法判断归属时先询问。
+- 版本号、APK 签名身份、内容版本和 manifest 版本必须可追溯到提交。
+- 自动化默认只允许构建到本地 `builds/`；上传、切换线上清单和发布必须用户确认。
+- Release 构建前必须验证固定签名、升级覆盖、干净安装、存档兼容和失败回滚。

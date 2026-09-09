@@ -1,0 +1,43 @@
+# Godot generated data
+game/.godot/
+game/.import/
+game/export.cfg
+
+# Build outputs
+builds/**
+!builds/.gitkeep
+*.apk
+*.aab
+*.ipa
+*.pck
+*.zip
+
+# Android custom build output
+game/android/build/
+game/android/.gradle/
+game/android/local.properties
+
+# Logs, test reports, coverage and temporary downloads
+*.log
+reports/
+coverage/
+tmp/
+*.tmp
+*.part
+
+# Signing material and local secrets
+*.keystore
+*.jks
+*.p12
+*.mobileprovision
+.env
+.env.*
+!.env.example
+secrets/
+
+# Editors and operating systems
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*~

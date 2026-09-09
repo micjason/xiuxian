@@ -38,6 +38,7 @@ var _tick: Timer
 var _banner_tween: Tween
 var _ready_pulse: Tween
 var _banner_generation := 0
+var _update_check_pending := true
 
 
 func _ready() -> void:
@@ -90,7 +91,11 @@ func _ready() -> void:
 	)
 	_start_seal_pulse()
 	_refresh_cultivation()
-	get_tree().create_timer(0.8).timeout.connect(update_service.check_for_update)
+	offline_dialog.visibility_changed.connect(func() -> void:
+		if not offline_dialog.visible:
+			_maybe_check_update()
+	)
+	get_tree().create_timer(1.2).timeout.connect(_maybe_check_update)
 
 
 func _refresh_cultivation() -> void:
@@ -205,6 +210,13 @@ func _on_offline_settled(result: SettlementResult) -> void:
 	offline_dialog.dialog_text = message
 	offline_dialog.popup_centered(Vector2i(780, 460))
 	_refresh_cultivation()
+
+
+func _maybe_check_update() -> void:
+	if not _update_check_pending or offline_dialog.visible:
+		return
+	_update_check_pending = false
+	update_service.check_for_update()
 
 
 func _on_status_changed(message: String) -> void:

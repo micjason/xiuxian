@@ -27,30 +27,29 @@ layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = 72.0
-offset_top = 110.0
-offset_right = -72.0
-offset_bottom = -110.0
+offset_left = 56.0
+offset_top = 72.0
+offset_right = -56.0
+offset_bottom = -56.0
 grow_horizontal = 2
 grow_vertical = 2
 
 [node name="Content" type="VBoxContainer" parent="Margin"]
 layout_mode = 2
-theme_override_constants/separation = 28
-alignment = 1
+theme_override_constants/separation = 20
 
 [node name="Title" type="Label" parent="Margin/Content"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.82, 0.91, 0.78, 1)
-theme_override_font_sizes/font_size = 86
+theme_override_font_sizes/font_size = 72
 text = "修 仙"
 horizontal_alignment = 1
 
 [node name="Subtitle" type="Label" parent="Margin/Content"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.62, 0.69, 0.66, 1)
-theme_override_font_sizes/font_size = 30
-text = "2D 放置修仙 · 更新功能 Demo"
+theme_override_font_sizes/font_size = 28
+text = "2D 放置修仙"
 horizontal_alignment = 1
 
 [node name="UpgradeBadge" type="Label" parent="Margin/Content"]
@@ -58,81 +57,136 @@ unique_name_in_owner = true
 visible = false
 layout_mode = 2
 theme_override_colors/font_color = Color(0.84, 0.72, 0.39, 1)
-theme_override_font_sizes/font_size = 28
-text = "0.1.1 更新版已启动"
-horizontal_alignment = 1
-
-[node name="SpacerTop" type="Control" parent="Margin/Content"]
-custom_minimum_size = Vector2(0, 80)
-layout_mode = 2
-
-[node name="Card" type="PanelContainer" parent="Margin/Content"]
-layout_mode = 2
-
-[node name="CardMargin" type="MarginContainer" parent="Margin/Content/Card"]
-layout_mode = 2
-theme_override_constants/margin_left = 42
-theme_override_constants/margin_top = 42
-theme_override_constants/margin_right = 42
-theme_override_constants/margin_bottom = 42
-
-[node name="Details" type="VBoxContainer" parent="Margin/Content/Card/CardMargin"]
-layout_mode = 2
-theme_override_constants/separation = 24
-
-[node name="VersionLabel" type="Label" parent="Margin/Content/Card/CardMargin/Details"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_override_font_sizes/font_size = 34
-text = "当前版本：读取中"
-
-[node name="DataMarkerLabel" type="Label" parent="Margin/Content/Card/CardMargin/Details"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_override_colors/font_color = Color(0.56, 0.76, 0.66, 1)
 theme_override_font_sizes/font_size = 26
-text = "本地数据标记：读取中"
-autowrap_mode = 2
-
-[node name="Separator" type="HSeparator" parent="Margin/Content/Card/CardMargin/Details"]
-layout_mode = 2
-
-[node name="StatusLabel" type="Label" parent="Margin/Content/Card/CardMargin/Details"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 96)
-layout_mode = 2
-theme_override_font_sizes/font_size = 30
-text = "准备检查更新"
+text = "0.1.2 可玩版已启动"
 horizontal_alignment = 1
-vertical_alignment = 1
+
+[node name="VersionLabel" type="Label" parent="Margin/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.5, 0.56, 0.55, 1)
+theme_override_font_sizes/font_size = 22
+text = "版本读取中"
+horizontal_alignment = 1
 autowrap_mode = 2
 
-[node name="DownloadProgress" type="ProgressBar" parent="Margin/Content/Card/CardMargin/Details"]
+[node name="CultivationCard" type="PanelContainer" parent="Margin/Content"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="CultivationMargin" type="MarginContainer" parent="Margin/Content/CultivationCard"]
+layout_mode = 2
+theme_override_constants/margin_left = 36
+theme_override_constants/margin_top = 36
+theme_override_constants/margin_right = 36
+theme_override_constants/margin_bottom = 36
+
+[node name="CultivationDetails" type="VBoxContainer" parent="Margin/Content/CultivationCard/CultivationMargin"]
+layout_mode = 2
+theme_override_constants/separation = 18
+
+[node name="RealmLabel" type="Label" parent="Margin/Content/CultivationCard/CultivationMargin/CultivationDetails"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 46)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.84, 0.91, 0.78, 1)
+theme_override_font_sizes/font_size = 48
+text = "境界读取中"
+horizontal_alignment = 1
+
+[node name="CultivationLabel" type="Label" parent="Margin/Content/CultivationCard/CultivationMargin/CultivationDetails"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 40
+text = "修为 0"
+horizontal_alignment = 1
+
+[node name="RateLabel" type="Label" parent="Margin/Content/CultivationCard/CultivationMargin/CultivationDetails"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.62, 0.76, 0.7, 1)
+theme_override_font_sizes/font_size = 26
+text = "修炼效率 0/秒"
+horizontal_alignment = 1
+
+[node name="NextCostLabel" type="Label" parent="Margin/Content/CultivationCard/CultivationMargin/CultivationDetails"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.7, 0.74, 0.72, 1)
+theme_override_font_sizes/font_size = 24
+text = "突破消耗读取中"
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="CultivationProgress" type="ProgressBar" parent="Margin/Content/CultivationCard/CultivationMargin/CultivationDetails"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 36)
 layout_mode = 2
 show_percentage = true
 
-[node name="CheckButton" type="Button" parent="Margin/Content/Card/CardMargin/Details"]
+[node name="BreakthroughButton" type="Button" parent="Margin/Content/CultivationCard/CultivationMargin/CultivationDetails"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 96)
+custom_minimum_size = Vector2(0, 92)
 layout_mode = 2
-theme_override_font_sizes/font_size = 30
+theme_override_font_sizes/font_size = 32
+disabled = true
+text = "突破"
+
+[node name="OfflineLabel" type="Label" parent="Margin/Content/CultivationCard/CultivationMargin/CultivationDetails"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.84, 0.72, 0.39, 1)
+theme_override_font_sizes/font_size = 24
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="UpdateCard" type="PanelContainer" parent="Margin/Content"]
+layout_mode = 2
+
+[node name="UpdateMargin" type="MarginContainer" parent="Margin/Content/UpdateCard"]
+layout_mode = 2
+theme_override_constants/margin_left = 28
+theme_override_constants/margin_top = 24
+theme_override_constants/margin_right = 28
+theme_override_constants/margin_bottom = 24
+
+[node name="UpdateDetails" type="VBoxContainer" parent="Margin/Content/UpdateCard/UpdateMargin"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="StatusLabel" type="Label" parent="Margin/Content/UpdateCard/UpdateMargin/UpdateDetails"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "准备检查更新"
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="DownloadProgress" type="ProgressBar" parent="Margin/Content/UpdateCard/UpdateMargin/UpdateDetails"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 28)
+layout_mode = 2
+show_percentage = true
+
+[node name="CheckButton" type="Button" parent="Margin/Content/UpdateCard/UpdateMargin/UpdateDetails"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 72)
+layout_mode = 2
+theme_override_font_sizes/font_size = 26
 text = "检查更新"
 
-[node name="InstallButton" type="Button" parent="Margin/Content/Card/CardMargin/Details"]
+[node name="InstallButton" type="Button" parent="Margin/Content/UpdateCard/UpdateMargin/UpdateDetails"]
 unique_name_in_owner = true
 visible = false
-custom_minimum_size = Vector2(0, 96)
+custom_minimum_size = Vector2(0, 72)
 layout_mode = 2
-theme_override_font_sizes/font_size = 30
+theme_override_font_sizes/font_size = 26
 text = "继续安装"
 
 [node name="Hint" type="Label" parent="Margin/Content"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.48, 0.54, 0.53, 1)
-theme_override_font_sizes/font_size = 24
-text = "更新下载完成后，Android 会显示系统安装确认页面。"
+theme_override_font_sizes/font_size = 22
+text = "修为会随时间增长。离开后再打开，会按离线时间补发一次，最多 8 小时。"
 horizontal_alignment = 1
 autowrap_mode = 2
 
@@ -141,6 +195,11 @@ unique_name_in_owner = true
 title = "发现新版本"
 ok_button_text = "下载更新"
 cancel_button_text = "暂不更新"
+
+[node name="OfflineDialog" type="AcceptDialog" parent="."]
+unique_name_in_owner = true
+title = "离线收益"
+ok_button_text = "收下"
 
 [node name="UpdateService" type="Node" parent="."]
 unique_name_in_owner = true

@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "offline_cap_seconds": 28800,
+  "realms": [
+    {
+      "id": "mortal",
+      "display_name": "凡人",
+      "order": 0,
+      "gain_per_second": 1.0,
+      "breakthrough_cost": 40,
+      "next_id": "qi_early"
+    },
+    {
+      "id": "qi_early",
+      "display_name": "炼气初期",
+      "order": 1,
+      "gain_per_second": 2.2,
+      "breakthrough_cost": 200,
+      "next_id": "qi_mid"
+    },
+    {
+      "id": "qi_mid",
+      "display_name": "炼气中期",
+      "order": 2,
+      "gain_per_second": 4.84,
+      "breakthrough_cost": 1000,
+      "next_id": "qi_late"
+    },
+    {
+      "id": "qi_late",
+      "display_name": "炼气后期",
+      "order": 3,
+      "gain_per_second": 10.648,
+      "breakthrough_cost": 5000,
+      "next_id": "qi_peak"
+    },
+    {
+      "id": "qi_peak",
+      "display_name": "炼气圆满",
+      "order": 4,
+      "gain_per_second": 23.426,
+      "breakthrough_cost": 25000,
+      "next_id": "foundation_early"
+    },
+    {
+      "id": "foundation_early",
+      "display_name": "筑基初期",
+      "order": 5,
+      "gain_per_second": 51.536,
+      "breakthrough_cost": 125000,
+      "next_id": "foundation_mid"
+    },
+    {
+      "id": "foundation_mid",
+      "display_name": "筑基中期",
+      "order": 6,
+      "gain_per_second": 113.38,
+      "breakthrough_cost": 625000,
+      "next_id": "foundation_late"
+    },
+    {
+      "id": "foundation_late",
+      "display_name": "筑基后期",
+      "order": 7,
+      "gain_per_second": 249.436,
+      "breakthrough_cost": 3125000,
+      "next_id": ""
+    }
+  ]
+}

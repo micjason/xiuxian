@@ -82,3 +82,24 @@ func test_offline_cap_and_breakthrough_use_config() -> void:
 	assert_eq(resumed.state.realm_id, "qi_early")
 	assert_almost_eq(resumed.state.cultivation, 90.0, 0.0001)
 	assert_true(resumed.journal.as_text().contains("突破成功"))
+
+
+func test_project_rules_let_the_first_three_realms_break_through_in_one_sitting() -> void:
+	var clock := TimeService.new()
+	clock.set_unix(10_000)
+	var config := IdleConfig.from_resource("res://resources/config/idle_rules.json")
+	assert_not_null(config)
+	var session := CultivationSession.new(clock, _save(), config, "0.1.4")
+	assert_true(session.start())
+	assert_eq(session.state.realm_id, "mortal")
+	for realm_id in ["qi_early", "qi_mid", "qi_late"]:
+		var realm := session.current_realm()
+		var wait := int(ceili(realm.breakthrough_cost / realm.gain_per_second))
+		clock.set_unix(clock.now_unix() + wait)
+		session.tick_online()
+		assert_true(session.can_breakthrough(), "should be ready for %s" % realm_id)
+		assert_true(session.try_breakthrough())
+		assert_eq(session.state.realm_id, realm_id)
+	assert_true(session.journal.as_text().contains("凡人"))
+	assert_true(session.journal.as_text().contains("炼气初期"))
+	assert_true(session.journal.as_text().contains("炼气中期"))

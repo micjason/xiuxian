@@ -52,7 +52,7 @@ func _ready() -> void:
 
 	var current_version := update_service.get_current_version()
 	version_label.text = "版本 %s · %s" % [current_version, _load_or_create_data_marker()]
-	upgrade_badge.visible = AppVersion.is_newer(current_version, "0.1.1")
+	upgrade_badge.visible = AppVersion.is_newer(current_version, "0.1.2")
 	download_progress.value = 0.0
 	_refresh_cultivation()
 	get_tree().create_timer(0.8).timeout.connect(update_service.check_for_update)

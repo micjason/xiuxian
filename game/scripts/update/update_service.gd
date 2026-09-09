@@ -76,6 +76,7 @@ func download_update() -> void:
 		_fail("无法创建更新文件夹。")
 		return
 
+	_remove_if_exists(DOWNLOAD_PATH)
 	_remove_if_exists(DOWNLOAD_TEMP_PATH)
 	_apk_request.download_file = DOWNLOAD_TEMP_PATH
 	_is_downloading = true
@@ -93,6 +94,10 @@ func download_update() -> void:
 func install_downloaded_update() -> void:
 	if not FileAccess.file_exists(DOWNLOAD_PATH):
 		_fail("安装包不存在，请重新下载。")
+		return
+	if current_manifest == null or not _verify_existing_download():
+		_remove_if_exists(DOWNLOAD_PATH)
+		_fail("本地安装包不是最新版本，请重新下载。")
 		return
 	if not _installer.is_supported():
 		_fail("覆盖安装只支持 Android 手机。")
@@ -213,13 +218,20 @@ func _verify_manifest_signature(data: PackedByteArray, signature: PackedByteArra
 
 
 func _verify_download() -> bool:
-	if current_manifest == null or not FileAccess.file_exists(DOWNLOAD_TEMP_PATH):
+	return _verify_apk_file(DOWNLOAD_TEMP_PATH)
+
+
+func _verify_existing_download() -> bool:
+	return _verify_apk_file(DOWNLOAD_PATH)
+
+
+func _verify_apk_file(project_path: String) -> bool:
+	if current_manifest == null or not FileAccess.file_exists(project_path):
 		return false
-	var file := FileAccess.open(DOWNLOAD_TEMP_PATH, FileAccess.READ)
+	var file := FileAccess.open(project_path, FileAccess.READ)
 	if file == null or file.get_length() != current_manifest.apk_size:
 		return false
-	var actual_hash := _sha256_file(file)
-	return actual_hash == current_manifest.apk_sha256
+	return _sha256_file(file) == current_manifest.apk_sha256
 
 
 func _sha256_file(file: FileAccess) -> String:

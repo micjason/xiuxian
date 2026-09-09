@@ -124,6 +124,8 @@ shot "device_after_offline.png"
 
 if [ "$CLEAR" != "1" ]; then
 	echo "Offline reopen captured. Set CLEAR=1 to also walk the first three realms."
+	"$ADB" logcat -d -t 120 *:S godot:I Godot:I xiuxian:I \
+		> "$OUTDIR/device_playthrough_logcat.txt" 2>/dev/null || true
 	echo "device offline check finished."
 	exit 0
 fi
@@ -141,4 +143,33 @@ for wait in 10 21 31; do
 	i=$((i + 1))
 done
 shot "device_journal.png"
+"$ADB" logcat -d -t 200 *:S godot:I Godot:I xiuxian:I \
+	> "$OUTDIR/device_playthrough_logcat.txt" 2>/dev/null || true
+python3 - "$OUTDIR" <<'PY'
+import json, os, sys, time
+out = sys.argv[1]
+shots = [
+    "device_launch.png",
+    "device_offline.png",
+    "device_after_offline.png",
+    "device_breakthrough_1.png",
+    "device_breakthrough_2.png",
+    "device_breakthrough_3.png",
+    "device_journal.png",
+]
+report = {
+    "ok": True,
+    "cleared": os.environ.get("CLEAR", "0") == "1",
+    "finished_unix": int(time.time()),
+    "screenshots": {
+        name: os.path.getsize(os.path.join(out, name))
+        for name in shots
+        if os.path.isfile(os.path.join(out, name))
+    },
+}
+open(os.path.join(out, "device_playthrough.json"), "w", encoding="utf-8").write(
+    json.dumps(report, ensure_ascii=False, indent=2)
+)
+print("wrote %s/device_playthrough.json shots=%s" % (out, ",".join(report["screenshots"])))
+PY
 echo "device first-loop playthrough finished."

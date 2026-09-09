@@ -31,5 +31,10 @@ if ! "$ADB" devices | /usr/bin/awk 'NR>1 && $2=="device" {found=1} END {exit fou
 fi
 
 "$AAPT" dump badging "$APK" | /usr/bin/egrep 'package:|application-label:'
+if "$AAPT" dump badging "$APK" | /usr/bin/grep -q 'CATEGORY_HOME'; then
+	echo "Refusing to install a launcher APK." >&2
+	exit 1
+fi
+"$ADB" shell am force-stop com.micjason.xiuxian >/dev/null 2>&1 || true
 "$ADB" install -r "$APK"
 "$ADB" shell dumpsys package com.micjason.xiuxian | /usr/bin/egrep 'versionName=|versionCode='

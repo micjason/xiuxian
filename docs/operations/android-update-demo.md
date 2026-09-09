@@ -28,6 +28,14 @@ jsDelivr 对 `@main` 按分支缓存，最长约 12 小时，且不能可靠刷�
 
 发布频道文件时：先把匹配的 `update.json` / `update.sig` 提交到公开仓，再打一个**尚未被 jsDelivr 取过**的更高 semver 标签（例如 `v0.1.10`）。不要先 `gh release create` 再补清单——那样 git 标签会停在旧文件上。jsDelivr 的具体版本号缓存是永久的，打错后不能重用同一个标签。
 
+## 0.1.4 发布记录（2026-09-09）
+
+- 应用版本 `0.1.4`，`versionCode` 5。
+- GitHub Release：`https://github.com/micjason/xiuxian-releases/releases/tag/v0.1.4`
+- 公开仓频道标签：`v0.1.10`（jsDelivr `@latest` 指向这里，不要复用已取过的版本号）。
+- `cdn.jsdelivr.net` 的 `@main` 已能读到成对的 0.1.4 清单。个别镜像节点可能仍滞后。
+- 已安装 0.1.3 的手机：打开游戏后检查更新即可覆盖安装。
+
 ## 真机验收记录（2026-09-09）
 
 - 设备：OnePlus PJZ110，Android 16，USB 调试已授权。

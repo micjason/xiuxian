@@ -24,6 +24,7 @@ const TICK_SECONDS := 1.0
 @onready var update_service: UpdateService = %UpdateService
 @onready var flash: ColorRect = %Flash
 @onready var seal_ring: Panel = %SealRing
+@onready var seal_inner: Panel = %SealInner
 @onready var progress_hint: Label = %ProgressHint
 @onready var cultivation_card: PanelContainer = %CultivationCard
 @onready var stats_card: PanelContainer = %StatsCard
@@ -43,6 +44,7 @@ func _ready() -> void:
 	journal_card.add_theme_stylebox_override("panel", MainTheme.inner_panel())
 	update_card.add_theme_stylebox_override("panel", MainTheme.footer_panel())
 	seal_ring.add_theme_stylebox_override("panel", MainTheme.seal_ring())
+	seal_inner.add_theme_stylebox_override("panel", MainTheme.seal_inner())
 	_style_secondary_button(check_button)
 	_style_secondary_button(install_button)
 	download_progress.visible = false
@@ -103,6 +105,7 @@ func _refresh_cultivation() -> void:
 		progress_hint.text = "已至当前示意表最高境界"
 		breakthrough_button.disabled = true
 		breakthrough_button.text = "已圆满"
+		cultivation_progress.add_theme_stylebox_override("fill", MainTheme.progress_fill(false))
 		_set_ready_pulse(false)
 	else:
 		next_cost_label.text = CultivationFormat.amount(realm.breakthrough_cost)
@@ -115,6 +118,7 @@ func _refresh_cultivation() -> void:
 		var can_break := _session.can_breakthrough()
 		breakthrough_button.disabled = not can_break
 		breakthrough_button.text = "突破境界" if can_break else "修为不足"
+		cultivation_progress.add_theme_stylebox_override("fill", MainTheme.progress_fill(can_break))
 		_set_ready_pulse(can_break)
 
 

@@ -77,3 +77,16 @@ func test_project_idle_rules_file_is_valid() -> void:
 	assert_eq(config.starting_realm().display_name, "凡人")
 	assert_eq(config.realms.size(), 8)
 	assert_false(config.realms[7].has_next())
+
+
+func test_first_three_realms_break_through_quickly() -> void:
+	var config := IdleConfig.from_resource("res://resources/config/idle_rules.json")
+	assert_not_null(config)
+	var total := 0.0
+	for realm_id in ["mortal", "qi_early", "qi_mid"]:
+		var realm := config.realm_by_id(realm_id)
+		assert_not_null(realm)
+		var seconds := realm.breakthrough_cost / realm.gain_per_second
+		assert_lte(seconds, 30.0)
+		total += seconds
+	assert_lte(total, 90.0)

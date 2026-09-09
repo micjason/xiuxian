@@ -60,6 +60,21 @@ static func seal_ring() -> StyleBoxFlat:
 	return box
 
 
+static func seal_inner() -> StyleBoxFlat:
+	var box := StyleBoxFlat.new()
+	box.bg_color = Color(0, 0, 0, 0)
+	box.border_color = Color(JADE.r, JADE.g, JADE.b, 0.28)
+	box.set_border_width_all(1)
+	box.set_corner_radius_all(999)
+	return box
+
+
+static func progress_fill(ready: bool) -> StyleBoxFlat:
+	if ready:
+		return _box(GOLD, Color(0.93, 0.86, 0.58, 1), 1, 18, 0, 2, 2)
+	return _box(Color(0.46, 0.68, 0.52, 1), GOLD, 1, 18, 0, 2, 2)
+
+
 static func _box(
 	fill: Color,
 	border: Color,

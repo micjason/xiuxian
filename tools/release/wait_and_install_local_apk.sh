@@ -17,12 +17,27 @@ done
 echo "Installed live 0.1.4."
 
 VERIFY="/Volumes/kaixia/projects/xiuxian/tools/release/verify_device_014.sh"
+PLAY="/Volumes/kaixia/projects/xiuxian/tools/release/verify_device_playthrough_014.sh"
 set +e
 "$VERIFY"
 verify_code=$?
 set -e
 if [ "$verify_code" -eq 0 ]; then
-	echo "On-device 0.1.4 check passed."
+	echo "On-device 0.1.4 version check passed."
+	set +e
+	# Home screenshot already captured the kept save. Clear, then walk
+	# offline + the first three realms on a fresh 0.1.4 loop.
+	CLEAR="${CLEAR:-1}" "$PLAY"
+	play_code=$?
+	set -e
+	if [ "$play_code" -eq 0 ]; then
+		echo "On-device 0.1.4 playthrough passed."
+	elif [ "$play_code" -eq 2 ]; then
+		echo "Package is 0.1.4; unlock the phone to finish offline/breakthrough screenshots."
+	else
+		echo "On-device playthrough failed (exit $play_code)." >&2
+		exit "$play_code"
+	fi
 elif [ "$verify_code" -eq 2 ]; then
 	echo "Package is 0.1.4; unlock the phone to finish the screenshot check."
 else

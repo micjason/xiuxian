@@ -56,3 +56,4 @@ if "$ADB" shell uiautomator dump /data/local/tmp/xiuxian-ui.xml >/dev/null 2>&1;
 fi
 
 echo "device 0.1.4 version and screenshot are ready."
+echo "Next: tools/release/verify_device_playthrough_014.sh (offline reopen; CLEAR=1 also walks the first three realms)."

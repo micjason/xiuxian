@@ -8,8 +8,8 @@ signal download_progress_changed(progress: float)
 signal download_ready(path: String)
 signal failed(message: String)
 
-const MANIFEST_URL := "https://cdn.jsdelivr.net/gh/micjason/xiuxian-releases@main/update.json"
-const SIGNATURE_URL := "https://cdn.jsdelivr.net/gh/micjason/xiuxian-releases@main/update.sig"
+const MANIFEST_URL := "https://cdn.jsdelivr.net/gh/micjason/xiuxian-releases@latest/update.json"
+const SIGNATURE_URL := "https://cdn.jsdelivr.net/gh/micjason/xiuxian-releases@latest/update.sig"
 const PUBLIC_KEY_PATH := "res://assets/security/update_public.pem"
 const DOWNLOAD_DIRECTORY := "user://updates"
 const DOWNLOAD_TEMP_PATH := DOWNLOAD_DIRECTORY + "/xiuxian.apk.part"

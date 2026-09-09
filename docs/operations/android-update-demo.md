@@ -12,19 +12,21 @@
 
 公开发布页：
 
-`https://github.com/micjason/xiuxian-releases/releases/tag/v0.1.1`
+`https://github.com/micjason/xiuxian-releases/releases/tag/v0.1.4`
 
 当前客户端实际使用的地址：
 
-- 清单：`https://cdn.jsdelivr.net/gh/micjason/xiuxian-releases@main/update.json`
-- 签名：`https://cdn.jsdelivr.net/gh/micjason/xiuxian-releases@main/update.sig`
+- `0.1.3` 及更早：`https://cdn.jsdelivr.net/gh/micjason/xiuxian-releases@main/update.json`
+- `0.1.4` 起：`https://cdn.jsdelivr.net/gh/micjason/xiuxian-releases@latest/update.json`
+- 签名地址与清单同一版本别名，只把文件名换成 `update.sig`
 - 安装包：清单里的 `apk_url`，必须是 GitHub Releases Assets API 地址，例如
   `https://api.github.com/repos/micjason/xiuxian-releases/releases/assets/<asset_id>`
 
 国内网络下，Godot `HTTPRequest` 访问 `github.com` 网页下载和 `raw.githubusercontent.com` 经常超时。清单走 jsDelivr，安装包走 GitHub API，并带上 `User-Agent: XiuxianUpdater/0.1`。安装包请求还需 `Accept: application/octet-stream`。
 
-jsDelivr 会缓存 `main` 分支文件。更新 `update.json` / `update.sig` 后，如检查到旧清单，可到
-`https://www.jsdelivr.com/tools/purge` 刷新对应地址。
+jsDelivr 对 `@main` 按分支缓存，最长约 12 小时，且不能可靠刷新。`update.json` 和 `update.sig` 若不同步更新，游戏会报“更新信息安全校验失败”。`@latest` 走 semver 标签，发布后可以 purge。
+
+发布频道文件时：先把匹配的 `update.json` / `update.sig` 提交到公开仓，再打一个**尚未被 jsDelivr 取过**的更高 semver 标签（例如 `v0.1.10`）。不要先 `gh release create` 再补清单——那样 git 标签会停在旧文件上。jsDelivr 的具体版本号缓存是永久的，打错后不能重用同一个标签。
 
 ## 真机验收记录（2026-09-09）
 
@@ -77,7 +79,7 @@ tools/release/create_update_manifest.py \
 `update.json` 和 `update.sig` 需要同时：
 
 1. 上传到对应 GitHub Release；
-2. 提交到 `micjason/xiuxian-releases` 的 `main` 分支，供 jsDelivr 读取。
+2. 提交到 `micjason/xiuxian-releases` 的 `main` 分支，并打新的 semver 标签供 `@latest` 读取。
 
 发布文件名必须固定为 `xiuxian.apk`、`update.json` 和 `update.sig`。`apk_url` 每次上传后会得到新的 `asset_id`，不能沿用网页下载链接。
 

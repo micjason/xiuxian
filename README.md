@@ -13,7 +13,8 @@
 - 当前源码版本：`0.1.4`
 - 首次安装测试包：`builds/development/0.1.0/xiuxian.apk`
 - 公开更新页：`https://github.com/micjason/xiuxian-releases/releases/latest`
-- 客户端清单：`https://cdn.jsdelivr.net/gh/micjason/xiuxian-releases@main/update.json`
+- `0.1.3` 及更早的清单：`https://cdn.jsdelivr.net/gh/micjason/xiuxian-releases@main/update.json`
+- `0.1.4` 起的清单：`https://cdn.jsdelivr.net/gh/micjason/xiuxian-releases@latest/update.json`
 - 更新流程：启动检查 → 提示 → 下载 → 安全校验 → Android 系统确认覆盖安装
 
 Android 不允许普通应用静默覆盖安装，下载完成后必须由用户在系统页面确认。

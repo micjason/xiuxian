@@ -33,6 +33,7 @@ const TICK_SECONDS := 1.0
 var _session: CultivationSession
 var _tick: Timer
 var _banner_tween: Tween
+var _ready_pulse: Tween
 
 
 func _ready() -> void:
@@ -102,6 +103,7 @@ func _refresh_cultivation() -> void:
 		progress_hint.text = "已至当前示意表最高境界"
 		breakthrough_button.disabled = true
 		breakthrough_button.text = "已圆满"
+		_set_ready_pulse(false)
 	else:
 		next_cost_label.text = CultivationFormat.amount(realm.breakthrough_cost)
 		next_realm_label.text = next_realm.display_name
@@ -110,8 +112,10 @@ func _refresh_cultivation() -> void:
 			progress_hint.text = "修为已足，可突破至 %s" % next_realm.display_name
 		else:
 			progress_hint.text = "距突破还需 %s" % CultivationFormat.amount(remaining)
-		breakthrough_button.disabled = not _session.can_breakthrough()
-		breakthrough_button.text = "突破境界" if _session.can_breakthrough() else "修为不足"
+		var can_break := _session.can_breakthrough()
+		breakthrough_button.disabled = not can_break
+		breakthrough_button.text = "突破境界" if can_break else "修为不足"
+		_set_ready_pulse(can_break)
 
 
 func _on_breakthrough_pressed() -> void:
@@ -139,6 +143,21 @@ func _style_secondary_button(button: Button) -> void:
 	button.add_theme_color_override("font_pressed_color", MainTheme.GOLD)
 
 
+func _set_ready_pulse(enabled: bool) -> void:
+	if enabled:
+		if _ready_pulse != null:
+			return
+		_ready_pulse = create_tween()
+		_ready_pulse.set_loops()
+		_ready_pulse.tween_property(breakthrough_button, "modulate", Color(1.12, 1.08, 0.92, 1), 0.7)
+		_ready_pulse.tween_property(breakthrough_button, "modulate", Color.WHITE, 0.7)
+		return
+	if _ready_pulse != null:
+		_ready_pulse.kill()
+		_ready_pulse = null
+	breakthrough_button.modulate = Color.WHITE
+
+
 func _start_seal_pulse() -> void:
 	var pulse := create_tween()
 	pulse.set_loops()
@@ -163,36 +182,11 @@ func _play_breakthrough_flash() -> void:
 
 
 func _on_offline_settled(result: SettlementResult) -> void:
-	if result.clock_rewound:
-		offline_label.text = "检测到时间回拨，未扣除修为。"
-		offline_dialog.dialog_text = offline_label.text
-		offline_dialog.popup_centered(Vector2i(780, 420))
+	offline_label.text = OfflineCopy.banner(result)
+	var message := OfflineCopy.dialog(result, _session.config.offline_cap_seconds)
+	if message.is_empty():
 		_refresh_cultivation()
 		return
-	if result.gained <= 0.0:
-		offline_label.text = ""
-		_refresh_cultivation()
-		return
-	var lines: PackedStringArray = [
-		"闭关归来，修为有所精进。",
-		"获得修为：%s" % CultivationFormat.amount(result.gained),
-		"结算时长：%s" % CultivationFormat.duration_hours(result.applied_seconds),
-	]
-	if result.hit_cap:
-		lines.append(
-			"已顶到离线上限 %s，超出部分未计算。" % CultivationFormat.duration_hours(
-				_session.config.offline_cap_seconds
-			)
-		)
-	else:
-		lines.append("未顶到 %s 上限。" % CultivationFormat.duration_hours(
-			_session.config.offline_cap_seconds
-		))
-	var message := "\n".join(lines)
-	offline_label.text = "闭关归来 +%s · %s" % [
-		CultivationFormat.amount(result.gained),
-		CultivationFormat.duration_hours(result.applied_seconds),
-	]
 	offline_dialog.dialog_text = message
 	offline_dialog.popup_centered(Vector2i(780, 460))
 	_refresh_cultivation()

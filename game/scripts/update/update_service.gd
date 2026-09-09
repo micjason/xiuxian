@@ -19,6 +19,7 @@ const CHECK_TIMEOUT_MSEC := 90_000
 var current_manifest: UpdateManifest
 var _manifest_bytes := PackedByteArray()
 var _installer := AndroidInstaller.new()
+var _quiet_check := false
 var _is_checking := false
 var _check_started_at_msec := 0
 var _is_downloading := false
@@ -55,12 +56,13 @@ func get_current_version() -> String:
 	return _installer.get_version_name()
 
 
-func check_for_update() -> void:
+func check_for_update(quiet: bool = false) -> void:
 	if _manifest_request.get_http_client_status() != HTTPClient.STATUS_DISCONNECTED:
 		return
+	_quiet_check = quiet
 	_is_checking = true
 	_check_started_at_msec = Time.get_ticks_msec()
-	status_changed.emit("正在检查更新…")
+	status_changed.emit("" if quiet else "正在检查更新…")
 	var error := _manifest_request.request(MANIFEST_URL, _request_headers())
 	if error != OK:
 		_fail("无法开始检查更新，请稍后重试。")
@@ -164,7 +166,7 @@ func _on_signature_received(
 
 	var current_version := get_current_version()
 	if not AppVersion.is_newer(current_manifest.version, current_version):
-		status_changed.emit("当前已是最新版本。")
+		status_changed.emit("" if _quiet_check else "当前已是最新版本。")
 		no_update.emit(current_version)
 		return
 

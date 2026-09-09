@@ -217,7 +217,7 @@ func _maybe_check_update() -> void:
 	if not _update_check_pending or offline_dialog.visible:
 		return
 	_update_check_pending = false
-	update_service.check_for_update()
+	update_service.check_for_update(true)
 
 
 func _on_status_changed(message: String) -> void:

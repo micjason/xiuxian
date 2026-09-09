@@ -4,6 +4,7 @@ const DATA_MARKER_PATH := "user://demo_install_marker.txt"
 const TICK_SECONDS := 1.0
 
 @onready var version_label: Label = %VersionLabel
+@onready var data_marker: Label = %DataMarker
 @onready var upgrade_badge: Label = %UpgradeBadge
 @onready var realm_label: Label = %RealmLabel
 @onready var realm_path: Label = %RealmPath
@@ -77,7 +78,8 @@ func _ready() -> void:
 	update_service.failed.connect(_on_update_failed)
 
 	var current_version := update_service.get_current_version()
-	version_label.text = "版本 %s · %s" % [current_version, _load_or_create_data_marker()]
+	version_label.text = "版本 %s" % current_version
+	data_marker.text = _load_or_create_data_marker()
 	upgrade_badge.visible = AppVersion.is_newer(current_version, "0.1.3")
 	download_progress.value = 0.0
 	breakthrough_banner.visible = false

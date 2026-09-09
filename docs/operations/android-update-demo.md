@@ -36,6 +36,7 @@ jsDelivr 对 `@main` 按分支缓存，最长约 12 小时，且不能可靠刷�
 - `cdn.jsdelivr.net` 的 `@main` 已能读到成对的 0.1.4 清单。个别镜像节点可能仍滞后。
 - 已安装 0.1.3 的手机：打开游戏后检查更新即可覆盖安装。
 - 不要在 `@main` 仍缓存旧 `apk_url` 时用 `--clobber` 覆盖同名 APK：旧 asset id 会 404，游戏能校验清单却下不了包。覆盖后必须等 `@main` 刷新到新 id。可用 `tools/release/verify_update_channel.sh latest` 按客户端头下载并核对哈希。
+- `@main` 未刷新前，用外接盘 `adb` 安装 `builds/development/0.1.4/xiuxian.apk` 做覆盖升级，不要在 0.1.3 里点检查更新。
 
 ## 真机验收记录（2026-09-09）
 

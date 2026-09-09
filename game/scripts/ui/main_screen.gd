@@ -255,6 +255,8 @@ func _load_or_create_data_marker() -> String:
 	if FileAccess.file_exists(DATA_MARKER_PATH):
 		var saved_marker := FileAccess.get_file_as_string(DATA_MARKER_PATH).strip_edges()
 		if not saved_marker.is_empty():
+			if saved_marker.ends_with("（已保留）"):
+				return saved_marker
 			return saved_marker + "（已保留）"
 	var marker := "首次安装 %s" % update_service.get_current_version()
 	var file := FileAccess.open(DATA_MARKER_PATH, FileAccess.WRITE)

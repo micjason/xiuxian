@@ -36,6 +36,7 @@ jsDelivr 对 `@main` 按分支缓存，最长约 12 小时，且不能可靠刷�
 - `@latest` 已走通：清单、签名、APK 哈希一致，安装包可下载。
 - `@main`（0.1.3 客户端）一度被刷新成旧 asset id，随后该 id 被 `--clobber` 删掉，当前下载 404。发布前用 `tools/release/check_update_channel.sh` 确认三条通道的 `apk_http` 都不是 4xx。
 - 在 `@main` 恢复前，不要再覆盖 `v0.1.4` 的 `xiuxian.apk`。0.1.3 手机请用外接盘 `adb` 安装 `builds/development/0.1.4/xiuxian.apk`，不要点检查更新。
+- 以后发更新用 `tools/release/publish_update_channel.sh`：通道预检失败会直接退出，并且不会 `--clobber` 已有 APK。
 
 ## 真机验收记录（2026-09-09）
 
@@ -84,6 +85,10 @@ tools/release/create_update_manifest.py \
   --private-key /Volumes/kaixia/GodotDev/xiuxian/signing/update-private.pem \
   --output-directory builds/development/0.1.1/release-assets
 ```
+
+也可用 `tools/release/publish_update_channel.sh` 一次做完预检、建新 Release、签名清单和频道标签。该脚本在 `@main` 下载 404 时会拒绝发布。
+
+也可用 `tools/release/publish_update_channel.sh` 一次做完预检、建新 Release、签名清单和频道标签。`@main` 下载 404 时会拒绝发布。
 
 `update.json` 和 `update.sig` 需要同时：
 

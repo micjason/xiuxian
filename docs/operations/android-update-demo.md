@@ -18,9 +18,9 @@
 ## 0.1.11 发布记录（2026-09-10）
 
 - 应用版本 `0.1.11`，`versionCode` 12。
-- GitHub Release 标签是 `release-0.1.11`（`v0.1.11` 已给早期频道用过，不能复用）。
+- GitHub Release：`https://github.com/micjason/xiuxian-releases/releases/tag/release-0.1.11`（`v0.1.11` 已给早期频道用过，不能复用）。
 - 公开仓频道标签：`v0.1.18`。
-- 安装包 asset、sha 待发布后回填。
+- 安装包 asset `554762031`，`apk_sha256` 前缀 `b1551c6c`。
 - 用途：已装 `0.1.10` 的手机用游戏内检查更新覆盖。
 
 ## 0.1.10 发布记录（2026-09-10）

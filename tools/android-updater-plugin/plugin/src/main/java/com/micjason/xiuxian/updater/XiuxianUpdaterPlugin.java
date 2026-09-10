@@ -3,6 +3,8 @@ package com.micjason.xiuxian.updater;
 import android.app.Activity;
 import android.content.Intent;
 import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.net.Uri;
 import android.os.Build;
 import android.provider.Settings;
@@ -15,6 +17,7 @@ import org.godotengine.godot.plugin.GodotPlugin;
 import org.godotengine.godot.plugin.UsedByGodot;
 
 import java.io.File;
+import java.util.List;
 
 public final class XiuxianUpdaterPlugin extends GodotPlugin {
 	public XiuxianUpdaterPlugin(Godot godot) {
@@ -77,6 +80,9 @@ public final class XiuxianUpdaterPlugin extends GodotPlugin {
 		if (activity == null || !apk.isFile() || !canRequestPackageInstalls()) {
 			return false;
 		}
+		if (apkVersionCode(path) <= getVersionCode()) {
+			return false;
+		}
 
 		activity.runOnUiThread(() -> {
 			Uri uri = FileProvider.getUriForFile(
@@ -87,10 +93,43 @@ public final class XiuxianUpdaterPlugin extends GodotPlugin {
 			Intent intent = new Intent(Intent.ACTION_VIEW);
 			intent.setDataAndType(uri, "application/vnd.android.package-archive");
 			intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-			intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+			grantInstallUri(activity, intent, uri);
 			activity.startActivity(intent);
 		});
 		return true;
+	}
+
+	private long apkVersionCode(String path) {
+		Activity activity = getActivity();
+		if (activity == null) {
+			return 0L;
+		}
+		PackageInfo info = activity.getPackageManager().getPackageArchiveInfo(path, 0);
+		if (info == null) {
+			return 0L;
+		}
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+			return info.getLongVersionCode();
+		}
+		return info.versionCode;
+	}
+
+	private void grantInstallUri(Activity activity, Intent intent, Uri uri) {
+		PackageManager manager = activity.getPackageManager();
+		List<ResolveInfo> receivers = manager.queryIntentActivities(
+			intent,
+			PackageManager.MATCH_DEFAULT_ONLY
+		);
+		for (ResolveInfo receiver : receivers) {
+			if (receiver.activityInfo == null) {
+				continue;
+			}
+			activity.grantUriPermission(
+				receiver.activityInfo.packageName,
+				uri,
+				Intent.FLAG_GRANT_READ_URI_PERMISSION
+			);
+		}
 	}
 
 	private PackageInfo getPackageInfo() {

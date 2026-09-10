@@ -4,13 +4,13 @@
 
 `挂机获得修为 → 突破境界 → 提高修炼效率`
 
-当前已完成第一个可玩闭环：挂机得修为、突破境界、离线补发。`0.1.4` 润色了主界面、突破与离线反馈，并加快了前三阶手感。数值仍是示意表。
+当前已完成第一个可玩闭环：挂机得修为、突破境界、离线补发。`0.1.4` 润色了主界面、突破与离线反馈，并加快了前三阶手感。`0.1.5` 修好覆盖安装：必须以更高 `versionCode` 发布，并把安装包读权限交给系统安装器。数值仍是示意表。
 
 ## 当前版本
 
 - 应用名：修仙
 - Android 包名：`com.micjason.xiuxian`
-- 当前源码版本：`0.1.4`
+- 当前源码版本：`0.1.5`
 - 首次安装测试包：`builds/development/0.1.0/xiuxian.apk`
 - 公开更新页：`https://github.com/micjason/xiuxian-releases/releases/latest`
 - `0.1.3` 及更早的清单：`https://cdn.jsdelivr.net/gh/micjason/xiuxian-releases@main/update.json`

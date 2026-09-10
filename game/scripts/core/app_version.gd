@@ -17,6 +17,14 @@ static func is_newer(candidate: String, current: String) -> bool:
 	return false
 
 
+# Android only installs an APK when versionCode is strictly higher. A newer
+# version name with the same code still opens the system page as “打开”.
+static func is_installable(candidate: String, candidate_code: int, current: String, current_code: int) -> bool:
+	if candidate_code > 0 and current_code > 0:
+		return candidate_code > current_code
+	return is_newer(candidate, current)
+
+
 static func is_valid(value: String) -> bool:
 	return not _parse(value).is_empty()
 

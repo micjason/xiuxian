@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-APK="${1:-/Volumes/kaixia/projects/xiuxian/builds/development/0.1.4/xiuxian.apk}"
+APK="${1:-/Volumes/kaixia/projects/xiuxian/builds/development/0.1.5/xiuxian.apk}"
 ADB="/Volumes/kaixia/GodotDev/xiuxian/android/sdk/platform-tools/adb"
 AAPT="/Volumes/kaixia/GodotDev/xiuxian/android/sdk/build-tools/35.0.1/aapt2"
 
@@ -17,7 +17,7 @@ EXPECTED_JSON="${TMPDIR:-/tmp}/xiuxian-install-expected.json"
 	-o "$EXPECTED_JSON"
 EXPECTED_SHA=$(/usr/bin/python3 -c "import json; print(json.load(open('$EXPECTED_JSON'))['apk_sha256'])")
 if [ "$ACTUAL_SHA" != "$EXPECTED_SHA" ]; then
-	echo "Local APK does not match the live 0.1.4 channel." >&2
+	echo "Local APK does not match the live update channel." >&2
 	echo "local  $ACTUAL_SHA" >&2
 	echo "live   $EXPECTED_SHA" >&2
 	exit 1

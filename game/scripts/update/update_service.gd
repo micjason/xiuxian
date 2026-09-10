@@ -101,6 +101,16 @@ func install_downloaded_update() -> void:
 		_remove_if_exists(DOWNLOAD_PATH)
 		_fail("本地安装包不是最新版本，请重新下载。")
 		return
+	var current_code := _installer.get_version_code()
+	if (
+		current_code > 0
+		and current_manifest.version_code <= current_code
+	):
+		_fail("下载包 versionCode %d 不高于已装 %d，系统只会提示打开当前版本。" % [
+			current_manifest.version_code,
+			current_code,
+		])
+		return
 	if not _installer.is_supported():
 		_fail("覆盖安装只支持 Android 手机。")
 		return
@@ -165,12 +175,28 @@ func _on_signature_received(
 		return
 
 	var current_version := get_current_version()
-	if not AppVersion.is_newer(current_manifest.version, current_version):
+	var current_code := _installer.get_version_code()
+	if not AppVersion.is_installable(
+		current_manifest.version,
+		current_manifest.version_code,
+		current_version,
+		current_code
+	):
+		if (
+			AppVersion.is_newer(current_manifest.version, current_version)
+			and current_code > 0
+			and current_manifest.version_code <= current_code
+		):
+			_fail("线上包版本名是 %s，但 versionCode 仍是 %d，系统不会覆盖安装。请发布更高 versionCode。" % [
+				current_manifest.version,
+				current_manifest.version_code,
+			])
+			return
 		status_changed.emit("" if _quiet_check else "当前已是最新版本。")
 		no_update.emit(current_version)
 		return
 
-	status_changed.emit("发现新版本 %s" % current_manifest.version)
+	status_changed.emit("发现新版本 %s（%d）" % [current_manifest.version, current_manifest.version_code])
 	update_available.emit(current_manifest.as_dictionary())
 
 
@@ -201,7 +227,10 @@ func _on_apk_received(
 		return
 
 	download_progress_changed.emit(1.0)
-	status_changed.emit("下载完成，准备打开系统安装页面。")
+	status_changed.emit("已下载 %s（versionCode %d），请在系统页确认覆盖安装。" % [
+		current_manifest.version,
+		current_manifest.version_code,
+	])
 	download_ready.emit(DOWNLOAD_PATH)
 
 

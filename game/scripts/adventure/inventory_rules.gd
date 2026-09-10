@@ -83,6 +83,110 @@ static func toggle_lock(state: CultivationState, uid: int) -> bool:
 	return true
 
 
+static func inspect_text(
+	state: CultivationState,
+	idle: IdleConfig,
+	adventure: AdventureConfig,
+	stack: ItemStack
+) -> String:
+	if state == null or adventure == null or stack == null:
+		return ""
+	var item := adventure.item_by_id(stack.item_id)
+	if item == null:
+		return ""
+	if item.is_equipment():
+		return _inspect_equipment(state, idle, adventure, stack, item)
+	if item.is_skill_book():
+		return _inspect_skill_book(state, idle, adventure, item)
+	return ""
+
+
+static func _inspect_equipment(
+	state: CultivationState,
+	idle: IdleConfig,
+	adventure: AdventureConfig,
+	stack: ItemStack,
+	item: ItemDef
+) -> String:
+	var current := CombatRules.player_stats(state, idle, adventure)
+	var preview_loadout := EquipmentLoadout.from_dictionary(state.equipped.to_dictionary())
+	preview_loadout.set_uid(item.slot, stack.uid)
+	var preview := CombatRules.player_stats_with_loadout(state, idle, adventure, preview_loadout)
+	var worn_stack := find_stack(state, state.equipped.uid_for(item.slot))
+	var worn := adventure.item_by_id(worn_stack.item_id) if worn_stack != null else null
+	var lines: PackedStringArray = PackedStringArray()
+	var realm := idle.realm_by_id(state.realm_id) if idle != null else null
+	if state.equipped.contains_uid(stack.uid):
+		lines.append("正在穿戴。")
+	elif realm != null and realm.order < item.min_realm_order:
+		lines.append("境界不足，无法穿戴。")
+	else:
+		lines.append("可以穿戴。")
+	if worn == null:
+		lines.append("该槽位空着。")
+	else:
+		lines.append("已穿 %s  攻%s 防%s 血%s" % [
+			worn.display_name,
+			CultivationFormat.amount(worn.attack),
+			CultivationFormat.amount(worn.defense),
+			CultivationFormat.amount(worn.hp),
+		])
+	lines.append("这件 %s  攻%s 防%s 血%s" % [
+		item.display_name,
+		CultivationFormat.amount(item.attack),
+		CultivationFormat.amount(item.defense),
+		CultivationFormat.amount(item.hp),
+	])
+	lines.append("换上后 攻%s 防%s 血%s  战力 %s → %s（%s）" % [
+		_signed(preview.attack - current.attack),
+		_signed(preview.defense - current.defense),
+		_signed(preview.hp - current.hp),
+		CultivationFormat.amount(current.power()),
+		CultivationFormat.amount(preview.power()),
+		_signed(preview.power() - current.power()),
+	])
+	return "\n".join(lines)
+
+
+static func _inspect_skill_book(
+	state: CultivationState,
+	idle: IdleConfig,
+	adventure: AdventureConfig,
+	item: ItemDef
+) -> String:
+	var skill := adventure.skill_by_id(item.skill_id)
+	if skill == null:
+		return "残页已模糊。"
+	var current := CombatRules.player_stats(state, idle, adventure)
+	var lines: PackedStringArray = PackedStringArray()
+	var realm := idle.realm_by_id(state.realm_id) if idle != null else null
+	if state.learned_skill_ids.has(skill.id):
+		lines.append("已学会，再参悟不会加强。")
+	elif realm != null and realm.order < skill.min_realm_order:
+		lines.append("境界不足，无法参悟。")
+	else:
+		lines.append("可以参悟。")
+	var preview := CombatRules.player_stats(state, idle, adventure)
+	if not state.learned_skill_ids.has(skill.id):
+		preview.add(skill.to_stats())
+	lines.append("学后 攻%s 防%s 血%s  战力 %s → %s（%s）" % [
+		_signed(skill.attack),
+		_signed(skill.defense),
+		_signed(skill.hp),
+		CultivationFormat.amount(current.power()),
+		CultivationFormat.amount(preview.power()),
+		_signed(preview.power() - current.power()),
+	])
+	return "\n".join(lines)
+
+
+static func _signed(value: float) -> String:
+	if is_zero_approx(value):
+		return "持平"
+	var prefix := "+" if value > 0.0 else ""
+	return "%s%s" % [prefix, CultivationFormat.amount(value)]
+
+
 static func append_log(state: CultivationState, line: String) -> void:
 	var cleaned := line.strip_edges()
 	if state == null or cleaned.is_empty() or not state.settings.battle_log_enabled:

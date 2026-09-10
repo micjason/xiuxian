@@ -16,6 +16,14 @@ func test_newest_entry_stays_on_top_and_caps_at_five() -> void:
 	assert_false(journal.as_text().contains("记录 0"))
 
 
+func test_as_text_can_limit_visible_lines() -> void:
+	var journal := CultivationJournal.new()
+	journal.add("旧")
+	journal.add("新")
+	assert_true(journal.as_text().contains("旧"))
+	assert_eq(journal.as_text(1), "·  新")
+
+
 func test_blank_lines_are_ignored() -> void:
 	var journal := CultivationJournal.new()
 	journal.add("  ")

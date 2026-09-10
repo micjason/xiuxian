@@ -75,11 +75,13 @@ func test_project_idle_rules_file_is_valid() -> void:
 	var config := IdleConfig.from_resource("res://resources/config/idle_rules.json")
 	assert_not_null(config)
 	assert_eq(config.starting_realm().display_name, "凡人")
-	assert_eq(config.realms.size(), 8)
-	assert_false(config.realms[7].has_next())
+	assert_eq(config.realms.size(), 11)
+	assert_eq(config.realms[10].id, "gold_core_late")
+	assert_false(config.realms[10].has_next())
+	assert_true(config.realms[7].has_next())
 
 
-func test_first_three_realms_break_through_quickly() -> void:
+func test_first_three_realms_take_a_sitting_not_a_minute() -> void:
 	var config := IdleConfig.from_resource("res://resources/config/idle_rules.json")
 	assert_not_null(config)
 	var total := 0.0
@@ -87,9 +89,11 @@ func test_first_three_realms_break_through_quickly() -> void:
 		var realm := config.realm_by_id(realm_id)
 		assert_not_null(realm)
 		var seconds := realm.breakthrough_cost / realm.gain_per_second
-		assert_lte(seconds, 30.0)
+		assert_gte(seconds, 120.0)
+		assert_lte(seconds, 900.0)
 		total += seconds
-	assert_lte(total, 90.0)
+	assert_gte(total, 600.0)
+	assert_lte(total, 1800.0)
 
 
 func test_display_path_shows_current_and_next_realms() -> void:
@@ -98,4 +102,7 @@ func test_display_path_shows_current_and_next_realms() -> void:
 		config.display_path(config.starting_realm()),
 		"凡人  →  炼气初期  →  炼气中期"
 	)
-	assert_eq(config.display_path(config.realm_by_id("foundation_late")), "筑基后期")
+	assert_eq(
+		config.display_path(config.realm_by_id("foundation_late")),
+		"筑基后期  →  金丹初期  →  金丹中期"
+	)

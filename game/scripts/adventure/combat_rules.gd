@@ -11,6 +11,20 @@ static func player_stats(
 	idle: IdleConfig,
 	adventure: AdventureConfig
 ) -> CombatStats:
+	return player_stats_with_loadout(
+		state,
+		idle,
+		adventure,
+		state.equipped if state != null else null
+	)
+
+
+static func player_stats_with_loadout(
+	state: CultivationState,
+	idle: IdleConfig,
+	adventure: AdventureConfig,
+	loadout: EquipmentLoadout
+) -> CombatStats:
 	var stats := CombatStats.new()
 	if state == null or adventure == null:
 		return stats
@@ -21,8 +35,10 @@ static func player_stats(
 		stats.defense = base.defense
 		stats.hp = base.hp
 		stats.interval = base.interval
+	if loadout == null:
+		return stats
 	for slot in EquipSlot.ORDER:
-		var uid := state.equipped.uid_for(slot)
+		var uid := loadout.uid_for(slot)
 		var stack := InventoryRules.find_stack(state, uid)
 		if stack == null:
 			continue
@@ -155,6 +171,7 @@ static func _roll_drops(
 		var item_id := str(drop.get("item_id", ""))
 		if chance <= 0.0 or count <= 0 or item_id.is_empty():
 			continue
+		chance *= adventure.loot_chance_scale
 		var roll := LootRng.roll(state.loot_seed)
 		state.loot_seed = int(roll.seed)
 		if float(roll.value) > chance:

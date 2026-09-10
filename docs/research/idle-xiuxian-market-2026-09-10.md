@@ -86,7 +86,7 @@
 ## 对照本项目（只写仓库事实）
 
 - 现有循环：时间产修为 → 点突破 → 效率变高 → 离线按公式补一次，顶 8 小时。见 `docs/product/mvp-scope.md`、`idle_rules.json`。
-- 境界表 8 阶，到筑基后期 `next_id` 为空；前三阶在线合计设计为不超过 90 秒（`docs/design/cultivation-foundation.md`、单元测试）。
+- 当时境界表 8 阶，到筑基后期 `next_id` 为空；前三阶在线合计不超过约 90 秒。此后表已接到金丹、前三阶已放慢，以 `docs/design/cultivation-foundation.md` 为准。
 - 没有功法、洞府、丹药、日次数、小目标、第二条梯子、重置。
 - 单机本地存档，无账号服务器（`mvp-scope.md`）。
 - 主界面只有一条「突破」动词。这与 S4/S5/S10 里「赚完还要花/选」不同，是对照事实，不是猜测玩家感受。

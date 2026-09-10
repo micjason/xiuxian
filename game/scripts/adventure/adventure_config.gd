@@ -7,6 +7,7 @@ const DEFAULT_PATH := "res://resources/config/adventure.json"
 var schema_version: int
 var inventory_capacity: int
 var respawn_seconds: float
+var loot_chance_scale: float = 1.0
 var realm_bases: Dictionary = {}
 var items: Array[ItemDef] = []
 var skills: Array[SkillDef] = []
@@ -30,6 +31,7 @@ static func from_json(text: String) -> AdventureConfig:
 	config.schema_version = int(data.get("schema_version", 0))
 	config.inventory_capacity = int(data.get("inventory_capacity", 0))
 	config.respawn_seconds = float(data.get("respawn_seconds", 0.5))
+	config.loot_chance_scale = float(data.get("loot_chance_scale", 1.0))
 	var bases: Variant = data.get("realm_bases", {})
 	if typeof(bases) != TYPE_DICTIONARY:
 		return null
@@ -54,6 +56,8 @@ func is_valid() -> bool:
 	if schema_version != CURRENT_SCHEMA_VERSION:
 		return false
 	if inventory_capacity < 8 or respawn_seconds <= 0.0:
+		return false
+	if loot_chance_scale <= 0.0 or loot_chance_scale > 1.0:
 		return false
 	if items.is_empty() or skills.is_empty() or stages.is_empty() or realm_bases.is_empty():
 		return false

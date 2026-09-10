@@ -15,10 +15,12 @@ func add(line: String) -> void:
 		entries.resize(MAX_ENTRIES)
 
 
-func as_text() -> String:
+func as_text(limit: int = 0) -> String:
 	if entries.is_empty():
 		return "静心吐纳，尚未留下记录。"
 	var lines: PackedStringArray = []
 	for entry in entries:
 		lines.append("·  %s" % entry)
+		if limit > 0 and lines.size() >= limit:
+			break
 	return "\n".join(lines)

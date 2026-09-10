@@ -1,7 +1,8 @@
 {
   "schema_version": 1,
   "inventory_capacity": 36,
-  "respawn_seconds": 0.5,
+  "respawn_seconds": 0.8,
+  "loot_chance_scale": 0.2,
   "realm_bases": {
     "mortal": {
       "attack": 10,
@@ -50,6 +51,24 @@
       "defense": 110,
       "hp": 460,
       "interval": 1.15
+    },
+    "gold_core_early": {
+      "attack": 260,
+      "defense": 160,
+      "hp": 640,
+      "interval": 1.1
+    },
+    "gold_core_mid": {
+      "attack": 380,
+      "defense": 230,
+      "hp": 880,
+      "interval": 1.05
+    },
+    "gold_core_late": {
+      "attack": 540,
+      "defense": 330,
+      "hp": 1200,
+      "interval": 1.0
     }
   },
   "items": [
@@ -1085,7 +1104,7 @@
       "display_name": "野猪坡",
       "order": 1,
       "min_realm_order": 1,
-      "min_power": 28,
+      "min_power": 32,
       "next_id": "stone_brook",
       "monsters": [
         {
@@ -1220,7 +1239,7 @@
       "display_name": "青石涧",
       "order": 2,
       "min_realm_order": 2,
-      "min_power": 48,
+      "min_power": 55,
       "next_id": "crow_ridge",
       "monsters": [
         {
@@ -1335,7 +1354,7 @@
       "display_name": "雾鸦岗",
       "order": 3,
       "min_realm_order": 3,
-      "min_power": 75,
+      "min_power": 90,
       "next_id": "soul_vale",
       "monsters": [
         {
@@ -1500,7 +1519,7 @@
       "display_name": "断魂谷",
       "order": 4,
       "min_realm_order": 4,
-      "min_power": 120,
+      "min_power": 150,
       "next_id": "flame_ridge",
       "monsters": [
         {
@@ -1640,7 +1659,7 @@
       "display_name": "赤焰岭",
       "order": 5,
       "min_realm_order": 5,
-      "min_power": 190,
+      "min_power": 220,
       "next_id": "deep_marsh",
       "monsters": [
         {
@@ -1780,7 +1799,7 @@
       "display_name": "沉渊泽",
       "order": 6,
       "min_realm_order": 6,
-      "min_power": 280,
+      "min_power": 320,
       "next_id": "stele_terrace",
       "monsters": [
         {
@@ -1925,7 +1944,7 @@
       "display_name": "古碑台",
       "order": 7,
       "min_realm_order": 7,
-      "min_power": 420,
+      "min_power": 480,
       "next_id": "",
       "monsters": [
         {

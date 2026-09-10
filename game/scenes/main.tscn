@@ -59,14 +59,47 @@ texture = SubResource("GradientTexture2D_top")
 expand_mode = 1
 stretch_mode = 0
 
+[node name="Chrome" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_left = 24.0
+offset_top = 28.0
+offset_right = -24.0
+offset_bottom = 124.0
+grow_horizontal = 2
+
+[node name="ChromeMargin" type="MarginContainer" parent="Chrome"]
+layout_mode = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 10
+
+[node name="ChromeRow" type="HBoxContainer" parent="Chrome/ChromeMargin"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="ChromePower" type="Label" parent="Chrome/ChromeMargin/ChromeRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.86, 0.74, 0.44, 1)
+theme_override_font_sizes/font_size = 26
+text = "战力 —"
+horizontal_alignment = 2
+autowrap_mode = 2
+
 [node name="Margin" type="MarginContainer" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = 52.0
-offset_top = 72.0
-offset_right = -52.0
+offset_left = 28.0
+offset_top = 136.0
+offset_right = -28.0
 offset_bottom = -128.0
 grow_horizontal = 2
 grow_vertical = 2
@@ -76,6 +109,7 @@ layout_mode = 2
 theme_override_constants/separation = 18
 
 [node name="Header" type="VBoxContainer" parent="Margin/Content"]
+visible = false
 layout_mode = 2
 theme_override_constants/separation = 8
 
@@ -135,6 +169,7 @@ layout_mode = 2
 theme_override_constants/separation = 12
 
 [node name="RealmCaption" type="Label" parent="Margin/Content/CultivationCard/CultivationMargin/CultivationDetails"]
+visible = false
 layout_mode = 2
 theme_override_colors/font_color = Color(0.58, 0.64, 0.61, 1)
 theme_override_font_sizes/font_size = 20
@@ -142,7 +177,8 @@ text = "当前境界"
 horizontal_alignment = 1
 
 [node name="RealmStage" type="Control" parent="Margin/Content/CultivationCard/CultivationMargin/CultivationDetails"]
-custom_minimum_size = Vector2(0, 148)
+visible = false
+custom_minimum_size = Vector2(0, 0)
 layout_mode = 2
 
 [node name="SealRing" type="Panel" parent="Margin/Content/CultivationCard/CultivationMargin/CultivationDetails/RealmStage"]
@@ -217,6 +253,7 @@ color = Color(0.86, 0.74, 0.44, 0.28)
 mouse_filter = 2
 
 [node name="CultivationCaption" type="Label" parent="Margin/Content/CultivationCard/CultivationMargin/CultivationDetails"]
+visible = false
 layout_mode = 2
 theme_override_colors/font_color = Color(0.58, 0.64, 0.61, 1)
 theme_override_font_sizes/font_size = 20
@@ -389,11 +426,13 @@ text = "静心吐纳，尚未留下记录。"
 autowrap_mode = 3
 
 [node name="Atmosphere" type="Control" parent="Margin/Content"]
+visible = false
 layout_mode = 2
 size_flags_vertical = 3
 mouse_filter = 2
 
 [node name="Hint" type="Label" parent="Margin/Content"]
+visible = false
 layout_mode = 2
 theme_override_colors/font_color = Color(0.48, 0.54, 0.52, 1)
 theme_override_font_sizes/font_size = 18
@@ -478,11 +517,17 @@ layout_mode = 2
 theme_override_constants/separation = 10
 
 [node name="AdventureTitle" type="Label" parent="Margin/Content/AdventurePage/AdventureMargin/AdventureBox"]
+visible = false
 layout_mode = 2
 theme_override_colors/font_color = Color(0.86, 0.74, 0.44, 1)
 theme_override_font_sizes/font_size = 28
 text = "历练"
 horizontal_alignment = 1
+
+[node name="StageList" type="VBoxContainer" parent="Margin/Content/AdventurePage/AdventureMargin/AdventureBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 6
 
 [node name="PowerLabel" type="Label" parent="Margin/Content/AdventurePage/AdventureMargin/AdventureBox"]
 unique_name_in_owner = true
@@ -530,10 +575,15 @@ theme_override_font_sizes/font_size = 20
 text = "最近战利品：无"
 autowrap_mode = 3
 
-[node name="BattleLogLabel" type="Label" parent="Margin/Content/AdventurePage/AdventureMargin/AdventureBox"]
-unique_name_in_owner = true
+[node name="BattleLogScroll" type="ScrollContainer" parent="Margin/Content/AdventurePage/AdventureMargin/AdventureBox"]
 layout_mode = 2
 size_flags_vertical = 3
+custom_minimum_size = Vector2(0, 200)
+
+[node name="BattleLogLabel" type="Label" parent="Margin/Content/AdventurePage/AdventureMargin/AdventureBox/BattleLogScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
 theme_override_font_sizes/font_size = 20
 text = "战斗记录"
 autowrap_mode = 3
@@ -556,6 +606,7 @@ layout_mode = 2
 theme_override_constants/separation = 8
 
 [node name="BagTitle" type="Label" parent="Margin/Content/BagPage/BagMargin/BagBox"]
+visible = false
 layout_mode = 2
 theme_override_colors/font_color = Color(0.86, 0.74, 0.44, 1)
 theme_override_font_sizes/font_size = 28
@@ -579,10 +630,17 @@ text = "0/36"
 layout_mode = 2
 size_flags_vertical = 3
 
-[node name="BagList" type="VBoxContainer" parent="Margin/Content/BagPage/BagMargin/BagBox/BagScroll"]
+[node name="BagList" type="GridContainer" parent="Margin/Content/BagPage/BagMargin/BagBox/BagScroll"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
+theme_override_constants/h_separation = 8
+theme_override_constants/v_separation = 8
+columns = 2
+
+[node name="InspectPanel" type="VBoxContainer" parent="Margin/Content/BagPage/BagMargin/BagBox"]
+unique_name_in_owner = true
+layout_mode = 2
 theme_override_constants/separation = 8
 
 [node name="SkillPage" type="PanelContainer" parent="Margin/Content"]
@@ -603,6 +661,7 @@ layout_mode = 2
 theme_override_constants/separation = 8
 
 [node name="SkillTitle" type="Label" parent="Margin/Content/SkillPage/SkillMargin/SkillBox"]
+visible = false
 layout_mode = 2
 theme_override_colors/font_color = Color(0.86, 0.74, 0.44, 1)
 theme_override_font_sizes/font_size = 28
@@ -644,6 +703,7 @@ layout_mode = 2
 theme_override_constants/separation = 12
 
 [node name="SettingsTitle" type="Label" parent="Margin/Content/SettingsPage/SettingsMargin/SettingsBox"]
+visible = false
 layout_mode = 2
 theme_override_colors/font_color = Color(0.86, 0.74, 0.44, 1)
 theme_override_font_sizes/font_size = 28

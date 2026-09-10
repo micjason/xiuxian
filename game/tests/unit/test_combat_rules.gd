@@ -93,3 +93,36 @@ func test_next_stage_requires_realm_and_power() -> void:
 	var reason := session.challenge_next()
 	assert_true(reason.contains("战力不足") or reason.contains("境界不足"), reason)
 	assert_eq(session.state.current_stage_id, "grove")
+
+
+func test_loot_chance_scale_shrinks_intake() -> void:
+	var idle := IdleConfig.from_resource("res://resources/config/idle_rules.json")
+	var adventure := AdventureConfig.from_resource()
+	assert_not_null(idle)
+	assert_not_null(adventure)
+	adventure.loot_chance_scale = 1.0
+	var full_state := CultivationState.new()
+	full_state.realm_id = "mortal"
+	full_state.current_stage_id = "grove"
+	full_state.inventory_capacity = 200
+	full_state.loot_seed = 11
+	var full := CombatRules.settle(full_state, idle, adventure, 180)
+	adventure.loot_chance_scale = 0.2
+	var low_state := CultivationState.new()
+	low_state.realm_id = "mortal"
+	low_state.current_stage_id = "grove"
+	low_state.inventory_capacity = 200
+	low_state.loot_seed = 11
+	var low := CombatRules.settle(low_state, idle, adventure, 180)
+	assert_gt(full.kills, 0)
+	assert_eq(full.kills, low.kills)
+	var full_rolls := _kept_count(full_state) + full.bag_skipped
+	var low_rolls := _kept_count(low_state) + low.bag_skipped
+	assert_gt(full_rolls, low_rolls)
+
+
+func _kept_count(state: CultivationState) -> int:
+	var total := 0
+	for stack in state.inventory:
+		total += stack.count
+	return total

@@ -37,6 +37,10 @@ const REQUIRED_UNIQUE_NODES := [
 	"SettingsPage",
 	"TabBar",
 	"ChallengeButton",
+	"Chrome",
+	"ChromePower",
+	"StageList",
+	"InspectPanel",
 ]
 
 

@@ -51,7 +51,7 @@ const PAGE_SETTINGS := "settings"
 @onready var battle_log_label: Label = %BattleLogLabel
 @onready var equip_summary: Label = %EquipSummary
 @onready var bag_count_label: Label = %BagCountLabel
-@onready var bag_list: VBoxContainer = %BagList
+@onready var bag_list: GridContainer = %BagList
 @onready var learned_label: Label = %LearnedLabel
 @onready var skill_list: VBoxContainer = %SkillList
 @onready var battle_log_check: CheckButton = %BattleLogCheck
@@ -67,6 +67,11 @@ const PAGE_SETTINGS := "settings"
 @onready var tab_settings: Button = %TabSettings
 @onready var hint_label: Label = $Margin/Content/Hint
 @onready var atmosphere: Control = $Margin/Content/Atmosphere
+@onready var chrome: PanelContainer = %Chrome
+@onready var chrome_row: HBoxContainer = %ChromeRow
+@onready var chrome_power: Label = %ChromePower
+@onready var stage_list: VBoxContainer = %StageList
+@onready var inspect_panel: VBoxContainer = %InspectPanel
 
 var _session: CultivationSession
 var _tick: Timer
@@ -77,6 +82,8 @@ var _update_check_pending := true
 var _page := PAGE_CULTIVATE
 var _bag_fingerprint := ""
 var _skill_fingerprint := ""
+var _stage_fingerprint := ""
+var _selected_bag_uid := 0
 
 
 func _ready() -> void:
@@ -84,6 +91,7 @@ func _ready() -> void:
 	title_label.add_theme_font_override("font", MainTheme.title_font())
 	realm_label.add_theme_font_override("font", MainTheme.title_font())
 	cultivation_label.add_theme_font_override("font", MainTheme.title_font())
+	chrome.add_theme_stylebox_override("panel", MainTheme.footer_panel())
 	cultivation_card.add_theme_stylebox_override("panel", MainTheme.hero_panel())
 	stats_card.add_theme_stylebox_override("panel", MainTheme.inner_panel())
 	journal_card.add_theme_stylebox_override("panel", MainTheme.inner_panel())
@@ -94,6 +102,7 @@ func _ready() -> void:
 	settings_page.add_theme_stylebox_override("panel", MainTheme.hero_panel())
 	seal_ring.add_theme_stylebox_override("panel", MainTheme.seal_ring())
 	seal_inner.add_theme_stylebox_override("panel", MainTheme.seal_inner())
+	_install_chrome()
 	_style_secondary_button(check_button)
 	_style_secondary_button(install_button)
 	_style_secondary_button(bag_policy_button)
@@ -147,14 +156,13 @@ func _ready() -> void:
 	var current_version := update_service.get_current_version()
 	version_label.text = "版本 %s" % current_version
 	data_marker.text = _load_or_create_data_marker()
-	upgrade_badge.visible = AppVersion.is_newer(current_version, "0.1.3")
+	upgrade_badge.visible = false
 	download_progress.value = 0.0
 	breakthrough_banner.visible = false
 	flash.modulate.a = 0.0
 	realm_label.resized.connect(func() -> void:
 		realm_label.pivot_offset = realm_label.size * 0.5
 	)
-	_start_seal_pulse()
 	_show_page(PAGE_CULTIVATE)
 	_refresh_all()
 	offline_dialog.visibility_changed.connect(func() -> void:
@@ -169,18 +177,20 @@ func _show_page(page: String) -> void:
 	var cultivate := page == PAGE_CULTIVATE
 	cultivation_card.visible = cultivate
 	journal_card.visible = cultivate
-	atmosphere.visible = cultivate
-	hint_label.visible = cultivate
+	atmosphere.visible = false
+	hint_label.visible = false
 	adventure_page.visible = page == PAGE_ADVENTURE
 	bag_page.visible = page == PAGE_BAG
 	skill_page.visible = page == PAGE_SKILL
 	settings_page.visible = page == PAGE_SETTINGS
 	update_card.visible = page == PAGE_SETTINGS
+	_refresh_tabs()
 	_refresh_all()
 
 
 func _refresh_all() -> void:
 	_refresh_cultivation()
+	_refresh_chrome_power()
 	if _page == PAGE_ADVENTURE:
 		_refresh_adventure()
 	elif _page == PAGE_BAG:
@@ -197,12 +207,12 @@ func _refresh_cultivation() -> void:
 		return
 	realm_label.text = realm.display_name
 	realm_path.text = _session.config.display_path(realm)
-	cultivation_label.text = CultivationFormat.amount(_session.state.cultivation)
 	rate_label.text = CultivationFormat.rate(realm.gain_per_second)
 	cultivation_progress.value = _session.progress() * 100.0
 	journal_label.text = _session.journal.as_text()
 	var next_realm := _session.next_realm()
 	if next_realm == null:
+		cultivation_label.text = CultivationFormat.amount(_session.state.cultivation)
 		next_cost_label.text = "—"
 		next_realm_label.text = "已至顶峰"
 		progress_hint.text = "已至当前示意表最高境界"
@@ -211,13 +221,21 @@ func _refresh_cultivation() -> void:
 		cultivation_progress.add_theme_stylebox_override("fill", MainTheme.progress_fill(false))
 		_set_ready_pulse(false)
 	else:
+		cultivation_label.text = "%s / %s" % [
+			CultivationFormat.amount(_session.state.cultivation),
+			CultivationFormat.amount(realm.breakthrough_cost),
+		]
 		next_cost_label.text = CultivationFormat.amount(realm.breakthrough_cost)
 		next_realm_label.text = next_realm.display_name
 		var remaining := maxf(0.0, realm.breakthrough_cost - _session.state.cultivation)
 		if remaining <= 0.001:
 			progress_hint.text = "修为已足，可突破至 %s" % next_realm.display_name
 		else:
-			progress_hint.text = "距突破还需 %s" % CultivationFormat.amount(remaining)
+			var wait := int(ceili(remaining / realm.gain_per_second))
+			progress_hint.text = "距突破还需 %s · 约 %s" % [
+				CultivationFormat.amount(remaining),
+				CultivationFormat.duration_hours(wait),
+			]
 		var can_break := _session.can_breakthrough()
 		breakthrough_button.disabled = not can_break
 		breakthrough_button.text = "突破境界" if can_break else "修为不足"
@@ -229,23 +247,28 @@ func _refresh_adventure() -> void:
 	if _session.state == null:
 		return
 	var stats := _session.player_stats()
-	power_label.text = "战力 %.0f  ·  攻 %.0f  防 %.0f  血 %.0f" % [
-		stats.power(),
-		stats.attack,
-		stats.defense,
-		stats.hp,
+	power_label.text = "己方  攻 %s  防 %s  血 %s" % [
+		CultivationFormat.amount(stats.attack),
+		CultivationFormat.amount(stats.defense),
+		CultivationFormat.amount(stats.hp),
 	]
 	var stage := _session.current_stage()
 	if stage == null:
 		stage_label.text = "未选定关卡"
 		monster_label.text = ""
 		challenge_button.disabled = true
+		_refresh_stage_list(stats)
 		return
-	stage_label.text = "正在挂机：%s" % stage.display_name
+	stage_label.text = "%s · 挂机中" % stage.display_name
 	var names: PackedStringArray = PackedStringArray()
 	for monster in stage.monsters:
 		names.append(monster.display_name)
-	monster_label.text = "出没：%s" % "、".join(names)
+		if names.size() >= 3:
+			break
+	if stage.monsters.size() > names.size():
+		monster_label.text = "出没：%s 等" % "、".join(names)
+	else:
+		monster_label.text = "出没：%s" % "、".join(names)
 	var nxt := _session.next_stage()
 	if nxt == null:
 		challenge_button.text = "已至最深关卡"
@@ -265,117 +288,85 @@ func _refresh_adventure() -> void:
 				false
 			)
 	if _session.last_combat_result != null and not _session.last_combat_result.loot_names.is_empty():
-		loot_summary_label.text = "最近战利品：%s" % "、".join(_session.last_combat_result.loot_names)
+		loot_summary_label.text = "最近入袋：%s" % "、".join(_session.last_combat_result.loot_names)
 	else:
-		loot_summary_label.text = "最近战利品：尚无。挂机后会入行囊。"
+		loot_summary_label.text = "最近入袋：尚无。挂机后会入行囊。"
 	if _session.state.battle_log.is_empty():
 		battle_log_label.text = "静待交手。挂机时会在此留下斩杀与掉落。"
 	else:
-		var start := maxi(_session.state.battle_log.size() - 12, 0)
+		var start := maxi(_session.state.battle_log.size() - 16, 0)
 		var slice := _session.state.battle_log.slice(start)
 		battle_log_label.text = "\n".join(slice)
+	_refresh_stage_list(stats)
 
 
 func _refresh_bag() -> void:
 	if _session.state == null:
 		return
-	var lines: PackedStringArray = PackedStringArray()
+	var slot_bits: PackedStringArray = PackedStringArray()
 	for slot in EquipSlot.ORDER:
 		var uid := _session.state.equipped.uid_for(slot)
 		var stack := InventoryRules.find_stack(_session.state, uid)
 		var item := _session.item_def(stack.item_id) if stack != null else null
 		if item == null:
-			lines.append("%s：空" % EquipSlot.display_name(slot))
+			slot_bits.append("%s空" % EquipSlot.display_name(slot).substr(0, 1))
 		else:
-			lines.append("%s：%s（%s）" % [
-				EquipSlot.display_name(slot),
-				item.display_name,
-				QualityId.display_name(item.quality),
-			])
-	equip_summary.text = "\n".join(lines)
-	bag_count_label.text = "格数 %d / %d" % [
+			slot_bits.append("%s%s" % [EquipSlot.display_name(slot).substr(0, 1), item.display_name])
+	equip_summary.text = " · ".join(slot_bits)
+	bag_count_label.text = "%d / %d" % [
 		_session.state.inventory.size(),
 		_session.state.inventory_capacity,
 	]
-	var fingerprint := "%d|%d|%s|%d" % [
+	if _selected_bag_uid > 0 and InventoryRules.find_stack(_session.state, _selected_bag_uid) == null:
+		_selected_bag_uid = 0
+	var fingerprint := "%d|%d|%s|%d|%d" % [
 		_session.state.next_item_uid,
 		_session.state.inventory.size(),
 		JSON.stringify(_session.state.equipped.to_dictionary()),
 		_session.state.learned_skill_ids.size(),
+		_selected_bag_uid,
 	]
-	if fingerprint == _bag_fingerprint and bag_list.get_child_count() > 0:
-		return
-	_bag_fingerprint = fingerprint
-	for child in bag_list.get_children():
-		child.queue_free()
-	if _session.state.inventory.is_empty():
-		var empty := Label.new()
-		empty.text = "行囊空空。去历练挂机，掉落会回到这里。"
-		empty.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		bag_list.add_child(empty)
-		return
-	for stack in _session.state.inventory:
-		bag_list.add_child(_make_bag_row(stack))
-
-
-func _make_bag_row(stack: ItemStack) -> Control:
-	var item := _session.item_def(stack.item_id)
-	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 4)
-	var title := Label.new()
-	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	if item == null:
-		title.text = stack.item_id
-	else:
-		title.add_theme_color_override("font_color", QualityId.color(item.quality))
-		var extra := " ×%d" % stack.count if stack.count > 1 else ""
-		var lock := " · 已锁" if stack.locked else ""
-		if item.is_equipment():
-			title.text = "%s · %s · %s  攻%.0f 防%.0f 血%.0f%s%s" % [
-				item.display_name,
-				QualityId.display_name(item.quality),
-				EquipSlot.display_name(item.slot),
-				item.attack,
-				item.defense,
-				item.hp,
-				extra,
-				lock,
-			]
+	if fingerprint != _bag_fingerprint or bag_list.get_child_count() == 0:
+		_bag_fingerprint = fingerprint
+		for child in bag_list.get_children():
+			child.queue_free()
+		if _session.state.inventory.is_empty():
+			var empty := Label.new()
+			empty.text = "行囊空空。去历练挂机，掉落会回到这里。"
+			empty.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			bag_list.add_child(empty)
 		else:
-			title.text = "%s · %s残页%s%s" % [
-				item.display_name,
-				QualityId.display_name(item.quality),
-				extra,
-				lock,
-			]
-	box.add_child(title)
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 8)
-	if item != null and item.is_equipment():
-		row.add_child(_action_button("穿戴", func() -> void: _show_hint(_session.equip_item(stack.uid))))
-		if _session.state.equipped.contains_uid(stack.uid):
-			row.add_child(_action_button("卸下", func() -> void: _session.unequip_slot(item.slot)))
-	if item != null and item.is_skill_book():
-		row.add_child(_action_button("参悟", func() -> void: _show_hint(_session.learn_skill_from(stack.uid))))
-	row.add_child(_action_button("上锁" if not stack.locked else "解锁", func() -> void: _session.toggle_lock(stack.uid)))
-	row.add_child(_action_button("丢弃", func() -> void: _show_hint(_session.discard_item(stack.uid))))
-	box.add_child(row)
-	return box
+			for stack in _session.state.inventory:
+				bag_list.add_child(_make_bag_cell(stack))
+	_refresh_inspect()
 
 
 func _refresh_skills() -> void:
 	if _session.state == null or _session.adventure == null:
 		return
-	if _session.state.learned_skill_ids.is_empty():
-		learned_label.text = "尚未参悟功法。行囊里的残页可在此或行囊中学习。"
+	var realm := _session.current_realm()
+	var attack := 0.0
+	var defense := 0.0
+	var hp := 0.0
+	var names: PackedStringArray = PackedStringArray()
+	for skill_id in _session.state.learned_skill_ids:
+		var learned_skill := _session.adventure.skill_by_id(skill_id)
+		if learned_skill == null:
+			continue
+		attack += learned_skill.attack
+		defense += learned_skill.defense
+		hp += learned_skill.hp
+		names.append("%s（%s）" % [learned_skill.display_name, SkillRank.display_name(learned_skill.rank)])
+	if names.is_empty():
+		learned_label.text = "尚未参悟。行囊里的残页可参悟。"
 	else:
-		var names: PackedStringArray = PackedStringArray()
-		for skill_id in _session.state.learned_skill_ids:
-			var skill := _session.adventure.skill_by_id(skill_id)
-			if skill != null:
-				names.append("%s（%s）" % [skill.display_name, SkillRank.display_name(skill.rank)])
-		learned_label.text = "已参悟：%s" % "、".join(names)
-	var fingerprint := ",".join(_session.state.learned_skill_ids)
+		learned_label.text = "已学加成  攻+%s  防+%s  血+%s\n%s" % [
+			CultivationFormat.amount(attack),
+			CultivationFormat.amount(defense),
+			CultivationFormat.amount(hp),
+			"、".join(names),
+		]
+	var fingerprint := "%s|%s" % [",".join(_session.state.learned_skill_ids), realm.id if realm != null else ""]
 	if fingerprint == _skill_fingerprint and skill_list.get_child_count() > 0:
 		return
 	_skill_fingerprint = fingerprint
@@ -385,15 +376,26 @@ func _refresh_skills() -> void:
 		var row := Label.new()
 		row.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		var learned := _session.state.learned_skill_ids.has(skill.id)
-		var mark := "已学会" if learned else "未学"
-		row.text = "%s · %s · %s  攻+%.0f 防+%.0f 血+%.0f  需第 %d 阶境界" % [
+		var locked := realm != null and realm.order < skill.min_realm_order
+		var mark := "未入手"
+		if learned:
+			mark = "已学"
+			row.add_theme_color_override("font_color", MainTheme.JADE)
+		elif locked:
+			mark = "需第 %d 阶" % skill.min_realm_order
+			row.add_theme_color_override("font_color", MainTheme.MUTED)
+		elif _has_book_for(skill.id):
+			mark = "行囊有残页"
+			row.add_theme_color_override("font_color", MainTheme.IVORY)
+		else:
+			row.add_theme_color_override("font_color", MainTheme.MUTED)
+		row.text = "%s · %s · %s  攻+%s 防+%s 血+%s" % [
 			skill.display_name,
 			SkillRank.display_name(skill.rank),
 			mark,
-			skill.attack,
-			skill.defense,
-			skill.hp,
-			skill.min_realm_order,
+			CultivationFormat.amount(skill.attack),
+			CultivationFormat.amount(skill.defense),
+			CultivationFormat.amount(skill.hp),
 		]
 		skill_list.add_child(row)
 
@@ -408,6 +410,177 @@ func _refresh_settings() -> void:
 		bag_policy_button.text = "满包：跳过掉落"
 	volume_slider.set_value_no_signal(_session.state.settings.sound_volume)
 	volume_label.text = "音量 %d%%" % int(round(_session.state.settings.sound_volume * 100.0))
+
+
+func _install_chrome() -> void:
+	realm_label.reparent(chrome_row)
+	cultivation_label.reparent(chrome_row)
+	chrome_row.move_child(realm_label, 0)
+	chrome_row.move_child(cultivation_label, 1)
+	chrome_row.move_child(chrome_power, 2)
+	realm_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	cultivation_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	realm_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	cultivation_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	realm_label.add_theme_font_size_override("font_size", 34)
+	cultivation_label.add_theme_font_size_override("font_size", 26)
+	var settings_box := settings_page.get_node("SettingsMargin/SettingsBox") as VBoxContainer
+	if settings_box != null:
+		version_label.reparent(settings_box)
+		settings_box.move_child(version_label, 0)
+		version_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+
+
+func _refresh_chrome_power() -> void:
+	if _session == null or _session.state == null:
+		chrome_power.text = "战力 —"
+		return
+	var stats := _session.player_stats()
+	chrome_power.text = "战力 %s" % CultivationFormat.amount(stats.power())
+
+
+func _refresh_tabs() -> void:
+	var selected := {
+		PAGE_CULTIVATE: tab_cultivate,
+		PAGE_ADVENTURE: tab_adventure,
+		PAGE_BAG: tab_bag,
+		PAGE_SKILL: tab_skill,
+		PAGE_SETTINGS: tab_settings,
+	}
+	for page in selected.keys():
+		var tab: Button = selected[page]
+		if str(page) == _page:
+			tab.remove_theme_stylebox_override("normal")
+			tab.remove_theme_stylebox_override("hover")
+			tab.remove_theme_stylebox_override("pressed")
+			tab.add_theme_color_override("font_color", Color(0.12, 0.1, 0.06, 1))
+			tab.add_theme_color_override("font_hover_color", Color(0.12, 0.1, 0.06, 1))
+		else:
+			_style_secondary_button(tab)
+
+
+func _refresh_stage_list(stats: CombatStats) -> void:
+	if _session.adventure == null:
+		return
+	var fingerprint := "%s|%s|%.0f|%s" % [
+		_session.state.current_stage_id,
+		",".join(_session.state.unlocked_stage_ids),
+		stats.power(),
+		_session.state.realm_id,
+	]
+	if fingerprint == _stage_fingerprint and stage_list.get_child_count() > 0:
+		return
+	_stage_fingerprint = fingerprint
+	for child in stage_list.get_children():
+		child.queue_free()
+	for stage in _session.adventure.stages:
+		var reason := CombatRules.enter_reason(
+			_session.state,
+			_session.config,
+			stage,
+			stats,
+			true
+		)
+		var button := Button.new()
+		button.custom_minimum_size = Vector2(0, 56)
+		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		if stage.id == _session.state.current_stage_id:
+			button.text = "%s · 挂机中" % stage.display_name
+			button.disabled = true
+		elif reason.is_empty():
+			button.text = stage.display_name
+			var stage_id := stage.id
+			button.pressed.connect(func() -> void:
+				_show_hint(_session.select_stage(stage_id))
+			)
+		else:
+			button.text = "%s · %s" % [stage.display_name, reason]
+			button.disabled = true
+		_style_secondary_button(button)
+		if button.disabled:
+			button.add_theme_color_override("font_disabled_color", MainTheme.MUTED)
+		stage_list.add_child(button)
+
+
+func _make_bag_cell(stack: ItemStack) -> Control:
+	var item := _session.item_def(stack.item_id)
+	var button := Button.new()
+	button.custom_minimum_size = Vector2(0, 72)
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var extra := "×%d" % stack.count if stack.count > 1 else ""
+	var mark := ""
+	if stack.locked:
+		mark += "锁"
+	if _session.state.equipped.contains_uid(stack.uid):
+		mark += "穿"
+	var name := stack.item_id if item == null else item.display_name
+	if item != null and item.is_skill_book():
+		name = "%s残页" % item.display_name
+	button.text = "%s%s%s" % [name, extra, (" · " + mark) if not mark.is_empty() else ""]
+	if item != null:
+		button.add_theme_color_override("font_color", QualityId.color(item.quality))
+	if stack.uid == _selected_bag_uid:
+		button.add_theme_stylebox_override(
+			"normal",
+			MainTheme._box(Color(0.16, 0.18, 0.12, 1), MainTheme.GOLD, 2, 16, 0, 10, 10)
+		)
+	else:
+		_style_secondary_button(button)
+		if item != null:
+			button.add_theme_color_override("font_color", QualityId.color(item.quality))
+	var uid := stack.uid
+	button.pressed.connect(func() -> void:
+		_selected_bag_uid = uid
+		_bag_fingerprint = ""
+		_refresh_bag()
+	)
+	return button
+
+
+func _refresh_inspect() -> void:
+	for child in inspect_panel.get_children():
+		child.queue_free()
+	var hint := Label.new()
+	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	hint.add_theme_color_override("font_color", MainTheme.MUTED)
+	if _session.state.inventory.is_empty():
+		return
+	var stack := InventoryRules.find_stack(_session.state, _selected_bag_uid)
+	if stack == null:
+		hint.text = "点一件装备或残页，对照已穿再决定留下谁。"
+		inspect_panel.add_child(hint)
+		return
+	var compare := InventoryRules.inspect_text(
+		_session.state,
+		_session.config,
+		_session.adventure,
+		stack
+	)
+	var compare_label := Label.new()
+	compare_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	compare_label.add_theme_font_size_override("font_size", 18)
+	compare_label.text = compare if not compare.is_empty() else stack.item_id
+	inspect_panel.add_child(compare_label)
+	var item := _session.item_def(stack.item_id)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	if item != null and item.is_equipment():
+		row.add_child(_action_button("穿上", func() -> void: _show_hint(_session.equip_item(stack.uid))))
+		if _session.state.equipped.contains_uid(stack.uid):
+			row.add_child(_action_button("卸下", func() -> void: _session.unequip_slot(item.slot)))
+	if item != null and item.is_skill_book():
+		row.add_child(_action_button("参悟", func() -> void: _show_hint(_session.learn_skill_from(stack.uid))))
+	row.add_child(_action_button("上锁" if not stack.locked else "解锁", func() -> void: _session.toggle_lock(stack.uid)))
+	row.add_child(_action_button("丢弃", func() -> void: _show_hint(_session.discard_item(stack.uid))))
+	inspect_panel.add_child(row)
+
+
+func _has_book_for(skill_id: String) -> bool:
+	for stack in _session.state.inventory:
+		var item := _session.item_def(stack.item_id)
+		if item != null and item.skill_id == skill_id:
+			return true
+	return false
 
 
 func _action_button(text: String, callback: Callable) -> Button:

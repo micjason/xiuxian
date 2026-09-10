@@ -25,6 +25,12 @@ func test_project_adventure_table_is_complete() -> void:
 	assert_eq(config.starting_stage().id, "grove")
 	assert_eq(config.stages[7].id, "stele_terrace")
 	assert_true(config.stages[0].monsters.size() >= 5)
+	assert_almost_eq(config.loot_chance_scale, 0.2, 0.0001)
+	assert_almost_eq(config.stages[1].min_power, 32.0, 0.0001)
+	assert_almost_eq(config.stages[7].min_power, 480.0, 0.0001)
+	var gold_late := config.realm_stats("gold_core_late")
+	assert_not_null(gold_late)
+	assert_gt(gold_late.attack, 0.0)
 
 
 func test_invalid_schema_is_rejected() -> void:

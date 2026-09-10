@@ -4,24 +4,19 @@ set -eu
 # On an unlocked phone already running 0.1.4: settle offline, then optionally
 # clear data and walk the first three realms. Does not rebuild or clobber.
 
-ADB="/Volumes/kaixia/GodotDev/xiuxian/android/sdk/platform-tools/adb"
-PKG="com.micjason.xiuxian"
-ACTIVITY="com.godot.game.GodotApp"
+. /Volumes/kaixia/projects/xiuxian/tools/release/device_common.sh
 OUTDIR="/Volumes/kaixia/projects/xiuxian/builds/development/0.1.4"
 CLEAR="${CLEAR:-0}"
 REPORT="/Volumes/kaixia/projects/xiuxian/builds/development/0.1.4/playthrough_014.json"
 
-if ! "$ADB" devices | /usr/bin/awk 'NR>1 && $2=="device" {found=1} END {exit found?0:1}'; then
-	echo "No authorized Android device on this project's adb." >&2
-	"$ADB" devices -l
-	exit 1
-fi
+require_adb_device || exit 1
 
 mkdir -p "$OUTDIR"
 
 shot() {
 	name="$1"
 	path="$OUTDIR/$name"
+	require_unlocked_screen || exit $?
 	"$ADB" exec-out screencap -p > "$path"
 	size=$(/usr/bin/stat -f%z "$path")
 	echo "screenshot=$path size=$size"
@@ -29,21 +24,21 @@ shot() {
 		echo "Screenshot looks empty; unlock the phone and run this script again." >&2
 		exit 2
 	fi
+	require_game_screenshot "$path" || exit $?
 }
 
 map_tap() {
-	# Map a 1080x1920 point onto the device framebuffer, keeping aspect.
+	# Map a 1080x1920 point onto the running game window, keeping aspect.
 	vx="$1"
 	vy="$2"
-	size="$("$ADB" shell wm size | /usr/bin/tr -d '\r')"
-	dw=$(printf '%s\n' "$size" | /usr/bin/sed -n 's/.*: \([0-9]*\)x\([0-9]*\).*/\1/p' | /usr/bin/tail -1)
-	dh=$(printf '%s\n' "$size" | /usr/bin/sed -n 's/.*: \([0-9]*\)x\([0-9]*\).*/\2/p' | /usr/bin/tail -1)
-	python3 - "$dw" "$dh" "$vx" "$vy" <<'PY'
+	rect=$(game_window_rect)
+	/usr/bin/python3 - "$rect" "$vx" "$vy" <<'PY'
 import sys
-dw, dh, vx, vy = (float(x) for x in sys.argv[1:])
+x, y, dw, dh = (float(v) for v in sys.argv[1].split())
+vx, vy = (float(v) for v in sys.argv[2:])
 scale = min(dw / 1080.0, dh / 1920.0)
-ox = (dw - 1080.0 * scale) / 2.0
-oy = (dh - 1920.0 * scale) / 2.0
+ox = x + (dw - 1080.0 * scale) / 2.0
+oy = y + (dh - 1920.0 * scale) / 2.0
 print("%d %d" % (round(ox + vx * scale), round(oy + vy * scale)))
 PY
 }
@@ -56,7 +51,7 @@ tap_viewport() {
 
 button_center() {
 	if [ -f "$REPORT" ]; then
-		python3 - "$REPORT" <<'PY'
+		/usr/bin/python3 - "$REPORT" <<'PY'
 import json, sys
 report = json.load(open(sys.argv[1], encoding="utf-8"))
 rect = report.get("button_rect") or []
@@ -71,10 +66,8 @@ PY
 }
 
 wake() {
-	"$ADB" shell input keyevent KEYCODE_WAKEUP >/dev/null 2>&1 || true
-	"$ADB" shell input keyevent KEYCODE_MENU >/dev/null 2>&1 || true
-	# Swipe-up lock screens only; PIN/pattern still needs a person.
-	"$ADB" shell input swipe 540 2000 540 700 220 >/dev/null 2>&1 || true
+	wake_device
+	keep_screen_on
 }
 
 wait_game() {
@@ -93,7 +86,7 @@ wait_game() {
 
 start_game() {
 	wake
-	"$ADB" shell am start -n "$PKG/$ACTIVITY" >/dev/null
+	launch_game
 	wait_game
 }
 
@@ -101,7 +94,12 @@ wake
 
 if [ "$CLEAR" = "1" ]; then
 	echo "Clearing app data for a clean first-three-realms run."
-	"$ADB" shell pm clear "$PKG" >/dev/null
+	APK="${APK:-/Volumes/kaixia/projects/xiuxian/builds/development/0.1.4/xiuxian.apk}"
+	if ! "$ADB" shell pm clear "$PKG" >/dev/null 2>&1; then
+		echo "pm clear blocked; uninstalling and reinstalling the live APK."
+		"$ADB" uninstall "$PKG"
+		"$ADB" install "$APK"
+	fi
 fi
 
 "$ADB" shell am force-stop "$PKG" >/dev/null 2>&1 || true
@@ -118,16 +116,17 @@ set +e
 seed_code=$?
 set -e
 if [ "$seed_code" -ne 0 ]; then
-	echo "Seeded save unavailable (exit $seed_code); waiting 8s for a short offline settlement."
-	sleep 8
+	echo "Seeded save unavailable (exit $seed_code); waiting 12s for a short offline settlement."
+	sleep 12
 fi
 start_game
 shot "device_offline.png"
+# 主界面路径里没有「闭关」。弹窗 OCR 偶发把「闭关归来」认成近形字，所以多给几个离线文案。
+require_ocr_any "$OUTDIR/device_offline.png" "闭关" "归来" "获得修为" "结算时长" "精进" || exit 1
 
-# Dismiss the 闭关 dialog if it is up.
+# Short offline is a toast, not a modal. ENTER is enough; do not tap the
+# gold 突破境界 bar here or the 凡人 banner is gone before we screenshot it.
 "$ADB" shell input keyevent KEYCODE_ENTER >/dev/null 2>&1 || true
-sleep 1
-tap_viewport 540 1140
 sleep 1
 shot "device_after_offline.png"
 
@@ -135,26 +134,50 @@ if [ "$CLEAR" != "1" ]; then
 	echo "Offline reopen captured. Set CLEAR=1 to also walk the first three realms."
 	"$ADB" logcat -d -t 120 *:S godot:I Godot:I xiuxian:I \
 		> "$OUTDIR/device_playthrough_logcat.txt" 2>/dev/null || true
+	restore_screen_timeout
 	echo "device offline check finished."
 	exit 0
 fi
 
-center=$(button_center)
-bx=$(printf '%s' "$center" | /usr/bin/awk '{print $1}')
-by=$(printf '%s' "$center" | /usr/bin/awk '{print $2}')
-i=1
-for wait in 10 21 31; do
-	echo "waiting ${wait}s for breakthrough $i"
-	sleep "$wait"
-	tap_viewport "$bx" "$by"
-	sleep 1
-	shot "device_breakthrough_$i.png"
-	i=$((i + 1))
-done
+# 按钮「突破境界」和路径里的「炼气」一直在。横幅是「突破成功  凡人 → …」，
+# 简记是「突破成功：凡人 → …」。必须对上横幅空格，不能拿简记里的冒号充数。
+tap_until_banner() {
+	index="$1"
+	budget="$2"
+	shift 2
+	name="device_breakthrough_${index}.png"
+	source="$OUTDIR/device_after_offline.png"
+	if [ "$index" -gt 1 ]; then
+		prev=$((index - 1))
+		source="$OUTDIR/device_breakthrough_${prev}.png"
+	fi
+	elapsed=0
+	echo "tapping for breakthrough $index (budget ${budget}s, $*)"
+	while [ "$elapsed" -lt "$budget" ]; do
+		tap_gold_button "$source"
+		sleep 1
+		shot "$name"
+		source="$OUTDIR/$name"
+		if require_ocr_any "$OUTDIR/$name" "$@"; then
+			# 横幅约 3.6 秒后消失。等它灭掉，避免下一阶 OCR 吃到上一张残影。
+			sleep 4
+			return 0
+		fi
+		sleep 4
+		elapsed=$((elapsed + 5))
+	done
+	echo "Did not see banner ($*) on $name" >&2
+	return 1
+}
+
+tap_until_banner 1 25 "突破成功 凡人" "突破成功  凡人" || exit 1
+tap_until_banner 2 35 "突破成功 炼气初期" "突破成功  炼气初期" || exit 1
+tap_until_banner 3 45 "突破成功 炼气中期" "突破成功  炼气中期" || exit 1
 shot "device_journal.png"
+require_ocr_all "$OUTDIR/device_journal.png" "简记" "突破成功" || exit 1
 "$ADB" logcat -d -t 200 *:S godot:I Godot:I xiuxian:I \
 	> "$OUTDIR/device_playthrough_logcat.txt" 2>/dev/null || true
-python3 - "$OUTDIR" <<'PY'
+/usr/bin/python3 - "$OUTDIR" <<'PY'
 import json, os, sys, time
 out = sys.argv[1]
 shots = [
@@ -166,6 +189,11 @@ shots = [
     "device_breakthrough_3.png",
     "device_journal.png",
 ]
+ocr = {}
+for name in shots:
+    text_path = os.path.join(out, name.replace(".png", ".ocr.txt"))
+    if os.path.isfile(text_path):
+        ocr[name] = open(text_path, encoding="utf-8").read()
 report = {
     "ok": True,
     "cleared": os.environ.get("CLEAR", "0") == "1",
@@ -175,10 +203,12 @@ report = {
         for name in shots
         if os.path.isfile(os.path.join(out, name))
     },
+    "ocr": ocr,
 }
 open(os.path.join(out, "device_playthrough.json"), "w", encoding="utf-8").write(
     json.dumps(report, ensure_ascii=False, indent=2)
 )
 print("wrote %s/device_playthrough.json shots=%s" % (out, ",".join(report["screenshots"])))
 PY
+restore_screen_timeout
 echo "device first-loop playthrough finished."

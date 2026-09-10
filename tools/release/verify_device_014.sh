@@ -4,17 +4,11 @@ set -eu
 # After 0.1.4 is on the phone: check version, launch, screenshot.
 # Does not rebuild, upload, or clobber a Release.
 
-ADB="/Volumes/kaixia/GodotDev/xiuxian/android/sdk/platform-tools/adb"
-PKG="com.micjason.xiuxian"
-ACTIVITY="com.godot.game.GodotApp"
+. /Volumes/kaixia/projects/xiuxian/tools/release/device_common.sh
 OUTDIR="/Volumes/kaixia/projects/xiuxian/builds/development/0.1.4"
 SHOT="$OUTDIR/device_home.png"
 
-if ! "$ADB" devices | /usr/bin/awk 'NR>1 && $2=="device" {found=1} END {exit found?0:1}'; then
-	echo "No authorized Android device on this project's adb." >&2
-	"$ADB" devices -l
-	exit 1
-fi
+require_adb_device || exit 1
 
 DUMP="$("$ADB" shell dumpsys package "$PKG")"
 echo "$DUMP" | /usr/bin/egrep 'versionName=|versionCode=' | /usr/bin/head -8
@@ -32,10 +26,9 @@ if printf '%s\n' "$DUMP" | /usr/bin/grep -q 'CATEGORY_HOME'; then
 fi
 
 mkdir -p "$OUTDIR"
-"$ADB" shell input keyevent KEYCODE_WAKEUP >/dev/null 2>&1 || true
-"$ADB" shell input swipe 540 2000 540 700 220 >/dev/null 2>&1 || true
+require_unlocked_screen || exit $?
 "$ADB" shell am force-stop "$PKG" >/dev/null 2>&1 || true
-"$ADB" shell am start -n "$PKG/$ACTIVITY" >/dev/null
+launch_game
 i=0
 while [ "$i" -lt 20 ]; do
 	if "$ADB" shell pidof "$PKG" >/dev/null 2>&1; then
@@ -45,6 +38,7 @@ while [ "$i" -lt 20 ]; do
 	i=$((i + 1))
 done
 sleep 8
+require_unlocked_screen || exit $?
 "$ADB" exec-out screencap -p > "$SHOT"
 
 SIZE=$(/usr/bin/stat -f%z "$SHOT")
@@ -53,6 +47,8 @@ if [ "$SIZE" -lt 10000 ]; then
 	echo "Screenshot looks empty; unlock the phone and run this script again." >&2
 	exit 2
 fi
+require_game_screenshot "$SHOT" || exit $?
+require_ocr_any "$SHOT" "修仙" "修为" "凡人" "炼气" || exit 1
 
 UIXML="${TMPDIR:-/tmp}/xiuxian-device-ui.xml"
 if "$ADB" shell uiautomator dump /data/local/tmp/xiuxian-ui.xml >/dev/null 2>&1; then

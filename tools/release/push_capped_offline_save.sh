@@ -2,7 +2,10 @@
 set -eu
 
 # Write a checksum-valid 9-hour offline save and push it onto the phone.
-# Release APKs are usually not debuggable; if every path fails, the caller
+# Android user:// is the app-private files dir (usually files/saves/).
+# custom_user_dir_name only changes the desktop path; do not treat an
+# external Android/data write as success — Godot will not read it.
+# Release APKs are usually not debuggable; if run-as fails, the caller
 # should fall back to a short force-stop settlement.
 
 ADB="${ADB:-/Volumes/kaixia/GodotDev/xiuxian/android/sdk/platform-tools/adb}"
@@ -23,25 +26,16 @@ if [ ! -f "$SEED" ]; then
 fi
 
 "$ADB" shell am force-stop "$PKG" >/dev/null 2>&1 || true
-
-# Shared/scoped storage first; private app files via run-as if the build allows it.
-for dest in \
-	"/sdcard/Android/data/$PKG/files/saves/cultivation.json" \
-	"/storage/emulated/0/Android/data/$PKG/files/saves/cultivation.json"
-do
-	dir=$(printf '%s' "$dest" | /usr/bin/sed 's:/[^/]*$::')
-	if "$ADB" shell mkdir -p "$dir" >/dev/null 2>&1 \
-		&& "$ADB" push "$SEED" "$dest" >/dev/null; then
-		echo "pushed capped offline save to $dest"
-		exit 0
-	fi
-done
-
 "$ADB" push "$SEED" /data/local/tmp/xiuxian_cultivation.json >/dev/null
+
 if "$ADB" shell run-as "$PKG" sh -c 'mkdir -p files/saves && cp /data/local/tmp/xiuxian_cultivation.json files/saves/cultivation.json' >/dev/null 2>&1; then
 	echo "pushed capped offline save via run-as files/saves"
 	exit 0
 fi
+if "$ADB" shell run-as "$PKG" sh -c 'mkdir -p files/xiuxian/saves && cp /data/local/tmp/xiuxian_cultivation.json files/xiuxian/saves/cultivation.json' >/dev/null 2>&1; then
+	echo "pushed capped offline save via run-as files/xiuxian/saves"
+	exit 0
+fi
 
-echo "Could not write the app save directory; use a short offline wait instead." >&2
+echo "Could not write the app-private save directory; use a short offline wait instead." >&2
 exit 2

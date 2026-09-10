@@ -36,7 +36,7 @@ jsDelivr 对 `@main` 按分支缓存，最长约 12 小时，且不能可靠刷�
 - `@latest` 已走通：清单、签名、APK 哈希一致，安装包可下载。
 - `@main`（0.1.3 客户端）在 21:40 CST 已刷回可下载的 `0.1.4`：`apk_sha256` 前缀 `a68b9b5b`，asset `552742158`，`apk_http=200`，签名成对。本机按 0.1.3 路径完整下载后哈希一致。
 - 不要再 `--clobber` `v0.1.4` 的 `xiuxian.apk`（覆盖会换新 asset id，旧 id 变 404，`@main` 分支缓存可能再次指到死链）。
-- `0.1.3` 现在可以点检查更新。USB 备用路径仍是 `tools/release/install_local_apk.sh`；人不在电脑旁时用 `tools/release/wait_and_install_local_apk.sh`。二者都会先核对本机 APK 与 GitHub `main` 清单哈希一致。装完后先截一张保留存档的主界面（核 `0.1.4` / `versionCode` 5），再清空该包数据，写入顶 8 小时离线存档（写不进去则退回短离线），自动拍闭关弹窗并连破前三阶。只要截图、不要清档时执行 `CLEAR=0 tools/release/verify_device_playthrough_014.sh`。桌面闭环用 `tools/release/verify_desktop_014.sh`。
+- `0.1.3` 现在可以点检查更新。USB 备用路径仍是 `tools/release/install_local_apk.sh`；人不在电脑旁时用 `tools/release/wait_and_install_local_apk.sh`。二者都会先核对本机 APK 与 GitHub `main` 清单哈希一致。装完后先截一张保留存档的主界面（核 `0.1.4` / `versionCode` 5），再清空该包数据，尝试用 `run-as` 写入顶 8 小时离线存档（正式包通常写不进应用私有目录，不要把 `Android/data/...` 外部目录当成成功），写不进去则退回短离线，自动拍闭关弹窗并连破前三阶。真机 OCR 必须看到离线文案（闭关/归来/获得修为）和各阶横幅原文（`突破成功 凡人` / `炼气初期` / `炼气中期`），简记里还要有「突破成功」；只看到按钮「突破境界」或路径里的「炼气」不算过。只要截图、不要清档时执行 `CLEAR=0 tools/release/verify_device_playthrough_014.sh`。桌面闭环用 `tools/release/verify_desktop_014.sh`。
 - 发布前用 `tools/release/check_update_channel.sh` 确认 `jsdelivr-main matches github-main`。节流未结束时不要 purge。以后发更新用 `tools/release/publish_update_channel.sh`：通道预检失败会直接退出，并且不会 `--clobber` 已有 APK。
 
 ## 真机验收记录（2026-09-09）

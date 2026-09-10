@@ -1,7 +1,8 @@
 class_name SaveService
 extends RefCounted
 
-const SAVE_SCHEMA_VERSION := 1
+const SAVE_SCHEMA_VERSION := 2
+const LEGACY_SCHEMA_VERSION := 1
 const DEFAULT_PATH := "user://saves/cultivation.json"
 const DEFAULT_BACKUP_PATH := "user://saves/cultivation.bak.json"
 const DEFAULT_TEMP_PATH := "user://saves/cultivation.json.tmp"
@@ -46,13 +47,14 @@ func save_state(
 		if directory_error != OK:
 			return false
 
+	var payload := _payload_from_state(state)
 	var envelope := {
 		"schema_version": SAVE_SCHEMA_VERSION,
 		"app_version": app_version,
 		"content_version": content_version,
 		"saved_at_unix": saved_at_unix,
-		"payload": _payload_from_state(state),
-		"checksum": _checksum_values(state.cultivation, state.realm_id, state.last_settled_unix),
+		"payload": payload,
+		"checksum": _checksum_payload(payload),
 	}
 	var text := JSON.stringify(envelope)
 	if not _write_text(temp_path, text):
@@ -69,6 +71,12 @@ func save_state(
 	return FileAccess.file_exists(save_path)
 
 
+func export_text() -> String:
+	if FileAccess.file_exists(save_path):
+		return FileAccess.get_file_as_string(save_path)
+	return ""
+
+
 func _load_from_path(path: String) -> CultivationState:
 	if not FileAccess.file_exists(path):
 		return null
@@ -79,19 +87,28 @@ func _load_from_path(path: String) -> CultivationState:
 		return null
 
 	var envelope: Dictionary = parser.data
-	if int(envelope.get("schema_version", 0)) != SAVE_SCHEMA_VERSION:
-		return null
+	var schema := int(envelope.get("schema_version", 0))
 	var payload: Variant = envelope.get("payload", {})
 	if typeof(payload) != TYPE_DICTIONARY:
 		return null
 	var data: Dictionary = payload
+	if schema == LEGACY_SCHEMA_VERSION:
+		return _state_from_legacy(envelope, data)
+	if schema != SAVE_SCHEMA_VERSION:
+		return null
+	if str(envelope.get("checksum", "")) != _checksum_payload(data):
+		return null
+	return _state_from_payload(data)
+
+
+func _state_from_legacy(envelope: Dictionary, data: Dictionary) -> CultivationState:
 	var state := CultivationState.new()
 	state.cultivation = snappedf(float(data.get("cultivation", -1.0)), 0.000001)
 	state.realm_id = str(data.get("realm_id", "")).strip_edges()
 	state.last_settled_unix = int(data.get("last_settled_unix", -1))
 	if state.cultivation < 0.0 or state.realm_id.is_empty() or state.last_settled_unix < 0:
 		return null
-	if str(envelope.get("checksum", "")) != _checksum_values(
+	if str(envelope.get("checksum", "")) != _legacy_checksum(
 		state.cultivation,
 		state.realm_id,
 		state.last_settled_unix
@@ -100,20 +117,124 @@ func _load_from_path(path: String) -> CultivationState:
 	return state
 
 
+func _state_from_payload(data: Dictionary) -> CultivationState:
+	var state := CultivationState.new()
+	state.cultivation = snappedf(float(data.get("cultivation", -1.0)), 0.000001)
+	state.realm_id = str(data.get("realm_id", "")).strip_edges()
+	state.last_settled_unix = int(data.get("last_settled_unix", -1))
+	if state.cultivation < 0.0 or state.realm_id.is_empty() or state.last_settled_unix < 0:
+		return null
+	state.inventory_capacity = maxi(int(data.get("inventory_capacity", CultivationState.DEFAULT_CAPACITY)), 8)
+	state.next_item_uid = maxi(int(data.get("next_item_uid", 0)), 0)
+	state.current_stage_id = str(data.get("current_stage_id", CultivationState.DEFAULT_STAGE)).strip_edges()
+	state.loot_seed = maxi(int(data.get("loot_seed", 1)), 1)
+	state.combat_remainder = maxf(float(data.get("combat_remainder", 0.0)), 0.0)
+	state.equipped = EquipmentLoadout.from_dictionary(data.get("equipped", {}))
+	state.settings = GameSettings.from_dictionary(data.get("settings", {}))
+	state.learned_skill_ids = _string_array(data.get("learned_skill_ids", []))
+	state.unlocked_stage_ids = _string_array(data.get("unlocked_stage_ids", [CultivationState.DEFAULT_STAGE]))
+	state.battle_log = _string_array(data.get("battle_log", []))
+	var raw_items: Variant = data.get("inventory", [])
+	if typeof(raw_items) == TYPE_ARRAY:
+		for entry in raw_items:
+			if typeof(entry) != TYPE_DICTIONARY:
+				continue
+			var stack := ItemStack.from_dictionary(entry)
+			if stack != null:
+				state.inventory.append(stack)
+	if state.unlocked_stage_ids.is_empty():
+		state.unlocked_stage_ids = PackedStringArray([CultivationState.DEFAULT_STAGE])
+	if state.current_stage_id.is_empty():
+		state.current_stage_id = CultivationState.DEFAULT_STAGE
+	return state
+
+
 func _payload_from_state(state: CultivationState) -> Dictionary:
+	var items: Array = []
+	for stack in state.inventory:
+		items.append(stack.to_dictionary())
 	return {
 		"cultivation": state.cultivation,
 		"realm_id": state.realm_id,
 		"last_settled_unix": state.last_settled_unix,
+		"inventory": items,
+		"inventory_capacity": state.inventory_capacity,
+		"next_item_uid": state.next_item_uid,
+		"equipped": state.equipped.to_dictionary(),
+		"learned_skill_ids": Array(state.learned_skill_ids),
+		"current_stage_id": state.current_stage_id,
+		"unlocked_stage_ids": Array(state.unlocked_stage_ids),
+		"battle_log": Array(state.battle_log),
+		"loot_seed": state.loot_seed,
+		"combat_remainder": snappedf(state.combat_remainder, 0.000001),
+		"settings": state.settings.to_dictionary(),
 	}
 
 
-func _checksum_values(cultivation: float, realm_id: String, last_settled_unix: int) -> String:
+func _checksum_payload(payload: Dictionary) -> String:
+	var inventory: Array = payload.get("inventory", [])
+	var item_parts: PackedStringArray = PackedStringArray()
+	if typeof(inventory) == TYPE_ARRAY:
+		var copies: Array = inventory.duplicate()
+		copies.sort_custom(func(left: Variant, right: Variant) -> bool:
+			return int(left.get("uid", 0)) < int(right.get("uid", 0))
+		)
+		for entry in copies:
+			if typeof(entry) != TYPE_DICTIONARY:
+				continue
+			item_parts.append("%d:%s:%d:%s" % [
+				int(entry.get("uid", 0)),
+				str(entry.get("item_id", "")),
+				int(entry.get("count", 0)),
+				str(entry.get("locked", false)),
+			])
+	var equipped: Dictionary = payload.get("equipped", {})
+	var settings: Dictionary = payload.get("settings", {})
+	var text := "|".join(PackedStringArray([
+		"%.6f" % float(payload.get("cultivation", 0.0)),
+		str(payload.get("realm_id", "")),
+		str(int(payload.get("last_settled_unix", 0))),
+		str(int(payload.get("inventory_capacity", 0))),
+		str(int(payload.get("next_item_uid", 0))),
+		str(payload.get("current_stage_id", "")),
+		str(int(payload.get("loot_seed", 0))),
+		"%.6f" % float(payload.get("combat_remainder", 0.0)),
+		",".join(_string_array(payload.get("learned_skill_ids", []))),
+		",".join(_string_array(payload.get("unlocked_stage_ids", []))),
+		str(int(equipped.get("weapon", 0))),
+		str(int(equipped.get("helmet", 0))),
+		str(int(equipped.get("clothes", 0))),
+		str(int(equipped.get("shoes", 0))),
+		str(int(equipped.get("accessory", 0))),
+		str(settings.get("battle_log_enabled", true)),
+		str(settings.get("bag_full_policy", "")),
+		"%.2f" % float(settings.get("sound_volume", 1.0)),
+		";".join(item_parts),
+	]))
+	var context := HashingContext.new()
+	if context.start(HashingContext.HASH_SHA256) != OK:
+		return ""
+	context.update(text.to_utf8_buffer())
+	return context.finish().hex_encode()
+
+
+func _legacy_checksum(cultivation: float, realm_id: String, last_settled_unix: int) -> String:
 	var context := HashingContext.new()
 	if context.start(HashingContext.HASH_SHA256) != OK:
 		return ""
 	context.update(("%.6f|%s|%d" % [cultivation, realm_id, last_settled_unix]).to_utf8_buffer())
 	return context.finish().hex_encode()
+
+
+func _string_array(raw: Variant) -> PackedStringArray:
+	var values := PackedStringArray()
+	if typeof(raw) != TYPE_ARRAY:
+		return values
+	for item in raw:
+		var text := str(item).strip_edges()
+		if not text.is_empty():
+			values.append(text)
+	return values
 
 
 func _write_text(path: String, text: String) -> bool:

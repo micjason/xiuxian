@@ -58,3 +58,40 @@ func test_tampered_checksum_is_rejected() -> void:
 	writer.store_string(JSON.stringify(raw))
 	writer.close()
 	assert_null(service.load_state())
+
+
+func test_legacy_v1_save_migrates_cultivation_and_starts_grove() -> void:
+	var service := _service()
+	var state := _state(12.5)
+	var checksum_source := "%.6f|%s|%d" % [state.cultivation, state.realm_id, state.last_settled_unix]
+	var context := HashingContext.new()
+	assert_eq(context.start(HashingContext.HASH_SHA256), OK)
+	context.update(checksum_source.to_utf8_buffer())
+	var envelope := {
+		"schema_version": 1,
+		"app_version": "0.1.5",
+		"content_version": "0.1.5",
+		"saved_at_unix": 1_700_000_010,
+		"payload": {
+			"cultivation": state.cultivation,
+			"realm_id": state.realm_id,
+			"last_settled_unix": state.last_settled_unix,
+		},
+		"checksum": context.finish().hex_encode(),
+	}
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(service.save_path.get_base_dir()))
+	var writer := FileAccess.open(service.save_path, FileAccess.WRITE)
+	writer.store_string(JSON.stringify(envelope))
+	writer.close()
+	var loaded := service.load_state()
+	assert_not_null(loaded)
+	assert_eq(loaded.realm_id, "qi_early")
+	assert_almost_eq(loaded.cultivation, 12.5, 0.0001)
+	assert_eq(loaded.current_stage_id, "grove")
+	assert_eq(loaded.inventory.size(), 0)
+	assert_true(service.save_state(loaded, "0.1.6", "0.1.6", 1_700_000_020))
+	var again := service.load_state()
+	assert_not_null(again)
+	var saved: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(service.save_path))
+	assert_eq(int(saved.get("schema_version", 0)), 2)
+	assert_eq(again.current_stage_id, "grove")

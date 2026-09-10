@@ -31,6 +31,12 @@ const REQUIRED_UNIQUE_NODES := [
 	"StatsCard",
 	"JournalCard",
 	"UpdateCard",
+	"AdventurePage",
+	"BagPage",
+	"SkillPage",
+	"SettingsPage",
+	"TabBar",
+	"ChallengeButton",
 ]
 
 

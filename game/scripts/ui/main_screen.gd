@@ -2,6 +2,11 @@ extends Control
 
 const DATA_MARKER_PATH := "user://demo_install_marker.txt"
 const TICK_SECONDS := 1.0
+const PAGE_CULTIVATE := "cultivate"
+const PAGE_ADVENTURE := "adventure"
+const PAGE_BAG := "bag"
+const PAGE_SKILL := "skill"
+const PAGE_SETTINGS := "settings"
 
 @onready var title_label: Label = %Title
 @onready var version_label: Label = %VersionLabel
@@ -33,6 +38,35 @@ const TICK_SECONDS := 1.0
 @onready var stats_card: PanelContainer = %StatsCard
 @onready var journal_card: PanelContainer = %JournalCard
 @onready var update_card: PanelContainer = %UpdateCard
+@onready var adventure_page: PanelContainer = %AdventurePage
+@onready var bag_page: PanelContainer = %BagPage
+@onready var skill_page: PanelContainer = %SkillPage
+@onready var settings_page: PanelContainer = %SettingsPage
+@onready var power_label: Label = %PowerLabel
+@onready var stage_label: Label = %StageLabel
+@onready var monster_label: Label = %MonsterLabel
+@onready var challenge_button: Button = %ChallengeButton
+@onready var stage_hint: Label = %StageHint
+@onready var loot_summary_label: Label = %LootSummaryLabel
+@onready var battle_log_label: Label = %BattleLogLabel
+@onready var equip_summary: Label = %EquipSummary
+@onready var bag_count_label: Label = %BagCountLabel
+@onready var bag_list: VBoxContainer = %BagList
+@onready var learned_label: Label = %LearnedLabel
+@onready var skill_list: VBoxContainer = %SkillList
+@onready var battle_log_check: CheckButton = %BattleLogCheck
+@onready var bag_policy_button: Button = %BagPolicyButton
+@onready var volume_label: Label = %VolumeLabel
+@onready var volume_slider: HSlider = %VolumeSlider
+@onready var export_button: Button = %ExportButton
+@onready var export_label: Label = %ExportLabel
+@onready var tab_cultivate: Button = %TabCultivate
+@onready var tab_adventure: Button = %TabAdventure
+@onready var tab_bag: Button = %TabBag
+@onready var tab_skill: Button = %TabSkill
+@onready var tab_settings: Button = %TabSettings
+@onready var hint_label: Label = $Margin/Content/Hint
+@onready var atmosphere: Control = $Margin/Content/Atmosphere
 
 var _session: CultivationSession
 var _tick: Timer
@@ -40,6 +74,9 @@ var _banner_tween: Tween
 var _ready_pulse: Tween
 var _banner_generation := 0
 var _update_check_pending := true
+var _page := PAGE_CULTIVATE
+var _bag_fingerprint := ""
+var _skill_fingerprint := ""
 
 
 func _ready() -> void:
@@ -51,19 +88,28 @@ func _ready() -> void:
 	stats_card.add_theme_stylebox_override("panel", MainTheme.inner_panel())
 	journal_card.add_theme_stylebox_override("panel", MainTheme.inner_panel())
 	update_card.add_theme_stylebox_override("panel", MainTheme.footer_panel())
+	adventure_page.add_theme_stylebox_override("panel", MainTheme.hero_panel())
+	bag_page.add_theme_stylebox_override("panel", MainTheme.hero_panel())
+	skill_page.add_theme_stylebox_override("panel", MainTheme.hero_panel())
+	settings_page.add_theme_stylebox_override("panel", MainTheme.hero_panel())
 	seal_ring.add_theme_stylebox_override("panel", MainTheme.seal_ring())
 	seal_inner.add_theme_stylebox_override("panel", MainTheme.seal_inner())
 	_style_secondary_button(check_button)
 	_style_secondary_button(install_button)
+	_style_secondary_button(bag_policy_button)
+	_style_secondary_button(export_button)
+	for tab in [tab_cultivate, tab_adventure, tab_bag, tab_skill, tab_settings]:
+		_style_secondary_button(tab)
 	download_progress.visible = false
 	status_label.visible = false
 
 	_session = CultivationSession.new()
-	_session.state_changed.connect(_refresh_cultivation)
+	_session.state_changed.connect(_refresh_all)
 	_session.offline_settled.connect(_on_offline_settled)
 	_session.breakthrough_succeeded.connect(_on_breakthrough_succeeded)
 	if not _session.start():
 		status_label.text = "修炼配置读取失败。"
+		status_label.visible = true
 		return
 
 	_tick = Timer.new()
@@ -74,6 +120,20 @@ func _ready() -> void:
 	tree_exiting.connect(_session.tick_online)
 
 	breakthrough_button.pressed.connect(_on_breakthrough_pressed)
+	challenge_button.pressed.connect(_on_challenge_pressed)
+	tab_cultivate.pressed.connect(func() -> void: _show_page(PAGE_CULTIVATE))
+	tab_adventure.pressed.connect(func() -> void: _show_page(PAGE_ADVENTURE))
+	tab_bag.pressed.connect(func() -> void: _show_page(PAGE_BAG))
+	tab_skill.pressed.connect(func() -> void: _show_page(PAGE_SKILL))
+	tab_settings.pressed.connect(func() -> void: _show_page(PAGE_SETTINGS))
+	battle_log_check.toggled.connect(func(enabled: bool) -> void:
+		_session.set_battle_log_enabled(enabled)
+	)
+	bag_policy_button.pressed.connect(_on_bag_policy_pressed)
+	volume_slider.value_changed.connect(func(value: float) -> void:
+		_session.set_sound_volume(value)
+	)
+	export_button.pressed.connect(_on_export_pressed)
 	check_button.pressed.connect(update_service.check_for_update)
 	install_button.pressed.connect(update_service.install_downloaded_update)
 	update_dialog.confirmed.connect(update_service.download_update)
@@ -95,12 +155,40 @@ func _ready() -> void:
 		realm_label.pivot_offset = realm_label.size * 0.5
 	)
 	_start_seal_pulse()
-	_refresh_cultivation()
+	_show_page(PAGE_CULTIVATE)
+	_refresh_all()
 	offline_dialog.visibility_changed.connect(func() -> void:
 		if not offline_dialog.visible:
 			_maybe_check_update()
 	)
 	get_tree().create_timer(1.2).timeout.connect(_maybe_check_update)
+
+
+func _show_page(page: String) -> void:
+	_page = page
+	var cultivate := page == PAGE_CULTIVATE
+	cultivation_card.visible = cultivate
+	journal_card.visible = cultivate
+	atmosphere.visible = cultivate
+	hint_label.visible = cultivate
+	adventure_page.visible = page == PAGE_ADVENTURE
+	bag_page.visible = page == PAGE_BAG
+	skill_page.visible = page == PAGE_SKILL
+	settings_page.visible = page == PAGE_SETTINGS
+	update_card.visible = page == PAGE_SETTINGS
+	_refresh_all()
+
+
+func _refresh_all() -> void:
+	_refresh_cultivation()
+	if _page == PAGE_ADVENTURE:
+		_refresh_adventure()
+	elif _page == PAGE_BAG:
+		_refresh_bag()
+	elif _page == PAGE_SKILL:
+		_refresh_skills()
+	elif _page == PAGE_SETTINGS:
+		_refresh_settings()
 
 
 func _refresh_cultivation() -> void:
@@ -137,6 +225,230 @@ func _refresh_cultivation() -> void:
 		_set_ready_pulse(can_break)
 
 
+func _refresh_adventure() -> void:
+	if _session.state == null:
+		return
+	var stats := _session.player_stats()
+	power_label.text = "战力 %.0f  ·  攻 %.0f  防 %.0f  血 %.0f" % [
+		stats.power(),
+		stats.attack,
+		stats.defense,
+		stats.hp,
+	]
+	var stage := _session.current_stage()
+	if stage == null:
+		stage_label.text = "未选定关卡"
+		monster_label.text = ""
+		challenge_button.disabled = true
+		return
+	stage_label.text = "正在挂机：%s" % stage.display_name
+	var names: PackedStringArray = PackedStringArray()
+	for monster in stage.monsters:
+		names.append(monster.display_name)
+	monster_label.text = "出没：%s" % "、".join(names)
+	var nxt := _session.next_stage()
+	if nxt == null:
+		challenge_button.text = "已至最深关卡"
+		challenge_button.disabled = true
+		stage_hint.text = "继续在此关收集更高品质装备。"
+	else:
+		challenge_button.disabled = false
+		challenge_button.text = "挑战 %s" % nxt.display_name
+		if _session.can_challenge_next():
+			stage_hint.text = "战力与境界已足，可挑战下一关。"
+		else:
+			stage_hint.text = CombatRules.enter_reason(
+				_session.state,
+				_session.config,
+				nxt,
+				stats,
+				false
+			)
+	if _session.last_combat_result != null and not _session.last_combat_result.loot_names.is_empty():
+		loot_summary_label.text = "最近战利品：%s" % "、".join(_session.last_combat_result.loot_names)
+	else:
+		loot_summary_label.text = "最近战利品：尚无。挂机后会入行囊。"
+	if _session.state.battle_log.is_empty():
+		battle_log_label.text = "静待交手。挂机时会在此留下斩杀与掉落。"
+	else:
+		var start := maxi(_session.state.battle_log.size() - 12, 0)
+		var slice := _session.state.battle_log.slice(start)
+		battle_log_label.text = "\n".join(slice)
+
+
+func _refresh_bag() -> void:
+	if _session.state == null:
+		return
+	var lines: PackedStringArray = PackedStringArray()
+	for slot in EquipSlot.ORDER:
+		var uid := _session.state.equipped.uid_for(slot)
+		var stack := InventoryRules.find_stack(_session.state, uid)
+		var item := _session.item_def(stack.item_id) if stack != null else null
+		if item == null:
+			lines.append("%s：空" % EquipSlot.display_name(slot))
+		else:
+			lines.append("%s：%s（%s）" % [
+				EquipSlot.display_name(slot),
+				item.display_name,
+				QualityId.display_name(item.quality),
+			])
+	equip_summary.text = "\n".join(lines)
+	bag_count_label.text = "格数 %d / %d" % [
+		_session.state.inventory.size(),
+		_session.state.inventory_capacity,
+	]
+	var fingerprint := "%d|%d|%s|%d" % [
+		_session.state.next_item_uid,
+		_session.state.inventory.size(),
+		JSON.stringify(_session.state.equipped.to_dictionary()),
+		_session.state.learned_skill_ids.size(),
+	]
+	if fingerprint == _bag_fingerprint and bag_list.get_child_count() > 0:
+		return
+	_bag_fingerprint = fingerprint
+	for child in bag_list.get_children():
+		child.queue_free()
+	if _session.state.inventory.is_empty():
+		var empty := Label.new()
+		empty.text = "行囊空空。去历练挂机，掉落会回到这里。"
+		empty.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		bag_list.add_child(empty)
+		return
+	for stack in _session.state.inventory:
+		bag_list.add_child(_make_bag_row(stack))
+
+
+func _make_bag_row(stack: ItemStack) -> Control:
+	var item := _session.item_def(stack.item_id)
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 4)
+	var title := Label.new()
+	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	if item == null:
+		title.text = stack.item_id
+	else:
+		title.add_theme_color_override("font_color", QualityId.color(item.quality))
+		var extra := " ×%d" % stack.count if stack.count > 1 else ""
+		var lock := " · 已锁" if stack.locked else ""
+		if item.is_equipment():
+			title.text = "%s · %s · %s  攻%.0f 防%.0f 血%.0f%s%s" % [
+				item.display_name,
+				QualityId.display_name(item.quality),
+				EquipSlot.display_name(item.slot),
+				item.attack,
+				item.defense,
+				item.hp,
+				extra,
+				lock,
+			]
+		else:
+			title.text = "%s · %s残页%s%s" % [
+				item.display_name,
+				QualityId.display_name(item.quality),
+				extra,
+				lock,
+			]
+	box.add_child(title)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	if item != null and item.is_equipment():
+		row.add_child(_action_button("穿戴", func() -> void: _show_hint(_session.equip_item(stack.uid))))
+		if _session.state.equipped.contains_uid(stack.uid):
+			row.add_child(_action_button("卸下", func() -> void: _session.unequip_slot(item.slot)))
+	if item != null and item.is_skill_book():
+		row.add_child(_action_button("参悟", func() -> void: _show_hint(_session.learn_skill_from(stack.uid))))
+	row.add_child(_action_button("上锁" if not stack.locked else "解锁", func() -> void: _session.toggle_lock(stack.uid)))
+	row.add_child(_action_button("丢弃", func() -> void: _show_hint(_session.discard_item(stack.uid))))
+	box.add_child(row)
+	return box
+
+
+func _refresh_skills() -> void:
+	if _session.state == null or _session.adventure == null:
+		return
+	if _session.state.learned_skill_ids.is_empty():
+		learned_label.text = "尚未参悟功法。行囊里的残页可在此或行囊中学习。"
+	else:
+		var names: PackedStringArray = PackedStringArray()
+		for skill_id in _session.state.learned_skill_ids:
+			var skill := _session.adventure.skill_by_id(skill_id)
+			if skill != null:
+				names.append("%s（%s）" % [skill.display_name, SkillRank.display_name(skill.rank)])
+		learned_label.text = "已参悟：%s" % "、".join(names)
+	var fingerprint := ",".join(_session.state.learned_skill_ids)
+	if fingerprint == _skill_fingerprint and skill_list.get_child_count() > 0:
+		return
+	_skill_fingerprint = fingerprint
+	for child in skill_list.get_children():
+		child.queue_free()
+	for skill in _session.adventure.skills:
+		var row := Label.new()
+		row.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		var learned := _session.state.learned_skill_ids.has(skill.id)
+		var mark := "已学会" if learned else "未学"
+		row.text = "%s · %s · %s  攻+%.0f 防+%.0f 血+%.0f  需第 %d 阶境界" % [
+			skill.display_name,
+			SkillRank.display_name(skill.rank),
+			mark,
+			skill.attack,
+			skill.defense,
+			skill.hp,
+			skill.min_realm_order,
+		]
+		skill_list.add_child(row)
+
+
+func _refresh_settings() -> void:
+	if _session.state == null:
+		return
+	battle_log_check.set_pressed_no_signal(_session.state.settings.battle_log_enabled)
+	if _session.state.settings.bag_full_policy == GameSettings.POLICY_DISCARD_LOWEST:
+		bag_policy_button.text = "满包：丢掉最低品质"
+	else:
+		bag_policy_button.text = "满包：跳过掉落"
+	volume_slider.set_value_no_signal(_session.state.settings.sound_volume)
+	volume_label.text = "音量 %d%%" % int(round(_session.state.settings.sound_volume * 100.0))
+
+
+func _action_button(text: String, callback: Callable) -> Button:
+	var button := Button.new()
+	button.text = text
+	button.custom_minimum_size = Vector2(0, 56)
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_style_secondary_button(button)
+	button.pressed.connect(callback)
+	return button
+
+
+func _show_hint(message: String) -> void:
+	if message.is_empty():
+		return
+	stage_hint.text = message
+	export_label.text = message
+
+
+func _on_challenge_pressed() -> void:
+	var reason := _session.challenge_next()
+	if not reason.is_empty():
+		stage_hint.text = reason
+
+
+func _on_bag_policy_pressed() -> void:
+	if _session.state.settings.bag_full_policy == GameSettings.POLICY_SKIP:
+		_session.set_bag_full_policy(GameSettings.POLICY_DISCARD_LOWEST)
+	else:
+		_session.set_bag_full_policy(GameSettings.POLICY_SKIP)
+
+
+func _on_export_pressed() -> void:
+	var text := _session.export_save_text()
+	if text.is_empty():
+		export_label.text = "还没有可导出的存档。"
+		return
+	export_label.text = "已读取本地存档，共 %d 字。路径：user://saves/cultivation.json" % text.length()
+	DisplayServer.clipboard_set(text)
+
+
 func _on_breakthrough_pressed() -> void:
 	_session.try_breakthrough()
 
@@ -146,7 +458,7 @@ func _on_breakthrough_succeeded(from_name: String, to_name: String, new_rate: fl
 	breakthrough_banner.visible = true
 	offline_label.text = ""
 	_play_breakthrough_flash()
-	_refresh_cultivation()
+	_refresh_all()
 	_banner_generation += 1
 	var generation := _banner_generation
 	get_tree().create_timer(3.6).timeout.connect(func() -> void:
@@ -206,11 +518,11 @@ func _on_offline_settled(result: SettlementResult) -> void:
 	offline_label.text = OfflineCopy.banner(result)
 	var message := OfflineCopy.dialog(result, _session.config.offline_cap_seconds)
 	if message.is_empty():
-		_refresh_cultivation()
+		_refresh_all()
 		return
 	offline_dialog.dialog_text = message
-	offline_dialog.popup_centered(Vector2i(780, 460))
-	_refresh_cultivation()
+	offline_dialog.popup_centered(Vector2i(780, 520))
+	_refresh_all()
 
 
 func _maybe_check_update() -> void:

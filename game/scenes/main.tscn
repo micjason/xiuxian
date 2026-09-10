@@ -67,7 +67,7 @@ anchor_bottom = 1.0
 offset_left = 52.0
 offset_top = 72.0
 offset_right = -52.0
-offset_bottom = -44.0
+offset_bottom = -128.0
 grow_horizontal = 2
 grow_vertical = 2
 
@@ -98,7 +98,7 @@ mouse_filter = 2
 layout_mode = 2
 theme_override_colors/font_color = Color(0.86, 0.74, 0.44, 0.88)
 theme_override_font_sizes/font_size = 24
-text = "静心吐纳 · 与时俱进"
+text = "吐纳与历练同行"
 horizontal_alignment = 1
 
 [node name="UpgradeBadge" type="Label" parent="Margin/Content/Header"]
@@ -397,7 +397,7 @@ mouse_filter = 2
 layout_mode = 2
 theme_override_colors/font_color = Color(0.48, 0.54, 0.52, 1)
 theme_override_font_sizes/font_size = 18
-text = "修为随时间增长。离开后再打开，按离线时长补发一次，最多 8 小时。"
+text = "修为与历练同时挂机。离开后再打开只结算一次，最多 8 小时。"
 horizontal_alignment = 1
 autowrap_mode = 2
 
@@ -459,6 +459,290 @@ layout_mode = 2
 size_flags_horizontal = 3
 theme_override_font_sizes/font_size = 22
 text = "继续安装"
+
+[node name="AdventurePage" type="PanelContainer" parent="Margin/Content"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="AdventureMargin" type="MarginContainer" parent="Margin/Content/AdventurePage"]
+layout_mode = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 16
+
+[node name="AdventureBox" type="VBoxContainer" parent="Margin/Content/AdventurePage/AdventureMargin"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="AdventureTitle" type="Label" parent="Margin/Content/AdventurePage/AdventureMargin/AdventureBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.86, 0.74, 0.44, 1)
+theme_override_font_sizes/font_size = 28
+text = "历练"
+horizontal_alignment = 1
+
+[node name="PowerLabel" type="Label" parent="Margin/Content/AdventurePage/AdventureMargin/AdventureBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "战力 —"
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="StageLabel" type="Label" parent="Margin/Content/AdventurePage/AdventureMargin/AdventureBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "当前关卡"
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="MonsterLabel" type="Label" parent="Margin/Content/AdventurePage/AdventureMargin/AdventureBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "怪物"
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="ChallengeButton" type="Button" parent="Margin/Content/AdventurePage/AdventureMargin/AdventureBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 80)
+layout_mode = 2
+theme_override_font_sizes/font_size = 28
+text = "挑战下一关"
+
+[node name="StageHint" type="Label" parent="Margin/Content/AdventurePage/AdventureMargin/AdventureBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.86, 0.74, 0.44, 0.9)
+theme_override_font_sizes/font_size = 20
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="LootSummaryLabel" type="Label" parent="Margin/Content/AdventurePage/AdventureMargin/AdventureBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "最近战利品：无"
+autowrap_mode = 3
+
+[node name="BattleLogLabel" type="Label" parent="Margin/Content/AdventurePage/AdventureMargin/AdventureBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_font_sizes/font_size = 20
+text = "战斗记录"
+autowrap_mode = 3
+
+[node name="BagPage" type="PanelContainer" parent="Margin/Content"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="BagMargin" type="MarginContainer" parent="Margin/Content/BagPage"]
+layout_mode = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 12
+
+[node name="BagBox" type="VBoxContainer" parent="Margin/Content/BagPage/BagMargin"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="BagTitle" type="Label" parent="Margin/Content/BagPage/BagMargin/BagBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.86, 0.74, 0.44, 1)
+theme_override_font_sizes/font_size = 28
+text = "行囊"
+horizontal_alignment = 1
+
+[node name="EquipSummary" type="Label" parent="Margin/Content/BagPage/BagMargin/BagBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "穿戴"
+autowrap_mode = 3
+
+[node name="BagCountLabel" type="Label" parent="Margin/Content/BagPage/BagMargin/BagBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "0/36"
+
+[node name="BagScroll" type="ScrollContainer" parent="Margin/Content/BagPage/BagMargin/BagBox"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="BagList" type="VBoxContainer" parent="Margin/Content/BagPage/BagMargin/BagBox/BagScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="SkillPage" type="PanelContainer" parent="Margin/Content"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="SkillMargin" type="MarginContainer" parent="Margin/Content/SkillPage"]
+layout_mode = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 12
+
+[node name="SkillBox" type="VBoxContainer" parent="Margin/Content/SkillPage/SkillMargin"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="SkillTitle" type="Label" parent="Margin/Content/SkillPage/SkillMargin/SkillBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.86, 0.74, 0.44, 1)
+theme_override_font_sizes/font_size = 28
+text = "功法"
+horizontal_alignment = 1
+
+[node name="LearnedLabel" type="Label" parent="Margin/Content/SkillPage/SkillMargin/SkillBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "已参悟"
+autowrap_mode = 3
+
+[node name="SkillScroll" type="ScrollContainer" parent="Margin/Content/SkillPage/SkillMargin/SkillBox"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="SkillList" type="VBoxContainer" parent="Margin/Content/SkillPage/SkillMargin/SkillBox/SkillScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="SettingsPage" type="PanelContainer" parent="Margin/Content"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="SettingsMargin" type="MarginContainer" parent="Margin/Content/SettingsPage"]
+layout_mode = 2
+theme_override_constants/margin_left = 18
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_right = 18
+theme_override_constants/margin_bottom = 14
+
+[node name="SettingsBox" type="VBoxContainer" parent="Margin/Content/SettingsPage/SettingsMargin"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="SettingsTitle" type="Label" parent="Margin/Content/SettingsPage/SettingsMargin/SettingsBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.86, 0.74, 0.44, 1)
+theme_override_font_sizes/font_size = 28
+text = "设置"
+horizontal_alignment = 1
+
+[node name="BattleLogCheck" type="CheckButton" parent="Margin/Content/SettingsPage/SettingsMargin/SettingsBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "显示战斗记录"
+
+[node name="BagPolicyButton" type="Button" parent="Margin/Content/SettingsPage/SettingsMargin/SettingsBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 72)
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "满包：跳过掉落"
+
+[node name="VolumeLabel" type="Label" parent="Margin/Content/SettingsPage/SettingsMargin/SettingsBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "音量 100%"
+
+[node name="VolumeSlider" type="HSlider" parent="Margin/Content/SettingsPage/SettingsMargin/SettingsBox"]
+unique_name_in_owner = true
+layout_mode = 2
+max_value = 1.0
+step = 0.05
+value = 1.0
+
+[node name="ExportButton" type="Button" parent="Margin/Content/SettingsPage/SettingsMargin/SettingsBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 64)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "导出存档文本"
+
+[node name="ExportLabel" type="Label" parent="Margin/Content/SettingsPage/SettingsMargin/SettingsBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+autowrap_mode = 3
+
+[node name="TabBar" type="HBoxContainer" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 16.0
+offset_top = -116.0
+offset_right = -16.0
+offset_bottom = -16.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_constants/separation = 8
+
+[node name="TabCultivate" type="Button" parent="TabBar"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 88)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 22
+text = "修炼"
+
+[node name="TabAdventure" type="Button" parent="TabBar"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 88)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 22
+text = "历练"
+
+[node name="TabBag" type="Button" parent="TabBar"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 88)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 22
+text = "行囊"
+
+[node name="TabSkill" type="Button" parent="TabBar"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 88)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 22
+text = "功法"
+
+[node name="TabSettings" type="Button" parent="TabBar"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 88)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 22
+text = "设置"
 
 [node name="Flash" type="ColorRect" parent="."]
 unique_name_in_owner = true

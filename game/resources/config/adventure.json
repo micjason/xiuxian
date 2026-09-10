@@ -1,0 +1,2064 @@
+{
+  "schema_version": 1,
+  "inventory_capacity": 36,
+  "respawn_seconds": 0.5,
+  "realm_bases": {
+    "mortal": {
+      "attack": 10,
+      "defense": 6,
+      "hp": 50,
+      "interval": 1.5
+    },
+    "qi_early": {
+      "attack": 16,
+      "defense": 10,
+      "hp": 70,
+      "interval": 1.45
+    },
+    "qi_mid": {
+      "attack": 24,
+      "defense": 15,
+      "hp": 95,
+      "interval": 1.4
+    },
+    "qi_late": {
+      "attack": 36,
+      "defense": 22,
+      "hp": 130,
+      "interval": 1.35
+    },
+    "qi_peak": {
+      "attack": 54,
+      "defense": 34,
+      "hp": 180,
+      "interval": 1.3
+    },
+    "foundation_early": {
+      "attack": 80,
+      "defense": 50,
+      "hp": 250,
+      "interval": 1.25
+    },
+    "foundation_mid": {
+      "attack": 120,
+      "defense": 75,
+      "hp": 340,
+      "interval": 1.2
+    },
+    "foundation_late": {
+      "attack": 180,
+      "defense": 110,
+      "hp": 460,
+      "interval": 1.15
+    }
+  },
+  "items": [
+    {
+      "id": "sword_0",
+      "display_name": "削木剑",
+      "kind": "equipment",
+      "quality": "white",
+      "slot": "weapon",
+      "skill_id": "",
+      "attack": 5.0,
+      "defense": 0.6,
+      "hp": 0.8,
+      "min_realm_order": 0,
+      "stackable": false
+    },
+    {
+      "id": "helm_0",
+      "display_name": "藤盔",
+      "kind": "equipment",
+      "quality": "white",
+      "slot": "helmet",
+      "skill_id": "",
+      "attack": 1.0,
+      "defense": 2.8,
+      "hp": 4.8,
+      "min_realm_order": 0,
+      "stackable": false
+    },
+    {
+      "id": "robe_0",
+      "display_name": "粗布衣",
+      "kind": "equipment",
+      "quality": "white",
+      "slot": "clothes",
+      "skill_id": "",
+      "attack": 1.2,
+      "defense": 3.6,
+      "hp": 8.0,
+      "min_realm_order": 0,
+      "stackable": false
+    },
+    {
+      "id": "boots_0",
+      "display_name": "旧布鞋",
+      "kind": "equipment",
+      "quality": "white",
+      "slot": "shoes",
+      "skill_id": "",
+      "attack": 0.8,
+      "defense": 1.8,
+      "hp": 3.2,
+      "min_realm_order": 0,
+      "stackable": false
+    },
+    {
+      "id": "jade_0",
+      "display_name": "青石坠",
+      "kind": "equipment",
+      "quality": "white",
+      "slot": "accessory",
+      "skill_id": "",
+      "attack": 2.2,
+      "defense": 1.4,
+      "hp": 4.0,
+      "min_realm_order": 0,
+      "stackable": false
+    },
+    {
+      "id": "sword_1",
+      "display_name": "猎骨刀",
+      "kind": "equipment",
+      "quality": "white",
+      "slot": "weapon",
+      "skill_id": "",
+      "attack": 7.0,
+      "defense": 0.8,
+      "hp": 1.0,
+      "min_realm_order": 1,
+      "stackable": false
+    },
+    {
+      "id": "helm_1",
+      "display_name": "皮盔",
+      "kind": "equipment",
+      "quality": "white",
+      "slot": "helmet",
+      "skill_id": "",
+      "attack": 1.4,
+      "defense": 3.5,
+      "hp": 6.0,
+      "min_realm_order": 1,
+      "stackable": false
+    },
+    {
+      "id": "robe_1",
+      "display_name": "兽皮甲",
+      "kind": "equipment",
+      "quality": "white",
+      "slot": "clothes",
+      "skill_id": "",
+      "attack": 1.8,
+      "defense": 4.5,
+      "hp": 10.0,
+      "min_realm_order": 1,
+      "stackable": false
+    },
+    {
+      "id": "boots_1",
+      "display_name": "山行靴",
+      "kind": "equipment",
+      "quality": "white",
+      "slot": "shoes",
+      "skill_id": "",
+      "attack": 1.1,
+      "defense": 2.2,
+      "hp": 4.0,
+      "min_realm_order": 1,
+      "stackable": false
+    },
+    {
+      "id": "jade_1",
+      "display_name": "兽牙坠",
+      "kind": "equipment",
+      "quality": "white",
+      "slot": "accessory",
+      "skill_id": "",
+      "attack": 3.1,
+      "defense": 1.8,
+      "hp": 5.0,
+      "min_realm_order": 1,
+      "stackable": false
+    },
+    {
+      "id": "sword_2",
+      "display_name": "青石剑",
+      "kind": "equipment",
+      "quality": "blue",
+      "slot": "weapon",
+      "skill_id": "",
+      "attack": 12.0,
+      "defense": 1.3,
+      "hp": 1.8,
+      "min_realm_order": 2,
+      "stackable": false
+    },
+    {
+      "id": "helm_2",
+      "display_name": "石纹盔",
+      "kind": "equipment",
+      "quality": "blue",
+      "slot": "helmet",
+      "skill_id": "",
+      "attack": 2.4,
+      "defense": 6.3,
+      "hp": 10.8,
+      "min_realm_order": 2,
+      "stackable": false
+    },
+    {
+      "id": "robe_2",
+      "display_name": "涧蓝衣",
+      "kind": "equipment",
+      "quality": "blue",
+      "slot": "clothes",
+      "skill_id": "",
+      "attack": 3.0,
+      "defense": 8.1,
+      "hp": 18.0,
+      "min_realm_order": 2,
+      "stackable": false
+    },
+    {
+      "id": "boots_2",
+      "display_name": "湿岩靴",
+      "kind": "equipment",
+      "quality": "blue",
+      "slot": "shoes",
+      "skill_id": "",
+      "attack": 1.8,
+      "defense": 4.0,
+      "hp": 7.2,
+      "min_realm_order": 2,
+      "stackable": false
+    },
+    {
+      "id": "jade_2",
+      "display_name": "水纹佩",
+      "kind": "equipment",
+      "quality": "blue",
+      "slot": "accessory",
+      "skill_id": "",
+      "attack": 5.4,
+      "defense": 3.1,
+      "hp": 9.0,
+      "min_realm_order": 2,
+      "stackable": false
+    },
+    {
+      "id": "sword_3",
+      "display_name": "雾鸦枪",
+      "kind": "equipment",
+      "quality": "blue",
+      "slot": "weapon",
+      "skill_id": "",
+      "attack": 16.0,
+      "defense": 1.8,
+      "hp": 2.4,
+      "min_realm_order": 3,
+      "stackable": false
+    },
+    {
+      "id": "helm_3",
+      "display_name": "羽盔",
+      "kind": "equipment",
+      "quality": "blue",
+      "slot": "helmet",
+      "skill_id": "",
+      "attack": 3.2,
+      "defense": 8.4,
+      "hp": 14.4,
+      "min_realm_order": 3,
+      "stackable": false
+    },
+    {
+      "id": "robe_3",
+      "display_name": "灰雾袍",
+      "kind": "equipment",
+      "quality": "blue",
+      "slot": "clothes",
+      "skill_id": "",
+      "attack": 4.0,
+      "defense": 10.8,
+      "hp": 24.0,
+      "min_realm_order": 3,
+      "stackable": false
+    },
+    {
+      "id": "boots_3",
+      "display_name": "岗风靴",
+      "kind": "equipment",
+      "quality": "blue",
+      "slot": "shoes",
+      "skill_id": "",
+      "attack": 2.4,
+      "defense": 5.4,
+      "hp": 9.6,
+      "min_realm_order": 3,
+      "stackable": false
+    },
+    {
+      "id": "jade_3",
+      "display_name": "鸦羽佩",
+      "kind": "equipment",
+      "quality": "blue",
+      "slot": "accessory",
+      "skill_id": "",
+      "attack": 7.2,
+      "defense": 4.2,
+      "hp": 12.0,
+      "min_realm_order": 3,
+      "stackable": false
+    },
+    {
+      "id": "sword_4",
+      "display_name": "断魂刃",
+      "kind": "equipment",
+      "quality": "purple",
+      "slot": "weapon",
+      "skill_id": "",
+      "attack": 26.0,
+      "defense": 3.0,
+      "hp": 4.0,
+      "min_realm_order": 4,
+      "stackable": false
+    },
+    {
+      "id": "helm_4",
+      "display_name": "骨盔",
+      "kind": "equipment",
+      "quality": "purple",
+      "slot": "helmet",
+      "skill_id": "",
+      "attack": 5.2,
+      "defense": 14.0,
+      "hp": 24.0,
+      "min_realm_order": 4,
+      "stackable": false
+    },
+    {
+      "id": "robe_4",
+      "display_name": "冥纹衣",
+      "kind": "equipment",
+      "quality": "purple",
+      "slot": "clothes",
+      "skill_id": "",
+      "attack": 6.5,
+      "defense": 18.0,
+      "hp": 40.0,
+      "min_realm_order": 4,
+      "stackable": false
+    },
+    {
+      "id": "boots_4",
+      "display_name": "谷底靴",
+      "kind": "equipment",
+      "quality": "purple",
+      "slot": "shoes",
+      "skill_id": "",
+      "attack": 3.9,
+      "defense": 9.0,
+      "hp": 16.0,
+      "min_realm_order": 4,
+      "stackable": false
+    },
+    {
+      "id": "jade_4",
+      "display_name": "残魂佩",
+      "kind": "equipment",
+      "quality": "purple",
+      "slot": "accessory",
+      "skill_id": "",
+      "attack": 11.7,
+      "defense": 7.0,
+      "hp": 20.0,
+      "min_realm_order": 4,
+      "stackable": false
+    },
+    {
+      "id": "sword_5",
+      "display_name": "赤焰戟",
+      "kind": "equipment",
+      "quality": "purple",
+      "slot": "weapon",
+      "skill_id": "",
+      "attack": 34.0,
+      "defense": 3.9,
+      "hp": 5.2,
+      "min_realm_order": 5,
+      "stackable": false
+    },
+    {
+      "id": "helm_5",
+      "display_name": "熔岩盔",
+      "kind": "equipment",
+      "quality": "purple",
+      "slot": "helmet",
+      "skill_id": "",
+      "attack": 6.8,
+      "defense": 18.2,
+      "hp": 31.2,
+      "min_realm_order": 5,
+      "stackable": false
+    },
+    {
+      "id": "robe_5",
+      "display_name": "火纹袍",
+      "kind": "equipment",
+      "quality": "purple",
+      "slot": "clothes",
+      "skill_id": "",
+      "attack": 8.5,
+      "defense": 23.4,
+      "hp": 52.0,
+      "min_realm_order": 5,
+      "stackable": false
+    },
+    {
+      "id": "boots_5",
+      "display_name": "燎原靴",
+      "kind": "equipment",
+      "quality": "purple",
+      "slot": "shoes",
+      "skill_id": "",
+      "attack": 5.1,
+      "defense": 11.7,
+      "hp": 20.8,
+      "min_realm_order": 5,
+      "stackable": false
+    },
+    {
+      "id": "jade_5",
+      "display_name": "炎晶佩",
+      "kind": "equipment",
+      "quality": "purple",
+      "slot": "accessory",
+      "skill_id": "",
+      "attack": 15.3,
+      "defense": 9.1,
+      "hp": 26.0,
+      "min_realm_order": 5,
+      "stackable": false
+    },
+    {
+      "id": "sword_6",
+      "display_name": "沉渊尺",
+      "kind": "equipment",
+      "quality": "gold",
+      "slot": "weapon",
+      "skill_id": "",
+      "attack": 52.0,
+      "defense": 6.0,
+      "hp": 8.0,
+      "min_realm_order": 6,
+      "stackable": false
+    },
+    {
+      "id": "helm_6",
+      "display_name": "泽鳞盔",
+      "kind": "equipment",
+      "quality": "gold",
+      "slot": "helmet",
+      "skill_id": "",
+      "attack": 10.4,
+      "defense": 28.0,
+      "hp": 48.0,
+      "min_realm_order": 6,
+      "stackable": false
+    },
+    {
+      "id": "robe_6",
+      "display_name": "墨藻衣",
+      "kind": "equipment",
+      "quality": "gold",
+      "slot": "clothes",
+      "skill_id": "",
+      "attack": 13.0,
+      "defense": 36.0,
+      "hp": 80.0,
+      "min_realm_order": 6,
+      "stackable": false
+    },
+    {
+      "id": "boots_6",
+      "display_name": "渊行靴",
+      "kind": "equipment",
+      "quality": "gold",
+      "slot": "shoes",
+      "skill_id": "",
+      "attack": 7.8,
+      "defense": 18.0,
+      "hp": 32.0,
+      "min_realm_order": 6,
+      "stackable": false
+    },
+    {
+      "id": "jade_6",
+      "display_name": "黑玉佩",
+      "kind": "equipment",
+      "quality": "gold",
+      "slot": "accessory",
+      "skill_id": "",
+      "attack": 23.4,
+      "defense": 14.0,
+      "hp": 40.0,
+      "min_realm_order": 6,
+      "stackable": false
+    },
+    {
+      "id": "sword_7",
+      "display_name": "古碑剑",
+      "kind": "equipment",
+      "quality": "red",
+      "slot": "weapon",
+      "skill_id": "",
+      "attack": 85.0,
+      "defense": 9.8,
+      "hp": 13.1,
+      "min_realm_order": 7,
+      "stackable": false
+    },
+    {
+      "id": "helm_7",
+      "display_name": "篆纹盔",
+      "kind": "equipment",
+      "quality": "red",
+      "slot": "helmet",
+      "skill_id": "",
+      "attack": 17.0,
+      "defense": 45.5,
+      "hp": 78.8,
+      "min_realm_order": 7,
+      "stackable": false
+    },
+    {
+      "id": "robe_7",
+      "display_name": "碑前文袍",
+      "kind": "equipment",
+      "quality": "red",
+      "slot": "clothes",
+      "skill_id": "",
+      "attack": 21.2,
+      "defense": 58.5,
+      "hp": 131.2,
+      "min_realm_order": 7,
+      "stackable": false
+    },
+    {
+      "id": "boots_7",
+      "display_name": "台前靴",
+      "kind": "equipment",
+      "quality": "red",
+      "slot": "shoes",
+      "skill_id": "",
+      "attack": 12.8,
+      "defense": 29.2,
+      "hp": 52.5,
+      "min_realm_order": 7,
+      "stackable": false
+    },
+    {
+      "id": "jade_7",
+      "display_name": "古篆佩",
+      "kind": "equipment",
+      "quality": "red",
+      "slot": "accessory",
+      "skill_id": "",
+      "attack": 38.2,
+      "defense": 22.8,
+      "hp": 65.6,
+      "min_realm_order": 7,
+      "stackable": false
+    },
+    {
+      "id": "book_tuna",
+      "display_name": "吐纳术残页",
+      "kind": "skill_book",
+      "quality": "white",
+      "slot": "",
+      "skill_id": "tuna",
+      "attack": 0,
+      "defense": 0,
+      "hp": 0,
+      "min_realm_order": 0,
+      "stackable": true
+    },
+    {
+      "id": "book_iron_bone",
+      "display_name": "铁骨诀残页",
+      "kind": "skill_book",
+      "quality": "white",
+      "slot": "",
+      "skill_id": "iron_bone",
+      "attack": 0,
+      "defense": 0,
+      "hp": 0,
+      "min_realm_order": 0,
+      "stackable": true
+    },
+    {
+      "id": "book_crack_stone",
+      "display_name": "裂石拳残页",
+      "kind": "skill_book",
+      "quality": "white",
+      "slot": "",
+      "skill_id": "crack_stone",
+      "attack": 0,
+      "defense": 0,
+      "hp": 0,
+      "min_realm_order": 0,
+      "stackable": true
+    },
+    {
+      "id": "book_wind_step",
+      "display_name": "步风残页",
+      "kind": "skill_book",
+      "quality": "white",
+      "slot": "",
+      "skill_id": "wind_step",
+      "attack": 0,
+      "defense": 0,
+      "hp": 0,
+      "min_realm_order": 0,
+      "stackable": true
+    },
+    {
+      "id": "book_condense",
+      "display_name": "凝气诀残页",
+      "kind": "skill_book",
+      "quality": "blue",
+      "slot": "",
+      "skill_id": "condense",
+      "attack": 0,
+      "defense": 0,
+      "hp": 0,
+      "min_realm_order": 3,
+      "stackable": true
+    },
+    {
+      "id": "book_guard_body",
+      "display_name": "御体诀残页",
+      "kind": "skill_book",
+      "quality": "blue",
+      "slot": "",
+      "skill_id": "guard_body",
+      "attack": 0,
+      "defense": 0,
+      "hp": 0,
+      "min_realm_order": 3,
+      "stackable": true
+    },
+    {
+      "id": "book_open_mountain",
+      "display_name": "开山掌残页",
+      "kind": "skill_book",
+      "quality": "blue",
+      "slot": "",
+      "skill_id": "open_mountain",
+      "attack": 0,
+      "defense": 0,
+      "hp": 0,
+      "min_realm_order": 3,
+      "stackable": true
+    },
+    {
+      "id": "book_shadow_step",
+      "display_name": "影步残页",
+      "kind": "skill_book",
+      "quality": "blue",
+      "slot": "",
+      "skill_id": "shadow_step",
+      "attack": 0,
+      "defense": 0,
+      "hp": 0,
+      "min_realm_order": 3,
+      "stackable": true
+    },
+    {
+      "id": "book_cycle",
+      "display_name": "周天功残页",
+      "kind": "skill_book",
+      "quality": "purple",
+      "slot": "",
+      "skill_id": "cycle",
+      "attack": 0,
+      "defense": 0,
+      "hp": 0,
+      "min_realm_order": 4,
+      "stackable": true
+    },
+    {
+      "id": "book_bell",
+      "display_name": "金钟罩残页",
+      "kind": "skill_book",
+      "quality": "purple",
+      "slot": "",
+      "skill_id": "bell",
+      "attack": 0,
+      "defense": 0,
+      "hp": 0,
+      "min_realm_order": 4,
+      "stackable": true
+    },
+    {
+      "id": "book_collapse",
+      "display_name": "崩岳拳残页",
+      "kind": "skill_book",
+      "quality": "purple",
+      "slot": "",
+      "skill_id": "collapse",
+      "attack": 0,
+      "defense": 0,
+      "hp": 0,
+      "min_realm_order": 4,
+      "stackable": true
+    },
+    {
+      "id": "book_shrink",
+      "display_name": "缩地残页",
+      "kind": "skill_book",
+      "quality": "purple",
+      "slot": "",
+      "skill_id": "shrink",
+      "attack": 0,
+      "defense": 0,
+      "hp": 0,
+      "min_realm_order": 4,
+      "stackable": true
+    },
+    {
+      "id": "book_hunyuan",
+      "display_name": "混元功残页",
+      "kind": "skill_book",
+      "quality": "gold",
+      "slot": "",
+      "skill_id": "hunyuan",
+      "attack": 0,
+      "defense": 0,
+      "hp": 0,
+      "min_realm_order": 6,
+      "stackable": true
+    },
+    {
+      "id": "book_immortal_body",
+      "display_name": "不灭体残页",
+      "kind": "skill_book",
+      "quality": "gold",
+      "slot": "",
+      "skill_id": "immortal_body",
+      "attack": 0,
+      "defense": 0,
+      "hp": 0,
+      "min_realm_order": 6,
+      "stackable": true
+    },
+    {
+      "id": "book_star_finger",
+      "display_name": "碎星指残页",
+      "kind": "skill_book",
+      "quality": "red",
+      "slot": "",
+      "skill_id": "star_finger",
+      "attack": 0,
+      "defense": 0,
+      "hp": 0,
+      "min_realm_order": 6,
+      "stackable": true
+    },
+    {
+      "id": "book_void_step",
+      "display_name": "凌空虚度残页",
+      "kind": "skill_book",
+      "quality": "red",
+      "slot": "",
+      "skill_id": "void_step",
+      "attack": 0,
+      "defense": 0,
+      "hp": 0,
+      "min_realm_order": 6,
+      "stackable": true
+    }
+  ],
+  "skills": [
+    {
+      "id": "tuna",
+      "display_name": "吐纳术",
+      "rank": "huang",
+      "attack": 6,
+      "defense": 2,
+      "hp": 8,
+      "min_realm_order": 0,
+      "book_id": "book_tuna"
+    },
+    {
+      "id": "iron_bone",
+      "display_name": "铁骨诀",
+      "rank": "huang",
+      "attack": 2,
+      "defense": 8,
+      "hp": 12,
+      "min_realm_order": 0,
+      "book_id": "book_iron_bone"
+    },
+    {
+      "id": "crack_stone",
+      "display_name": "裂石拳",
+      "rank": "huang",
+      "attack": 8,
+      "defense": 1,
+      "hp": 4,
+      "min_realm_order": 0,
+      "book_id": "book_crack_stone"
+    },
+    {
+      "id": "wind_step",
+      "display_name": "步风",
+      "rank": "huang",
+      "attack": 3,
+      "defense": 3,
+      "hp": 6,
+      "min_realm_order": 0,
+      "book_id": "book_wind_step"
+    },
+    {
+      "id": "condense",
+      "display_name": "凝气诀",
+      "rank": "xuan",
+      "attack": 14,
+      "defense": 6,
+      "hp": 16,
+      "min_realm_order": 3,
+      "book_id": "book_condense"
+    },
+    {
+      "id": "guard_body",
+      "display_name": "御体诀",
+      "rank": "xuan",
+      "attack": 5,
+      "defense": 16,
+      "hp": 22,
+      "min_realm_order": 3,
+      "book_id": "book_guard_body"
+    },
+    {
+      "id": "open_mountain",
+      "display_name": "开山掌",
+      "rank": "xuan",
+      "attack": 18,
+      "defense": 4,
+      "hp": 10,
+      "min_realm_order": 3,
+      "book_id": "book_open_mountain"
+    },
+    {
+      "id": "shadow_step",
+      "display_name": "影步",
+      "rank": "xuan",
+      "attack": 8,
+      "defense": 8,
+      "hp": 14,
+      "min_realm_order": 3,
+      "book_id": "book_shadow_step"
+    },
+    {
+      "id": "cycle",
+      "display_name": "周天功",
+      "rank": "di",
+      "attack": 28,
+      "defense": 12,
+      "hp": 30,
+      "min_realm_order": 4,
+      "book_id": "book_cycle"
+    },
+    {
+      "id": "bell",
+      "display_name": "金钟罩",
+      "rank": "di",
+      "attack": 8,
+      "defense": 32,
+      "hp": 40,
+      "min_realm_order": 4,
+      "book_id": "book_bell"
+    },
+    {
+      "id": "collapse",
+      "display_name": "崩岳拳",
+      "rank": "di",
+      "attack": 36,
+      "defense": 8,
+      "hp": 18,
+      "min_realm_order": 4,
+      "book_id": "book_collapse"
+    },
+    {
+      "id": "shrink",
+      "display_name": "缩地",
+      "rank": "di",
+      "attack": 14,
+      "defense": 14,
+      "hp": 24,
+      "min_realm_order": 4,
+      "book_id": "book_shrink"
+    },
+    {
+      "id": "hunyuan",
+      "display_name": "混元功",
+      "rank": "tian",
+      "attack": 50,
+      "defense": 22,
+      "hp": 48,
+      "min_realm_order": 6,
+      "book_id": "book_hunyuan"
+    },
+    {
+      "id": "immortal_body",
+      "display_name": "不灭体",
+      "rank": "tian",
+      "attack": 14,
+      "defense": 56,
+      "hp": 70,
+      "min_realm_order": 6,
+      "book_id": "book_immortal_body"
+    },
+    {
+      "id": "star_finger",
+      "display_name": "碎星指",
+      "rank": "tian",
+      "attack": 62,
+      "defense": 12,
+      "hp": 28,
+      "min_realm_order": 6,
+      "book_id": "book_star_finger"
+    },
+    {
+      "id": "void_step",
+      "display_name": "凌空虚度",
+      "rank": "tian",
+      "attack": 24,
+      "defense": 24,
+      "hp": 40,
+      "min_realm_order": 6,
+      "book_id": "book_void_step"
+    }
+  ],
+  "stages": [
+    {
+      "id": "grove",
+      "display_name": "杂木林",
+      "order": 0,
+      "min_realm_order": 0,
+      "min_power": 0,
+      "next_id": "boar_slope",
+      "monsters": [
+        {
+          "id": "grove_0",
+          "display_name": "青背蛙",
+          "attack": 5.1,
+          "defense": 1.7,
+          "hp": 15.3,
+          "interval": 1.8,
+          "drops": [
+            {
+              "item_id": "sword_0",
+              "chance": 0.14,
+              "count": 1
+            },
+            {
+              "item_id": "book_tuna",
+              "chance": 0.05,
+              "count": 1
+            },
+            {
+              "item_id": "book_crack_stone",
+              "chance": 0.05,
+              "count": 1
+            }
+          ]
+        },
+        {
+          "id": "grove_1",
+          "display_name": "刺毛兔",
+          "attack": 5.7,
+          "defense": 1.9,
+          "hp": 17.1,
+          "interval": 1.8,
+          "drops": [
+            {
+              "item_id": "helm_0",
+              "chance": 0.14,
+              "count": 1
+            },
+            {
+              "item_id": "book_tuna",
+              "chance": 0.05,
+              "count": 1
+            },
+            {
+              "item_id": "book_wind_step",
+              "chance": 0.05,
+              "count": 1
+            }
+          ]
+        },
+        {
+          "id": "grove_2",
+          "display_name": "瘦狼",
+          "attack": 6.3,
+          "defense": 2.1,
+          "hp": 18.9,
+          "interval": 1.8,
+          "drops": [
+            {
+              "item_id": "robe_0",
+              "chance": 0.14,
+              "count": 1
+            },
+            {
+              "item_id": "book_tuna",
+              "chance": 0.05,
+              "count": 1
+            },
+            {
+              "item_id": "book_iron_bone",
+              "chance": 0.05,
+              "count": 1
+            },
+            {
+              "item_id": "book_crack_stone",
+              "chance": 0.05,
+              "count": 1
+            }
+          ]
+        },
+        {
+          "id": "grove_3",
+          "display_name": "树皮精",
+          "attack": 6.9,
+          "defense": 2.3,
+          "hp": 20.7,
+          "interval": 1.8,
+          "drops": [
+            {
+              "item_id": "boots_0",
+              "chance": 0.14,
+              "count": 1
+            },
+            {
+              "item_id": "book_wind_step",
+              "chance": 0.05,
+              "count": 1
+            }
+          ]
+        },
+        {
+          "id": "grove_4",
+          "display_name": "林间蛇",
+          "attack": 8.1,
+          "defense": 2.7,
+          "hp": 24.3,
+          "interval": 1.8,
+          "drops": [
+            {
+              "item_id": "jade_0",
+              "chance": 0.22,
+              "count": 1
+            },
+            {
+              "item_id": "book_tuna",
+              "chance": 0.05,
+              "count": 1
+            },
+            {
+              "item_id": "book_iron_bone",
+              "chance": 0.05,
+              "count": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "boar_slope",
+      "display_name": "野猪坡",
+      "order": 1,
+      "min_realm_order": 1,
+      "min_power": 28,
+      "next_id": "stone_brook",
+      "monsters": [
+        {
+          "id": "boar_slope_0",
+          "display_name": "山猪",
+          "attack": 9.3,
+          "defense": 3.4,
+          "hp": 27.2,
+          "interval": 1.75,
+          "drops": [
+            {
+              "item_id": "sword_1",
+              "chance": 0.14,
+              "count": 1
+            },
+            {
+              "item_id": "robe_1",
+              "chance": 0.08,
+              "count": 1
+            },
+            {
+              "item_id": "book_tuna",
+              "chance": 0.05,
+              "count": 1
+            }
+          ]
+        },
+        {
+          "id": "boar_slope_1",
+          "display_name": "灰獾",
+          "attack": 10.4,
+          "defense": 3.8,
+          "hp": 30.4,
+          "interval": 1.75,
+          "drops": [
+            {
+              "item_id": "helm_1",
+              "chance": 0.14,
+              "count": 1
+            },
+            {
+              "item_id": "boots_1",
+              "chance": 0.08,
+              "count": 1
+            },
+            {
+              "item_id": "book_tuna",
+              "chance": 0.05,
+              "count": 1
+            }
+          ]
+        },
+        {
+          "id": "boar_slope_2",
+          "display_name": "坡上鹰",
+          "attack": 11.6,
+          "defense": 4.2,
+          "hp": 33.6,
+          "interval": 1.75,
+          "drops": [
+            {
+              "item_id": "robe_1",
+              "chance": 0.14,
+              "count": 1
+            },
+            {
+              "item_id": "jade_1",
+              "chance": 0.08,
+              "count": 1
+            }
+          ]
+        },
+        {
+          "id": "boar_slope_3",
+          "display_name": "石壳虫",
+          "attack": 12.6,
+          "defense": 4.6,
+          "hp": 36.8,
+          "interval": 1.75,
+          "drops": [
+            {
+              "item_id": "boots_1",
+              "chance": 0.14,
+              "count": 1
+            },
+            {
+              "item_id": "sword_1",
+              "chance": 0.08,
+              "count": 1
+            },
+            {
+              "item_id": "book_tuna",
+              "chance": 0.05,
+              "count": 1
+            }
+          ]
+        },
+        {
+          "id": "boar_slope_4",
+          "display_name": "野猪王",
+          "attack": 14.9,
+          "defense": 5.4,
+          "hp": 43.2,
+          "interval": 1.75,
+          "drops": [
+            {
+              "item_id": "jade_1",
+              "chance": 0.22,
+              "count": 1
+            },
+            {
+              "item_id": "helm_1",
+              "chance": 0.08,
+              "count": 1
+            },
+            {
+              "item_id": "book_tuna",
+              "chance": 0.05,
+              "count": 1
+            },
+            {
+              "item_id": "book_iron_bone",
+              "chance": 0.05,
+              "count": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "stone_brook",
+      "display_name": "青石涧",
+      "order": 2,
+      "min_realm_order": 2,
+      "min_power": 48,
+      "next_id": "crow_ridge",
+      "monsters": [
+        {
+          "id": "stone_brook_0",
+          "display_name": "涧底蟹",
+          "attack": 15.3,
+          "defense": 6.0,
+          "hp": 42.5,
+          "interval": 1.7,
+          "drops": [
+            {
+              "item_id": "sword_2",
+              "chance": 0.14,
+              "count": 1
+            },
+            {
+              "item_id": "robe_2",
+              "chance": 0.08,
+              "count": 1
+            }
+          ]
+        },
+        {
+          "id": "stone_brook_1",
+          "display_name": "青纹鱼",
+          "attack": 17.1,
+          "defense": 6.6,
+          "hp": 47.5,
+          "interval": 1.7,
+          "drops": [
+            {
+              "item_id": "helm_2",
+              "chance": 0.14,
+              "count": 1
+            },
+            {
+              "item_id": "boots_2",
+              "chance": 0.08,
+              "count": 1
+            }
+          ]
+        },
+        {
+          "id": "stone_brook_2",
+          "display_name": "岩蜥",
+          "attack": 18.9,
+          "defense": 7.4,
+          "hp": 52.5,
+          "interval": 1.7,
+          "drops": [
+            {
+              "item_id": "robe_2",
+              "chance": 0.14,
+              "count": 1
+            },
+            {
+              "item_id": "jade_2",
+              "chance": 0.08,
+              "count": 1
+            }
+          ]
+        },
+        {
+          "id": "stone_brook_3",
+          "display_name": "水鬼",
+          "attack": 20.7,
+          "defense": 8.0,
+          "hp": 57.5,
+          "interval": 1.7,
+          "drops": [
+            {
+              "item_id": "boots_2",
+              "chance": 0.14,
+              "count": 1
+            },
+            {
+              "item_id": "sword_2",
+              "chance": 0.08,
+              "count": 1
+            }
+          ]
+        },
+        {
+          "id": "stone_brook_4",
+          "display_name": "涧主",
+          "attack": 24.3,
+          "defense": 9.5,
+          "hp": 67.5,
+          "interval": 1.7,
+          "drops": [
+            {
+              "item_id": "jade_2",
+              "chance": 0.22,
+              "count": 1
+            },
+            {
+              "item_id": "helm_2",
+              "chance": 0.08,
+              "count": 1
+            },
+            {
+              "item_id": "book_wind_step",
+              "chance": 0.05,
+              "count": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "crow_ridge",
+      "display_name": "雾鸦岗",
+      "order": 3,
+      "min_realm_order": 3,
+      "min_power": 75,
+      "next_id": "soul_vale",
+      "monsters": [
+        {
+          "id": "crow_ridge_0",
+          "display_name": "雾鸦",
+          "attack": 23.8,
+          "defense": 9.3,
+          "hp": 66.3,
+          "interval": 1.65,
+          "drops": [
+            {
+              "item_id": "sword_3",
+              "chance": 0.14,
+              "count": 1
+            },
+            {
+              "item_id": "robe_3",
+              "chance": 0.08,
+              "count": 1
+            },
+            {
+              "item_id": "book_shadow_step",
+              "chance": 0.05,
+              "count": 1
+            }
+          ]
+        },
+        {
+          "id": "crow_ridge_1",
+          "display_name": "岗鼠",
+          "attack": 26.6,
+          "defense": 10.4,
+          "hp": 74.1,
+          "interval": 1.65,
+          "drops": [
+            {
+              "item_id": "helm_3",
+              "chance": 0.14,
+              "count": 1
+            },
+            {
+              "item_id": "boots_3",
+              "chance": 0.08,
+              "count": 1
+            },
+            {
+              "item_id": "book_guard_body",
+              "chance": 0.05,
+              "count": 1
+            },
+            {
+              "item_id": "book_open_mountain",
+              "chance": 0.05,
+              "count": 1
+            },
+            {
+              "item_id": "book_shadow_step",
+              "chance": 0.05,
+              "count": 1
+            }
+          ]
+        },
+        {
+          "id": "crow_ridge_2",
+          "display_name": "影狸",
+          "attack": 29.4,
+          "defense": 11.6,
+          "hp": 81.9,
+          "interval": 1.65,
+          "drops": [
+            {
+              "item_id": "robe_3",
+              "chance": 0.14,
+              "count": 1
+            },
+            {
+              "item_id": "jade_3",
+              "chance": 0.08,
+              "count": 1
+            },
+            {
+              "item_id": "book_guard_body",
+              "chance": 0.05,
+              "count": 1
+            }
+          ]
+        },
+        {
+          "id": "crow_ridge_3",
+          "display_name": "毒蛾",
+          "attack": 32.2,
+          "defense": 12.6,
+          "hp": 89.7,
+          "interval": 1.65,
+          "drops": [
+            {
+              "item_id": "boots_3",
+              "chance": 0.14,
+              "count": 1
+            },
+            {
+              "item_id": "sword_3",
+              "chance": 0.08,
+              "count": 1
+            },
+            {
+              "item_id": "book_condense",
+              "chance": 0.05,
+              "count": 1
+            },
+            {
+              "item_id": "book_guard_body",
+              "chance": 0.05,
+              "count": 1
+            },
+            {
+              "item_id": "book_open_mountain",
+              "chance": 0.05,
+              "count": 1
+            },
+            {
+              "item_id": "book_shadow_step",
+              "chance": 0.05,
+              "count": 1
+            }
+          ]
+        },
+        {
+          "id": "crow_ridge_4",
+          "display_name": "鸦首",
+          "attack": 37.8,
+          "defense": 14.9,
+          "hp": 105.3,
+          "interval": 1.65,
+          "drops": [
+            {
+              "item_id": "jade_3",
+              "chance": 0.22,
+              "count": 1
+            },
+            {
+              "item_id": "helm_3",
+              "chance": 0.08,
+              "count": 1
+            },
+            {
+              "item_id": "book_condense",
+              "chance": 0.05,
+              "count": 1
+            },
+            {
+              "item_id": "book_guard_body",
+              "chance": 0.05,
+              "count": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "soul_vale",
+      "display_name": "断魂谷",
+      "order": 4,
+      "min_realm_order": 4,
+      "min_power": 120,
+      "next_id": "flame_ridge",
+      "monsters": [
+        {
+          "id": "soul_vale_0",
+          "display_name": "骨犬",
+          "attack": 35.7,
+          "defense": 14.4,
+          "hp": 102.0,
+          "interval": 1.6,
+          "drops": [
+            {
+              "item_id": "sword_4",
+              "chance": 0.14,
+              "count": 1
+            },
+            {
+              "item_id": "robe_4",
+              "chance": 0.08,
+              "count": 1
+            },
+            {
+              "item_id": "book_cycle",
+              "chance": 0.04,
+              "count": 1
+            }
+          ]
+        },
+        {
+          "id": "soul_vale_1",
+          "display_name": "残魂",
+          "attack": 39.9,
+          "defense": 16.1,
+          "hp": 114.0,
+          "interval": 1.6,
+          "drops": [
+            {
+              "item_id": "helm_4",
+              "chance": 0.14,
+              "count": 1
+            },
+            {
+              "item_id": "boots_4",
+              "chance": 0.08,
+              "count": 1
+            },
+            {
+              "item_id": "book_cycle",
+              "chance": 0.04,
+              "count": 1
+            }
+          ]
+        },
+        {
+          "id": "soul_vale_2",
+          "display_name": "谷蛇",
+          "attack": 44.1,
+          "defense": 17.9,
+          "hp": 126.0,
+          "interval": 1.6,
+          "drops": [
+            {
+              "item_id": "robe_4",
+              "chance": 0.14,
+              "count": 1
+            },
+            {
+              "item_id": "jade_4",
+              "chance": 0.08,
+              "count": 1
+            },
+            {
+              "item_id": "book_cycle",
+              "chance": 0.04,
+              "count": 1
+            },
+            {
+              "item_id": "book_bell",
+              "chance": 0.04,
+              "count": 1
+            }
+          ]
+        },
+        {
+          "id": "soul_vale_3",
+          "display_name": "铁尸",
+          "attack": 48.3,
+          "defense": 19.5,
+          "hp": 138.0,
+          "interval": 1.6,
+          "drops": [
+            {
+              "item_id": "boots_4",
+              "chance": 0.14,
+              "count": 1
+            },
+            {
+              "item_id": "sword_4",
+              "chance": 0.08,
+              "count": 1
+            },
+            {
+              "item_id": "book_cycle",
+              "chance": 0.04,
+              "count": 1
+            }
+          ]
+        },
+        {
+          "id": "soul_vale_4",
+          "display_name": "断魂使",
+          "attack": 56.7,
+          "defense": 23.0,
+          "hp": 162.0,
+          "interval": 1.6,
+          "drops": [
+            {
+              "item_id": "jade_4",
+              "chance": 0.22,
+              "count": 1
+            },
+            {
+              "item_id": "helm_4",
+              "chance": 0.08,
+              "count": 1
+            },
+            {
+              "item_id": "book_cycle",
+              "chance": 0.04,
+              "count": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "flame_ridge",
+      "display_name": "赤焰岭",
+      "order": 5,
+      "min_realm_order": 5,
+      "min_power": 190,
+      "next_id": "deep_marsh",
+      "monsters": [
+        {
+          "id": "flame_ridge_0",
+          "display_name": "火蜥",
+          "attack": 54.4,
+          "defense": 22.1,
+          "hp": 153.0,
+          "interval": 1.55,
+          "drops": [
+            {
+              "item_id": "sword_5",
+              "chance": 0.14,
+              "count": 1
+            },
+            {
+              "item_id": "robe_5",
+              "chance": 0.08,
+              "count": 1
+            },
+            {
+              "item_id": "book_collapse",
+              "chance": 0.04,
+              "count": 1
+            }
+          ]
+        },
+        {
+          "id": "flame_ridge_1",
+          "display_name": "熔岩蛛",
+          "attack": 60.8,
+          "defense": 24.7,
+          "hp": 171.0,
+          "interval": 1.55,
+          "drops": [
+            {
+              "item_id": "helm_5",
+              "chance": 0.14,
+              "count": 1
+            },
+            {
+              "item_id": "boots_5",
+              "chance": 0.08,
+              "count": 1
+            },
+            {
+              "item_id": "book_shrink",
+              "chance": 0.04,
+              "count": 1
+            }
+          ]
+        },
+        {
+          "id": "flame_ridge_2",
+          "display_name": "焰鸦",
+          "attack": 67.2,
+          "defense": 27.3,
+          "hp": 189.0,
+          "interval": 1.55,
+          "drops": [
+            {
+              "item_id": "robe_5",
+              "chance": 0.14,
+              "count": 1
+            },
+            {
+              "item_id": "jade_5",
+              "chance": 0.08,
+              "count": 1
+            },
+            {
+              "item_id": "book_shrink",
+              "chance": 0.04,
+              "count": 1
+            }
+          ]
+        },
+        {
+          "id": "flame_ridge_3",
+          "display_name": "赤鳞蟒",
+          "attack": 73.6,
+          "defense": 29.9,
+          "hp": 207.0,
+          "interval": 1.55,
+          "drops": [
+            {
+              "item_id": "boots_5",
+              "chance": 0.14,
+              "count": 1
+            },
+            {
+              "item_id": "sword_5",
+              "chance": 0.08,
+              "count": 1
+            },
+            {
+              "item_id": "book_shrink",
+              "chance": 0.04,
+              "count": 1
+            }
+          ]
+        },
+        {
+          "id": "flame_ridge_4",
+          "display_name": "岭火君",
+          "attack": 86.4,
+          "defense": 35.1,
+          "hp": 243.0,
+          "interval": 1.55,
+          "drops": [
+            {
+              "item_id": "jade_5",
+              "chance": 0.22,
+              "count": 1
+            },
+            {
+              "item_id": "helm_5",
+              "chance": 0.08,
+              "count": 1
+            },
+            {
+              "item_id": "book_collapse",
+              "chance": 0.04,
+              "count": 1
+            },
+            {
+              "item_id": "book_shrink",
+              "chance": 0.04,
+              "count": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "deep_marsh",
+      "display_name": "沉渊泽",
+      "order": 6,
+      "min_realm_order": 6,
+      "min_power": 280,
+      "next_id": "stele_terrace",
+      "monsters": [
+        {
+          "id": "deep_marsh_0",
+          "display_name": "泽鳄",
+          "attack": 81.6,
+          "defense": 34.0,
+          "hp": 229.5,
+          "interval": 1.5,
+          "drops": [
+            {
+              "item_id": "sword_6",
+              "chance": 0.14,
+              "count": 1
+            },
+            {
+              "item_id": "robe_6",
+              "chance": 0.08,
+              "count": 1
+            }
+          ]
+        },
+        {
+          "id": "deep_marsh_1",
+          "display_name": "腐蛙",
+          "attack": 91.2,
+          "defense": 38.0,
+          "hp": 256.5,
+          "interval": 1.5,
+          "drops": [
+            {
+              "item_id": "helm_6",
+              "chance": 0.14,
+              "count": 1
+            },
+            {
+              "item_id": "boots_6",
+              "chance": 0.08,
+              "count": 1
+            },
+            {
+              "item_id": "book_hunyuan",
+              "chance": 0.04,
+              "count": 1
+            },
+            {
+              "item_id": "book_immortal_body",
+              "chance": 0.04,
+              "count": 1
+            }
+          ]
+        },
+        {
+          "id": "deep_marsh_2",
+          "display_name": "黑藻精",
+          "attack": 100.8,
+          "defense": 42.0,
+          "hp": 283.5,
+          "interval": 1.5,
+          "drops": [
+            {
+              "item_id": "robe_6",
+              "chance": 0.14,
+              "count": 1
+            },
+            {
+              "item_id": "jade_6",
+              "chance": 0.08,
+              "count": 1
+            },
+            {
+              "item_id": "book_hunyuan",
+              "chance": 0.04,
+              "count": 1
+            }
+          ]
+        },
+        {
+          "id": "deep_marsh_3",
+          "display_name": "渊鳗",
+          "attack": 110.4,
+          "defense": 46.0,
+          "hp": 310.5,
+          "interval": 1.5,
+          "drops": [
+            {
+              "item_id": "boots_6",
+              "chance": 0.14,
+              "count": 1
+            },
+            {
+              "item_id": "sword_6",
+              "chance": 0.08,
+              "count": 1
+            },
+            {
+              "item_id": "book_hunyuan",
+              "chance": 0.04,
+              "count": 1
+            },
+            {
+              "item_id": "book_immortal_body",
+              "chance": 0.04,
+              "count": 1
+            }
+          ]
+        },
+        {
+          "id": "deep_marsh_4",
+          "display_name": "泽底老鼍",
+          "attack": 129.6,
+          "defense": 54.0,
+          "hp": 364.5,
+          "interval": 1.5,
+          "drops": [
+            {
+              "item_id": "jade_6",
+              "chance": 0.22,
+              "count": 1
+            },
+            {
+              "item_id": "helm_6",
+              "chance": 0.08,
+              "count": 1
+            },
+            {
+              "item_id": "book_hunyuan",
+              "chance": 0.04,
+              "count": 1
+            },
+            {
+              "item_id": "book_immortal_body",
+              "chance": 0.04,
+              "count": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "stele_terrace",
+      "display_name": "古碑台",
+      "order": 7,
+      "min_realm_order": 7,
+      "min_power": 420,
+      "next_id": "",
+      "monsters": [
+        {
+          "id": "stele_terrace_0",
+          "display_name": "碑卫",
+          "attack": 123.2,
+          "defense": 51.0,
+          "hp": 340.0,
+          "interval": 1.45,
+          "drops": [
+            {
+              "item_id": "sword_7",
+              "chance": 0.14,
+              "count": 1
+            },
+            {
+              "item_id": "robe_7",
+              "chance": 0.08,
+              "count": 1
+            },
+            {
+              "item_id": "book_star_finger",
+              "chance": 0.04,
+              "count": 1
+            },
+            {
+              "item_id": "book_void_step",
+              "chance": 0.04,
+              "count": 1
+            }
+          ]
+        },
+        {
+          "id": "stele_terrace_1",
+          "display_name": "石俑",
+          "attack": 137.8,
+          "defense": 57.0,
+          "hp": 380.0,
+          "interval": 1.45,
+          "drops": [
+            {
+              "item_id": "helm_7",
+              "chance": 0.14,
+              "count": 1
+            },
+            {
+              "item_id": "boots_7",
+              "chance": 0.08,
+              "count": 1
+            },
+            {
+              "item_id": "book_star_finger",
+              "chance": 0.04,
+              "count": 1
+            }
+          ]
+        },
+        {
+          "id": "stele_terrace_2",
+          "display_name": "篆纹兽",
+          "attack": 152.2,
+          "defense": 63.0,
+          "hp": 420.0,
+          "interval": 1.45,
+          "drops": [
+            {
+              "item_id": "robe_7",
+              "chance": 0.14,
+              "count": 1
+            },
+            {
+              "item_id": "jade_7",
+              "chance": 0.08,
+              "count": 1
+            },
+            {
+              "item_id": "book_star_finger",
+              "chance": 0.04,
+              "count": 1
+            }
+          ]
+        },
+        {
+          "id": "stele_terrace_3",
+          "display_name": "古灯魂",
+          "attack": 166.8,
+          "defense": 69.0,
+          "hp": 460.0,
+          "interval": 1.45,
+          "drops": [
+            {
+              "item_id": "boots_7",
+              "chance": 0.14,
+              "count": 1
+            },
+            {
+              "item_id": "sword_7",
+              "chance": 0.08,
+              "count": 1
+            },
+            {
+              "item_id": "book_star_finger",
+              "chance": 0.04,
+              "count": 1
+            }
+          ]
+        },
+        {
+          "id": "stele_terrace_4",
+          "display_name": "碑前剑修",
+          "attack": 195.8,
+          "defense": 81.0,
+          "hp": 540.0,
+          "interval": 1.45,
+          "drops": [
+            {
+              "item_id": "jade_7",
+              "chance": 0.22,
+              "count": 1
+            },
+            {
+              "item_id": "helm_7",
+              "chance": 0.08,
+              "count": 1
+            },
+            {
+              "item_id": "book_star_finger",
+              "chance": 0.04,
+              "count": 1
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

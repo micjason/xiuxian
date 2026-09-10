@@ -111,6 +111,15 @@ func install_downloaded_update() -> void:
 			current_code,
 		])
 		return
+	var archive_code := _installer.get_apk_version_code(DOWNLOAD_PATH)
+	var archive_name := _installer.get_apk_version_name(DOWNLOAD_PATH)
+	if archive_code > 0 and archive_code <= current_code:
+		_fail("安装包实际是 %s（versionCode %d），不高于已装 %d。系统页会显示已装版本，请重新下载。" % [
+			archive_name,
+			archive_code,
+			current_code,
+		])
+		return
 	if not _installer.is_supported():
 		_fail("覆盖安装只支持 Android 手机。")
 		return
@@ -120,6 +129,10 @@ func install_downloaded_update() -> void:
 		return
 	if not _installer.install_apk(DOWNLOAD_PATH):
 		_fail("无法打开系统安装页面。")
+		return
+	var shown_name := archive_name if not archive_name.is_empty() else current_manifest.version
+	var shown_code := archive_code if archive_code > 0 else current_manifest.version_code
+	status_changed.emit("正在打开系统安装页，请确认覆盖为 %s（%d）。" % [shown_name, shown_code])
 
 
 func _create_request(timeout_seconds: float) -> HTTPRequest:

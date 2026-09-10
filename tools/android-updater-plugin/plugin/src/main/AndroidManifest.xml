@@ -3,10 +3,40 @@
 
 	<uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
+	<queries>
+		<intent>
+			<action android:name="android.intent.action.VIEW" />
+			<data android:mimeType="application/vnd.android.package-archive" />
+		</intent>
+		<intent>
+			<action android:name="android.intent.action.INSTALL_PACKAGE" />
+		</intent>
+		<package android:name="com.android.packageinstaller" />
+		<package android:name="com.google.android.packageinstaller" />
+		<package android:name="com.oplus.packageinstaller" />
+		<package android:name="com.coloros.packageinstaller" />
+		<package android:name="com.samsung.android.packageinstaller" />
+		<package android:name="com.miui.packageinstaller" />
+	</queries>
+
 	<application>
 		<meta-data
 			android:name="org.godotengine.plugin.v2.XiuxianUpdater"
 			android:value="com.micjason.xiuxian.updater.XiuxianUpdaterPlugin" />
+
+		<receiver
+			android:name="com.micjason.xiuxian.updater.InstallStatusReceiver"
+			android:exported="false" />
+
+		<provider
+			android:name="com.micjason.xiuxian.updater.UpdateFileProvider"
+			android:authorities="${applicationId}.update.fileprovider"
+			android:exported="false"
+			android:grantUriPermissions="true">
+			<meta-data
+				android:name="android.support.FILE_PROVIDER_PATHS"
+				android:resource="@xml/update_file_paths" />
+		</provider>
 	</application>
 
 </manifest>

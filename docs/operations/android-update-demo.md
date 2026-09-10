@@ -9,6 +9,44 @@
 - `0.1.4`：主界面润色、突破与离线反馈、修炼简记，并加快前三阶手感。
 - `0.1.5`：覆盖安装按更高 `versionCode` 判断，并把 FileProvider 读权限授给系统安装器。旧客户端仍可能只提示「打开」，这次用 USB 覆盖。
 - `0.1.6`：打开历练第二条循环（挂机战斗、行囊、装备、功法、设置）。`versionCode` 7，供已装 `0.1.5`（code 6）的手机覆盖安装。
+- `0.1.7`：安装改为系统 `PackageInstaller` 会话。`0.1.5`/`0.1.6` 的 FileProvider 路径在 ColorOS 上会让安装器读到已装包，从而提示「已安装更高版本 0.1.5」。`versionCode` 8。已装 `0.1.5` 的手机需要 USB 装一次，之后热更走新安装器。
+- `0.1.8`：同一安装器上的覆盖验证包。`versionCode` 9，供已装 `0.1.7`（code 8）的手机热更。
+- `0.1.9`：供已装 `0.1.8` 的手机脱离电脑自测热更。`versionCode` 10。
+
+## 0.1.9 发布记录（2026-09-10）
+
+- 应用版本 `0.1.9`，`versionCode` 10。
+- GitHub Release：`https://github.com/micjason/xiuxian-releases/releases/tag/v0.1.9`
+- 公开仓频道标签：`v0.1.16`。
+- 安装包 asset `554575809`，`apk_sha256` 前缀 `54be277c`。
+- 用途：手机已装 `0.1.8` 后，断开电脑，用游戏内检查更新自测覆盖。
+
+## 0.1.8 发布记录（2026-09-10）
+
+- 应用版本 `0.1.8`，`versionCode` 9。
+- GitHub Release：`https://github.com/micjason/xiuxian-releases/releases/tag/v0.1.8`
+- 公开仓频道标签：`v0.1.15`。
+- 安装包 asset `554550059`，`apk_sha256` 前缀 `34a3310f`。
+- 用途：已 USB 装上 `0.1.7` 的手机，用游戏内检查更新覆盖到 `0.1.8`。
+
+## 0.1.7 发布记录（2026-09-10）
+
+- 应用版本 `0.1.7`，`versionCode` 8。
+- GitHub Release：`https://github.com/micjason/xiuxian-releases/releases/tag/v0.1.7`
+- 玩法与 `0.1.6` 相同；只修覆盖安装。
+- 根因复查：jsDelivr `@latest` 与 GitHub asset `554465417` 的 `0.1.6` 包确为 `versionCode` 7、哈希 `6c5e7969…`。下载校验通过后系统仍提示「已安装更高版本 0.1.5」，说明安装器没有解析刚下载的 APK，而是回退显示已装包。
+- 修复：把 APK 写入 `PackageInstaller` 会话；安装前再读文件内 `versionCode`；FileProvider 仅作底线。
+- 公开仓频道标签：`v0.1.14`（不要复用 `v0.1.13`）。
+- 安装包 asset `554540367`，`apk_sha256` 前缀 `a4396888`。
+- 覆盖条件：手机已装 `versionCode` < 8。`0.1.5` 客户端里的安装器无法远程修补，这一跳用 USB。
+
+## 0.1.6 发布记录（2026-09-10）
+
+- 应用版本 `0.1.6`，`versionCode` 7。
+- GitHub Release：`https://github.com/micjason/xiuxian-releases/releases/tag/v0.1.6`
+- 公开仓频道标签：`v0.1.13`（jsDelivr `@latest` 已指向这里）。
+- 安装包 asset `554465417`，`apk_sha256` 前缀 `6c5e7969`。
+- 覆盖条件：手机已装 `versionCode` < 7。系统页应出现覆盖安装，不应只显示「打开」。
 - 游戏会验证更新清单签名、安装包大小和 SHA-256，再打开 Android 系统安装页面。
 - 覆盖安装必须让新包的 `versionCode` 大于手机上已装的值。只改版本名会下载成功，但系统页仍显示当前版本并提示“打开”。
 - 两个版本使用同一包名和同一长期签名，可覆盖安装并保留应用数据。

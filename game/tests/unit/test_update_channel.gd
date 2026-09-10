@@ -9,3 +9,5 @@ func test_client_reads_purgeable_latest_channel() -> void:
 	assert_false(source.contains("@main/update.json"))
 	assert_true(source.contains("is_installable"))
 	assert_true(source.contains("version_code"))
+	assert_true(source.contains("get_apk_version_code"))
+	assert_true(source.contains("get_apk_version_name"))

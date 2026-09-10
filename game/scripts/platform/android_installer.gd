@@ -23,6 +23,18 @@ func get_version_code() -> int:
 	return 0
 
 
+func get_apk_version_code(project_path: String) -> int:
+	if _plugin == null:
+		return 0
+	return int(_plugin.getApkVersionCode(ProjectSettings.globalize_path(project_path)))
+
+
+func get_apk_version_name(project_path: String) -> String:
+	if _plugin == null:
+		return ""
+	return str(_plugin.getApkVersionName(ProjectSettings.globalize_path(project_path)))
+
+
 func is_supported() -> bool:
 	return OS.has_feature("android") and _plugin != null
 

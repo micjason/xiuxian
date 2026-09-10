@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-APK="${1:-/Volumes/kaixia/projects/xiuxian/builds/development/0.1.6/xiuxian.apk}"
+APK="${1:-/Volumes/kaixia/projects/xiuxian/builds/development/0.1.9/xiuxian.apk}"
 ADB="/Volumes/kaixia/GodotDev/xiuxian/android/sdk/platform-tools/adb"
 AAPT="/Volumes/kaixia/GodotDev/xiuxian/android/sdk/build-tools/35.0.1/aapt2"
 

@@ -38,8 +38,10 @@ manifest 至少包含：
 - 使用固定应用 ID 和同一发布签名，否则 Android 无法覆盖安装并保留应用数据。
 - 客户端下载完整 APK，校验 manifest、SHA-256、大小和签名预期后，再调用 Android 插件。
 - 是否有更新以 `versionCode` 为准：只涨版本名、不涨 `versionCode` 时，ColorOS 安装页会显示当前已装版本并提示“打开”，不会覆盖。
-- 打开系统安装页时必须把 FileProvider URI 授权给安装器；不要只用 `FLAG_ACTIVITY_NEW_TASK`，否则部分机型读不到刚下载的包。
-- 自定义 Gradle 构建加入 `REQUEST_INSTALL_PACKAGES`，通过 FileProvider 向系统安装器提供 APK。
+- 安装优先把 APK 字节写入系统 `PackageInstaller` 会话，再弹出确认页。不要把 FileProvider URI 当作 ColorOS 上的主路径：安装器读不到 URI 时会显示手机上已装版本（例如「已安装更高版本 0.1.5」）。
+- FileProvider 只作会话失败后的底线：使用独立 authority、ClipData、`<queries>`，并把读权限授给已知系统安装器。
+- 打开安装页前必须用 `PackageManager.getPackageArchiveInfo` 再读一遍下载文件的 `versionCode`，低于或等于已装值则拒绝打开系统页。
+- 自定义 Gradle 构建加入 `REQUEST_INSTALL_PACKAGES`。
 - 用户需要为当前应用允许“安装未知应用”，且每次覆盖安装由 Android 系统界面确认。
 - 客户端不能静默安装，也不能绕过系统安全提示。
 

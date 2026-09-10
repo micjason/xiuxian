@@ -11,6 +11,21 @@ const GOLD := Color(0.86, 0.74, 0.44, 1)
 const IVORY := Color(0.93, 0.91, 0.84, 1)
 const MUTED := Color(0.58, 0.64, 0.61, 1)
 
+const SIZE_DISPLAY := 34
+const SIZE_NUMBER := 28
+const SIZE_HERO := 26
+const SIZE_BODY := 22
+const SIZE_UI := 20
+const SIZE_CAPTION := 18
+const SIZE_MICRO := 16
+
+const H_CTA := 96
+const H_TAB := 80
+const H_ROW := 52
+const H_CELL := 80
+const H_ACTION := 52
+const H_BAR := 28
+
 
 static func body_font() -> SystemFont:
 	var font := SystemFont.new()
@@ -60,6 +75,9 @@ static func make() -> Theme:
 	theme.set_stylebox("embedded_unfocused_border", "Window", _box(CARD, Color(0.32, 0.4, 0.3, 0.55), 2, 24, 6, 22, 20))
 	theme.set_color("title_color", "Window", GOLD)
 	theme.set_font_size("title_font_size", "Window", 28)
+	theme.set_font_size("font_size", "Label", SIZE_BODY)
+	theme.set_font_size("font_size", "Button", SIZE_UI)
+	theme.set_font_size("font_size", "CheckButton", SIZE_BODY)
 	return theme
 
 
@@ -76,7 +94,14 @@ static func footer_panel() -> StyleBoxFlat:
 
 
 static func ghost_button() -> StyleBoxFlat:
-	return _box(Color(0.07, 0.1, 0.09, 0.95), Color(0.55, 0.48, 0.28, 0.85), 1, 20, 0, 14, 12)
+	return _box(Color(0.07, 0.1, 0.09, 0.95), Color(0.55, 0.48, 0.28, 0.85), 1, 16, 0, 12, 8)
+
+
+static func stamp_label(label: Label, size: int, color: Color) -> void:
+	if label == null:
+		return
+	label.add_theme_font_size_override("font_size", size)
+	label.add_theme_color_override("font_color", color)
 
 
 static func seal_ring() -> StyleBoxFlat:

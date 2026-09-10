@@ -70,6 +70,7 @@ const PAGE_SETTINGS := "settings"
 @onready var chrome: PanelContainer = %Chrome
 @onready var chrome_row: HBoxContainer = %ChromeRow
 @onready var chrome_power: Label = %ChromePower
+@onready var chrome_cultivation_row: HBoxContainer = %ChromeCultivationRow
 @onready var stage_list: VBoxContainer = %StageList
 @onready var inspect_panel: VBoxContainer = %InspectPanel
 
@@ -103,6 +104,7 @@ func _ready() -> void:
 	seal_ring.add_theme_stylebox_override("panel", MainTheme.seal_ring())
 	seal_inner.add_theme_stylebox_override("panel", MainTheme.seal_inner())
 	_install_chrome()
+	_apply_layout()
 	_style_secondary_button(check_button)
 	_style_secondary_button(install_button)
 	_style_secondary_button(bag_policy_button)
@@ -375,6 +377,7 @@ func _refresh_skills() -> void:
 	for skill in _session.adventure.skills:
 		var row := Label.new()
 		row.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		row.add_theme_font_size_override("font_size", MainTheme.SIZE_CAPTION)
 		var learned := _session.state.learned_skill_ids.has(skill.id)
 		var locked := realm != null and realm.order < skill.min_realm_order
 		var mark := "未入手"
@@ -414,21 +417,72 @@ func _refresh_settings() -> void:
 
 func _install_chrome() -> void:
 	realm_label.reparent(chrome_row)
-	cultivation_label.reparent(chrome_row)
 	chrome_row.move_child(realm_label, 0)
-	chrome_row.move_child(cultivation_label, 1)
-	chrome_row.move_child(chrome_power, 2)
+	chrome_row.move_child(chrome_power, 1)
+	cultivation_label.reparent(chrome_cultivation_row)
 	realm_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	cultivation_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	chrome_power.size_flags_horizontal = Control.SIZE_SHRINK_END
 	realm_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	cultivation_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	realm_label.add_theme_font_size_override("font_size", 34)
-	cultivation_label.add_theme_font_size_override("font_size", 26)
+	chrome_power.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	var settings_box := settings_page.get_node("SettingsMargin/SettingsBox") as VBoxContainer
 	if settings_box != null:
 		version_label.reparent(settings_box)
 		settings_box.move_child(version_label, 0)
 		version_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+
+
+func _apply_layout() -> void:
+	MainTheme.stamp_label(realm_label, MainTheme.SIZE_DISPLAY, MainTheme.JADE)
+	MainTheme.stamp_label(cultivation_label, MainTheme.SIZE_NUMBER, MainTheme.IVORY)
+	MainTheme.stamp_label(chrome_power, MainTheme.SIZE_CAPTION, MainTheme.GOLD)
+	MainTheme.stamp_label(progress_hint, MainTheme.SIZE_UI, MainTheme.GOLD)
+	MainTheme.stamp_label(realm_path, MainTheme.SIZE_MICRO, Color(0.72, 0.68, 0.5, 0.9))
+	MainTheme.stamp_label(breakthrough_banner, MainTheme.SIZE_BODY, MainTheme.GOLD)
+	MainTheme.stamp_label(offline_label, MainTheme.SIZE_CAPTION, MainTheme.GOLD)
+	MainTheme.stamp_label(journal_label, MainTheme.SIZE_CAPTION, Color(0.74, 0.78, 0.74, 1))
+	MainTheme.stamp_label(stage_label, MainTheme.SIZE_HERO, MainTheme.IVORY)
+	MainTheme.stamp_label(power_label, MainTheme.SIZE_CAPTION, MainTheme.MUTED)
+	MainTheme.stamp_label(monster_label, MainTheme.SIZE_CAPTION, MainTheme.MUTED)
+	MainTheme.stamp_label(stage_hint, MainTheme.SIZE_CAPTION, MainTheme.GOLD)
+	MainTheme.stamp_label(loot_summary_label, MainTheme.SIZE_CAPTION, MainTheme.IVORY)
+	MainTheme.stamp_label(battle_log_label, MainTheme.SIZE_MICRO, Color(0.7, 0.74, 0.7, 1))
+	MainTheme.stamp_label(equip_summary, MainTheme.SIZE_MICRO, MainTheme.MUTED)
+	MainTheme.stamp_label(bag_count_label, MainTheme.SIZE_MICRO, MainTheme.MUTED)
+	MainTheme.stamp_label(learned_label, MainTheme.SIZE_BODY, MainTheme.IVORY)
+	MainTheme.stamp_label(version_label, MainTheme.SIZE_MICRO, MainTheme.MUTED)
+	MainTheme.stamp_label(volume_label, MainTheme.SIZE_CAPTION, MainTheme.MUTED)
+	MainTheme.stamp_label(export_label, MainTheme.SIZE_MICRO, MainTheme.MUTED)
+	cultivation_progress.custom_minimum_size = Vector2(0, MainTheme.H_BAR)
+	breakthrough_button.custom_minimum_size = Vector2(0, MainTheme.H_CTA)
+	breakthrough_button.add_theme_font_size_override("font_size", MainTheme.SIZE_NUMBER)
+	challenge_button.custom_minimum_size = Vector2(0, MainTheme.H_CTA)
+	challenge_button.add_theme_font_size_override("font_size", MainTheme.SIZE_NUMBER)
+	for tab in [tab_cultivate, tab_adventure, tab_bag, tab_skill, tab_settings]:
+		tab.custom_minimum_size = Vector2(0, MainTheme.H_TAB)
+		tab.add_theme_font_size_override("font_size", MainTheme.SIZE_UI)
+	var cultivate_box := cultivation_card.get_node_or_null("CultivationMargin/CultivationDetails") as VBoxContainer
+	if cultivate_box != null:
+		cultivate_box.move_child(progress_hint, 0)
+		cultivate_box.move_child(cultivation_progress, 1)
+		cultivate_box.move_child(breakthrough_button, 2)
+		cultivate_box.move_child(stats_card, 3)
+		cultivate_box.move_child(realm_path, 4)
+		cultivate_box.move_child(breakthrough_banner, 5)
+		cultivate_box.move_child(offline_label, 6)
+	var adventure_box := adventure_page.get_node_or_null("AdventureMargin/AdventureBox") as VBoxContainer
+	if adventure_box != null:
+		adventure_box.move_child(stage_label, 0)
+		adventure_box.move_child(power_label, 1)
+		adventure_box.move_child(monster_label, 2)
+		adventure_box.move_child(challenge_button, 3)
+		adventure_box.move_child(stage_hint, 4)
+		adventure_box.move_child(loot_summary_label, 5)
+		adventure_box.move_child(stage_list, 6)
+		var log_scroll := adventure_box.get_node_or_null("BattleLogScroll")
+		if log_scroll != null:
+			adventure_box.move_child(log_scroll, 7)
 
 
 func _refresh_chrome_power() -> void:
@@ -482,10 +536,12 @@ func _refresh_stage_list(stats: CombatStats) -> void:
 			true
 		)
 		var button := Button.new()
-		button.custom_minimum_size = Vector2(0, 56)
+		button.custom_minimum_size = Vector2(0, MainTheme.H_ROW)
 		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		button.add_theme_font_size_override("font_size", MainTheme.SIZE_CAPTION)
+		var nxt := _session.next_stage()
 		if stage.id == _session.state.current_stage_id:
-			button.text = "%s · 挂机中" % stage.display_name
+			button.text = "%s  ·  挂机中" % stage.display_name
 			button.disabled = true
 		elif reason.is_empty():
 			button.text = stage.display_name
@@ -493,8 +549,16 @@ func _refresh_stage_list(stats: CombatStats) -> void:
 			button.pressed.connect(func() -> void:
 				_show_hint(_session.select_stage(stage_id))
 			)
+		elif nxt != null and stage.id == nxt.id:
+			if reason.contains("境界"):
+				button.text = "%s  ·  境界不足" % stage.display_name
+			elif reason.contains("战力"):
+				button.text = "%s  ·  需战力 %.0f" % [stage.display_name, stage.min_power]
+			else:
+				button.text = "%s  ·  未开" % stage.display_name
+			button.disabled = true
 		else:
-			button.text = "%s · %s" % [stage.display_name, reason]
+			button.text = "%s  ·  未至" % stage.display_name
 			button.disabled = true
 		_style_secondary_button(button)
 		if button.disabled:
@@ -505,8 +569,9 @@ func _refresh_stage_list(stats: CombatStats) -> void:
 func _make_bag_cell(stack: ItemStack) -> Control:
 	var item := _session.item_def(stack.item_id)
 	var button := Button.new()
-	button.custom_minimum_size = Vector2(0, 72)
+	button.custom_minimum_size = Vector2(0, MainTheme.H_CELL)
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	button.add_theme_font_size_override("font_size", MainTheme.SIZE_UI)
 	var extra := "×%d" % stack.count if stack.count > 1 else ""
 	var mark := ""
 	if stack.locked:
@@ -543,6 +608,7 @@ func _refresh_inspect() -> void:
 	var hint := Label.new()
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	hint.add_theme_color_override("font_color", MainTheme.MUTED)
+	hint.add_theme_font_size_override("font_size", MainTheme.SIZE_CAPTION)
 	if _session.state.inventory.is_empty():
 		return
 	var stack := InventoryRules.find_stack(_session.state, _selected_bag_uid)
@@ -558,7 +624,7 @@ func _refresh_inspect() -> void:
 	)
 	var compare_label := Label.new()
 	compare_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	compare_label.add_theme_font_size_override("font_size", 18)
+	compare_label.add_theme_font_size_override("font_size", MainTheme.SIZE_CAPTION)
 	compare_label.text = compare if not compare.is_empty() else stack.item_id
 	inspect_panel.add_child(compare_label)
 	var item := _session.item_def(stack.item_id)
@@ -586,7 +652,8 @@ func _has_book_for(skill_id: String) -> bool:
 func _action_button(text: String, callback: Callable) -> Button:
 	var button := Button.new()
 	button.text = text
-	button.custom_minimum_size = Vector2(0, 56)
+	button.custom_minimum_size = Vector2(0, MainTheme.H_ACTION)
+	button.add_theme_font_size_override("font_size", MainTheme.SIZE_UI)
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_style_secondary_button(button)
 	button.pressed.connect(callback)

@@ -39,6 +39,7 @@ const REQUIRED_UNIQUE_NODES := [
 	"ChallengeButton",
 	"Chrome",
 	"ChromePower",
+	"ChromeCultivationRow",
 	"StageList",
 	"InspectPanel",
 ]

@@ -10,7 +10,7 @@
 
 - 应用名：修仙
 - Android 包名：`com.micjason.xiuxian`
-- 当前源码版本：`0.1.11`
+- 当前源码版本：`0.1.12`
 - 首次安装测试包：`builds/development/0.1.0/xiuxian.apk`
 - 公开更新页：`https://github.com/micjason/xiuxian-releases/releases/latest`
 - `0.1.3` 及更早的清单：`https://cdn.jsdelivr.net/gh/micjason/xiuxian-releases@main/update.json`

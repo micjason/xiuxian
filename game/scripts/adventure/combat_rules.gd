@@ -49,6 +49,7 @@ static func player_stats_with_loadout(
 		var skill := adventure.skill_by_id(skill_id)
 		if skill != null:
 			stats.add(skill.to_stats())
+	stats.apply_speed_to_interval()
 	return stats
 
 

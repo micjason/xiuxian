@@ -95,6 +95,23 @@ func test_next_stage_requires_realm_and_power() -> void:
 	assert_eq(session.state.current_stage_id, "grove")
 
 
+func test_gear_speed_tightens_attack_interval() -> void:
+	var idle := IdleConfig.from_resource("res://resources/config/idle_rules.json")
+	var adventure := AdventureConfig.from_resource()
+	var state := CultivationState.new()
+	state.realm_id = "mortal"
+	state.inventory_capacity = 8
+	var before := CombatRules.player_stats(state, idle, adventure)
+	assert_almost_eq(before.interval, 1.5, 0.0001)
+	var boots := adventure.item_by_id("boots_0")
+	InventoryRules.add_item(state, adventure, boots, 1, GameSettings.POLICY_SKIP)
+	state.equipped.shoes = state.inventory[0].uid
+	var after := CombatRules.player_stats(state, idle, adventure)
+	assert_gt(after.speed, before.speed)
+	assert_lt(after.interval, before.interval)
+	assert_gt(after.power(), before.power())
+
+
 func test_loot_chance_scale_shrinks_intake() -> void:
 	var idle := IdleConfig.from_resource("res://resources/config/idle_rules.json")
 	var adventure := AdventureConfig.from_resource()

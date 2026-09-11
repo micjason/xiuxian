@@ -42,6 +42,9 @@ const REQUIRED_UNIQUE_NODES := [
 	"ChromeCultivationRow",
 	"StageList",
 	"InspectPanel",
+	"DollBoard",
+	"BagTabs",
+	"ItemInspectLayer",
 ]
 
 

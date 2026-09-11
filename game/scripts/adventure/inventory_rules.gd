@@ -14,8 +14,32 @@ static func find_stack(state: CultivationState, uid: int) -> ItemStack:
 	return null
 
 
+static func bag_used(state: CultivationState) -> int:
+	return filter_stacks(state, null, "all").size()
+
+
 static func is_full(state: CultivationState) -> bool:
-	return state != null and state.inventory.size() >= state.inventory_capacity
+	return state != null and bag_used(state) >= state.inventory_capacity
+
+
+static func filter_stacks(
+	state: CultivationState,
+	adventure: AdventureConfig,
+	kind: String
+) -> Array[ItemStack]:
+	var found: Array[ItemStack] = []
+	if state == null:
+		return found
+	for stack in state.inventory:
+		if state.equipped.contains_uid(stack.uid):
+			continue
+		if kind.is_empty() or kind == "all":
+			found.append(stack)
+			continue
+		var item := adventure.item_by_id(stack.item_id) if adventure != null else null
+		if item != null and item.kind == kind:
+			found.append(stack)
+	return found
 
 
 static func add_item(
@@ -98,7 +122,7 @@ static func inspect_text(
 		return _inspect_equipment(state, idle, adventure, stack, item)
 	if item.is_skill_book():
 		return _inspect_skill_book(state, idle, adventure, item)
-	return ""
+	return _inspect_stackable(item, stack)
 
 
 static func _inspect_equipment(
@@ -115,6 +139,20 @@ static func _inspect_equipment(
 	var worn_stack := find_stack(state, state.equipped.uid_for(item.slot))
 	var worn := adventure.item_by_id(worn_stack.item_id) if worn_stack != null else null
 	var lines: PackedStringArray = PackedStringArray()
+	lines.append("%s · %s · %s" % [
+		QualityId.display_name(item.quality),
+		EquipSlot.display_name(item.slot),
+		item.kind_display_name(),
+	])
+	if not item.affixes.is_empty():
+		lines.append("词条  %s" % " · ".join(item.affixes))
+	lines.append("攻%s  防%s  速%s  气血%s" % [
+		CultivationFormat.amount(item.attack),
+		CultivationFormat.amount(item.defense),
+		CultivationFormat.amount(item.speed),
+		CultivationFormat.amount(item.hp),
+	])
+	lines.append("装备战力 %s" % CultivationFormat.amount(item.gear_power()))
 	var realm := idle.realm_by_id(state.realm_id) if idle != null else null
 	if state.equipped.contains_uid(stack.uid):
 		lines.append("正在穿戴。")
@@ -125,26 +163,36 @@ static func _inspect_equipment(
 	if worn == null:
 		lines.append("该槽位空着。")
 	else:
-		lines.append("已穿 %s  攻%s 防%s 血%s" % [
+		lines.append("已穿 %s  攻%s 防%s 速%s" % [
 			worn.display_name,
 			CultivationFormat.amount(worn.attack),
 			CultivationFormat.amount(worn.defense),
-			CultivationFormat.amount(worn.hp),
+			CultivationFormat.amount(worn.speed),
 		])
-	lines.append("这件 %s  攻%s 防%s 血%s" % [
-		item.display_name,
-		CultivationFormat.amount(item.attack),
-		CultivationFormat.amount(item.defense),
-		CultivationFormat.amount(item.hp),
-	])
-	lines.append("换上后 攻%s 防%s 血%s  战力 %s → %s（%s）" % [
+	lines.append("换上后 攻%s 防%s 速%s  战力 %s → %s（%s）" % [
 		_signed(preview.attack - current.attack),
 		_signed(preview.defense - current.defense),
-		_signed(preview.hp - current.hp),
+		_signed(preview.speed - current.speed),
 		CultivationFormat.amount(current.power()),
 		CultivationFormat.amount(preview.power()),
 		_signed(preview.power() - current.power()),
 	])
+	return "\n".join(lines)
+
+
+static func _inspect_stackable(item: ItemDef, stack: ItemStack) -> String:
+	var lines: PackedStringArray = PackedStringArray()
+	lines.append("%s · %s" % [QualityId.display_name(item.quality), item.kind_display_name()])
+	if stack.count > 1:
+		lines.append("持有 ×%d" % stack.count)
+	if not item.description.is_empty():
+		lines.append(item.description)
+	elif item.is_pill():
+		lines.append("丹药。此版可观其形，服食尚未开通。")
+	elif item.is_material():
+		lines.append("材料。此版可收入行囊，炼器尚未开通。")
+	else:
+		lines.append(item.display_name)
 	return "\n".join(lines)
 
 

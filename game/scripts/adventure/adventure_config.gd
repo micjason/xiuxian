@@ -153,7 +153,19 @@ static func _load_items(config: AdventureConfig, raw: Variant) -> bool:
 		item.defense = float(entry.get("defense", 0.0))
 		item.hp = float(entry.get("hp", 0.0))
 		item.min_realm_order = int(entry.get("min_realm_order", 0))
-		item.stackable = bool(entry.get("stackable", item.kind == ItemDef.KIND_SKILL_BOOK))
+		item.stackable = bool(entry.get("stackable", item.kind != ItemDef.KIND_EQUIPMENT))
+		item.description = str(entry.get("description", "")).strip_edges()
+		item.speed = float(entry.get("speed", -1.0))
+		if item.speed < 0.0:
+			item.speed = ItemDef.default_speed(item.slot, item.min_realm_order) if item.kind == ItemDef.KIND_EQUIPMENT else 0.0
+		var raw_affixes: Variant = entry.get("affixes", [])
+		if typeof(raw_affixes) == TYPE_ARRAY:
+			for affix in raw_affixes:
+				var line := str(affix).strip_edges()
+				if not line.is_empty():
+					item.affixes.append(line)
+		if item.affixes.is_empty() and item.kind == ItemDef.KIND_EQUIPMENT:
+			item.affixes = ItemDef.default_affixes(item.quality, item.slot)
 		if item.id.is_empty() or item.display_name.is_empty():
 			return false
 		if item.kind == ItemDef.KIND_EQUIPMENT:
@@ -161,6 +173,9 @@ static func _load_items(config: AdventureConfig, raw: Variant) -> bool:
 				return false
 		elif item.kind == ItemDef.KIND_SKILL_BOOK:
 			if item.skill_id.is_empty() or not QualityId.is_valid(item.quality):
+				return false
+		elif item.kind == ItemDef.KIND_PILL or item.kind == ItemDef.KIND_MATERIAL:
+			if not QualityId.is_valid(item.quality):
 				return false
 		else:
 			return false

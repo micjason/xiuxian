@@ -22,9 +22,12 @@ const SIZE_MICRO := 16
 const H_CTA := 96
 const H_TAB := 80
 const H_ROW := 52
-const H_CELL := 80
+const H_CELL := 88
 const H_ACTION := 52
 const H_BAR := 28
+const H_SLOT := 72
+const H_DOLL := 268
+const BAG_COLUMNS := 4
 
 
 static func body_font() -> SystemFont:

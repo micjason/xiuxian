@@ -799,6 +799,66 @@
       "hp": 0,
       "min_realm_order": 6,
       "stackable": true
+    },
+    {
+      "id": "pill_qi_0",
+      "display_name": "回气丹",
+      "kind": "pill",
+      "quality": "white",
+      "slot": "",
+      "skill_id": "",
+      "attack": 0,
+      "defense": 0,
+      "hp": 0,
+      "speed": 0,
+      "min_realm_order": 0,
+      "stackable": true,
+      "description": "凡品丹药，可观其形。服食尚未开通。"
+    },
+    {
+      "id": "pill_body_0",
+      "display_name": "养体丹",
+      "kind": "pill",
+      "quality": "white",
+      "slot": "",
+      "skill_id": "",
+      "attack": 0,
+      "defense": 0,
+      "hp": 0,
+      "speed": 0,
+      "min_realm_order": 0,
+      "stackable": true,
+      "description": "温养筋骨的凡丹。服食尚未开通。"
+    },
+    {
+      "id": "mat_spirit_grass",
+      "display_name": "灵草",
+      "kind": "material",
+      "quality": "white",
+      "slot": "",
+      "skill_id": "",
+      "attack": 0,
+      "defense": 0,
+      "hp": 0,
+      "speed": 0,
+      "min_realm_order": 0,
+      "stackable": true,
+      "description": "林间常见灵草。炼器尚未开通。"
+    },
+    {
+      "id": "mat_beast_bone",
+      "display_name": "兽骨",
+      "kind": "material",
+      "quality": "white",
+      "slot": "",
+      "skill_id": "",
+      "attack": 0,
+      "defense": 0,
+      "hp": 0,
+      "speed": 0,
+      "min_realm_order": 0,
+      "stackable": true,
+      "description": "兽类残骨。炼器尚未开通。"
     }
   ],
   "skills": [
@@ -994,6 +1054,16 @@
               "item_id": "book_crack_stone",
               "chance": 0.05,
               "count": 1
+            },
+            {
+              "item_id": "pill_qi_0",
+              "chance": 0.08,
+              "count": 1
+            },
+            {
+              "item_id": "mat_spirit_grass",
+              "chance": 0.08,
+              "count": 1
             }
           ]
         },
@@ -1048,6 +1118,16 @@
             {
               "item_id": "book_crack_stone",
               "chance": 0.05,
+              "count": 1
+            },
+            {
+              "item_id": "pill_body_0",
+              "chance": 0.08,
+              "count": 1
+            },
+            {
+              "item_id": "mat_beast_bone",
+              "chance": 0.08,
               "count": 1
             }
           ]

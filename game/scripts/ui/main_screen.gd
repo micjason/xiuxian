@@ -50,8 +50,12 @@ const PAGE_SETTINGS := "settings"
 @onready var loot_summary_label: Label = %LootSummaryLabel
 @onready var battle_log_label: Label = %BattleLogLabel
 @onready var equip_summary: Label = %EquipSummary
+@onready var doll_board: PanelContainer = %DollBoard
 @onready var bag_count_label: Label = %BagCountLabel
+@onready var bag_tabs: HBoxContainer = %BagTabs
 @onready var bag_list: GridContainer = %BagList
+@onready var inspect_layer: ColorRect = %ItemInspectLayer
+@onready var inspect_card: PanelContainer = %ItemInspectCard
 @onready var learned_label: Label = %LearnedLabel
 @onready var skill_list: VBoxContainer = %SkillList
 @onready var battle_log_check: CheckButton = %BattleLogCheck
@@ -85,6 +89,10 @@ var _bag_fingerprint := ""
 var _skill_fingerprint := ""
 var _stage_fingerprint := ""
 var _selected_bag_uid := 0
+var _bag_tab := "all"
+var _slot_buttons: Dictionary = {}
+var _figure_label: Label
+var _inspect_empty_slot := ""
 
 
 func _ready() -> void:
@@ -104,6 +112,7 @@ func _ready() -> void:
 	seal_ring.add_theme_stylebox_override("panel", MainTheme.seal_ring())
 	seal_inner.add_theme_stylebox_override("panel", MainTheme.seal_inner())
 	_install_chrome()
+	_install_bag_board()
 	_apply_layout()
 	_style_secondary_button(check_button)
 	_style_secondary_button(install_button)
@@ -305,42 +314,43 @@ func _refresh_adventure() -> void:
 func _refresh_bag() -> void:
 	if _session.state == null:
 		return
-	var slot_bits: PackedStringArray = PackedStringArray()
-	for slot in EquipSlot.ORDER:
-		var uid := _session.state.equipped.uid_for(slot)
-		var stack := InventoryRules.find_stack(_session.state, uid)
-		var item := _session.item_def(stack.item_id) if stack != null else null
-		if item == null:
-			slot_bits.append("%s空" % EquipSlot.display_name(slot).substr(0, 1))
-		else:
-			slot_bits.append("%s%s" % [EquipSlot.display_name(slot).substr(0, 1), item.display_name])
-	equip_summary.text = " · ".join(slot_bits)
-	bag_count_label.text = "%d / %d" % [
-		_session.state.inventory.size(),
-		_session.state.inventory_capacity,
-	]
+	_refresh_doll()
+	var used := InventoryRules.bag_used(_session.state)
+	bag_count_label.text = "行囊 %d / %d" % [used, _session.state.inventory_capacity]
 	if _selected_bag_uid > 0 and InventoryRules.find_stack(_session.state, _selected_bag_uid) == null:
 		_selected_bag_uid = 0
-	var fingerprint := "%d|%d|%s|%d|%d" % [
+		_close_inspect()
+	_refresh_bag_tabs()
+	var visible := InventoryRules.filter_stacks(_session.state, _session.adventure, _bag_tab)
+	var fingerprint := "%d|%d|%s|%d|%s|%d" % [
 		_session.state.next_item_uid,
 		_session.state.inventory.size(),
 		JSON.stringify(_session.state.equipped.to_dictionary()),
 		_session.state.learned_skill_ids.size(),
-		_selected_bag_uid,
+		_bag_tab,
+		visible.size(),
 	]
 	if fingerprint != _bag_fingerprint or bag_list.get_child_count() == 0:
 		_bag_fingerprint = fingerprint
 		for child in bag_list.get_children():
 			child.queue_free()
-		if _session.state.inventory.is_empty():
+		if visible.is_empty():
 			var empty := Label.new()
-			empty.text = "行囊空空。去历练挂机，掉落会回到这里。"
 			empty.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			empty.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			if used == 0 and _session.state.inventory.is_empty():
+				empty.text = "行囊空空。去历练挂机，掉落会回到这里。"
+			elif used == 0:
+				empty.text = "穿戴中的装备在上方。袋里没有未穿的物品。"
+			else:
+				empty.text = "这一类还是空的。"
+			MainTheme.stamp_label(empty, MainTheme.SIZE_CAPTION, MainTheme.MUTED)
 			bag_list.add_child(empty)
 		else:
-			for stack in _session.state.inventory:
+			for stack in visible:
 				bag_list.add_child(_make_bag_cell(stack))
-	_refresh_inspect()
+	if inspect_layer.visible:
+		_fill_inspect_card()
 
 
 func _refresh_skills() -> void:
@@ -450,6 +460,9 @@ func _apply_layout() -> void:
 	MainTheme.stamp_label(battle_log_label, MainTheme.SIZE_MICRO, Color(0.7, 0.74, 0.7, 1))
 	MainTheme.stamp_label(equip_summary, MainTheme.SIZE_MICRO, MainTheme.MUTED)
 	MainTheme.stamp_label(bag_count_label, MainTheme.SIZE_MICRO, MainTheme.MUTED)
+	doll_board.add_theme_stylebox_override("panel", MainTheme.inner_panel())
+	inspect_card.add_theme_stylebox_override("panel", MainTheme.hero_panel())
+	bag_list.columns = MainTheme.BAG_COLUMNS
 	MainTheme.stamp_label(learned_label, MainTheme.SIZE_BODY, MainTheme.IVORY)
 	MainTheme.stamp_label(version_label, MainTheme.SIZE_MICRO, MainTheme.MUTED)
 	MainTheme.stamp_label(volume_label, MainTheme.SIZE_CAPTION, MainTheme.MUTED)
@@ -566,79 +579,276 @@ func _refresh_stage_list(stats: CombatStats) -> void:
 		stage_list.add_child(button)
 
 
+func _install_bag_board() -> void:
+	equip_summary.visible = false
+	inspect_panel.visible = false
+	doll_board.add_theme_stylebox_override("panel", MainTheme.inner_panel())
+	for child in doll_board.get_children():
+		child.queue_free()
+	var margin := MarginContainer.new()
+	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
+	margin.add_theme_constant_override("margin_left", 8)
+	margin.add_theme_constant_override("margin_right", 8)
+	margin.add_theme_constant_override("margin_top", 8)
+	margin.add_theme_constant_override("margin_bottom", 8)
+	doll_board.add_child(margin)
+	var grid := GridContainer.new()
+	grid.columns = 3
+	grid.add_theme_constant_override("h_separation", 8)
+	grid.add_theme_constant_override("v_separation", 6)
+	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	grid.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	margin.add_child(grid)
+	var figure := PanelContainer.new()
+	figure.custom_minimum_size = Vector2(MainTheme.H_SLOT + 16, MainTheme.H_SLOT + 28)
+	figure.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	figure.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	figure.add_theme_stylebox_override("panel", MainTheme.seal_ring())
+	_figure_label = Label.new()
+	_figure_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_figure_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_figure_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_figure_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_figure_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	figure.add_child(_figure_label)
+	_slot_buttons.clear()
+	var layout: Array = [
+		["", EquipSlot.HELMET, ""],
+		[EquipSlot.WEAPON, "figure", EquipSlot.ACCESSORY],
+		["", EquipSlot.CLOTHES, ""],
+		["", EquipSlot.SHOES, ""],
+	]
+	for row in layout:
+		for cell in row:
+			var key := str(cell)
+			if key.is_empty():
+				var pad := Control.new()
+				pad.custom_minimum_size = Vector2(MainTheme.H_SLOT, MainTheme.H_SLOT)
+				pad.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				grid.add_child(pad)
+			elif key == "figure":
+				grid.add_child(figure)
+			else:
+				var button := _make_slot_button(key)
+				_slot_buttons[key] = button
+				grid.add_child(button)
+	for child in bag_tabs.get_children():
+		child.queue_free()
+	for entry in [
+		["all", "全部"],
+		[ItemDef.KIND_EQUIPMENT, "装备"],
+		[ItemDef.KIND_PILL, "丹药"],
+		[ItemDef.KIND_MATERIAL, "材料"],
+		[ItemDef.KIND_SKILL_BOOK, "功法"],
+	]:
+		var tab := Button.new()
+		tab.text = str(entry[1])
+		tab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		tab.custom_minimum_size = Vector2(0, MainTheme.H_ACTION)
+		tab.add_theme_font_size_override("font_size", MainTheme.SIZE_UI)
+		var tab_id := str(entry[0])
+		tab.pressed.connect(func() -> void:
+			_bag_tab = tab_id
+			_bag_fingerprint = ""
+			_refresh_bag()
+		)
+		bag_tabs.add_child(tab)
+	inspect_layer.gui_input.connect(_on_inspect_layer_gui_input)
+	inspect_card.mouse_filter = Control.MOUSE_FILTER_STOP
+
+
+func _make_slot_button(slot: String) -> Button:
+	var button := Button.new()
+	button.custom_minimum_size = Vector2(MainTheme.H_SLOT, MainTheme.H_SLOT)
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	button.add_theme_font_size_override("font_size", MainTheme.SIZE_MICRO)
+	button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	button.pressed.connect(func() -> void:
+		_open_slot(slot)
+	)
+	return button
+
+
+func _refresh_doll() -> void:
+	var realm := _session.current_realm()
+	if _figure_label != null:
+		_figure_label.text = "%s\n修士" % (realm.display_name if realm != null else "凡人")
+		MainTheme.stamp_label(_figure_label, MainTheme.SIZE_CAPTION, MainTheme.GOLD)
+	for slot in EquipSlot.ORDER:
+		var button: Button = _slot_buttons.get(slot, null)
+		if button == null:
+			continue
+		var uid := _session.state.equipped.uid_for(slot)
+		var stack := InventoryRules.find_stack(_session.state, uid)
+		var item := _session.item_def(stack.item_id) if stack != null else null
+		if item == null:
+			button.text = EquipSlot.display_name(slot)
+			_style_secondary_button(button)
+			button.add_theme_color_override("font_color", MainTheme.MUTED)
+		else:
+			button.text = item.display_name
+			button.add_theme_stylebox_override(
+				"normal",
+				MainTheme._box(Color(0.1, 0.12, 0.1, 1), QualityId.color(item.quality), 2, 16, 0, 8, 8)
+			)
+			button.add_theme_color_override("font_color", QualityId.color(item.quality))
+
+
+func _refresh_bag_tabs() -> void:
+	var wanted := _bag_tab
+	for tab in bag_tabs.get_children():
+		var button := tab as Button
+		if button == null:
+			continue
+		var id := "all"
+		match button.text:
+			"装备":
+				id = ItemDef.KIND_EQUIPMENT
+			"丹药":
+				id = ItemDef.KIND_PILL
+			"材料":
+				id = ItemDef.KIND_MATERIAL
+			"功法":
+				id = ItemDef.KIND_SKILL_BOOK
+		if id == wanted:
+			button.remove_theme_stylebox_override("normal")
+			button.remove_theme_stylebox_override("hover")
+			button.remove_theme_stylebox_override("pressed")
+			button.add_theme_color_override("font_color", Color(0.12, 0.1, 0.06, 1))
+		else:
+			_style_secondary_button(button)
+
+
 func _make_bag_cell(stack: ItemStack) -> Control:
 	var item := _session.item_def(stack.item_id)
 	var button := Button.new()
 	button.custom_minimum_size = Vector2(0, MainTheme.H_CELL)
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	button.add_theme_font_size_override("font_size", MainTheme.SIZE_UI)
-	var extra := "×%d" % stack.count if stack.count > 1 else ""
-	var mark := ""
-	if stack.locked:
-		mark += "锁"
-	if _session.state.equipped.contains_uid(stack.uid):
-		mark += "穿"
-	var name := stack.item_id if item == null else item.display_name
-	if item != null and item.is_skill_book():
-		name = "%s残页" % item.display_name
-	button.text = "%s%s%s" % [name, extra, (" · " + mark) if not mark.is_empty() else ""]
-	if item != null:
-		button.add_theme_color_override("font_color", QualityId.color(item.quality))
-	if stack.uid == _selected_bag_uid:
-		button.add_theme_stylebox_override(
-			"normal",
-			MainTheme._box(Color(0.16, 0.18, 0.12, 1), MainTheme.GOLD, 2, 16, 0, 10, 10)
-		)
-	else:
-		_style_secondary_button(button)
-		if item != null:
-			button.add_theme_color_override("font_color", QualityId.color(item.quality))
+	button.add_theme_font_size_override("font_size", MainTheme.SIZE_CAPTION)
+	button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	button.text = _bag_cell_caption(item, stack)
+	var quality := item.quality if item != null else QualityId.WHITE
+	_style_secondary_button(button)
+	button.add_theme_color_override("font_color", QualityId.color(quality))
+	button.add_theme_stylebox_override(
+		"normal",
+		MainTheme._box(Color(0.07, 0.1, 0.09, 0.95), QualityId.color(quality), 1, 14, 0, 8, 8)
+	)
 	var uid := stack.uid
 	button.pressed.connect(func() -> void:
-		_selected_bag_uid = uid
-		_bag_fingerprint = ""
-		_refresh_bag()
+		_open_inspect(uid)
 	)
 	return button
 
 
-func _refresh_inspect() -> void:
-	for child in inspect_panel.get_children():
+func _bag_cell_caption(item: ItemDef, stack: ItemStack) -> String:
+	var name := stack.item_id if item == null else item.display_name
+	if item != null and item.is_skill_book() and name.ends_with("残页"):
+		name = name.substr(0, name.length() - 2)
+	if name.length() > 5:
+		name = name.substr(0, 4) + "…"
+	if stack.count > 1:
+		name = "%s×%d" % [name, stack.count]
+	if stack.locked:
+		name = "锁\n%s" % name
+	return name
+
+
+func _open_slot(slot: String) -> void:
+	var uid := _session.state.equipped.uid_for(slot)
+	if uid > 0 and InventoryRules.find_stack(_session.state, uid) != null:
+		_open_inspect(uid)
+		return
+	_inspect_empty_slot = slot
+	_selected_bag_uid = 0
+	inspect_layer.visible = true
+	_fill_inspect_card()
+
+
+func _open_inspect(uid: int) -> void:
+	_selected_bag_uid = uid
+	_inspect_empty_slot = ""
+	inspect_layer.visible = true
+	_fill_inspect_card()
+
+
+func _close_inspect() -> void:
+	inspect_layer.visible = false
+	_inspect_empty_slot = ""
+
+
+func _on_inspect_layer_gui_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.pressed:
+		_close_inspect()
+
+
+func _fill_inspect_card() -> void:
+	for child in inspect_card.get_children():
 		child.queue_free()
-	var hint := Label.new()
-	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	hint.add_theme_color_override("font_color", MainTheme.MUTED)
-	hint.add_theme_font_size_override("font_size", MainTheme.SIZE_CAPTION)
-	if _session.state.inventory.is_empty():
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 10)
+	inspect_card.add_child(box)
+	var title := Label.new()
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(title)
+	var body := Label.new()
+	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(body)
+	if not _inspect_empty_slot.is_empty():
+		title.text = EquipSlot.display_name(_inspect_empty_slot)
+		MainTheme.stamp_label(title, MainTheme.SIZE_HERO, MainTheme.GOLD)
+		body.text = "此槽空着。\n去下方行囊选一件%s。" % EquipSlot.display_name(_inspect_empty_slot)
+		MainTheme.stamp_label(body, MainTheme.SIZE_BODY, MainTheme.MUTED)
+		box.add_child(_action_button("关闭", _close_inspect))
 		return
 	var stack := InventoryRules.find_stack(_session.state, _selected_bag_uid)
 	if stack == null:
-		hint.text = "点一件装备或残页，对照已穿再决定留下谁。"
-		inspect_panel.add_child(hint)
+		title.text = "物品"
+		MainTheme.stamp_label(title, MainTheme.SIZE_HERO, MainTheme.IVORY)
+		body.text = "这件东西已经不在了。"
+		MainTheme.stamp_label(body, MainTheme.SIZE_BODY, MainTheme.MUTED)
+		box.add_child(_action_button("关闭", _close_inspect))
 		return
-	var compare := InventoryRules.inspect_text(
+	var item := _session.item_def(stack.item_id)
+	title.text = item.display_name if item != null else stack.item_id
+	var title_color := QualityId.color(item.quality) if item != null else MainTheme.IVORY
+	MainTheme.stamp_label(title, MainTheme.SIZE_HERO, title_color)
+	body.text = InventoryRules.inspect_text(
 		_session.state,
 		_session.config,
 		_session.adventure,
 		stack
 	)
-	var compare_label := Label.new()
-	compare_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	compare_label.add_theme_font_size_override("font_size", MainTheme.SIZE_CAPTION)
-	compare_label.text = compare if not compare.is_empty() else stack.item_id
-	inspect_panel.add_child(compare_label)
-	var item := _session.item_def(stack.item_id)
+	MainTheme.stamp_label(body, MainTheme.SIZE_CAPTION, MainTheme.IVORY)
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 8)
 	if item != null and item.is_equipment():
-		row.add_child(_action_button("穿上", func() -> void: _show_hint(_session.equip_item(stack.uid))))
 		if _session.state.equipped.contains_uid(stack.uid):
-			row.add_child(_action_button("卸下", func() -> void: _session.unequip_slot(item.slot)))
+			row.add_child(_action_button("卸下", func() -> void:
+				_session.unequip_slot(item.slot)
+				_close_inspect()
+			))
+		else:
+			row.add_child(_action_button("穿上", func() -> void:
+				_show_hint(_session.equip_item(stack.uid))
+				_close_inspect()
+			))
 	if item != null and item.is_skill_book():
-		row.add_child(_action_button("参悟", func() -> void: _show_hint(_session.learn_skill_from(stack.uid))))
-	row.add_child(_action_button("上锁" if not stack.locked else "解锁", func() -> void: _session.toggle_lock(stack.uid)))
-	row.add_child(_action_button("丢弃", func() -> void: _show_hint(_session.discard_item(stack.uid))))
-	inspect_panel.add_child(row)
+		row.add_child(_action_button("参悟", func() -> void:
+			_show_hint(_session.learn_skill_from(stack.uid))
+			_close_inspect()
+		))
+	row.add_child(_action_button("上锁" if not stack.locked else "解锁", func() -> void:
+		_session.toggle_lock(stack.uid)
+		_fill_inspect_card()
+	))
+	row.add_child(_action_button("丢弃", func() -> void:
+		_show_hint(_session.discard_item(stack.uid))
+		_close_inspect()
+	))
+	box.add_child(row)
+	box.add_child(_action_button("关闭", _close_inspect))
 
 
 func _has_book_for(skill_id: String) -> bool:

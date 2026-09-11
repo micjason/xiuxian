@@ -196,12 +196,16 @@ static func _load_skills(config: AdventureConfig, raw: Variant) -> bool:
 		skill.attack = float(entry.get("attack", 0.0))
 		skill.defense = float(entry.get("defense", 0.0))
 		skill.hp = float(entry.get("hp", 0.0))
+		skill.speed = float(entry.get("speed", 0.0))
+		skill.cultivate_bonus = float(entry.get("cultivate_bonus", 0.0))
+		skill.role = str(entry.get("role", "")).strip_edges()
 		skill.min_realm_order = int(entry.get("min_realm_order", 0))
 		skill.book_id = str(entry.get("book_id", "")).strip_edges()
 		if (
 			skill.id.is_empty()
 			or skill.display_name.is_empty()
 			or not SkillRank.is_valid(skill.rank)
+			or not SkillRole.is_valid(skill.role)
 			or skill.book_id.is_empty()
 		):
 			return false
@@ -224,6 +228,7 @@ static func _load_stages(config: AdventureConfig, raw: Variant) -> bool:
 		stage.min_attack = float(entry.get("min_attack", 0.0))
 		stage.min_defense = float(entry.get("min_defense", 0.0))
 		stage.min_speed = float(entry.get("min_speed", 0.0))
+		stage.require_skill_mastery = bool(entry.get("require_skill_mastery", false))
 		stage.next_id = str(entry.get("next_id", "")).strip_edges()
 		var monsters: Variant = entry.get("monsters", [])
 		if typeof(monsters) != TYPE_ARRAY or stage.id.is_empty() or stage.display_name.is_empty():

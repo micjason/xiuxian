@@ -59,6 +59,8 @@ const PAGE_SETTINGS := "settings"
 @onready var inspect_layer: ColorRect = %ItemInspectLayer
 @onready var inspect_card: PanelContainer = %ItemInspectCard
 @onready var learned_label: Label = %LearnedLabel
+@onready var skill_slot_row: HBoxContainer = %SkillSlotRow
+@onready var skill_tabs: HBoxContainer = %SkillTabs
 @onready var skill_list: VBoxContainer = %SkillList
 @onready var battle_log_check: CheckButton = %BattleLogCheck
 @onready var bag_policy_button: Button = %BagPolicyButton
@@ -95,6 +97,8 @@ var _bag_tab := "all"
 var _slot_buttons: Dictionary = {}
 var _figure_label: Label
 var _inspect_empty_slot := ""
+var _selected_skill_id := ""
+var _skill_tab := "all"
 
 
 func _ready() -> void:
@@ -116,6 +120,7 @@ func _ready() -> void:
 	_install_chrome()
 	_install_bag_board()
 	_install_layer_row()
+	_install_skill_board()
 	_apply_layout()
 	_style_secondary_button(check_button)
 	_style_secondary_button(install_button)
@@ -313,7 +318,8 @@ func _refresh_adventure() -> void:
 				_session.config,
 				nxt,
 				stats,
-				false
+				false,
+				_session.adventure
 			)
 	if _session.last_combat_result != null and not _session.last_combat_result.loot_names.is_empty():
 		loot_summary_label.text = "最近入袋：%s" % "、".join(_session.last_combat_result.loot_names)
@@ -378,74 +384,61 @@ func _refresh_skills() -> void:
 	if _session.state == null or _session.adventure == null:
 		return
 	var realm := _session.current_realm()
-	var attack := 0.0
-	var defense := 0.0
-	var hp := 0.0
-	var names: PackedStringArray = PackedStringArray()
-	for skill_id in _session.state.learned_skill_ids:
-		var learned_skill := _session.adventure.skill_by_id(skill_id)
-		if learned_skill == null:
+	var stats := _session.player_stats()
+	var running: PackedStringArray = PackedStringArray()
+	for skill_id in _session.state.running_skill_ids():
+		var running_skill := _session.adventure.skill_by_id(skill_id)
+		if running_skill == null:
 			continue
-		var mastery := _session.state.skill_rank_of(skill_id)
-		var live := learned_skill.to_stats(mastery)
-		attack += live.attack
-		defense += live.defense
-		hp += live.hp
-		names.append("%s（%s·%s）" % [
-			learned_skill.display_name,
-			SkillRank.display_name(learned_skill.rank),
-			"小成" if mastery >= 2 else "入门",
-		])
-	if names.is_empty():
-		learned_label.text = "尚未参悟。行囊里的残页可参悟。"
+		running.append("%s（%s）" % [running_skill.display_name, SkillRole.display_name(running_skill.role)])
+	if running.is_empty():
+		learned_label.text = "尚未运转。学过的功法要点开才能加到战斗和效率上。"
 	else:
-		learned_label.text = "已学加成  攻+%s  防+%s  血+%s\n%s" % [
-			CultivationFormat.amount(attack),
-			CultivationFormat.amount(defense),
-			CultivationFormat.amount(hp),
-			"、".join(names),
+		var rate := _session.cultivate_rate()
+		learned_label.text = "运转中  %s\n攻+%s 防+%s 速+%s  效率 %s" % [
+			" · ".join(running),
+			CultivationFormat.amount(stats.attack),
+			CultivationFormat.amount(stats.defense),
+			CultivationFormat.amount(stats.speed),
+			CultivationFormat.rate(rate),
 		]
-	var fingerprint := "%s|%s|%s" % [
+	_refresh_skill_slots()
+	var fingerprint := "%s|%s|%s|%s|%s|%s" % [
 		",".join(_session.state.learned_skill_ids),
 		JSON.stringify(_session.state.skill_ranks),
+		_session.state.running_heart_id,
+		",".join(_session.state.running_art_ids),
+		_skill_tab,
 		realm.id if realm != null else "",
 	]
 	if fingerprint == _skill_fingerprint and skill_list.get_child_count() > 0:
+		if inspect_layer.visible:
+			_fill_inspect_card()
 		return
 	_skill_fingerprint = fingerprint
 	for child in skill_list.get_children():
 		child.queue_free()
+	var shown_any := false
+	var learned_first: Array[SkillDef] = []
+	var rest: Array[SkillDef] = []
 	for skill in _session.adventure.skills:
-		var row := Label.new()
-		row.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		row.add_theme_font_size_override("font_size", MainTheme.SIZE_CAPTION)
-		var mastery := _session.state.skill_rank_of(skill.id)
-		var locked := realm != null and realm.order < skill.min_realm_order
-		var mark := "未入手"
-		var shown := skill.to_stats(maxi(mastery, 1))
-		if mastery >= 2:
-			mark = "小成"
-			row.add_theme_color_override("font_color", MainTheme.JADE)
-		elif mastery >= 1:
-			mark = "入门"
-			row.add_theme_color_override("font_color", MainTheme.JADE)
-		elif locked:
-			mark = "需第 %d 阶" % skill.min_realm_order
-			row.add_theme_color_override("font_color", MainTheme.MUTED)
-		elif _has_book_for(skill.id):
-			mark = "行囊有残页"
-			row.add_theme_color_override("font_color", MainTheme.IVORY)
+		if _skill_tab != "all" and skill.role != _skill_tab:
+			continue
+		if _session.state.skill_rank_of(skill.id) > 0:
+			learned_first.append(skill)
 		else:
-			row.add_theme_color_override("font_color", MainTheme.MUTED)
-		row.text = "%s · %s · %s  攻+%s 防+%s 血+%s" % [
-			skill.display_name,
-			SkillRank.display_name(skill.rank),
-			mark,
-			CultivationFormat.amount(shown.attack),
-			CultivationFormat.amount(shown.defense),
-			CultivationFormat.amount(shown.hp),
-		]
-		skill_list.add_child(row)
+			rest.append(skill)
+	for skill in learned_first + rest:
+		shown_any = true
+		skill_list.add_child(_make_skill_row(skill, realm))
+	if not shown_any:
+		var empty := Label.new()
+		empty.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		empty.text = "这一路还没有功法。"
+		MainTheme.stamp_label(empty, MainTheme.SIZE_CAPTION, MainTheme.MUTED)
+		skill_list.add_child(empty)
+	if inspect_layer.visible:
+		_fill_inspect_card()
 
 
 func _refresh_settings() -> void:
@@ -583,7 +576,8 @@ func _refresh_stage_list(stats: CombatStats) -> void:
 			_session.config,
 			stage,
 			stats,
-			true
+			true,
+			_session.adventure
 		)
 		var button := Button.new()
 		button.custom_minimum_size = Vector2(0, MainTheme.H_ROW)
@@ -803,12 +797,22 @@ func _open_slot(slot: String) -> void:
 		return
 	_inspect_empty_slot = slot
 	_selected_bag_uid = 0
+	_selected_skill_id = ""
 	inspect_layer.visible = true
 	_fill_inspect_card()
 
 
 func _open_inspect(uid: int) -> void:
 	_selected_bag_uid = uid
+	_selected_skill_id = ""
+	_inspect_empty_slot = ""
+	inspect_layer.visible = true
+	_fill_inspect_card()
+
+
+func _open_skill_inspect(skill_id: String) -> void:
+	_selected_skill_id = skill_id
+	_selected_bag_uid = 0
 	_inspect_empty_slot = ""
 	inspect_layer.visible = true
 	_fill_inspect_card()
@@ -817,6 +821,7 @@ func _open_inspect(uid: int) -> void:
 func _close_inspect() -> void:
 	inspect_layer.visible = false
 	_inspect_empty_slot = ""
+	_selected_skill_id = ""
 
 
 func _on_inspect_layer_gui_input(event: InputEvent) -> void:
@@ -843,6 +848,9 @@ func _fill_inspect_card() -> void:
 		body.text = "此槽空着。\n去下方行囊选一件%s。" % EquipSlot.display_name(_inspect_empty_slot)
 		MainTheme.stamp_label(body, MainTheme.SIZE_BODY, MainTheme.MUTED)
 		box.add_child(_action_button("关闭", _close_inspect))
+		return
+	if not _selected_skill_id.is_empty():
+		_fill_skill_inspect(box, title, body)
 		return
 	var stack := InventoryRules.find_stack(_session.state, _selected_bag_uid)
 	if stack == null:
@@ -913,6 +921,141 @@ func _fill_inspect_card() -> void:
 	if extra.get_child_count() > 0:
 		box.add_child(extra)
 	box.add_child(_action_button("关闭", _close_inspect))
+
+
+func _fill_skill_inspect(box: VBoxContainer, title: Label, body: Label) -> void:
+	var skill := _session.adventure.skill_by_id(_selected_skill_id) if _session.adventure != null else null
+	if skill == null:
+		title.text = "功法"
+		MainTheme.stamp_label(title, MainTheme.SIZE_HERO, MainTheme.IVORY)
+		body.text = "这门功法已经不在了。"
+		MainTheme.stamp_label(body, MainTheme.SIZE_BODY, MainTheme.MUTED)
+		box.add_child(_action_button("关闭", _close_inspect))
+		return
+	title.text = skill.display_name
+	MainTheme.stamp_label(title, MainTheme.SIZE_HERO, MainTheme.GOLD)
+	body.text = InventoryRules.inspect_skill_text(
+		_session.state,
+		_session.config,
+		_session.adventure,
+		skill
+	)
+	MainTheme.stamp_label(body, MainTheme.SIZE_CAPTION, MainTheme.IVORY)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	var mastery := _session.state.skill_rank_of(skill.id)
+	if mastery > 0:
+		if _session.state.is_running(skill.id):
+			row.add_child(_action_button("卸下", func() -> void:
+				_show_hint(_session.stop_skill(skill.id))
+				_fill_inspect_card()
+			))
+		else:
+			row.add_child(_action_button("运转", func() -> void:
+				_show_hint(_session.run_skill(skill.id))
+				_close_inspect()
+			))
+		if mastery == 1 and _has_book_for(skill.id):
+			row.add_child(_action_button("小成", func() -> void:
+				_show_hint(_session.promote_skill(skill.id))
+				_fill_inspect_card()
+			))
+	elif _has_book_for(skill.id):
+		row.add_child(_action_button("参悟", func() -> void:
+			_show_hint(_session.promote_skill(skill.id))
+			_fill_inspect_card()
+		))
+	row.add_child(_action_button("关闭", _close_inspect))
+	box.add_child(row)
+
+
+func _install_skill_board() -> void:
+	for child in skill_tabs.get_children():
+		child.queue_free()
+	var tabs: Array = [
+		["all", "全部"],
+		[SkillRole.HEART, "心法"],
+		[SkillRole.ATTACK, "攻"],
+		[SkillRole.BODY, "体"],
+		[SkillRole.STEP, "步"],
+	]
+	for pair in tabs:
+		var chosen := str(pair[0])
+		var button := _action_button(str(pair[1]), func() -> void:
+			_skill_tab = chosen
+			_skill_fingerprint = ""
+			_refresh_skills()
+		)
+		skill_tabs.add_child(button)
+
+
+func _refresh_skill_slots() -> void:
+	for child in skill_slot_row.get_children():
+		child.queue_free()
+	var realm := _session.current_realm()
+	var slots := SkillRole.art_slot_count(realm.order if realm != null else 0)
+	skill_slot_row.add_child(_make_skill_slot("心法", _session.state.running_heart_id, true))
+	for index in range(slots):
+		var skill_id := ""
+		if index < _session.state.running_art_ids.size():
+			skill_id = _session.state.running_art_ids[index]
+		skill_slot_row.add_child(_make_skill_slot("战技 %d" % (index + 1), skill_id, false))
+
+
+func _make_skill_slot(caption: String, skill_id: String, _heart: bool) -> Button:
+	var skill := _session.adventure.skill_by_id(skill_id) if _session.adventure != null else null
+	var text := caption
+	if skill != null:
+		text = "%s\n%s" % [caption, skill.display_name]
+	else:
+		text = "%s\n空" % caption
+	var button := _action_button(text, func() -> void:
+		if skill_id.is_empty():
+			_show_hint("从下方点一门已学功法来运转。")
+			return
+		_open_skill_inspect(skill_id)
+	)
+	return button
+
+
+func _make_skill_row(skill: SkillDef, realm: RealmDef) -> Button:
+	var mastery := _session.state.skill_rank_of(skill.id)
+	var locked := realm != null and realm.order < skill.min_realm_order
+	var mark := "未入手"
+	if _session.state.is_running(skill.id):
+		mark = "运转中"
+	elif mastery >= 2:
+		mark = "小成"
+	elif mastery >= 1:
+		mark = "入门"
+	elif locked:
+		mark = "需第 %d 阶" % skill.min_realm_order
+	elif _has_book_for(skill.id):
+		mark = "行囊有残页"
+	var shown := skill.to_stats(maxi(mastery, 1))
+	var button := Button.new()
+	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	button.custom_minimum_size = Vector2(0, MainTheme.H_ROW)
+	button.add_theme_font_size_override("font_size", MainTheme.SIZE_CAPTION)
+	button.text = "%s · %s · %s  攻+%s 防+%s 速+%s" % [
+		skill.display_name,
+		SkillRole.display_name(skill.role),
+		mark,
+		CultivationFormat.amount(shown.attack),
+		CultivationFormat.amount(shown.defense),
+		CultivationFormat.amount(shown.speed),
+	]
+	_style_secondary_button(button)
+	if mastery > 0:
+		button.add_theme_color_override("font_color", MainTheme.JADE)
+	elif locked:
+		button.add_theme_color_override("font_disabled_color", MainTheme.MUTED)
+		button.disabled = locked and not _has_book_for(skill.id)
+	var skill_id := skill.id
+	button.pressed.connect(func() -> void:
+		_open_skill_inspect(skill_id)
+	)
+	return button
 
 
 func _install_layer_row() -> void:

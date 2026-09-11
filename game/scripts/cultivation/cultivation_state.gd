@@ -23,6 +23,8 @@ var stage_layers: Dictionary = {}
 var layer_kills: Dictionary = {}
 var qi_pill_until: int = 0
 var body_pill_until: int = 0
+var running_heart_id: String = ""
+var running_art_ids: PackedStringArray = PackedStringArray()
 
 
 func duplicate_state() -> CultivationState:
@@ -45,6 +47,8 @@ func duplicate_state() -> CultivationState:
 	copy.layer_kills = layer_kills.duplicate()
 	copy.qi_pill_until = qi_pill_until
 	copy.body_pill_until = body_pill_until
+	copy.running_heart_id = running_heart_id
+	copy.running_art_ids = running_art_ids.duplicate()
 	for stack in inventory:
 		copy.inventory.append(ItemStack.from_dictionary(stack.to_dictionary()))
 	return copy
@@ -69,6 +73,8 @@ func apply_adventure_defaults(adventure: AdventureConfig) -> void:
 	for skill_id in learned_skill_ids:
 		if int(skill_ranks.get(skill_id, 0)) <= 0:
 			skill_ranks[skill_id] = 1
+	if adventure != null:
+		fill_empty_running(adventure)
 
 
 func current_layer() -> int:
@@ -105,3 +111,52 @@ func set_skill_rank(skill_id: String, rank: int) -> void:
 	skill_ranks[skill_id] = rank
 	if rank > 0 and not learned_skill_ids.has(skill_id):
 		learned_skill_ids.append(skill_id)
+
+
+func running_skill_ids() -> PackedStringArray:
+	var ids := PackedStringArray()
+	if not running_heart_id.is_empty():
+		ids.append(running_heart_id)
+	for skill_id in running_art_ids:
+		if not skill_id.is_empty() and not ids.has(skill_id):
+			ids.append(skill_id)
+	return ids
+
+
+func is_running(skill_id: String) -> bool:
+	return not skill_id.is_empty() and running_skill_ids().has(skill_id)
+
+
+func fill_empty_running(adventure: AdventureConfig) -> void:
+	if adventure == null:
+		return
+	if running_heart_id.is_empty():
+		for skill_id in learned_skill_ids:
+			var skill := adventure.skill_by_id(skill_id)
+			if skill != null and skill.is_heart():
+				running_heart_id = skill.id
+				break
+	if running_art_ids.is_empty():
+		for skill_id in learned_skill_ids:
+			var skill := adventure.skill_by_id(skill_id)
+			if skill != null and skill.is_art():
+				running_art_ids = PackedStringArray([skill.id])
+				break
+
+
+func sanitize_running(adventure: AdventureConfig, realm_order: int) -> void:
+	var heart := adventure.skill_by_id(running_heart_id) if adventure != null else null
+	if heart == null or not heart.is_heart() or skill_rank_of(running_heart_id) <= 0:
+		running_heart_id = ""
+	var kept := PackedStringArray()
+	var limit := SkillRole.art_slot_count(realm_order)
+	for skill_id in running_art_ids:
+		if kept.size() >= limit:
+			break
+		var skill := adventure.skill_by_id(skill_id) if adventure != null else null
+		if skill == null or not skill.is_art() or skill_rank_of(skill_id) <= 0:
+			continue
+		if kept.has(skill_id):
+			continue
+		kept.append(skill_id)
+	running_art_ids = kept

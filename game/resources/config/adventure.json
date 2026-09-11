@@ -758,7 +758,7 @@
       "attack": 0,
       "defense": 0,
       "hp": 0,
-      "min_realm_order": 6,
+      "min_realm_order": 8,
       "stackable": true
     },
     {
@@ -771,7 +771,7 @@
       "attack": 0,
       "defense": 0,
       "hp": 0,
-      "min_realm_order": 6,
+      "min_realm_order": 8,
       "stackable": true
     },
     {
@@ -784,7 +784,7 @@
       "attack": 0,
       "defense": 0,
       "hp": 0,
-      "min_realm_order": 6,
+      "min_realm_order": 8,
       "stackable": true
     },
     {
@@ -797,7 +797,7 @@
       "attack": 0,
       "defense": 0,
       "hp": 0,
-      "min_realm_order": 6,
+      "min_realm_order": 8,
       "stackable": true
     },
     {
@@ -870,7 +870,10 @@
       "defense": 2,
       "hp": 8,
       "min_realm_order": 0,
-      "book_id": "book_tuna"
+      "book_id": "book_tuna",
+      "role": "heart",
+      "speed": 0.0,
+      "cultivate_bonus": 0.08
     },
     {
       "id": "iron_bone",
@@ -880,7 +883,10 @@
       "defense": 8,
       "hp": 12,
       "min_realm_order": 0,
-      "book_id": "book_iron_bone"
+      "book_id": "book_iron_bone",
+      "role": "body",
+      "speed": 0.0,
+      "cultivate_bonus": 0.0
     },
     {
       "id": "crack_stone",
@@ -890,7 +896,10 @@
       "defense": 1,
       "hp": 4,
       "min_realm_order": 0,
-      "book_id": "book_crack_stone"
+      "book_id": "book_crack_stone",
+      "role": "attack",
+      "speed": 0.0,
+      "cultivate_bonus": 0.0
     },
     {
       "id": "wind_step",
@@ -900,7 +909,10 @@
       "defense": 3,
       "hp": 6,
       "min_realm_order": 0,
-      "book_id": "book_wind_step"
+      "book_id": "book_wind_step",
+      "role": "step",
+      "speed": 3.5,
+      "cultivate_bonus": 0.0
     },
     {
       "id": "condense",
@@ -910,7 +922,10 @@
       "defense": 6,
       "hp": 16,
       "min_realm_order": 3,
-      "book_id": "book_condense"
+      "book_id": "book_condense",
+      "role": "heart",
+      "speed": 0.0,
+      "cultivate_bonus": 0.1
     },
     {
       "id": "guard_body",
@@ -920,7 +935,10 @@
       "defense": 16,
       "hp": 22,
       "min_realm_order": 3,
-      "book_id": "book_guard_body"
+      "book_id": "book_guard_body",
+      "role": "body",
+      "speed": 0.0,
+      "cultivate_bonus": 0.0
     },
     {
       "id": "open_mountain",
@@ -930,7 +948,10 @@
       "defense": 4,
       "hp": 10,
       "min_realm_order": 3,
-      "book_id": "book_open_mountain"
+      "book_id": "book_open_mountain",
+      "role": "attack",
+      "speed": 0.0,
+      "cultivate_bonus": 0.0
     },
     {
       "id": "shadow_step",
@@ -940,7 +961,10 @@
       "defense": 8,
       "hp": 14,
       "min_realm_order": 3,
-      "book_id": "book_shadow_step"
+      "book_id": "book_shadow_step",
+      "role": "step",
+      "speed": 6.0,
+      "cultivate_bonus": 0.0
     },
     {
       "id": "cycle",
@@ -950,7 +974,10 @@
       "defense": 12,
       "hp": 30,
       "min_realm_order": 4,
-      "book_id": "book_cycle"
+      "book_id": "book_cycle",
+      "role": "heart",
+      "speed": 0.0,
+      "cultivate_bonus": 0.12
     },
     {
       "id": "bell",
@@ -960,7 +987,10 @@
       "defense": 32,
       "hp": 40,
       "min_realm_order": 4,
-      "book_id": "book_bell"
+      "book_id": "book_bell",
+      "role": "body",
+      "speed": 0.0,
+      "cultivate_bonus": 0.0
     },
     {
       "id": "collapse",
@@ -970,7 +1000,10 @@
       "defense": 8,
       "hp": 18,
       "min_realm_order": 4,
-      "book_id": "book_collapse"
+      "book_id": "book_collapse",
+      "role": "attack",
+      "speed": 0.0,
+      "cultivate_bonus": 0.0
     },
     {
       "id": "shrink",
@@ -980,7 +1013,10 @@
       "defense": 14,
       "hp": 24,
       "min_realm_order": 4,
-      "book_id": "book_shrink"
+      "book_id": "book_shrink",
+      "role": "step",
+      "speed": 10.0,
+      "cultivate_bonus": 0.0
     },
     {
       "id": "hunyuan",
@@ -989,8 +1025,11 @@
       "attack": 50,
       "defense": 22,
       "hp": 48,
-      "min_realm_order": 6,
-      "book_id": "book_hunyuan"
+      "min_realm_order": 8,
+      "book_id": "book_hunyuan",
+      "role": "heart",
+      "speed": 0.0,
+      "cultivate_bonus": 0.14
     },
     {
       "id": "immortal_body",
@@ -999,8 +1038,11 @@
       "attack": 14,
       "defense": 56,
       "hp": 70,
-      "min_realm_order": 6,
-      "book_id": "book_immortal_body"
+      "min_realm_order": 8,
+      "book_id": "book_immortal_body",
+      "role": "body",
+      "speed": 0.0,
+      "cultivate_bonus": 0.0
     },
     {
       "id": "star_finger",
@@ -1009,8 +1051,11 @@
       "attack": 62,
       "defense": 12,
       "hp": 28,
-      "min_realm_order": 6,
-      "book_id": "book_star_finger"
+      "min_realm_order": 8,
+      "book_id": "book_star_finger",
+      "role": "attack",
+      "speed": 0.0,
+      "cultivate_bonus": 0.0
     },
     {
       "id": "void_step",
@@ -1019,8 +1064,11 @@
       "attack": 24,
       "defense": 24,
       "hp": 40,
-      "min_realm_order": 6,
-      "book_id": "book_void_step"
+      "min_realm_order": 8,
+      "book_id": "book_void_step",
+      "role": "step",
+      "speed": 16.0,
+      "cultivate_bonus": 0.0
     }
   ],
   "stages": [
@@ -2181,7 +2229,8 @@
             }
           ]
         }
-      ]
+      ],
+      "require_skill_mastery": true
     }
   ]
 }

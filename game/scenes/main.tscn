@@ -709,6 +709,16 @@ theme_override_font_sizes/font_size = 22
 text = "已参悟"
 autowrap_mode = 3
 
+[node name="SkillSlotRow" type="HBoxContainer" parent="Margin/Content/SkillPage/SkillMargin/SkillBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="SkillTabs" type="HBoxContainer" parent="Margin/Content/SkillPage/SkillMargin/SkillBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 8
+
 [node name="SkillScroll" type="ScrollContainer" parent="Margin/Content/SkillPage/SkillMargin/SkillBox"]
 layout_mode = 2
 size_flags_vertical = 3

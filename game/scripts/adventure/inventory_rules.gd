@@ -125,6 +125,17 @@ static func inspect_text(
 	return _inspect_stackable(item, stack)
 
 
+static func inspect_skill_text(
+	state: CultivationState,
+	idle: IdleConfig,
+	adventure: AdventureConfig,
+	skill: SkillDef
+) -> String:
+	if state == null or adventure == null or skill == null:
+		return ""
+	return _inspect_skill_body(state, idle, adventure, skill, -1)
+
+
 static func _inspect_equipment(
 	state: CultivationState,
 	idle: IdleConfig,
@@ -221,37 +232,108 @@ static func _inspect_skill_book(
 	var skill := adventure.skill_by_id(item.skill_id)
 	if skill == null:
 		return "残页已模糊。"
+	return _inspect_skill_body(state, idle, adventure, skill, stack.count)
+
+
+static func _inspect_skill_body(
+	state: CultivationState,
+	idle: IdleConfig,
+	adventure: AdventureConfig,
+	skill: SkillDef,
+	held: int
+) -> String:
 	var current := CombatRules.player_stats(state, idle, adventure)
 	var lines: PackedStringArray = PackedStringArray()
 	var realm := idle.realm_by_id(state.realm_id) if idle != null else null
-	var rank := state.skill_rank_of(skill.id)
-	if rank >= 2:
-		lines.append("已小成，再参悟不会加强。")
-	elif rank == 1:
+	var mastery := state.skill_rank_of(skill.id)
+	lines.append("%s · %s" % [SkillRank.display_name(skill.rank), SkillRole.display_name(skill.role)])
+	if skill.is_heart() and skill.cultivate_bonus > 0.0:
+		lines.append("心法效率 ×%s（小成 ×%s）" % [
+			CultivationFormat.amount(skill.cultivate_factor(1)),
+			CultivationFormat.amount(skill.cultivate_factor(2)),
+		])
+	if mastery >= 2:
+		lines.append("已小成。")
+	elif mastery == 1:
 		lines.append("已入门。再交 2 本可小成。")
 	elif realm != null and realm.order < skill.min_realm_order:
 		lines.append("境界不足，无法参悟。")
 	else:
 		lines.append("可以参悟入门。")
-	if stack.count > 1:
-		lines.append("持有 ×%d" % stack.count)
-	var preview := CombatRules.player_stats(state, idle, adventure)
-	if rank <= 0:
-		preview.add(skill.to_stats(1))
-	elif rank == 1:
-		preview.add(skill.to_stats(2))
-		preview.attack -= skill.attack
-		preview.defense -= skill.defense
-		preview.hp -= skill.hp
-	lines.append("学后 攻%s 防%s 血%s  战力 %s → %s（%s）" % [
+	if state.is_running(skill.id):
+		lines.append("正在运转。")
+	elif mastery > 0:
+		lines.append("已学，尚未运转。")
+	if held > 1:
+		lines.append("持有 ×%d" % held)
+	var preview_ids := CombatRules.preview_running(
+		state,
+		adventure,
+		skill,
+		realm.order if realm != null else 0
+	)
+	var preview := CombatRules.player_stats_with_running(
+		state,
+		idle,
+		adventure,
+		str(preview_ids.heart),
+		preview_ids.arts
+	)
+	if mastery == 1 and state.is_running(skill.id):
+		preview = CombatRules.player_stats_with_running(
+			state,
+			idle,
+			adventure,
+			state.running_heart_id,
+			state.running_art_ids
+		)
+		var boosted := skill.to_stats(2)
+		var base := skill.to_stats(1)
+		preview.attack += boosted.attack - base.attack
+		preview.defense += boosted.defense - base.defense
+		preview.hp += boosted.hp - base.hp
+		preview.speed += boosted.speed - base.speed
+	lines.append("运转后 攻%s 防%s 速%s 血%s  战力 %s → %s（%s）" % [
 		_signed(preview.attack - current.attack),
 		_signed(preview.defense - current.defense),
+		_signed(preview.speed - current.speed),
 		_signed(preview.hp - current.hp),
 		CultivationFormat.amount(current.power()),
 		CultivationFormat.amount(preview.power()),
 		_signed(preview.power() - current.power()),
 	])
+	var stage := adventure.stage_by_id(state.current_stage_id) if adventure != null else null
+	var wall := _shortfall_preview(stage, current, preview)
+	if not wall.is_empty():
+		lines.append(wall)
 	return "\n".join(lines)
+
+
+static func _shortfall_preview(stage: StageDef, current: CombatStats, preview: CombatStats) -> String:
+	if stage == null or current == null or preview == null:
+		return ""
+	if stage.min_attack > current.attack + 0.0001:
+		if preview.attack + 0.0001 >= stage.min_attack:
+			return "此关缺攻。运转后攻 %s，可过墙。" % CultivationFormat.amount(preview.attack)
+		return "此关缺攻。运转后攻 %s，仍差 %s。" % [
+			CultivationFormat.amount(preview.attack),
+			CultivationFormat.amount(stage.min_attack - preview.attack),
+		]
+	if stage.min_defense > current.defense + 0.0001:
+		if preview.defense + 0.0001 >= stage.min_defense:
+			return "此关缺防。运转后防 %s，可过墙。" % CultivationFormat.amount(preview.defense)
+		return "此关缺防。运转后防 %s，仍差 %s。" % [
+			CultivationFormat.amount(preview.defense),
+			CultivationFormat.amount(stage.min_defense - preview.defense),
+		]
+	if stage.min_speed > current.speed + 0.0001:
+		if preview.speed + 0.0001 >= stage.min_speed:
+			return "此关缺速。运转后速 %s，可过墙。" % CultivationFormat.amount(preview.speed)
+		return "此关缺速。运转后速 %s，仍差 %s。" % [
+			CultivationFormat.amount(preview.speed),
+			CultivationFormat.amount(stage.min_speed - preview.speed),
+		]
+	return ""
 
 
 static func _signed(value: float) -> String:

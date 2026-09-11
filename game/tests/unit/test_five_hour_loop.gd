@@ -127,7 +127,7 @@ func test_skill_minor_rank_pills_and_temper() -> void:
 	var pill := _add(session, "pill_qi_0")
 	var base_rate := session.current_realm().gain_per_second
 	assert_eq(session.consume_pill(pill.uid), "")
-	assert_almost_eq(session.cultivate_rate(), base_rate * 1.15, 0.0001)
+	assert_almost_eq(session.cultivate_rate(), base_rate * 1.12 * 1.15, 0.0001)
 	var body := _add(session, "pill_body_0")
 	var before_def := session.player_stats().defense
 	assert_eq(session.consume_pill(body.uid), "")
@@ -143,3 +143,60 @@ func test_skill_minor_rank_pills_and_temper() -> void:
 	session.tick_online()
 	assert_eq(session.state.qi_pill_until, 0)
 	assert_eq(session.state.body_pill_until, 0)
+
+
+func test_only_running_skills_apply_and_step_covers_speed_wall() -> void:
+	var session := _session()
+	_add(session, "book_tuna")
+	assert_eq(session.learn_skill_from(session.state.inventory[0].uid), "")
+	assert_eq(session.state.running_heart_id, "tuna")
+	var after_heart := session.player_stats().attack
+	_add(session, "book_crack_stone")
+	assert_eq(session.learn_skill_from(session.state.inventory[session.state.inventory.size() - 1].uid), "")
+	assert_true(session.state.running_art_ids.has("crack_stone"))
+	assert_gt(session.player_stats().attack, after_heart)
+	_add(session, "book_wind_step")
+	assert_eq(session.learn_skill_from(session.state.inventory[session.state.inventory.size() - 1].uid), "")
+	assert_eq(session.run_skill("wind_step"), "")
+	assert_true(session.state.running_art_ids.has("wind_step"))
+	assert_false(session.state.running_art_ids.has("crack_stone"))
+	assert_almost_eq(session.player_stats().speed, 3.5, 0.0001)
+	session.state.realm_id = "qi_mid"
+	var brook := session.adventure.stage_by_id("stone_brook")
+	var reason := CombatRules.enter_reason(
+		session.state,
+		session.config,
+		brook,
+		session.player_stats(),
+		false,
+		session.adventure
+	)
+	assert_eq(reason, "")
+	session.state.realm_id = "qi_peak"
+	assert_eq(session.run_skill("crack_stone"), "")
+	assert_eq(session.state.running_art_ids.size(), 2)
+
+
+func test_stele_needs_skill_mastery_and_tian_stays_locked() -> void:
+	var idle := _idle()
+	var adventure := _adventure()
+	var state := CultivationState.new()
+	state.realm_id = "foundation_late"
+	var stage := adventure.stage_by_id("stele_terrace")
+	var stats := CombatStats.new()
+	stats.attack = 400.0
+	stats.defense = 200.0
+	stats.speed = 16.0
+	stats.hp = 800.0
+	var reason := CombatRules.enter_reason(state, idle, stage, stats, false, adventure)
+	assert_true(reason.contains("黄阶小成") or reason.contains("地阶"), reason)
+	state.set_skill_rank("tuna", 2)
+	state.running_heart_id = "tuna"
+	assert_eq(CombatRules.enter_reason(state, idle, stage, stats, false, adventure), "")
+	var tian := adventure.skill_by_id("void_step")
+	assert_eq(tian.min_realm_order, 8)
+	var session := _session()
+	session.state.realm_id = "foundation_late"
+	_add(session, "book_void_step")
+	var book_uid := session.state.inventory[session.state.inventory.size() - 1].uid
+	assert_true(session.learn_skill_from(book_uid).contains("境界不足"))

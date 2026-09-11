@@ -86,6 +86,7 @@ func try_breakthrough() -> bool:
 	var from_name := current.display_name
 	if not CultivationRules.breakthrough(state, current, next_realm):
 		return false
+	state.sanitize_running(adventure, next_realm.order)
 	journal.add("突破成功：%s → %s，效率变为 %s" % [
 		from_name,
 		next_realm.display_name,
@@ -127,12 +128,12 @@ func next_stage() -> StageDef:
 
 func can_challenge_next() -> bool:
 	var nxt := next_stage()
-	return CombatRules.can_enter(state, config, nxt, player_stats(), false)
+	return CombatRules.can_enter(state, config, nxt, player_stats(), false, adventure)
 
 
 func challenge_next() -> String:
 	var nxt := next_stage()
-	var reason := CombatRules.enter_reason(state, config, nxt, player_stats(), false)
+	var reason := CombatRules.enter_reason(state, config, nxt, player_stats(), false, adventure)
 	if not reason.is_empty():
 		return reason
 	if not state.unlocked_stage_ids.has(nxt.id):
@@ -148,7 +149,7 @@ func challenge_next() -> String:
 
 func select_stage(stage_id: String) -> String:
 	var stage := adventure.stage_by_id(stage_id) if adventure != null else null
-	var reason := CombatRules.enter_reason(state, config, stage, player_stats(), true)
+	var reason := CombatRules.enter_reason(state, config, stage, player_stats(), true, adventure)
 	if not reason.is_empty():
 		return reason
 	state.current_stage_id = stage.id
@@ -232,6 +233,7 @@ func learn_skill_from(uid: int) -> String:
 				return item.uid != uid
 			)
 		state.set_skill_rank(skill.id, 1)
+		_try_auto_run(skill)
 		journal.add("参悟入门：%s（%s）。" % [skill.display_name, SkillRank.display_name(skill.rank)])
 		_persist()
 		state_changed.emit()
@@ -283,9 +285,76 @@ func cultivate_rate() -> float:
 	if realm == null:
 		return 0.0
 	var rate := realm.gain_per_second
+	if state != null and adventure != null and not state.running_heart_id.is_empty():
+		var heart := adventure.skill_by_id(state.running_heart_id)
+		if heart != null:
+			rate *= heart.cultivate_factor(state.skill_rank_of(heart.id))
 	if state != null and state.qi_pill_until > time_service.now_unix():
 		rate *= 1.15
 	return rate
+
+
+func run_skill(skill_id: String) -> String:
+	var skill := adventure.skill_by_id(skill_id) if adventure != null else null
+	if skill == null:
+		return "没有这门功法。"
+	if state.skill_rank_of(skill.id) <= 0:
+		return "尚未参悟 %s。" % skill.display_name
+	var realm := current_realm()
+	if realm != null and realm.order < skill.min_realm_order:
+		return "境界不足，无法运转 %s。" % skill.display_name
+	if skill.is_heart():
+		state.running_heart_id = skill.id
+	else:
+		var arts: PackedStringArray = state.running_art_ids.duplicate()
+		if arts.has(skill.id):
+			journal.add("继续运转 %s。" % skill.display_name)
+			_persist()
+			state_changed.emit()
+			return ""
+		var slots := SkillRole.art_slot_count(realm.order if realm != null else 0)
+		if arts.size() < slots:
+			arts.append(skill.id)
+		elif arts.size() > 0:
+			arts[0] = skill.id
+		else:
+			arts = PackedStringArray([skill.id])
+		state.running_art_ids = arts
+	journal.add("开始运转 %s。" % skill.display_name)
+	_persist()
+	state_changed.emit()
+	return ""
+
+
+func stop_skill(skill_id: String) -> String:
+	if state == null or skill_id.is_empty():
+		return "没有这门功法。"
+	if state.running_heart_id == skill_id:
+		state.running_heart_id = ""
+	else:
+		var kept := PackedStringArray()
+		for running_id in state.running_art_ids:
+			if running_id != skill_id:
+				kept.append(running_id)
+		state.running_art_ids = kept
+	var skill := adventure.skill_by_id(skill_id) if adventure != null else null
+	journal.add("停下 %s。" % (skill.display_name if skill != null else "功法"))
+	_persist()
+	state_changed.emit()
+	return ""
+
+
+func promote_skill(skill_id: String) -> String:
+	var skill := adventure.skill_by_id(skill_id) if adventure != null else null
+	if skill == null:
+		return "没有这门功法。"
+	var book := adventure.item_by_id(skill.book_id)
+	if book == null:
+		return "残页已模糊，无法参悟。"
+	var stack := _first_book_stack(skill.id)
+	if stack == null:
+		return "行囊中没有这本残页。"
+	return learn_skill_from(stack.uid)
 
 
 func merge_item(uid: int) -> String:
@@ -354,7 +423,7 @@ func select_layer(layer: int) -> String:
 	var stage := current_stage()
 	if stage == null:
 		return "未选定关卡。"
-	var wall := CombatRules.enter_reason(state, config, stage, player_stats(), true)
+	var wall := CombatRules.enter_reason(state, config, stage, player_stats(), true, adventure)
 	if not wall.is_empty():
 		return wall
 	var reason := CombatRules.layer_reason(state, stage, layer)
@@ -365,6 +434,34 @@ func select_layer(layer: int) -> String:
 	_persist()
 	state_changed.emit()
 	return ""
+
+
+func _try_auto_run(skill: SkillDef) -> void:
+	if skill == null or state == null:
+		return
+	if skill.is_heart() and state.running_heart_id.is_empty():
+		state.running_heart_id = skill.id
+		return
+	if not skill.is_art():
+		return
+	var realm := current_realm()
+	var slots := SkillRole.art_slot_count(realm.order if realm != null else 0)
+	if state.running_art_ids.has(skill.id):
+		return
+	if state.running_art_ids.size() < slots:
+		var arts: PackedStringArray = state.running_art_ids.duplicate()
+		arts.append(skill.id)
+		state.running_art_ids = arts
+
+
+func _first_book_stack(skill_id: String) -> ItemStack:
+	if state == null or adventure == null:
+		return null
+	for stack in state.inventory:
+		var item := adventure.item_by_id(stack.item_id)
+		if item != null and item.skill_id == skill_id:
+			return stack
+	return null
 
 
 func _expire_pills() -> void:
@@ -429,6 +526,8 @@ func _sanitize_progress() -> void:
 		if adventure.skill_by_id(skill_id) != null and not learned.has(skill_id):
 			learned.append(skill_id)
 	state.learned_skill_ids = learned
+	var realm := current_realm()
+	state.sanitize_running(adventure, realm.order if realm != null else 0)
 	if adventure.stage_by_id(state.current_stage_id) == null:
 		state.current_stage_id = adventure.starting_stage().id
 	var unlocked := PackedStringArray()

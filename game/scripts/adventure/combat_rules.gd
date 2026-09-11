@@ -45,7 +45,7 @@ static func player_stats_with_loadout(
 		var item := adventure.item_by_id(stack.item_id)
 		if item != null and item.is_equipment():
 			stats.add(item.to_stats(stack))
-	for skill_id in state.learned_skill_ids:
+	for skill_id in state.running_skill_ids():
 		var skill := adventure.skill_by_id(skill_id)
 		if skill != null:
 			stats.add(skill.to_stats(state.skill_rank_of(skill_id)))
@@ -109,9 +109,10 @@ static func can_enter(
 	idle: IdleConfig,
 	stage: StageDef,
 	stats: CombatStats,
-	require_unlocked: bool = true
+	require_unlocked: bool = true,
+	adventure: AdventureConfig = null
 ) -> bool:
-	return enter_reason(state, idle, stage, stats, require_unlocked).is_empty()
+	return enter_reason(state, idle, stage, stats, require_unlocked, adventure).is_empty()
 
 
 static func enter_reason(
@@ -119,7 +120,8 @@ static func enter_reason(
 	idle: IdleConfig,
 	stage: StageDef,
 	stats: CombatStats,
-	require_unlocked: bool = true
+	require_unlocked: bool = true,
+	adventure: AdventureConfig = null
 ) -> String:
 	if stage == null:
 		return "关卡不存在。"
@@ -129,14 +131,74 @@ static func enter_reason(
 	if stats == null or stats.power() + 0.0001 < stage.min_power:
 		return "战力不足，需 %.0f 才能挑战 %s。" % [stage.min_power, stage.display_name]
 	if stats.attack + 0.0001 < stage.min_attack:
-		return "此关缺攻，需攻 %.0f（当前 %s）。" % [stage.min_attack, CultivationFormat.amount(stats.attack)]
+		return "此关缺攻，需攻 %.0f（当前 %s）。可运转一门攻法。" % [stage.min_attack, CultivationFormat.amount(stats.attack)]
 	if stats.defense + 0.0001 < stage.min_defense:
-		return "此关缺防，需防 %.0f（当前 %s）。" % [stage.min_defense, CultivationFormat.amount(stats.defense)]
+		return "此关缺防，需防 %.0f（当前 %s）。可运转一门体法。" % [stage.min_defense, CultivationFormat.amount(stats.defense)]
 	if stats.speed + 0.0001 < stage.min_speed:
-		return "此关缺速，需速 %.1f（当前 %s）。" % [stage.min_speed, CultivationFormat.amount(stats.speed)]
+		return "此关缺速，需速 %.1f（当前 %s）。可运转一门步法。" % [stage.min_speed, CultivationFormat.amount(stats.speed)]
+	if stage.require_skill_mastery and not has_skill_mastery(state, adventure):
+		return "此关须运转一门黄阶小成，或一门地阶入门。"
 	if require_unlocked and state != null and not state.unlocked_stage_ids.has(stage.id) and stage.order > 0:
 		return "尚未解开 %s。" % stage.display_name
 	return ""
+
+
+static func has_skill_mastery(state: CultivationState, adventure: AdventureConfig) -> bool:
+	if state == null or adventure == null:
+		return false
+	for skill_id in state.running_skill_ids():
+		var skill := adventure.skill_by_id(skill_id)
+		if skill == null:
+			continue
+		var mastery := state.skill_rank_of(skill_id)
+		if skill.rank == SkillRank.HUANG and mastery >= 2:
+			return true
+		if skill.rank == SkillRank.DI or skill.rank == SkillRank.TIAN:
+			if mastery >= 1:
+				return true
+	return false
+
+
+static func player_stats_with_running(
+	state: CultivationState,
+	idle: IdleConfig,
+	adventure: AdventureConfig,
+	heart_id: String,
+	art_ids: PackedStringArray
+) -> CombatStats:
+	if state == null:
+		return CombatStats.new()
+	var snapshot := state.running_heart_id
+	var arts := state.running_art_ids.duplicate()
+	state.running_heart_id = heart_id
+	state.running_art_ids = art_ids.duplicate()
+	var stats := player_stats(state, idle, adventure)
+	state.running_heart_id = snapshot
+	state.running_art_ids = arts
+	return stats
+
+
+static func preview_running(
+	state: CultivationState,
+	adventure: AdventureConfig,
+	skill: SkillDef,
+	realm_order: int
+) -> Dictionary:
+	var heart := state.running_heart_id if state != null else ""
+	var arts: PackedStringArray = state.running_art_ids.duplicate() if state != null else PackedStringArray()
+	if skill == null:
+		return {"heart": heart, "arts": arts}
+	if skill.is_heart():
+		heart = skill.id
+	elif arts.has(skill.id):
+		pass
+	elif arts.size() < SkillRole.art_slot_count(realm_order):
+		arts.append(skill.id)
+	elif arts.size() > 0:
+		arts[0] = skill.id
+	else:
+		arts = PackedStringArray([skill.id])
+	return {"heart": heart, "arts": arts}
 
 
 static func time_to_kill(player: CombatStats, monster: CombatStats) -> float:
@@ -253,6 +315,12 @@ static func _roll_drops(
 		if chance <= 0.0 or count <= 0 or item_id.is_empty():
 			continue
 		chance *= adventure.loot_chance_scale * StageLayer.loot_scale(state.current_layer())
+		if state.current_layer() == StageLayer.BOSS and item_id.begins_with("book_"):
+			var book := adventure.item_by_id(item_id)
+			var drop_skill := adventure.skill_by_id(book.skill_id) if book != null else null
+			var stage := adventure.stage_by_id(state.current_stage_id)
+			if drop_skill != null and stage != null and drop_skill.role == stage.preferred_role():
+				chance *= 2.0
 		var roll := LootRng.roll(state.loot_seed)
 		state.loot_seed = int(roll.seed)
 		if float(roll.value) > chance:

@@ -1,7 +1,8 @@
 class_name SaveService
 extends RefCounted
 
-const SAVE_SCHEMA_VERSION := 3
+const SAVE_SCHEMA_VERSION := 4
+const SCHEMA_V3 := 3
 const PREVIOUS_SCHEMA_VERSION := 2
 const LEGACY_SCHEMA_VERSION := 1
 const DEFAULT_PATH := "user://saves/cultivation.json"
@@ -99,6 +100,10 @@ func _load_from_path(path: String) -> CultivationState:
 		if str(envelope.get("checksum", "")) != _checksum_payload_v2(data):
 			return null
 		return _state_from_payload(data)
+	if schema == SCHEMA_V3:
+		if str(envelope.get("checksum", "")) != _checksum_payload_v3(data):
+			return null
+		return _state_from_payload(data)
 	if schema != SAVE_SCHEMA_VERSION:
 		return null
 	if str(envelope.get("checksum", "")) != _checksum_payload(data):
@@ -144,6 +149,8 @@ func _state_from_payload(data: Dictionary) -> CultivationState:
 	state.layer_kills = _int_dictionary(data.get("layer_kills", {}))
 	state.qi_pill_until = maxi(int(data.get("qi_pill_until", 0)), 0)
 	state.body_pill_until = maxi(int(data.get("body_pill_until", 0)), 0)
+	state.running_heart_id = str(data.get("running_heart_id", "")).strip_edges()
+	state.running_art_ids = _string_array(data.get("running_art_ids", []))
 	var raw_items: Variant = data.get("inventory", [])
 	if typeof(raw_items) == TYPE_ARRAY:
 		for entry in raw_items:
@@ -183,10 +190,68 @@ func _payload_from_state(state: CultivationState) -> Dictionary:
 		"layer_kills": state.layer_kills.duplicate(),
 		"qi_pill_until": state.qi_pill_until,
 		"body_pill_until": state.body_pill_until,
+		"running_heart_id": state.running_heart_id,
+		"running_art_ids": Array(state.running_art_ids),
 	}
 
 
 func _checksum_payload(payload: Dictionary) -> String:
+	var inventory: Array = payload.get("inventory", [])
+	var item_parts: PackedStringArray = PackedStringArray()
+	if typeof(inventory) == TYPE_ARRAY:
+		var copies: Array = inventory.duplicate()
+		copies.sort_custom(func(left: Variant, right: Variant) -> bool:
+			return int(left.get("uid", 0)) < int(right.get("uid", 0))
+		)
+		for entry in copies:
+			if typeof(entry) != TYPE_DICTIONARY:
+				continue
+			item_parts.append("%d:%s:%d:%s:%d:%s" % [
+				int(entry.get("uid", 0)),
+				str(entry.get("item_id", "")),
+				int(entry.get("count", 0)),
+				str(entry.get("locked", false)),
+				int(entry.get("merge_level", 0)),
+				str(entry.get("tempered", false)),
+			])
+	var equipped: Dictionary = payload.get("equipped", {})
+	var settings: Dictionary = payload.get("settings", {})
+	var text := "|".join(PackedStringArray([
+		"%.6f" % float(payload.get("cultivation", 0.0)),
+		str(payload.get("realm_id", "")),
+		str(int(payload.get("last_settled_unix", 0))),
+		str(int(payload.get("inventory_capacity", 0))),
+		str(int(payload.get("next_item_uid", 0))),
+		str(payload.get("current_stage_id", "")),
+		str(int(payload.get("loot_seed", 0))),
+		"%.6f" % float(payload.get("combat_remainder", 0.0)),
+		",".join(_string_array(payload.get("learned_skill_ids", []))),
+		",".join(_string_array(payload.get("unlocked_stage_ids", []))),
+		str(int(equipped.get("weapon", 0))),
+		str(int(equipped.get("helmet", 0))),
+		str(int(equipped.get("clothes", 0))),
+		str(int(equipped.get("shoes", 0))),
+		str(int(equipped.get("accessory", 0))),
+		str(settings.get("battle_log_enabled", true)),
+		str(settings.get("bag_full_policy", "")),
+		"%.2f" % float(settings.get("sound_volume", 1.0)),
+		";".join(item_parts),
+		_dict_fingerprint(payload.get("skill_ranks", {})),
+		_dict_fingerprint(payload.get("stage_layers", {})),
+		_dict_fingerprint(payload.get("layer_kills", {})),
+		str(int(payload.get("qi_pill_until", 0))),
+		str(int(payload.get("body_pill_until", 0))),
+		str(payload.get("running_heart_id", "")),
+		",".join(_string_array(payload.get("running_art_ids", []))),
+	]))
+	var context := HashingContext.new()
+	if context.start(HashingContext.HASH_SHA256) != OK:
+		return ""
+	context.update(text.to_utf8_buffer())
+	return context.finish().hex_encode()
+
+
+func _checksum_payload_v3(payload: Dictionary) -> String:
 	var inventory: Array = payload.get("inventory", [])
 	var item_parts: PackedStringArray = PackedStringArray()
 	if typeof(inventory) == TYPE_ARRAY:

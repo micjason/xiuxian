@@ -75,9 +75,9 @@ func test_project_idle_rules_file_is_valid() -> void:
 	var config := IdleConfig.from_resource("res://resources/config/idle_rules.json")
 	assert_not_null(config)
 	assert_eq(config.starting_realm().display_name, "凡人")
-	assert_eq(config.realms.size(), 11)
-	assert_eq(config.realms[10].id, "gold_core_late")
-	assert_false(config.realms[10].has_next())
+	assert_eq(config.realms.size(), 18)
+	assert_eq(config.realms[17].id, "void_late")
+	assert_false(config.realms[17].has_next())
 	assert_true(config.realms[7].has_next())
 
 

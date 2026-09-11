@@ -1,7 +1,8 @@
 class_name SaveService
 extends RefCounted
 
-const SAVE_SCHEMA_VERSION := 4
+const SAVE_SCHEMA_VERSION := 5
+const SCHEMA_V4 := 4
 const SCHEMA_V3 := 3
 const PREVIOUS_SCHEMA_VERSION := 2
 const LEGACY_SCHEMA_VERSION := 1
@@ -95,15 +96,21 @@ func _load_from_path(path: String) -> CultivationState:
 		return null
 	var data: Dictionary = payload
 	if schema == LEGACY_SCHEMA_VERSION:
-		return _state_from_legacy(envelope, data)
+		if _state_from_legacy(envelope, data) == null:
+			return null
+		return _state_from_payload(SaveMigrator.migrate(data, schema))
 	if schema == PREVIOUS_SCHEMA_VERSION:
 		if str(envelope.get("checksum", "")) != _checksum_payload_v2(data):
 			return null
-		return _state_from_payload(data)
+		return _state_from_payload(SaveMigrator.migrate(data, schema))
 	if schema == SCHEMA_V3:
 		if str(envelope.get("checksum", "")) != _checksum_payload_v3(data):
 			return null
-		return _state_from_payload(data)
+		return _state_from_payload(SaveMigrator.migrate(data, schema))
+	if schema == SCHEMA_V4:
+		if str(envelope.get("checksum", "")) != _checksum_payload_v4(data):
+			return null
+		return _state_from_payload(SaveMigrator.migrate(data, schema))
 	if schema != SAVE_SCHEMA_VERSION:
 		return null
 	if str(envelope.get("checksum", "")) != _checksum_payload(data):
@@ -151,6 +158,7 @@ func _state_from_payload(data: Dictionary) -> CultivationState:
 	state.body_pill_until = maxi(int(data.get("body_pill_until", 0)), 0)
 	state.running_heart_id = str(data.get("running_heart_id", "")).strip_edges()
 	state.running_art_ids = _string_array(data.get("running_art_ids", []))
+	state.long_term = LongTermState.from_dictionary(data.get("long_term", {}))
 	var raw_items: Variant = data.get("inventory", [])
 	if typeof(raw_items) == TYPE_ARRAY:
 		for entry in raw_items:
@@ -192,10 +200,26 @@ func _payload_from_state(state: CultivationState) -> Dictionary:
 		"body_pill_until": state.body_pill_until,
 		"running_heart_id": state.running_heart_id,
 		"running_art_ids": Array(state.running_art_ids),
+		"long_term": (
+			state.long_term.to_dictionary()
+			if state.long_term != null
+			else LongTermState.new().to_dictionary()
+		),
 	}
 
 
 func _checksum_payload(payload: Dictionary) -> String:
+	var normalized: Variant = JSON.parse_string(JSON.stringify(payload))
+	if typeof(normalized) != TYPE_DICTIONARY:
+		return ""
+	var context := HashingContext.new()
+	if context.start(HashingContext.HASH_SHA256) != OK:
+		return ""
+	context.update(JSON.stringify(normalized, "", true).to_utf8_buffer())
+	return context.finish().hex_encode()
+
+
+func _checksum_payload_v4(payload: Dictionary) -> String:
 	var inventory: Array = payload.get("inventory", [])
 	var item_parts: PackedStringArray = PackedStringArray()
 	if typeof(inventory) == TYPE_ARRAY:

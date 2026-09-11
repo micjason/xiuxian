@@ -88,6 +88,62 @@
       "order": 10,
       "gain_per_second": 560.0,
       "breakthrough_cost": 80000000,
+      "next_id": "nascent_soul_early"
+    },
+    {
+      "id": "nascent_soul_early",
+      "display_name": "元婴初期",
+      "order": 11,
+      "gain_per_second": 900.0,
+      "breakthrough_cost": 260000000,
+      "next_id": "nascent_soul_mid"
+    },
+    {
+      "id": "nascent_soul_mid",
+      "display_name": "元婴中期",
+      "order": 12,
+      "gain_per_second": 1450.0,
+      "breakthrough_cost": 720000000,
+      "next_id": "nascent_soul_late"
+    },
+    {
+      "id": "nascent_soul_late",
+      "display_name": "元婴后期",
+      "order": 13,
+      "gain_per_second": 2300.0,
+      "breakthrough_cost": 1800000000,
+      "next_id": "spirit_early"
+    },
+    {
+      "id": "spirit_early",
+      "display_name": "化神初期",
+      "order": 14,
+      "gain_per_second": 3700.0,
+      "breakthrough_cost": 4800000000,
+      "next_id": "spirit_late"
+    },
+    {
+      "id": "spirit_late",
+      "display_name": "化神后期",
+      "order": 15,
+      "gain_per_second": 5900.0,
+      "breakthrough_cost": 12000000000,
+      "next_id": "void_early"
+    },
+    {
+      "id": "void_early",
+      "display_name": "炼虚初期",
+      "order": 16,
+      "gain_per_second": 9400.0,
+      "breakthrough_cost": 30000000000,
+      "next_id": "void_late"
+    },
+    {
+      "id": "void_late",
+      "display_name": "炼虚后期",
+      "order": 17,
+      "gain_per_second": 15000.0,
+      "breakthrough_cost": 100000000000,
       "next_id": ""
     }
   ]

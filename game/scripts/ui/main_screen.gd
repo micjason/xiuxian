@@ -4,6 +4,7 @@ const DATA_MARKER_PATH := "user://demo_install_marker.txt"
 const TICK_SECONDS := 1.0
 const PAGE_CULTIVATE := "cultivate"
 const PAGE_ADVENTURE := "adventure"
+const PAGE_CAVE := "cave"
 const PAGE_BAG := "bag"
 const PAGE_SKILL := "skill"
 const PAGE_SETTINGS := "settings"
@@ -39,6 +40,7 @@ const PAGE_SETTINGS := "settings"
 @onready var journal_card: PanelContainer = %JournalCard
 @onready var update_card: PanelContainer = %UpdateCard
 @onready var adventure_page: PanelContainer = %AdventurePage
+@onready var cave_page: CavePageController = %CavePage
 @onready var bag_page: PanelContainer = %BagPage
 @onready var skill_page: PanelContainer = %SkillPage
 @onready var settings_page: PanelContainer = %SettingsPage
@@ -59,6 +61,7 @@ const PAGE_SETTINGS := "settings"
 @onready var inspect_layer: ColorRect = %ItemInspectLayer
 @onready var inspect_card: PanelContainer = %ItemInspectCard
 @onready var learned_label: Label = %LearnedLabel
+@onready var sect_panel: SectPanelController = %SectPanel
 @onready var skill_slot_row: HBoxContainer = %SkillSlotRow
 @onready var skill_tabs: HBoxContainer = %SkillTabs
 @onready var skill_list: VBoxContainer = %SkillList
@@ -70,9 +73,11 @@ const PAGE_SETTINGS := "settings"
 @onready var export_label: Label = %ExportLabel
 @onready var tab_cultivate: Button = %TabCultivate
 @onready var tab_adventure: Button = %TabAdventure
+@onready var tab_cave: Button = %TabCave
 @onready var tab_bag: Button = %TabBag
 @onready var tab_skill: Button = %TabSkill
-@onready var tab_settings: Button = %TabSettings
+@onready var settings_button: Button = %SettingsButton
+@onready var settings_back_button: Button = %SettingsBackButton
 @onready var hint_label: Label = $Margin/Content/Hint
 @onready var atmosphere: Control = $Margin/Content/Atmosphere
 @onready var chrome: PanelContainer = %Chrome
@@ -80,6 +85,7 @@ const PAGE_SETTINGS := "settings"
 @onready var chrome_power: Label = %ChromePower
 @onready var chrome_cultivation_row: HBoxContainer = %ChromeCultivationRow
 @onready var stage_list: VBoxContainer = %StageList
+@onready var expedition_panel: ExpeditionPanelController = %ExpeditionPanel
 @onready var inspect_panel: VBoxContainer = %InspectPanel
 
 var _session: CultivationSession
@@ -89,6 +95,8 @@ var _ready_pulse: Tween
 var _banner_generation := 0
 var _update_check_pending := true
 var _page := PAGE_CULTIVATE
+var _previous_page := PAGE_CULTIVATE
+var _page_router := PageRouter.new()
 var _bag_fingerprint := ""
 var _skill_fingerprint := ""
 var _stage_fingerprint := ""
@@ -112,6 +120,7 @@ func _ready() -> void:
 	journal_card.add_theme_stylebox_override("panel", MainTheme.inner_panel())
 	update_card.add_theme_stylebox_override("panel", MainTheme.footer_panel())
 	adventure_page.add_theme_stylebox_override("panel", MainTheme.hero_panel())
+	cave_page.add_theme_stylebox_override("panel", MainTheme.hero_panel())
 	bag_page.add_theme_stylebox_override("panel", MainTheme.hero_panel())
 	skill_page.add_theme_stylebox_override("panel", MainTheme.hero_panel())
 	settings_page.add_theme_stylebox_override("panel", MainTheme.hero_panel())
@@ -126,8 +135,10 @@ func _ready() -> void:
 	_style_secondary_button(install_button)
 	_style_secondary_button(bag_policy_button)
 	_style_secondary_button(export_button)
-	for tab in [tab_cultivate, tab_adventure, tab_bag, tab_skill, tab_settings]:
+	for tab in [tab_cultivate, tab_adventure, tab_cave, tab_bag, tab_skill]:
 		_style_secondary_button(tab)
+	_style_secondary_button(settings_button)
+	_style_secondary_button(settings_back_button)
 	download_progress.visible = false
 	status_label.visible = false
 
@@ -139,6 +150,15 @@ func _ready() -> void:
 		status_label.text = "修炼配置读取失败。"
 		status_label.visible = true
 		return
+	cave_page.bind_session(_session)
+	sect_panel.bind_session(_session)
+	expedition_panel.bind_session(_session)
+	_page_router.register_page(PAGE_CULTIVATE, cultivation_card, tab_cultivate)
+	_page_router.register_page(PAGE_ADVENTURE, adventure_page, tab_adventure)
+	_page_router.register_page(PAGE_CAVE, cave_page, tab_cave)
+	_page_router.register_page(PAGE_BAG, bag_page, tab_bag)
+	_page_router.register_page(PAGE_SKILL, skill_page, tab_skill)
+	_page_router.register_page(PAGE_SETTINGS, settings_page)
 
 	_tick = Timer.new()
 	_tick.wait_time = TICK_SECONDS
@@ -151,9 +171,11 @@ func _ready() -> void:
 	challenge_button.pressed.connect(_on_challenge_pressed)
 	tab_cultivate.pressed.connect(func() -> void: _show_page(PAGE_CULTIVATE))
 	tab_adventure.pressed.connect(func() -> void: _show_page(PAGE_ADVENTURE))
+	tab_cave.pressed.connect(func() -> void: _show_page(PAGE_CAVE))
 	tab_bag.pressed.connect(func() -> void: _show_page(PAGE_BAG))
 	tab_skill.pressed.connect(func() -> void: _show_page(PAGE_SKILL))
-	tab_settings.pressed.connect(func() -> void: _show_page(PAGE_SETTINGS))
+	settings_button.pressed.connect(func() -> void: _show_page(PAGE_SETTINGS))
+	settings_back_button.pressed.connect(func() -> void: _show_page(_previous_page))
 	battle_log_check.toggled.connect(func(enabled: bool) -> void:
 		_session.set_battle_log_enabled(enabled)
 	)
@@ -192,16 +214,14 @@ func _ready() -> void:
 
 
 func _show_page(page: String) -> void:
+	if page == PAGE_SETTINGS and _page != PAGE_SETTINGS:
+		_previous_page = _page
 	_page = page
 	var cultivate := page == PAGE_CULTIVATE
-	cultivation_card.visible = cultivate
+	_page_router.show_page(page)
 	journal_card.visible = cultivate
 	atmosphere.visible = false
 	hint_label.visible = false
-	adventure_page.visible = page == PAGE_ADVENTURE
-	bag_page.visible = page == PAGE_BAG
-	skill_page.visible = page == PAGE_SKILL
-	settings_page.visible = page == PAGE_SETTINGS
 	update_card.visible = page == PAGE_SETTINGS
 	_refresh_tabs()
 	_refresh_all()
@@ -212,9 +232,13 @@ func _refresh_all() -> void:
 	_refresh_chrome_power()
 	if _page == PAGE_ADVENTURE:
 		_refresh_adventure()
+		expedition_panel.refresh()
+	elif _page == PAGE_CAVE:
+		cave_page.refresh()
 	elif _page == PAGE_BAG:
 		_refresh_bag()
 	elif _page == PAGE_SKILL:
+		sect_panel.refresh()
 		_refresh_skills()
 	elif _page == PAGE_SETTINGS:
 		_refresh_settings()
@@ -500,7 +524,7 @@ func _apply_layout() -> void:
 	breakthrough_button.add_theme_font_size_override("font_size", MainTheme.SIZE_NUMBER)
 	challenge_button.custom_minimum_size = Vector2(0, MainTheme.H_CTA)
 	challenge_button.add_theme_font_size_override("font_size", MainTheme.SIZE_NUMBER)
-	for tab in [tab_cultivate, tab_adventure, tab_bag, tab_skill, tab_settings]:
+	for tab in [tab_cultivate, tab_adventure, tab_cave, tab_bag, tab_skill]:
 		tab.custom_minimum_size = Vector2(0, MainTheme.H_TAB)
 		tab.add_theme_font_size_override("font_size", MainTheme.SIZE_UI)
 	var cultivate_box := cultivation_card.get_node_or_null("CultivationMargin/CultivationDetails") as VBoxContainer
@@ -538,9 +562,9 @@ func _refresh_tabs() -> void:
 	var selected := {
 		PAGE_CULTIVATE: tab_cultivate,
 		PAGE_ADVENTURE: tab_adventure,
+		PAGE_CAVE: tab_cave,
 		PAGE_BAG: tab_bag,
 		PAGE_SKILL: tab_skill,
-		PAGE_SETTINGS: tab_settings,
 	}
 	for page in selected.keys():
 		var tab: Button = selected[page]
@@ -1263,6 +1287,11 @@ func _play_breakthrough_flash() -> void:
 func _on_offline_settled(result: SettlementResult) -> void:
 	offline_label.text = OfflineCopy.banner(result)
 	var message := OfflineCopy.dialog(result, _session.config.offline_cap_seconds)
+	if (
+		_session.state != null
+		and not _session.state.long_term.last_summary.is_empty()
+	):
+		message += "\n\n" + "\n".join(_session.state.long_term.last_summary)
 	if message.is_empty():
 		_refresh_all()
 		return

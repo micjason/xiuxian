@@ -25,6 +25,7 @@ var qi_pill_until: int = 0
 var body_pill_until: int = 0
 var running_heart_id: String = ""
 var running_art_ids: PackedStringArray = PackedStringArray()
+var long_term: LongTermState = LongTermState.new()
 
 
 func duplicate_state() -> CultivationState:
@@ -49,12 +50,16 @@ func duplicate_state() -> CultivationState:
 	copy.body_pill_until = body_pill_until
 	copy.running_heart_id = running_heart_id
 	copy.running_art_ids = running_art_ids.duplicate()
+	copy.long_term = long_term.duplicate_state() if long_term != null else LongTermState.new()
 	for stack in inventory:
 		copy.inventory.append(ItemStack.from_dictionary(stack.to_dictionary()))
 	return copy
 
 
-func apply_adventure_defaults(adventure: AdventureConfig) -> void:
+func apply_adventure_defaults(
+	adventure: AdventureConfig,
+	long_term_config: LongTermConfig = null
+) -> void:
 	if adventure != null:
 		if inventory_capacity <= 0:
 			inventory_capacity = adventure.inventory_capacity
@@ -70,11 +75,25 @@ func apply_adventure_defaults(adventure: AdventureConfig) -> void:
 		settings = GameSettings.new()
 	if equipped == null:
 		equipped = EquipmentLoadout.new()
+	if long_term == null:
+		long_term = LongTermState.new()
 	for skill_id in learned_skill_ids:
 		if int(skill_ranks.get(skill_id, 0)) <= 0:
 			skill_ranks[skill_id] = 1
 	if adventure != null:
 		fill_empty_running(adventure)
+	if long_term_config != null:
+		LongTermRules.initialize(
+			long_term_config,
+			long_term.economy,
+			long_term.cave,
+			long_term.craft
+		)
+		LongTermRules.unlock_sect_recipes(
+			long_term.sect,
+			long_term.craft,
+			long_term_config
+		)
 
 
 func current_layer() -> int:

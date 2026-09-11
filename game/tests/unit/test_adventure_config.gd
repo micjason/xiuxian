@@ -4,7 +4,7 @@ extends GutTest
 func test_project_adventure_table_is_complete() -> void:
 	var config := AdventureConfig.from_resource()
 	assert_not_null(config)
-	assert_eq(config.stages.size(), 8)
+	assert_eq(config.stages.size(), 12)
 	assert_eq(config.skills.size(), 16)
 	assert_true(config.items.size() >= 50)
 	var qualities: Dictionary = {}
@@ -24,6 +24,7 @@ func test_project_adventure_table_is_complete() -> void:
 		assert_true(ranks.has(rank), "missing skill rank %s" % rank)
 	assert_eq(config.starting_stage().id, "grove")
 	assert_eq(config.stages[7].id, "stele_terrace")
+	assert_eq(config.stages[11].id, "void_frontier")
 	assert_true(config.stages[0].monsters.size() >= 5)
 	assert_almost_eq(config.loot_chance_scale, 0.2, 0.0001)
 	assert_almost_eq(config.stages[1].min_power, 36.0, 0.0001)
@@ -44,6 +45,9 @@ func test_project_adventure_table_is_complete() -> void:
 	var gold_late := config.realm_stats("gold_core_late")
 	assert_not_null(gold_late)
 	assert_gt(gold_late.attack, 0.0)
+	var void_late := config.realm_stats("void_late")
+	assert_not_null(void_late)
+	assert_gt(void_late.attack, gold_late.attack)
 
 
 func test_invalid_schema_is_rejected() -> void:

@@ -3,10 +3,11 @@
 - 状态：已通过
 - 日期：2026-09-10
 - 决策者：项目负责人
+- 扩展关系：由 ADR-0004、ADR-0005 扩展，未废弃
 
 ## 背景
 
-`0.1.5` 只有「时间产修为 → 突破」一条循环，前三阶约 90 秒，到筑基后期表就断了。负责人确认改产品边界：要完整的战斗、背包、装备、功法、设置，并且串成一条可重复的流程，而不是五张空页或最小演示。
+`0.1.5` 只有「时间产修为 → 突破」一条循环，前三阶约 90 秒，到筑基后期表就断了。负责人确认改产品边界：要完整的战斗、背包、装备、功法、设置，并且串成一条可重复的流程，而不是五张空页或最小演示。该历史背景描述的是当时基线；当前事实基线已是 `0.1.15`、存档 schema 4。
 
 对照见 `docs/research/idle-xiuxian-systems-2026-09-10.md`。结构取自公开页，不抄名称、文案、数值、美术。
 
@@ -23,9 +24,15 @@
 - 设置独立页：战报、满包策略、音量、存档导出；更新入口移到此页。
 - 界面为竖屏底栏：修炼 / 历练 / 行囊 / 功法 / 设置。
 
-明确仍不做：服务器真挂机、账号、宗门、论剑、付费、炼器重铸、多套装配、视觉战斗。
+本阶段明确不做：服务器真挂机、账号、宗门多人玩法、论剑、付费、炼器重铸、多套装配、视觉战斗。ADR-0005 后续允许增加服务双轴的单机洞府经营、定向器室与传承，但不改变这里对强制联网、多人竞争和无限随机重铸的排除。
 
-存档 `schema_version` 升到 2，必须能从 v1 只含修为的旧档迁过来。
+本决策落地时存档 `schema_version` 升到 2，必须能从 v1 只含修为的旧档迁过来。此后五小时装备与功法方案已顺序迁移到 schema 4；ADR-0005 的长线阶段计划迁移到 schema 5。
+
+## 与后续决策的关系
+
+- ADR-0004 把“五小时可玩”扩展为 3–6 个月的单机留存目标，不否定本决策的修为/历练双轴。
+- ADR-0005 在双轴外围增加经营供给与传承元循环；本决策定义的战斗、行囊、装备、功法和统一时间结算仍是长线架构的核心组成。
+- `docs/design/five-hour-loop.md` 与 `docs/design/five-hour-skills.md` 是本决策在 `0.1.14`–`0.1.15` 的已落地深化；`docs/design/long-term-progression.md` 负责后续里程碑。
 
 ## 备选方案
 
@@ -55,5 +62,10 @@
 
 - `docs/product/mvp-scope.md`
 - `docs/design/adventure-loop.md`
+- `docs/design/five-hour-loop.md`
+- `docs/design/five-hour-skills.md`
+- `docs/design/long-term-progression.md`
 - `docs/research/idle-xiuxian-systems-2026-09-10.md`
 - `docs/architecture/save-and-time.md`
+- `docs/decisions/0004-single-player-retention-horizon.md`
+- `docs/decisions/0005-long-term-gameplay-architecture.md`

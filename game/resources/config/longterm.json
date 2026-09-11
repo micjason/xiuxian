@@ -1,0 +1,334 @@
+{
+  "schema_version": 1,
+  "queue_limit": 4,
+  "resources": {
+    "lumen_moss": "映光苔",
+    "clear_dew": "澄露",
+    "vein_sand": "脉砂",
+    "hollow_wood": "空纹木",
+    "warm_pellet": "暖脉丸",
+    "resonance_pin": "鸣律针",
+    "sky_chart": "巡天图",
+    "beast_treat": "灵兽酥",
+    "memory_shard": "忆痕碎片"
+  },
+  "cave_rates": {
+    "lumen_moss": 0.15,
+    "clear_dew": 0.11,
+    "vein_sand": 0.08,
+    "hollow_wood": 0.06
+  },
+  "buildings": [
+    {
+      "id": "echo_court",
+      "display_name": "回声庭",
+      "max_level": 5,
+      "labor_bonus": 1,
+      "cultivate_bonus_per_level": 0.02,
+      "costs": {"hollow_wood": 18, "vein_sand": 12},
+      "production_bonus": {"lumen_moss": 0.08, "clear_dew": 0.05}
+    },
+    {
+      "id": "rain_workshop",
+      "display_name": "听雨作坊",
+      "max_level": 5,
+      "labor_bonus": 0,
+      "cultivate_bonus_per_level": 0.0,
+      "costs": {"hollow_wood": 24, "clear_dew": 20},
+      "production_bonus": {"vein_sand": 0.09, "hollow_wood": 0.06}
+    },
+    {
+      "id": "waymark_tower",
+      "display_name": "引路塔",
+      "max_level": 4,
+      "labor_bonus": 0,
+      "cultivate_bonus_per_level": 0.0,
+      "key_id": "archive_key",
+      "key_seconds": 1800,
+      "costs": {"vein_sand": 28, "lumen_moss": 32},
+      "production_bonus": {}
+    }
+  ],
+  "sects": [
+    {
+      "id": "ink_river_lodge",
+      "display_name": "墨川别院",
+      "join_building_id": "echo_court",
+      "join_building_level": 1
+    }
+  ],
+  "npcs": [
+    {
+      "id": "npc_lantern_keeper",
+      "display_name": "守灯人阿砚",
+      "contribution_required": 10,
+      "labor_bonus": 1,
+      "craft_speed_bonus": 0.0,
+      "expedition_power": 2
+    },
+    {
+      "id": "npc_rain_smith",
+      "display_name": "雨匠迟禾",
+      "contribution_required": 35,
+      "labor_bonus": 0,
+      "craft_speed_bonus": 0.18,
+      "expedition_power": 3
+    },
+    {
+      "id": "npc_map_reader",
+      "display_name": "读图客小岑",
+      "contribution_required": 70,
+      "labor_bonus": 1,
+      "craft_speed_bonus": 0.08,
+      "expedition_power": 8
+    }
+  ],
+  "positions": [
+    {
+      "id": "guest",
+      "display_name": "听潮客",
+      "contribution_required": 0,
+      "production_bonus": 0.03,
+      "cultivate_bonus": 0.01,
+      "expedition_power": 1
+    },
+    {
+      "id": "steward",
+      "display_name": "理事",
+      "contribution_required": 40,
+      "production_bonus": 0.08,
+      "cultivate_bonus": 0.03,
+      "expedition_power": 4
+    },
+    {
+      "id": "path_warden",
+      "display_name": "巡途使",
+      "contribution_required": 95,
+      "production_bonus": 0.14,
+      "cultivate_bonus": 0.05,
+      "expedition_power": 9
+    }
+  ],
+  "recipes": [
+    {
+      "id": "warm_pellet",
+      "display_name": "暖脉丸",
+      "category": "alchemy",
+      "duration_seconds": 24,
+      "inputs": {"lumen_moss": 4, "clear_dew": 3},
+      "outputs": {"warm_pellet": 1},
+      "salvage": {"lumen_moss": 2, "clear_dew": 1}
+    },
+    {
+      "id": "resonance_pin",
+      "display_name": "鸣律针",
+      "category": "artifact",
+      "unlock_npc_id": "npc_rain_smith",
+      "duration_seconds": 38,
+      "inputs": {"vein_sand": 5, "hollow_wood": 2},
+      "outputs": {"resonance_pin": 1},
+      "salvage": {"vein_sand": 3, "hollow_wood": 1}
+    },
+    {
+      "id": "beast_treat",
+      "display_name": "灵兽酥",
+      "category": "alchemy",
+      "unlock_npc_id": "npc_lantern_keeper",
+      "duration_seconds": 30,
+      "inputs": {"lumen_moss": 3, "warm_pellet": 1},
+      "outputs": {"beast_treat": 2},
+      "salvage": {"lumen_moss": 1}
+    },
+    {
+      "id": "sky_chart",
+      "display_name": "巡天图",
+      "category": "artifact",
+      "unlock_npc_id": "npc_map_reader",
+      "duration_seconds": 75,
+      "inputs": {"resonance_pin": 2, "clear_dew": 8, "hollow_wood": 6},
+      "outputs": {"sky_chart": 1},
+      "salvage": {"vein_sand": 4, "hollow_wood": 3}
+    },
+    {
+      "id": "dew_tonic",
+      "display_name": "三澄露",
+      "category": "alchemy",
+      "research_chance": 0.25,
+      "research_pity": 3,
+      "research_costs": {"memory_shard": 1, "clear_dew": 6},
+      "duration_seconds": 54,
+      "inputs": {"lumen_moss": 8, "clear_dew": 12},
+      "outputs": {"warm_pellet": 3},
+      "salvage": {"lumen_moss": 3, "clear_dew": 5}
+    },
+    {
+      "id": "wind_compass",
+      "display_name": "定风仪",
+      "category": "artifact",
+      "research_chance": 0.2,
+      "research_pity": 4,
+      "research_costs": {"memory_shard": 1, "vein_sand": 8},
+      "duration_seconds": 110,
+      "inputs": {"resonance_pin": 2, "hollow_wood": 10, "vein_sand": 12},
+      "outputs": {"sky_chart": 1},
+      "salvage": {"hollow_wood": 5, "vein_sand": 6}
+    }
+  ],
+  "expeditions": [
+    {
+      "id": "moss_archive",
+      "display_name": "苔光旧藏",
+      "key_id": "archive_key",
+      "required_power": 3,
+      "commission_seconds": 3600,
+      "rewards": {"lumen_moss": 10, "vein_sand": 5},
+      "contribution": 6,
+      "encounters": [
+        {
+          "id": "singing_steps",
+          "display_name": "石阶回歌",
+          "weight": 3,
+          "rewards": {"clear_dew": 4},
+          "contribution": 1
+        },
+        {
+          "id": "sleeping_lantern",
+          "display_name": "眠灯借火",
+          "weight": 2,
+          "rewards": {"hollow_wood": 5},
+          "contribution": 2
+        },
+        {
+          "id": "blank_tablet",
+          "display_name": "无字简",
+          "weight": 1,
+          "rewards": {"memory_shard": 1},
+          "contribution": 4
+        }
+      ]
+    },
+    {
+      "id": "cloud_measure",
+      "display_name": "量云故道",
+      "key_id": "archive_key",
+      "required_power": 16,
+      "commission_seconds": 7200,
+      "rewards": {"clear_dew": 18, "hollow_wood": 12},
+      "contribution": 12,
+      "encounters": [
+        {
+          "id": "crosswind_market",
+          "display_name": "横风小集",
+          "weight": 2,
+          "rewards": {"vein_sand": 9},
+          "contribution": 2
+        },
+        {
+          "id": "upturned_rain",
+          "display_name": "倒悬雨",
+          "weight": 2,
+          "rewards": {"lumen_moss": 12},
+          "contribution": 3
+        },
+        {
+          "id": "far_bell",
+          "display_name": "云外一钟",
+          "weight": 1,
+          "rewards": {"memory_shard": 2},
+          "contribution": 5
+        }
+      ]
+    }
+  ],
+  "beasts": [
+    {
+      "id": "ember_marten",
+      "display_name": "灯尾貂",
+      "claim_expedition_id": "moss_archive",
+      "claim_clear_count": 1,
+      "feed_resource_id": "beast_treat",
+      "feed_amount": 1,
+      "feed_experience": 6,
+      "base_level_cost": 10,
+      "cave_bonus_per_level": 0.025,
+      "expedition_power_per_level": 2,
+      "attack_per_level": 0.8,
+      "defense_per_level": 0.4,
+      "hp_per_level": 2.0,
+      "speed_per_level": 0.15
+    },
+    {
+      "id": "cloud_fin",
+      "display_name": "浮鳍兽",
+      "claim_expedition_id": "cloud_measure",
+      "claim_clear_count": 3,
+      "feed_resource_id": "warm_pellet",
+      "feed_amount": 2,
+      "feed_experience": 5,
+      "base_level_cost": 12,
+      "cave_bonus_per_level": 0.018,
+      "expedition_power_per_level": 3,
+      "attack_per_level": 0.4,
+      "defense_per_level": 0.8,
+      "hp_per_level": 3.0,
+      "speed_per_level": 0.22
+    }
+  ],
+  "ascension": {
+    "min_realm_order": 8,
+    "min_run_seconds": 604800,
+    "building_id": "echo_court",
+    "building_level": 3,
+    "contribution": 100,
+    "completed_jobs": 8,
+    "expedition_clears": 6,
+    "beast_level": 4,
+    "costs": {"sky_chart": 1, "memory_shard": 3},
+    "legacy_points": 3,
+    "labor_reward": 1,
+    "key_reward": 1,
+    "cultivate_bonus_per_legacy": 0.05
+  },
+  "outposts": [
+    {
+      "id": "mortal_anchor",
+      "display_name": "人间锚庭",
+      "max_level": 5,
+      "costs": {"memory_shard": 2, "sky_chart": 1},
+      "cultivate_bonus_per_level": 0.03,
+      "labor_bonus_per_level": 1
+    },
+    {
+      "id": "cloud_harbor",
+      "display_name": "云海驿",
+      "max_level": 5,
+      "costs": {"memory_shard": 4, "sky_chart": 2},
+      "cultivate_bonus_per_level": 0.05,
+      "labor_bonus_per_level": 1
+    },
+    {
+      "id": "void_beacon",
+      "display_name": "虚空灯塔",
+      "max_level": 5,
+      "costs": {"memory_shard": 7, "sky_chart": 3},
+      "cultivate_bonus_per_level": 0.08,
+      "labor_bonus_per_level": 2
+    }
+  ],
+  "endings": [
+    {
+      "id": "hundred_day_covenant",
+      "display_name": "百日云盟",
+      "ascension_count": 3,
+      "legacy_points": 9,
+      "outpost_levels": 5
+    },
+    {
+      "id": "six_month_heaven",
+      "display_name": "六合天门",
+      "ascension_count": 6,
+      "legacy_points": 18,
+      "outpost_levels": 12
+    }
+  ]
+}

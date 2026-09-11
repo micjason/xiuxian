@@ -12,6 +12,8 @@ const ONLINE_CAP_SECONDS := 0
 var time_service: TimeService
 var config: IdleConfig
 var adventure: AdventureConfig
+var long_term_config: LongTermConfig
+var config_service: ConfigService
 var save_service: SaveService
 var state: CultivationState
 var app_version: String
@@ -25,21 +27,34 @@ func _init(
 	save: SaveService = null,
 	rules: IdleConfig = null,
 	version: String = "",
-	adventure_rules: AdventureConfig = null
+	adventure_rules: AdventureConfig = null,
+	long_term_rules: LongTermConfig = null
 ) -> void:
 	time_service = clock if clock != null else TimeService.new()
 	save_service = save if save != null else SaveService.new()
 	config = rules
 	adventure = adventure_rules
+	long_term_config = long_term_rules
 	app_version = version if not version.is_empty() else _read_app_version()
 
 
 func start() -> bool:
+	config_service = ConfigService.new()
+	if not config_service.load_all():
+		push_error("Game config is missing or invalid.")
+		return false
 	if config == null:
-		config = IdleConfig.from_resource(CONFIG_PATH)
+		config = config_service.idle
 	if adventure == null:
-		adventure = AdventureConfig.from_resource(ADVENTURE_PATH)
-	if config == null or config.starting_realm() == null or adventure == null:
+		adventure = config_service.adventure
+	if long_term_config == null:
+		long_term_config = config_service.long_term
+	if (
+		config == null
+		or config.starting_realm() == null
+		or adventure == null
+		or long_term_config == null
+	):
 		push_error("Idle or adventure config is missing or invalid.")
 		return false
 
@@ -49,7 +64,7 @@ func start() -> bool:
 		journal.add("踏入修行，当前境界为 %s。" % config.starting_realm().display_name)
 		journal.add("已选定关卡：%s。" % adventure.starting_stage().display_name)
 	else:
-		state.apply_adventure_defaults(adventure)
+		state.apply_adventure_defaults(adventure, long_term_config)
 		_sanitize_progress()
 		_expire_pills()
 		_settle_offline()
@@ -73,6 +88,7 @@ func tick_online() -> void:
 		return
 	CultivationRules.apply_elapsed(state, cultivate_rate(), elapsed, ONLINE_CAP_SECONDS)
 	_apply_combat(elapsed)
+	_apply_long_term(elapsed)
 	state.last_settled_unix = time_service.now_unix()
 	_persist()
 	state_changed.emit()
@@ -115,7 +131,7 @@ func progress() -> float:
 
 
 func player_stats() -> CombatStats:
-	return CombatRules.player_stats(state, config, adventure)
+	return CombatRules.player_stats(state, config, adventure, long_term_config)
 
 
 func current_stage() -> StageDef:
@@ -249,6 +265,263 @@ func learn_skill_from(uid: int) -> String:
 	return ""
 
 
+func assign_cave_labor(resource_id: String, amount: int) -> bool:
+	var changed := LongTermRules.assign_labor(
+		state.long_term.cave,
+		long_term_config,
+		state.long_term.sect,
+		state.long_term.ascension,
+		resource_id,
+		amount
+	)
+	if changed:
+		_persist_and_emit()
+	return changed
+
+
+func upgrade_cave_building(building_id: String) -> bool:
+	var changed := LongTermRules.upgrade_building(
+		state.long_term.economy,
+		state.long_term.cave,
+		long_term_config,
+		building_id
+	)
+	if changed:
+		_persist_and_emit()
+	return changed
+
+
+func join_sect(sect_id: String) -> bool:
+	var changed := LongTermRules.join_sect(
+		state.long_term.sect,
+		state.long_term.cave,
+		long_term_config,
+		sect_id
+	)
+	if changed:
+		_persist_and_emit()
+	return changed
+
+
+func recruit_sect_npc(npc_id: String) -> bool:
+	var changed := LongTermRules.recruit_npc(
+		state.long_term.sect,
+		long_term_config,
+		npc_id
+	)
+	if changed:
+		LongTermRules.unlock_sect_recipes(
+			state.long_term.sect,
+			state.long_term.craft,
+			long_term_config
+		)
+		_persist_and_emit()
+	return changed
+
+
+func claim_sect_position(position_id: String) -> bool:
+	var changed := LongTermRules.claim_position(
+		state.long_term.sect,
+		long_term_config,
+		position_id
+	)
+	if changed:
+		_persist_and_emit()
+	return changed
+
+
+func queue_recipe(recipe_id: String, amount: int = 1) -> bool:
+	var changed := LongTermRules.queue_recipe(
+		state.long_term.economy,
+		state.long_term.craft,
+		state.long_term.sect,
+		long_term_config,
+		recipe_id,
+		amount
+	)
+	if changed:
+		_persist_and_emit()
+	return changed
+
+
+func research_recipe(recipe_id: String) -> Dictionary:
+	var result := LongTermRules.research_recipe(
+		state.long_term.economy,
+		state.long_term.craft,
+		long_term_config,
+		recipe_id,
+		state.long_term.run_seconds + state.long_term.ascension.ascension_count * 10_007
+	)
+	if bool(result.get("attempted", false)):
+		_persist_and_emit()
+	return result
+
+
+func decompose_recipe(recipe_id: String, amount: int = 1) -> bool:
+	var changed := LongTermRules.decompose(
+		state.long_term.economy,
+		long_term_config,
+		recipe_id,
+		amount
+	)
+	if changed:
+		_persist_and_emit()
+	return changed
+
+
+func recycle_old_materials() -> Dictionary[String, float]:
+	var recycled: Dictionary[String, float] = {}
+	var kept: Array[ItemStack] = []
+	var resource_ids := ["lumen_moss", "clear_dew", "vein_sand", "hollow_wood"]
+	for stack in state.inventory:
+		var definition := adventure.item_by_id(stack.item_id)
+		if definition == null or not definition.is_material() or stack.locked:
+			kept.append(stack)
+			continue
+		var resource_id: String = resource_ids[
+			abs(stack.item_id.hash()) % resource_ids.size()
+		]
+		var value := float(stack.count * maxi(definition.min_realm_order + 1, 1))
+		state.long_term.economy.add(resource_id, value)
+		recycled[resource_id] = recycled.get(resource_id, 0.0) + value
+	state.inventory = kept
+	if not recycled.is_empty():
+		journal.add("洞府回收旧材料，转化为 %d 类基础资源。" % recycled.size())
+		_persist_and_emit()
+	return recycled
+
+
+func run_expedition(expedition_id: String) -> Dictionary:
+	var result := LongTermRules.run_expedition(
+		state.long_term.economy,
+		state.long_term.expedition,
+		state.long_term.sect,
+		state.long_term.beast,
+		long_term_config,
+		expedition_id,
+		_expedition_base_power(),
+		state.long_term.expedition.encounter_index + state.long_term.run_seconds
+	)
+	if bool(result.get("success", false)):
+		_persist_and_emit()
+	return result
+
+
+func expedition_power() -> int:
+	return LongTermRules.expedition_power(
+		_expedition_base_power(),
+		state.long_term.sect,
+		state.long_term.beast,
+		long_term_config
+	)
+
+
+func set_auto_expedition(expedition_id: String) -> bool:
+	var changed := LongTermRules.set_auto_expedition(
+		state.long_term.expedition,
+		long_term_config,
+		expedition_id
+	)
+	if changed:
+		_persist_and_emit()
+	return changed
+
+
+func claim_beast(beast_id: String) -> bool:
+	var changed := LongTermRules.claim_beast(
+		state.long_term.beast,
+		state.long_term.expedition,
+		long_term_config,
+		beast_id
+	)
+	if changed:
+		_persist_and_emit()
+	return changed
+
+
+func deploy_beast(beast_id: String) -> bool:
+	var changed := LongTermRules.deploy_beast(state.long_term.beast, beast_id)
+	if changed:
+		_persist_and_emit()
+	return changed
+
+
+func feed_beast(beast_id: String, servings: int = 1) -> int:
+	var experience := LongTermRules.feed_beast(
+		state.long_term.economy,
+		state.long_term.beast,
+		long_term_config,
+		beast_id,
+		servings
+	)
+	if experience > 0:
+		_persist_and_emit()
+	return experience
+
+
+func can_soft_ascend() -> bool:
+	return LongTermRules.can_soft_ascend(
+		state.long_term.economy,
+		state.long_term.cave,
+		state.long_term.sect,
+		state.long_term.craft,
+		state.long_term.beast,
+		state.long_term.expedition,
+		long_term_config,
+		_current_realm_order(),
+		state.long_term.run_seconds
+	)
+
+
+func upgrade_outpost(outpost_id: String) -> bool:
+	var changed := LongTermRules.upgrade_outpost(
+		state.long_term.economy,
+		state.long_term.ascension,
+		long_term_config,
+		outpost_id
+	)
+	if changed:
+		_persist_and_emit()
+	return changed
+
+
+func claim_ending(ending_id: String) -> bool:
+	var changed := LongTermRules.claim_ending(
+		state.long_term.ascension,
+		long_term_config,
+		ending_id
+	)
+	if changed:
+		journal.add("终局达成：%s。" % long_term_config.ending_by_id(ending_id).display_name)
+		_persist_and_emit()
+	return changed
+
+
+func soft_ascend() -> bool:
+	if not LongTermRules.soft_ascend(
+		state.long_term.economy,
+		state.long_term.cave,
+		state.long_term.sect,
+		state.long_term.craft,
+		state.long_term.beast,
+		state.long_term.expedition,
+		state.long_term.ascension,
+		long_term_config,
+		_current_realm_order(),
+		state.long_term.run_seconds
+	):
+		return false
+	var retained := state.long_term
+	var settings := GameSettings.from_dictionary(state.settings.to_dictionary())
+	state = _new_state()
+	state.long_term = retained
+	state.long_term.run_seconds = 0
+	state.settings = settings
+	journal.add("斩断尘缘，携传承踏入新一世。")
+	_persist_and_emit()
+	return true
+
+
 func set_battle_log_enabled(enabled: bool) -> void:
 	state.settings.battle_log_enabled = enabled
 	_persist()
@@ -291,6 +564,8 @@ func cultivate_rate() -> float:
 			rate *= heart.cultivate_factor(state.skill_rank_of(heart.id))
 	if state != null and state.qi_pill_until > time_service.now_unix():
 		rate *= 1.15
+	if state != null:
+		rate *= LongTermRules.cultivate_factor(state.long_term, long_term_config)
 	return rate
 
 
@@ -489,6 +764,7 @@ func _settle_offline() -> void:
 		offline_settled.emit(last_offline_result)
 		return
 	_apply_combat(last_offline_result.applied_seconds)
+	_apply_long_term(last_offline_result.applied_seconds)
 	last_offline_result.combat_kills = last_combat_result.kills if last_combat_result != null else 0
 	last_offline_result.combat_retreated = last_combat_result.retreated if last_combat_result != null else false
 	last_offline_result.combat_loot = last_combat_result.loot_names if last_combat_result != null else PackedStringArray()
@@ -508,7 +784,36 @@ func _settle_offline() -> void:
 
 
 func _apply_combat(elapsed: int) -> void:
-	last_combat_result = CombatRules.settle(state, config, adventure, elapsed)
+	last_combat_result = CombatRules.settle(
+		state,
+		config,
+		adventure,
+		elapsed,
+		long_term_config
+	)
+
+
+func _apply_long_term(elapsed: int) -> SettlementDelta:
+	return SettlementEngine.settle_long_term(
+		state,
+		long_term_config,
+		elapsed,
+		_expedition_base_power()
+	)
+
+
+func _expedition_base_power() -> int:
+	var stats := player_stats()
+	return _current_realm_order() * 2 + floori(
+		(stats.attack + stats.defense) / 10.0
+	)
+
+
+func _current_realm_order() -> int:
+	for index in range(config.realms.size()):
+		if config.realms[index].id == state.realm_id:
+			return index
+	return 0
 
 
 func _sanitize_progress() -> void:
@@ -544,12 +849,17 @@ func _new_state() -> CultivationState:
 	created.cultivation = 0.0
 	created.realm_id = config.starting_realm().id
 	created.last_settled_unix = time_service.now_unix()
-	created.apply_adventure_defaults(adventure)
+	created.apply_adventure_defaults(adventure, long_term_config)
 	return created
 
 
 func _persist() -> void:
 	save_service.save_state(state, app_version, app_version, time_service.now_unix())
+
+
+func _persist_and_emit() -> void:
+	_persist()
+	state_changed.emit()
 
 
 func _read_app_version() -> String:

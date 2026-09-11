@@ -9,13 +9,15 @@ const DEFAULT_RESPAWN := 0.5
 static func player_stats(
 	state: CultivationState,
 	idle: IdleConfig,
-	adventure: AdventureConfig
+	adventure: AdventureConfig,
+	long_term_config: LongTermConfig = null
 ) -> CombatStats:
 	return player_stats_with_loadout(
 		state,
 		idle,
 		adventure,
-		state.equipped if state != null else null
+		state.equipped if state != null else null,
+		long_term_config
 	)
 
 
@@ -23,7 +25,8 @@ static func player_stats_with_loadout(
 	state: CultivationState,
 	idle: IdleConfig,
 	adventure: AdventureConfig,
-	loadout: EquipmentLoadout
+	loadout: EquipmentLoadout,
+	long_term_config: LongTermConfig = null
 ) -> CombatStats:
 	var stats := CombatStats.new()
 	if state == null or adventure == null:
@@ -49,6 +52,7 @@ static func player_stats_with_loadout(
 		var skill := adventure.skill_by_id(skill_id)
 		if skill != null:
 			stats.add(skill.to_stats(state.skill_rank_of(skill_id)))
+	LongTermRules.apply_combat_bonus(stats, state.long_term, long_term_config)
 	_apply_set_bonus(state, adventure, loadout, stats)
 	if state.body_pill_until > 0:
 		stats.defense *= 1.2
@@ -164,7 +168,8 @@ static func player_stats_with_running(
 	idle: IdleConfig,
 	adventure: AdventureConfig,
 	heart_id: String,
-	art_ids: PackedStringArray
+	art_ids: PackedStringArray,
+	long_term_config: LongTermConfig = null
 ) -> CombatStats:
 	if state == null:
 		return CombatStats.new()
@@ -172,7 +177,7 @@ static func player_stats_with_running(
 	var arts := state.running_art_ids.duplicate()
 	state.running_heart_id = heart_id
 	state.running_art_ids = art_ids.duplicate()
-	var stats := player_stats(state, idle, adventure)
+	var stats := player_stats(state, idle, adventure, long_term_config)
 	state.running_heart_id = snapshot
 	state.running_art_ids = arts
 	return stats
@@ -222,7 +227,8 @@ static func settle(
 	state: CultivationState,
 	idle: IdleConfig,
 	adventure: AdventureConfig,
-	elapsed_seconds: int
+	elapsed_seconds: int,
+	long_term_config: LongTermConfig = null
 ) -> CombatSettlement:
 	var result := CombatSettlement.new()
 	if state == null or adventure == null or elapsed_seconds <= 0:
@@ -230,7 +236,7 @@ static func settle(
 	var stage := adventure.stage_by_id(state.current_stage_id)
 	if stage == null or stage.monsters.is_empty():
 		return result
-	var player := player_stats(state, idle, adventure)
+	var player := player_stats(state, idle, adventure, long_term_config)
 	var remaining := float(elapsed_seconds) + maxf(state.combat_remainder, 0.0)
 	var respawn := adventure.respawn_seconds
 	if respawn <= 0.0:

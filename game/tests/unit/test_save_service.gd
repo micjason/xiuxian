@@ -93,7 +93,7 @@ func test_legacy_v1_save_migrates_cultivation_and_starts_grove() -> void:
 	var again := service.load_state()
 	assert_not_null(again)
 	var saved: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(service.save_path))
-	assert_eq(int(saved.get("schema_version", 0)), 4)
+	assert_eq(int(saved.get("schema_version", 0)), 5)
 	assert_eq(again.current_stage_id, "grove")
 
 
@@ -177,13 +177,60 @@ func test_schema_v3_round_trip_keeps_merge_and_layers() -> void:
 	assert_eq(loaded.qi_pill_until, 1_700_000_600)
 	var saved: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(service.save_path))
 	assert_eq(loaded.running_heart_id, "")
-	assert_eq(int(saved.get("schema_version", 0)), 4)
+	assert_eq(int(saved.get("schema_version", 0)), 5)
 	state.running_heart_id = "tuna"
 	state.running_art_ids = PackedStringArray(["crack_stone"])
 	assert_true(service.save_state(state, "0.1.15", "0.1.15", 1_700_000_030))
 	var again := service.load_state()
 	assert_eq(again.running_heart_id, "tuna")
 	assert_eq(again.running_art_ids[0], "crack_stone")
+
+
+func test_schema_v5_round_trip_keeps_long_term_progress() -> void:
+	var service := _service()
+	var state := _state(42.0)
+	state.long_term.economy.resources["lumen_moss"] = 12.5
+	state.long_term.cave.labor["lumen_moss"] = 2
+	state.long_term.sect.sect_id = "ink_river_lodge"
+	state.long_term.sect.contribution = 17
+	state.long_term.expedition.keys["archive_key"] = 3
+	state.long_term.ascension.legacy_points = 6
+	state.long_term.lifetime_seconds = 99_000
+	assert_true(service.save_state(state, "0.2.0", "0.2.0", 1_700_000_030))
+	var loaded := service.load_state()
+	assert_not_null(loaded)
+	assert_almost_eq(loaded.long_term.economy.amount("lumen_moss"), 12.5, 0.0001)
+	assert_eq(int(loaded.long_term.cave.labor.get("lumen_moss", 0)), 2)
+	assert_eq(loaded.long_term.sect.sect_id, "ink_river_lodge")
+	assert_eq(loaded.long_term.sect.contribution, 17)
+	assert_eq(loaded.long_term.expedition.key_count("archive_key"), 3)
+	assert_eq(loaded.long_term.ascension.legacy_points, 6)
+	assert_eq(loaded.long_term.lifetime_seconds, 99_000)
+
+
+func test_schema_v4_save_migrates_to_empty_long_term_state() -> void:
+	var service := _service()
+	var state := _state(31.0)
+	state.set_skill_rank("tuna", 1)
+	state.running_heart_id = "tuna"
+	assert_true(service.save_state(state, "0.2.0", "0.2.0", 1_700_000_040))
+	var envelope: Dictionary = JSON.parse_string(
+		FileAccess.get_file_as_string(service.save_path)
+	)
+	var payload: Dictionary = envelope.payload
+	payload.erase("long_term")
+	envelope.schema_version = 4
+	envelope.app_version = "0.1.15"
+	envelope.content_version = "0.1.15"
+	envelope.checksum = service._checksum_payload_v4(payload)
+	var writer := FileAccess.open(service.save_path, FileAccess.WRITE)
+	writer.store_string(JSON.stringify(envelope))
+	writer.close()
+	var loaded := service.load_state()
+	assert_not_null(loaded)
+	assert_eq(loaded.running_heart_id, "tuna")
+	assert_eq(loaded.long_term.lifetime_seconds, 0)
+	assert_eq(loaded.long_term.ascension.ascension_count, 0)
 
 
 func test_schema_v3_save_still_loads() -> void:

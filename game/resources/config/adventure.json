@@ -69,6 +69,48 @@
       "defense": 330,
       "hp": 1200,
       "interval": 1.0
+    },
+    "nascent_soul_early": {
+      "attack": 760,
+      "defense": 470,
+      "hp": 1680,
+      "interval": 0.96
+    },
+    "nascent_soul_mid": {
+      "attack": 1040,
+      "defense": 650,
+      "hp": 2320,
+      "interval": 0.92
+    },
+    "nascent_soul_late": {
+      "attack": 1420,
+      "defense": 900,
+      "hp": 3200,
+      "interval": 0.88
+    },
+    "spirit_early": {
+      "attack": 1940,
+      "defense": 1240,
+      "hp": 4400,
+      "interval": 0.84
+    },
+    "spirit_late": {
+      "attack": 2660,
+      "defense": 1700,
+      "hp": 6100,
+      "interval": 0.8
+    },
+    "void_early": {
+      "attack": 3650,
+      "defense": 2340,
+      "hp": 8400,
+      "interval": 0.76
+    },
+    "void_late": {
+      "attack": 5000,
+      "defense": 3220,
+      "hp": 11600,
+      "interval": 0.72
     }
   },
   "items": [
@@ -2097,7 +2139,7 @@
       "min_attack": 95,
       "min_defense": 75,
       "min_speed": 15,
-      "next_id": "",
+      "next_id": "star_ferry",
       "monsters": [
         {
           "id": "stele_terrace_0",
@@ -2227,6 +2269,107 @@
               "chance": 0.04,
               "count": 1
             }
+          ]
+        }
+      ],
+      "require_skill_mastery": true
+    },
+    {
+      "id": "star_ferry",
+      "display_name": "星渡古舟",
+      "order": 8,
+      "min_realm_order": 9,
+      "min_power": 980,
+      "min_attack": 180,
+      "min_defense": 130,
+      "min_speed": 20,
+      "next_id": "moon_vault",
+      "monsters": [
+        {
+          "id": "star_ferry_0",
+          "display_name": "渡星舟灵",
+          "attack": 330,
+          "defense": 145,
+          "hp": 980,
+          "interval": 1.25,
+          "drops": [
+            {"item_id": "mat_spirit_grass", "chance": 0.18, "count": 2},
+            {"item_id": "book_hunyuan", "chance": 0.04, "count": 1}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "moon_vault",
+      "display_name": "月窟寒宫",
+      "order": 9,
+      "min_realm_order": 11,
+      "min_power": 1480,
+      "min_attack": 270,
+      "min_defense": 210,
+      "min_speed": 24,
+      "next_id": "spirit_sea",
+      "monsters": [
+        {
+          "id": "moon_vault_0",
+          "display_name": "月蚀魇",
+          "attack": 520,
+          "defense": 240,
+          "hp": 1680,
+          "interval": 1.1,
+          "drops": [
+            {"item_id": "mat_beast_bone", "chance": 0.18, "count": 2},
+            {"item_id": "book_immortal_body", "chance": 0.04, "count": 1}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "spirit_sea",
+      "display_name": "化神灵海",
+      "order": 10,
+      "min_realm_order": 14,
+      "min_power": 2600,
+      "min_attack": 480,
+      "min_defense": 360,
+      "min_speed": 29,
+      "next_id": "void_frontier",
+      "monsters": [
+        {
+          "id": "spirit_sea_0",
+          "display_name": "无相潮主",
+          "attack": 920,
+          "defense": 430,
+          "hp": 3100,
+          "interval": 0.95,
+          "drops": [
+            {"item_id": "mat_spirit_grass", "chance": 0.22, "count": 3},
+            {"item_id": "book_star_finger", "chance": 0.05, "count": 1}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "void_frontier",
+      "display_name": "炼虚天关",
+      "order": 11,
+      "min_realm_order": 16,
+      "min_power": 4200,
+      "min_attack": 760,
+      "min_defense": 590,
+      "min_speed": 34,
+      "next_id": "",
+      "monsters": [
+        {
+          "id": "void_frontier_0",
+          "display_name": "裂界守关者",
+          "attack": 1580,
+          "defense": 760,
+          "hp": 5600,
+          "interval": 0.82,
+          "drops": [
+            {"item_id": "mat_beast_bone", "chance": 0.25, "count": 4},
+            {"item_id": "book_void_step", "chance": 0.06, "count": 1}
           ]
         }
       ],

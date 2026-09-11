@@ -32,10 +32,14 @@ const REQUIRED_UNIQUE_NODES := [
 	"JournalCard",
 	"UpdateCard",
 	"AdventurePage",
+	"CavePage",
 	"BagPage",
 	"SkillPage",
 	"SettingsPage",
 	"TabBar",
+	"TabCave",
+	"SettingsButton",
+	"SettingsBackButton",
 	"ChallengeButton",
 	"Chrome",
 	"ChromePower",
@@ -54,3 +58,6 @@ func test_main_scene_keeps_the_first_loop_unique_nodes() -> void:
 	for node_name in REQUIRED_UNIQUE_NODES:
 		assert_true(scene.contains("name=\"%s\"" % node_name), "missing %s" % node_name)
 		assert_true(scene.contains("unique_name_in_owner = true"))
+	assert_lt(scene.find("name=\"TabAdventure\""), scene.find("name=\"TabCave\""))
+	assert_lt(scene.find("name=\"TabCave\""), scene.find("name=\"TabBag\""))
+	assert_false(scene.contains("name=\"TabSettings\""))

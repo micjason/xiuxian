@@ -6,6 +6,9 @@ var display_name: String
 var order: int
 var min_realm_order: int
 var min_power: float
+var min_attack: float
+var min_defense: float
+var min_speed: float
 var next_id: String
 var monsters: Array[MonsterDef] = []
 

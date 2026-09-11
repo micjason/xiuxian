@@ -562,6 +562,19 @@ text = "怪物"
 horizontal_alignment = 1
 autowrap_mode = 2
 
+[node name="LayerRow" type="HBoxContainer" parent="Margin/Content/AdventurePage/AdventureMargin/AdventureBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 8
+alignment = 1
+
+[node name="SightLabel" type="Label" parent="Margin/Content/AdventurePage/AdventureMargin/AdventureBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "见闻"
+autowrap_mode = 3
+
 [node name="ChallengeButton" type="Button" parent="Margin/Content/AdventurePage/AdventureMargin/AdventureBox"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 96)

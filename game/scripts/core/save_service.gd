@@ -1,7 +1,8 @@
 class_name SaveService
 extends RefCounted
 
-const SAVE_SCHEMA_VERSION := 2
+const SAVE_SCHEMA_VERSION := 3
+const PREVIOUS_SCHEMA_VERSION := 2
 const LEGACY_SCHEMA_VERSION := 1
 const DEFAULT_PATH := "user://saves/cultivation.json"
 const DEFAULT_BACKUP_PATH := "user://saves/cultivation.bak.json"
@@ -94,6 +95,10 @@ func _load_from_path(path: String) -> CultivationState:
 	var data: Dictionary = payload
 	if schema == LEGACY_SCHEMA_VERSION:
 		return _state_from_legacy(envelope, data)
+	if schema == PREVIOUS_SCHEMA_VERSION:
+		if str(envelope.get("checksum", "")) != _checksum_payload_v2(data):
+			return null
+		return _state_from_payload(data)
 	if schema != SAVE_SCHEMA_VERSION:
 		return null
 	if str(envelope.get("checksum", "")) != _checksum_payload(data):
@@ -132,8 +137,13 @@ func _state_from_payload(data: Dictionary) -> CultivationState:
 	state.equipped = EquipmentLoadout.from_dictionary(data.get("equipped", {}))
 	state.settings = GameSettings.from_dictionary(data.get("settings", {}))
 	state.learned_skill_ids = _string_array(data.get("learned_skill_ids", []))
+	state.skill_ranks = _int_dictionary(data.get("skill_ranks", {}))
 	state.unlocked_stage_ids = _string_array(data.get("unlocked_stage_ids", [CultivationState.DEFAULT_STAGE]))
 	state.battle_log = _string_array(data.get("battle_log", []))
+	state.stage_layers = _int_dictionary(data.get("stage_layers", {}))
+	state.layer_kills = _int_dictionary(data.get("layer_kills", {}))
+	state.qi_pill_until = maxi(int(data.get("qi_pill_until", 0)), 0)
+	state.body_pill_until = maxi(int(data.get("body_pill_until", 0)), 0)
 	var raw_items: Variant = data.get("inventory", [])
 	if typeof(raw_items) == TYPE_ARRAY:
 		for entry in raw_items:
@@ -162,16 +172,75 @@ func _payload_from_state(state: CultivationState) -> Dictionary:
 		"next_item_uid": state.next_item_uid,
 		"equipped": state.equipped.to_dictionary(),
 		"learned_skill_ids": Array(state.learned_skill_ids),
+		"skill_ranks": state.skill_ranks.duplicate(),
 		"current_stage_id": state.current_stage_id,
 		"unlocked_stage_ids": Array(state.unlocked_stage_ids),
 		"battle_log": Array(state.battle_log),
 		"loot_seed": state.loot_seed,
 		"combat_remainder": snappedf(state.combat_remainder, 0.000001),
 		"settings": state.settings.to_dictionary(),
+		"stage_layers": state.stage_layers.duplicate(),
+		"layer_kills": state.layer_kills.duplicate(),
+		"qi_pill_until": state.qi_pill_until,
+		"body_pill_until": state.body_pill_until,
 	}
 
 
 func _checksum_payload(payload: Dictionary) -> String:
+	var inventory: Array = payload.get("inventory", [])
+	var item_parts: PackedStringArray = PackedStringArray()
+	if typeof(inventory) == TYPE_ARRAY:
+		var copies: Array = inventory.duplicate()
+		copies.sort_custom(func(left: Variant, right: Variant) -> bool:
+			return int(left.get("uid", 0)) < int(right.get("uid", 0))
+		)
+		for entry in copies:
+			if typeof(entry) != TYPE_DICTIONARY:
+				continue
+			item_parts.append("%d:%s:%d:%s:%d:%s" % [
+				int(entry.get("uid", 0)),
+				str(entry.get("item_id", "")),
+				int(entry.get("count", 0)),
+				str(entry.get("locked", false)),
+				int(entry.get("merge_level", 0)),
+				str(entry.get("tempered", false)),
+			])
+	var equipped: Dictionary = payload.get("equipped", {})
+	var settings: Dictionary = payload.get("settings", {})
+	var text := "|".join(PackedStringArray([
+		"%.6f" % float(payload.get("cultivation", 0.0)),
+		str(payload.get("realm_id", "")),
+		str(int(payload.get("last_settled_unix", 0))),
+		str(int(payload.get("inventory_capacity", 0))),
+		str(int(payload.get("next_item_uid", 0))),
+		str(payload.get("current_stage_id", "")),
+		str(int(payload.get("loot_seed", 0))),
+		"%.6f" % float(payload.get("combat_remainder", 0.0)),
+		",".join(_string_array(payload.get("learned_skill_ids", []))),
+		",".join(_string_array(payload.get("unlocked_stage_ids", []))),
+		str(int(equipped.get("weapon", 0))),
+		str(int(equipped.get("helmet", 0))),
+		str(int(equipped.get("clothes", 0))),
+		str(int(equipped.get("shoes", 0))),
+		str(int(equipped.get("accessory", 0))),
+		str(settings.get("battle_log_enabled", true)),
+		str(settings.get("bag_full_policy", "")),
+		"%.2f" % float(settings.get("sound_volume", 1.0)),
+		";".join(item_parts),
+		_dict_fingerprint(payload.get("skill_ranks", {})),
+		_dict_fingerprint(payload.get("stage_layers", {})),
+		_dict_fingerprint(payload.get("layer_kills", {})),
+		str(int(payload.get("qi_pill_until", 0))),
+		str(int(payload.get("body_pill_until", 0))),
+	]))
+	var context := HashingContext.new()
+	if context.start(HashingContext.HASH_SHA256) != OK:
+		return ""
+	context.update(text.to_utf8_buffer())
+	return context.finish().hex_encode()
+
+
+func _checksum_payload_v2(payload: Dictionary) -> String:
 	var inventory: Array = payload.get("inventory", [])
 	var item_parts: PackedStringArray = PackedStringArray()
 	if typeof(inventory) == TYPE_ARRAY:
@@ -216,6 +285,25 @@ func _checksum_payload(payload: Dictionary) -> String:
 		return ""
 	context.update(text.to_utf8_buffer())
 	return context.finish().hex_encode()
+
+
+func _int_dictionary(raw: Variant) -> Dictionary:
+	var values := {}
+	if typeof(raw) != TYPE_DICTIONARY:
+		return values
+	for key in raw.keys():
+		values[str(key)] = int(raw[key])
+	return values
+
+
+func _dict_fingerprint(raw: Variant) -> String:
+	var values := _int_dictionary(raw)
+	var keys: Array = values.keys()
+	keys.sort()
+	var parts := PackedStringArray()
+	for key in keys:
+		parts.append("%s:%d" % [str(key), int(values[key])])
+	return ",".join(parts)
 
 
 func _legacy_checksum(cultivation: float, realm_id: String, last_settled_unix: int) -> String:

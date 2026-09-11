@@ -12,12 +12,17 @@ var inventory_capacity: int = DEFAULT_CAPACITY
 var next_item_uid: int = 0
 var equipped: EquipmentLoadout = EquipmentLoadout.new()
 var learned_skill_ids: PackedStringArray = []
+var skill_ranks: Dictionary = {}
 var current_stage_id: String = DEFAULT_STAGE
 var unlocked_stage_ids: PackedStringArray = PackedStringArray([DEFAULT_STAGE])
 var battle_log: PackedStringArray = []
 var loot_seed: int = 1
 var combat_remainder: float = 0.0
 var settings: GameSettings = GameSettings.new()
+var stage_layers: Dictionary = {}
+var layer_kills: Dictionary = {}
+var qi_pill_until: int = 0
+var body_pill_until: int = 0
 
 
 func duplicate_state() -> CultivationState:
@@ -31,10 +36,15 @@ func duplicate_state() -> CultivationState:
 	copy.loot_seed = loot_seed
 	copy.combat_remainder = combat_remainder
 	copy.learned_skill_ids = learned_skill_ids.duplicate()
+	copy.skill_ranks = skill_ranks.duplicate()
 	copy.unlocked_stage_ids = unlocked_stage_ids.duplicate()
 	copy.battle_log = battle_log.duplicate()
 	copy.equipped = EquipmentLoadout.from_dictionary(equipped.to_dictionary())
 	copy.settings = GameSettings.from_dictionary(settings.to_dictionary())
+	copy.stage_layers = stage_layers.duplicate()
+	copy.layer_kills = layer_kills.duplicate()
+	copy.qi_pill_until = qi_pill_until
+	copy.body_pill_until = body_pill_until
 	for stack in inventory:
 		copy.inventory.append(ItemStack.from_dictionary(stack.to_dictionary()))
 	return copy
@@ -56,3 +66,42 @@ func apply_adventure_defaults(adventure: AdventureConfig) -> void:
 		settings = GameSettings.new()
 	if equipped == null:
 		equipped = EquipmentLoadout.new()
+	for skill_id in learned_skill_ids:
+		if int(skill_ranks.get(skill_id, 0)) <= 0:
+			skill_ranks[skill_id] = 1
+
+
+func current_layer() -> int:
+	return layer_of(current_stage_id)
+
+
+func layer_of(stage_id: String) -> int:
+	return clampi(int(stage_layers.get(stage_id, StageLayer.OUTER)), StageLayer.OUTER, StageLayer.BOSS)
+
+
+func set_layer(stage_id: String, layer: int) -> void:
+	stage_layers[stage_id] = clampi(layer, StageLayer.OUTER, StageLayer.BOSS)
+
+
+func kills_of(stage_id: String, layer: int) -> int:
+	return maxi(int(layer_kills.get("%s|%d" % [stage_id, layer], 0)), 0)
+
+
+func add_kills(stage_id: String, layer: int, amount: int) -> void:
+	if amount <= 0:
+		return
+	var key := "%s|%d" % [stage_id, layer]
+	layer_kills[key] = kills_of(stage_id, layer) + amount
+
+
+func skill_rank_of(skill_id: String) -> int:
+	var stored := int(skill_ranks.get(skill_id, 0))
+	if stored > 0:
+		return stored
+	return 1 if learned_skill_ids.has(skill_id) else 0
+
+
+func set_skill_rank(skill_id: String, rank: int) -> void:
+	skill_ranks[skill_id] = rank
+	if rank > 0 and not learned_skill_ids.has(skill_id):
+		learned_skill_ids.append(skill_id)

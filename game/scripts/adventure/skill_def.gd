@@ -11,9 +11,10 @@ var min_realm_order: int
 var book_id: String
 
 
-func to_stats() -> CombatStats:
+func to_stats(rank: int = 1) -> CombatStats:
+	var scale := 1.4 if rank >= 2 else 1.0
 	var stats := CombatStats.new()
-	stats.attack = attack
-	stats.defense = defense
-	stats.hp = hp
+	stats.attack = attack * scale
+	stats.defense = defense * scale
+	stats.hp = hp * scale
 	return stats

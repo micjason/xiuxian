@@ -6,6 +6,8 @@ var defense: float = 0.0
 var hp: float = 0.0
 var speed: float = 0.0
 var interval: float = 1.5
+var damage_dealt_scale: float = 1.0
+var damage_taken_scale: float = 1.0
 
 
 func power() -> float:

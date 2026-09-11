@@ -98,8 +98,8 @@ func test_inspect_text_for_skill_book_shows_learn_delta() -> void:
 	assert_true(text.contains("战力"), text)
 	state.learned_skill_ids.append("tuna")
 	var learned := InventoryRules.inspect_text(state, idle, config, state.inventory[0])
-	assert_true(learned.contains("已学会"), learned)
-	assert_true(learned.contains("持平"), learned)
+	assert_true(learned.contains("已入门"), learned)
+	assert_true(learned.contains("小成"), learned)
 
 
 func test_equipped_gear_leaves_the_bag() -> void:

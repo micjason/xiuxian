@@ -49,17 +49,33 @@ func kind_display_name() -> String:
 	return str(KIND_DISPLAY.get(kind, kind))
 
 
-func to_stats() -> CombatStats:
+func set_id() -> String:
+	return "tier_%d" % min_realm_order
+
+
+func to_stats(stack: ItemStack = null) -> CombatStats:
+	var scale := 1.0
+	if stack != null:
+		scale = 1.0 + 0.12 * float(clampi(stack.merge_level, 0, ItemStack.MAX_MERGE))
 	var stats := CombatStats.new()
-	stats.attack = attack
-	stats.defense = defense
-	stats.hp = hp
-	stats.speed = speed
+	stats.attack = attack * scale
+	stats.defense = defense * scale
+	stats.hp = hp * scale
+	stats.speed = speed * scale
+	if stack != null and stack.tempered:
+		match slot:
+			EquipSlot.SHOES:
+				stats.speed += 0.4
+			EquipSlot.HELMET, EquipSlot.CLOTHES:
+				stats.defense += 1.2
+			_:
+				stats.attack += 0.8
 	return stats
 
 
-func gear_power() -> float:
-	return CombatStats.piece_power(attack, defense, speed, hp)
+func gear_power(stack: ItemStack = null) -> float:
+	var stats := to_stats(stack)
+	return CombatStats.piece_power(stats.attack, stats.defense, stats.speed, stats.hp)
 
 
 static func is_kind(id: String) -> bool:

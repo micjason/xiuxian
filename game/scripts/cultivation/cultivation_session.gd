@@ -51,6 +51,7 @@ func start() -> bool:
 	else:
 		state.apply_adventure_defaults(adventure)
 		_sanitize_progress()
+		_expire_pills()
 		_settle_offline()
 	_persist()
 	state_changed.emit()
@@ -60,6 +61,7 @@ func start() -> bool:
 func tick_online() -> void:
 	if state == null:
 		return
+	_expire_pills()
 	var realm := current_realm()
 	if realm == null:
 		return
@@ -69,7 +71,7 @@ func tick_online() -> void:
 			state.last_settled_unix = time_service.now_unix()
 			_persist()
 		return
-	CultivationRules.apply_elapsed(state, realm.gain_per_second, elapsed, ONLINE_CAP_SECONDS)
+	CultivationRules.apply_elapsed(state, cultivate_rate(), elapsed, ONLINE_CAP_SECONDS)
 	_apply_combat(elapsed)
 	state.last_settled_unix = time_service.now_unix()
 	_persist()
@@ -136,6 +138,7 @@ func challenge_next() -> String:
 	if not state.unlocked_stage_ids.has(nxt.id):
 		state.unlocked_stage_ids.append(nxt.id)
 	state.current_stage_id = nxt.id
+	state.set_layer(nxt.id, StageLayer.OUTER)
 	journal.add("踏入关卡：%s。" % nxt.display_name)
 	InventoryRules.append_log(state, "开始历练 %s。" % nxt.display_name)
 	_persist()
@@ -216,18 +219,29 @@ func learn_skill_from(uid: int) -> String:
 	var skill := adventure.skill_by_id(item.skill_id)
 	if skill == null:
 		return "残页已模糊，无法参悟。"
-	if state.learned_skill_ids.has(skill.id):
-		return "已学会 %s。" % skill.display_name
 	var realm := current_realm()
 	if realm != null and realm.order < skill.min_realm_order:
 		return "境界不足，无法参悟 %s。" % skill.display_name
-	stack.count -= 1
-	if stack.count <= 0:
-		state.inventory = state.inventory.filter(func(item: ItemStack) -> bool:
-			return item.uid != uid
-		)
-	state.learned_skill_ids.append(skill.id)
-	journal.add("参悟功法：%s（%s）。" % [skill.display_name, SkillRank.display_name(skill.rank)])
+	var rank := state.skill_rank_of(skill.id)
+	if rank >= 2:
+		return "已小成 %s。" % skill.display_name
+	if rank <= 0:
+		stack.count -= 1
+		if stack.count <= 0:
+			state.inventory = state.inventory.filter(func(item: ItemStack) -> bool:
+				return item.uid != uid
+			)
+		state.set_skill_rank(skill.id, 1)
+		journal.add("参悟入门：%s（%s）。" % [skill.display_name, SkillRank.display_name(skill.rank)])
+		_persist()
+		state_changed.emit()
+		return ""
+	if InventoryRules.count_item(state, item.id) < 2:
+		return "小成需要再交 2 本 %s。" % item.display_name
+	if not InventoryRules.consume_count(state, item.id, 2):
+		return "残页不足。"
+	state.set_skill_rank(skill.id, 2)
+	journal.add("功法小成：%s。" % skill.display_name)
 	_persist()
 	state_changed.emit()
 	return ""
@@ -263,12 +277,112 @@ func item_def(item_id: String) -> ItemDef:
 	return adventure.item_by_id(item_id) if adventure != null else null
 
 
+func cultivate_rate() -> float:
+	_expire_pills()
+	var realm := current_realm()
+	if realm == null:
+		return 0.0
+	var rate := realm.gain_per_second
+	if state != null and state.qi_pill_until > time_service.now_unix():
+		rate *= 1.15
+	return rate
+
+
+func merge_item(uid: int) -> String:
+	var stack := InventoryRules.find_stack(state, uid)
+	if stack == null:
+		return "行囊中没有这件物品。"
+	if state.equipped.contains_uid(uid):
+		return "正在穿戴，先卸下再合并。"
+	var item := adventure.item_by_id(stack.item_id) if adventure != null else null
+	if item == null or not item.is_equipment():
+		return "只有装备能合并。"
+	if not InventoryRules.merge(state, uid):
+		return "没有另一件同名同阶可合。"
+	journal.add("合并 %s 至合+%d。" % [
+		item.display_name,
+		stack.merge_level,
+	])
+	_persist()
+	state_changed.emit()
+	return ""
+
+
+func temper_item(uid: int) -> String:
+	var stack := InventoryRules.find_stack(state, uid)
+	if stack == null:
+		return "行囊中没有这件物品。"
+	if state.equipped.contains_uid(uid):
+		return "正在穿戴，先卸下再温养。"
+	var item := adventure.item_by_id(stack.item_id) if adventure != null else null
+	if item == null or not item.is_equipment():
+		return "只有装备能温养。"
+	if stack.tempered:
+		return "这件已经温养过。"
+	if not InventoryRules.temper(state, uid):
+		return "温养需要 3 灵草与 1 兽骨。"
+	journal.add("温养 %s。" % item.display_name)
+	_persist()
+	state_changed.emit()
+	return ""
+
+
+func consume_pill(uid: int) -> String:
+	var stack := InventoryRules.find_stack(state, uid)
+	if stack == null:
+		return "行囊中没有这件物品。"
+	var item := adventure.item_by_id(stack.item_id) if adventure != null else null
+	if item == null or not item.is_pill():
+		return "这不是丹药。"
+	if item.id != "pill_qi_0" and item.id != "pill_body_0":
+		return "这粒丹还不能服。"
+	if not InventoryRules.consume_count(state, item.id, 1):
+		return "丹药不足。"
+	var until := time_service.now_unix() + 600
+	if item.id == "pill_qi_0":
+		state.qi_pill_until = until
+		journal.add("服下回气丹，一时修为更勤。")
+	else:
+		state.body_pill_until = until
+		journal.add("服下养体丹，一时皮肉更厚。")
+	_persist()
+	state_changed.emit()
+	return ""
+
+
+func select_layer(layer: int) -> String:
+	var stage := current_stage()
+	if stage == null:
+		return "未选定关卡。"
+	var wall := CombatRules.enter_reason(state, config, stage, player_stats(), true)
+	if not wall.is_empty():
+		return wall
+	var reason := CombatRules.layer_reason(state, stage, layer)
+	if not reason.is_empty():
+		return reason
+	state.set_layer(stage.id, layer)
+	InventoryRules.append_log(state, "转往 %s%s 挂机。" % [stage.display_name, StageLayer.display_name(layer)])
+	_persist()
+	state_changed.emit()
+	return ""
+
+
+func _expire_pills() -> void:
+	if state == null:
+		return
+	var now := time_service.now_unix()
+	if state.qi_pill_until > 0 and state.qi_pill_until <= now:
+		state.qi_pill_until = 0
+	if state.body_pill_until > 0 and state.body_pill_until <= now:
+		state.body_pill_until = 0
+
+
 func _settle_offline() -> void:
 	var realm := current_realm()
 	var elapsed := time_service.elapsed_seconds(state.last_settled_unix)
 	last_offline_result = CultivationRules.apply_elapsed(
 		state,
-		realm.gain_per_second,
+		cultivate_rate(),
 		elapsed,
 		config.offline_cap_seconds
 	)

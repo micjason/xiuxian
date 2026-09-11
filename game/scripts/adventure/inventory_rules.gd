@@ -121,7 +121,7 @@ static func inspect_text(
 	if item.is_equipment():
 		return _inspect_equipment(state, idle, adventure, stack, item)
 	if item.is_skill_book():
-		return _inspect_skill_book(state, idle, adventure, item)
+		return _inspect_skill_book(state, idle, adventure, item, stack)
 	return _inspect_stackable(item, stack)
 
 
@@ -146,13 +146,23 @@ static func _inspect_equipment(
 	])
 	if not item.affixes.is_empty():
 		lines.append("词条  %s" % " · ".join(item.affixes))
+	var live := item.to_stats(stack)
+	var extra: PackedStringArray = PackedStringArray()
+	if stack.merge_level > 0:
+		extra.append("合+%d" % stack.merge_level)
+	if stack.tempered:
+		extra.append("已温养")
+	if not extra.is_empty():
+		lines.append(" · ".join(extra))
 	lines.append("攻%s  防%s  速%s  气血%s" % [
-		CultivationFormat.amount(item.attack),
-		CultivationFormat.amount(item.defense),
-		CultivationFormat.amount(item.speed),
-		CultivationFormat.amount(item.hp),
+		CultivationFormat.amount(live.attack),
+		CultivationFormat.amount(live.defense),
+		CultivationFormat.amount(live.speed),
+		CultivationFormat.amount(live.hp),
 	])
-	lines.append("装备战力 %s" % CultivationFormat.amount(item.gear_power()))
+	lines.append("装备战力 %s" % CultivationFormat.amount(item.gear_power(stack)))
+	if find_merge_partner(state, stack.uid) != null:
+		lines.append("可与另一件同名同阶合并。")
 	var realm := idle.realm_by_id(state.realm_id) if idle != null else null
 	if state.equipped.contains_uid(stack.uid):
 		lines.append("正在穿戴。")
@@ -188,9 +198,14 @@ static func _inspect_stackable(item: ItemDef, stack: ItemStack) -> String:
 	if not item.description.is_empty():
 		lines.append(item.description)
 	elif item.is_pill():
-		lines.append("丹药。此版可观其形，服食尚未开通。")
+		if item.id == "pill_qi_0":
+			lines.append("服后 10 分钟，修为效率 ×1.15。")
+		elif item.id == "pill_body_0":
+			lines.append("服后 10 分钟，防御 ×1.20。")
+		else:
+			lines.append("可服用，时效十分钟。")
 	elif item.is_material():
-		lines.append("材料。此版可收入行囊，炼器尚未开通。")
+		lines.append("可温养一件未穿装备一次：3 灵草 + 1 兽骨。不改品质。")
 	else:
 		lines.append(item.display_name)
 	return "\n".join(lines)
@@ -200,7 +215,8 @@ static func _inspect_skill_book(
 	state: CultivationState,
 	idle: IdleConfig,
 	adventure: AdventureConfig,
-	item: ItemDef
+	item: ItemDef,
+	stack: ItemStack
 ) -> String:
 	var skill := adventure.skill_by_id(item.skill_id)
 	if skill == null:
@@ -208,19 +224,29 @@ static func _inspect_skill_book(
 	var current := CombatRules.player_stats(state, idle, adventure)
 	var lines: PackedStringArray = PackedStringArray()
 	var realm := idle.realm_by_id(state.realm_id) if idle != null else null
-	if state.learned_skill_ids.has(skill.id):
-		lines.append("已学会，再参悟不会加强。")
+	var rank := state.skill_rank_of(skill.id)
+	if rank >= 2:
+		lines.append("已小成，再参悟不会加强。")
+	elif rank == 1:
+		lines.append("已入门。再交 2 本可小成。")
 	elif realm != null and realm.order < skill.min_realm_order:
 		lines.append("境界不足，无法参悟。")
 	else:
-		lines.append("可以参悟。")
+		lines.append("可以参悟入门。")
+	if stack.count > 1:
+		lines.append("持有 ×%d" % stack.count)
 	var preview := CombatRules.player_stats(state, idle, adventure)
-	if not state.learned_skill_ids.has(skill.id):
-		preview.add(skill.to_stats())
+	if rank <= 0:
+		preview.add(skill.to_stats(1))
+	elif rank == 1:
+		preview.add(skill.to_stats(2))
+		preview.attack -= skill.attack
+		preview.defense -= skill.defense
+		preview.hp -= skill.hp
 	lines.append("学后 攻%s 防%s 血%s  战力 %s → %s（%s）" % [
-		_signed(skill.attack),
-		_signed(skill.defense),
-		_signed(skill.hp),
+		_signed(preview.attack - current.attack),
+		_signed(preview.defense - current.defense),
+		_signed(preview.hp - current.hp),
 		CultivationFormat.amount(current.power()),
 		CultivationFormat.amount(preview.power()),
 		_signed(preview.power() - current.power()),
@@ -233,6 +259,80 @@ static func _signed(value: float) -> String:
 		return "持平"
 	var prefix := "+" if value > 0.0 else ""
 	return "%s%s" % [prefix, CultivationFormat.amount(value)]
+
+
+static func find_merge_partner(state: CultivationState, uid: int) -> ItemStack:
+	var stack := find_stack(state, uid)
+	if stack == null or state == null:
+		return null
+	if state.equipped.contains_uid(uid) or stack.merge_level >= ItemStack.MAX_MERGE:
+		return null
+	for other in state.inventory:
+		if other.uid == uid:
+			continue
+		if other.item_id != stack.item_id or other.merge_level != stack.merge_level:
+			continue
+		if state.equipped.contains_uid(other.uid):
+			continue
+		return other
+	return null
+
+
+static func merge(state: CultivationState, uid: int) -> bool:
+	var stack := find_stack(state, uid)
+	var partner := find_merge_partner(state, uid)
+	if stack == null or partner == null:
+		return false
+	stack.merge_level = mini(stack.merge_level + 1, ItemStack.MAX_MERGE)
+	state.inventory = state.inventory.filter(func(item: ItemStack) -> bool:
+		return item.uid != partner.uid
+	)
+	return true
+
+
+static func count_item(state: CultivationState, item_id: String) -> int:
+	var total := 0
+	if state == null:
+		return 0
+	for stack in state.inventory:
+		if stack.item_id == item_id:
+			total += stack.count
+	return total
+
+
+static func consume_count(state: CultivationState, item_id: String, amount: int) -> bool:
+	if amount <= 0 or count_item(state, item_id) < amount:
+		return false
+	var remaining := amount
+	var kept: Array[ItemStack] = []
+	for stack in state.inventory:
+		if remaining <= 0 or stack.item_id != item_id:
+			kept.append(stack)
+			continue
+		if stack.count > remaining:
+			stack.count -= remaining
+			remaining = 0
+			kept.append(stack)
+		else:
+			remaining -= stack.count
+	if remaining > 0:
+		return false
+	state.inventory = kept
+	return true
+
+
+static func temper(state: CultivationState, uid: int) -> bool:
+	var stack := find_stack(state, uid)
+	if stack == null or stack.tempered or state.equipped.contains_uid(uid):
+		return false
+	if count_item(state, "mat_spirit_grass") < 3 or count_item(state, "mat_beast_bone") < 1:
+		return false
+	if not consume_count(state, "mat_spirit_grass", 3):
+		return false
+	if not consume_count(state, "mat_beast_bone", 1):
+		return false
+	stack.tempered = true
+	return true
 
 
 static func append_log(state: CultivationState, line: String) -> void:

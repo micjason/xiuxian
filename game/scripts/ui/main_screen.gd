@@ -45,6 +45,8 @@ const PAGE_SETTINGS := "settings"
 @onready var power_label: Label = %PowerLabel
 @onready var stage_label: Label = %StageLabel
 @onready var monster_label: Label = %MonsterLabel
+@onready var layer_row: HBoxContainer = %LayerRow
+@onready var sight_label: Label = %SightLabel
 @onready var challenge_button: Button = %ChallengeButton
 @onready var stage_hint: Label = %StageHint
 @onready var loot_summary_label: Label = %LootSummaryLabel
@@ -113,6 +115,7 @@ func _ready() -> void:
 	seal_inner.add_theme_stylebox_override("panel", MainTheme.seal_inner())
 	_install_chrome()
 	_install_bag_board()
+	_install_layer_row()
 	_apply_layout()
 	_style_secondary_button(check_button)
 	_style_secondary_button(install_button)
@@ -218,7 +221,11 @@ func _refresh_cultivation() -> void:
 		return
 	realm_label.text = realm.display_name
 	realm_path.text = _session.config.display_path(realm)
-	rate_label.text = CultivationFormat.rate(realm.gain_per_second)
+	var rate := _session.cultivate_rate()
+	if _session.state.qi_pill_until > 0:
+		rate_label.text = "%s · 回气中" % CultivationFormat.rate(rate)
+	else:
+		rate_label.text = CultivationFormat.rate(rate)
 	cultivation_progress.value = _session.progress() * 100.0
 	journal_label.text = _session.journal.as_text()
 	var next_realm := _session.next_realm()
@@ -242,7 +249,7 @@ func _refresh_cultivation() -> void:
 		if remaining <= 0.001:
 			progress_hint.text = "修为已足，可突破至 %s" % next_realm.display_name
 		else:
-			var wait := int(ceili(remaining / realm.gain_per_second))
+			var wait := int(ceili(remaining / maxf(rate, 0.001)))
 			progress_hint.text = "距突破还需 %s · 约 %s" % [
 				CultivationFormat.amount(remaining),
 				CultivationFormat.duration_hours(wait),
@@ -258,9 +265,10 @@ func _refresh_adventure() -> void:
 	if _session.state == null:
 		return
 	var stats := _session.player_stats()
-	power_label.text = "己方  攻 %s  防 %s  血 %s" % [
+	power_label.text = "己方  攻 %s  防 %s  速 %s  血 %s" % [
 		CultivationFormat.amount(stats.attack),
 		CultivationFormat.amount(stats.defense),
+		CultivationFormat.amount(stats.speed),
 		CultivationFormat.amount(stats.hp),
 	]
 	var stage := _session.current_stage()
@@ -268,18 +276,27 @@ func _refresh_adventure() -> void:
 		stage_label.text = "未选定关卡"
 		monster_label.text = ""
 		challenge_button.disabled = true
+		_refresh_layer_row()
+		_refresh_sight()
 		_refresh_stage_list(stats)
 		return
-	stage_label.text = "%s · 挂机中" % stage.display_name
+	var layer := _session.state.current_layer()
+	stage_label.text = "%s · %s · 挂机中" % [stage.display_name, StageLayer.display_name(layer)]
 	var names: PackedStringArray = PackedStringArray()
-	for monster in stage.monsters:
-		names.append(monster.display_name)
-		if names.size() >= 3:
-			break
-	if stage.monsters.size() > names.size():
-		monster_label.text = "出没：%s 等" % "、".join(names)
+	if layer == StageLayer.BOSS and not stage.monsters.is_empty():
+		monster_label.text = "头目循环：%s" % stage.monsters[stage.monsters.size() - 1].display_name
 	else:
-		monster_label.text = "出没：%s" % "、".join(names)
+		for monster in stage.monsters:
+			names.append(monster.display_name)
+			if names.size() >= 3:
+				break
+		var suffix := "（深处）" if layer == StageLayer.INNER else ""
+		if stage.monsters.size() > names.size():
+			monster_label.text = "出没：%s 等%s" % ["、".join(names), suffix]
+		else:
+			monster_label.text = "出没：%s%s" % ["、".join(names), suffix]
+	_refresh_layer_row()
+	_refresh_sight()
 	var nxt := _session.next_stage()
 	if nxt == null:
 		challenge_button.text = "已至最深关卡"
@@ -289,7 +306,7 @@ func _refresh_adventure() -> void:
 		challenge_button.disabled = false
 		challenge_button.text = "挑战 %s" % nxt.display_name
 		if _session.can_challenge_next():
-			stage_hint.text = "战力与境界已足，可挑战下一关。"
+			stage_hint.text = "短板与境界已足，可挑战下一关。"
 		else:
 			stage_hint.text = CombatRules.enter_reason(
 				_session.state,
@@ -322,13 +339,17 @@ func _refresh_bag() -> void:
 		_close_inspect()
 	_refresh_bag_tabs()
 	var visible := InventoryRules.filter_stacks(_session.state, _session.adventure, _bag_tab)
-	var fingerprint := "%d|%d|%s|%d|%s|%d" % [
+	var fingerprint := "%d|%d|%s|%d|%s|%d|%s|%d|%d|%s" % [
 		_session.state.next_item_uid,
 		_session.state.inventory.size(),
 		JSON.stringify(_session.state.equipped.to_dictionary()),
 		_session.state.learned_skill_ids.size(),
 		_bag_tab,
 		visible.size(),
+		JSON.stringify(_session.state.skill_ranks),
+		_session.state.qi_pill_until,
+		_session.state.body_pill_until,
+		_bag_progress_stamp(),
 	]
 	if fingerprint != _bag_fingerprint or bag_list.get_child_count() == 0:
 		_bag_fingerprint = fingerprint
@@ -365,10 +386,16 @@ func _refresh_skills() -> void:
 		var learned_skill := _session.adventure.skill_by_id(skill_id)
 		if learned_skill == null:
 			continue
-		attack += learned_skill.attack
-		defense += learned_skill.defense
-		hp += learned_skill.hp
-		names.append("%s（%s）" % [learned_skill.display_name, SkillRank.display_name(learned_skill.rank)])
+		var mastery := _session.state.skill_rank_of(skill_id)
+		var live := learned_skill.to_stats(mastery)
+		attack += live.attack
+		defense += live.defense
+		hp += live.hp
+		names.append("%s（%s·%s）" % [
+			learned_skill.display_name,
+			SkillRank.display_name(learned_skill.rank),
+			"小成" if mastery >= 2 else "入门",
+		])
 	if names.is_empty():
 		learned_label.text = "尚未参悟。行囊里的残页可参悟。"
 	else:
@@ -378,7 +405,11 @@ func _refresh_skills() -> void:
 			CultivationFormat.amount(hp),
 			"、".join(names),
 		]
-	var fingerprint := "%s|%s" % [",".join(_session.state.learned_skill_ids), realm.id if realm != null else ""]
+	var fingerprint := "%s|%s|%s" % [
+		",".join(_session.state.learned_skill_ids),
+		JSON.stringify(_session.state.skill_ranks),
+		realm.id if realm != null else "",
+	]
 	if fingerprint == _skill_fingerprint and skill_list.get_child_count() > 0:
 		return
 	_skill_fingerprint = fingerprint
@@ -388,11 +419,15 @@ func _refresh_skills() -> void:
 		var row := Label.new()
 		row.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		row.add_theme_font_size_override("font_size", MainTheme.SIZE_CAPTION)
-		var learned := _session.state.learned_skill_ids.has(skill.id)
+		var mastery := _session.state.skill_rank_of(skill.id)
 		var locked := realm != null and realm.order < skill.min_realm_order
 		var mark := "未入手"
-		if learned:
-			mark = "已学"
+		var shown := skill.to_stats(maxi(mastery, 1))
+		if mastery >= 2:
+			mark = "小成"
+			row.add_theme_color_override("font_color", MainTheme.JADE)
+		elif mastery >= 1:
+			mark = "入门"
 			row.add_theme_color_override("font_color", MainTheme.JADE)
 		elif locked:
 			mark = "需第 %d 阶" % skill.min_realm_order
@@ -406,9 +441,9 @@ func _refresh_skills() -> void:
 			skill.display_name,
 			SkillRank.display_name(skill.rank),
 			mark,
-			CultivationFormat.amount(skill.attack),
-			CultivationFormat.amount(skill.defense),
-			CultivationFormat.amount(skill.hp),
+			CultivationFormat.amount(shown.attack),
+			CultivationFormat.amount(shown.defense),
+			CultivationFormat.amount(shown.hp),
 		]
 		skill_list.add_child(row)
 
@@ -529,11 +564,13 @@ func _refresh_tabs() -> void:
 func _refresh_stage_list(stats: CombatStats) -> void:
 	if _session.adventure == null:
 		return
-	var fingerprint := "%s|%s|%.0f|%s" % [
+	var fingerprint := "%s|%s|%.0f|%s|%s|%s" % [
 		_session.state.current_stage_id,
 		",".join(_session.state.unlocked_stage_ids),
 		stats.power(),
 		_session.state.realm_id,
+		JSON.stringify(_session.state.stage_layers),
+		JSON.stringify(_session.state.layer_kills),
 	]
 	if fingerprint == _stage_fingerprint and stage_list.get_child_count() > 0:
 		return
@@ -554,10 +591,13 @@ func _refresh_stage_list(stats: CombatStats) -> void:
 		button.add_theme_font_size_override("font_size", MainTheme.SIZE_CAPTION)
 		var nxt := _session.next_stage()
 		if stage.id == _session.state.current_stage_id:
-			button.text = "%s  ·  挂机中" % stage.display_name
+			button.text = "%s · %s  ·  挂机中" % [
+				stage.display_name,
+				StageLayer.display_name(_session.state.current_layer()),
+			]
 			button.disabled = true
 		elif reason.is_empty():
-			button.text = stage.display_name
+			button.text = "%s · %s" % [stage.display_name, _sight_status(stage)]
 			var stage_id := stage.id
 			button.pressed.connect(func() -> void:
 				_show_hint(_session.select_stage(stage_id))
@@ -565,6 +605,8 @@ func _refresh_stage_list(stats: CombatStats) -> void:
 		elif nxt != null and stage.id == nxt.id:
 			if reason.contains("境界"):
 				button.text = "%s  ·  境界不足" % stage.display_name
+			elif reason.contains("缺"):
+				button.text = "%s  ·  %s" % [stage.display_name, reason.get_slice("，", 0)]
 			elif reason.contains("战力"):
 				button.text = "%s  ·  需战力 %.0f" % [stage.display_name, stage.min_power]
 			else:
@@ -823,6 +865,8 @@ func _fill_inspect_card() -> void:
 	MainTheme.stamp_label(body, MainTheme.SIZE_CAPTION, MainTheme.IVORY)
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 8)
+	var extra := HBoxContainer.new()
+	extra.add_theme_constant_override("separation", 8)
 	if item != null and item.is_equipment():
 		if _session.state.equipped.contains_uid(stack.uid):
 			row.add_child(_action_button("卸下", func() -> void:
@@ -834,9 +878,27 @@ func _fill_inspect_card() -> void:
 				_show_hint(_session.equip_item(stack.uid))
 				_close_inspect()
 			))
+			if InventoryRules.find_merge_partner(_session.state, stack.uid) != null:
+				extra.add_child(_action_button("合并", func() -> void:
+					_show_hint(_session.merge_item(stack.uid))
+					_fill_inspect_card()
+				))
+			if not stack.tempered:
+				extra.add_child(_action_button("温养", func() -> void:
+					_show_hint(_session.temper_item(stack.uid))
+					_fill_inspect_card()
+				))
 	if item != null and item.is_skill_book():
-		row.add_child(_action_button("参悟", func() -> void:
+		var skill := _session.adventure.skill_by_id(item.skill_id) if _session.adventure != null else null
+		var mastery := _session.state.skill_rank_of(item.skill_id) if skill != null else 0
+		var learn_label := "小成" if mastery == 1 else "参悟"
+		row.add_child(_action_button(learn_label, func() -> void:
 			_show_hint(_session.learn_skill_from(stack.uid))
+			_close_inspect()
+		))
+	if item != null and item.is_pill():
+		row.add_child(_action_button("服用", func() -> void:
+			_show_hint(_session.consume_pill(stack.uid))
 			_close_inspect()
 		))
 	row.add_child(_action_button("上锁" if not stack.locked else "解锁", func() -> void:
@@ -848,7 +910,98 @@ func _fill_inspect_card() -> void:
 		_close_inspect()
 	))
 	box.add_child(row)
+	if extra.get_child_count() > 0:
+		box.add_child(extra)
 	box.add_child(_action_button("关闭", _close_inspect))
+
+
+func _install_layer_row() -> void:
+	for child in layer_row.get_children():
+		child.queue_free()
+	for layer: int in [StageLayer.OUTER, StageLayer.INNER, StageLayer.BOSS]:
+		var chosen: int = layer
+		var button := _action_button(StageLayer.display_name(chosen), func() -> void:
+			_show_hint(_session.select_layer(chosen))
+		)
+		button.set_meta("layer", chosen)
+		layer_row.add_child(button)
+
+
+func _refresh_layer_row() -> void:
+	if _session.state == null:
+		return
+	var stage := _session.current_stage()
+	var current := _session.state.current_layer()
+	for child in layer_row.get_children():
+		var button := child as Button
+		if button == null:
+			continue
+		var layer := int(button.get_meta("layer", StageLayer.OUTER))
+		var reason := ""
+		if stage != null:
+			reason = CombatRules.layer_reason(_session.state, stage, layer)
+		button.disabled = not reason.is_empty()
+		if layer == current:
+			button.text = "%s · 当前" % StageLayer.display_name(layer)
+		elif reason.is_empty():
+			button.text = StageLayer.display_name(layer)
+		elif layer == StageLayer.INNER:
+			button.text = "深处未开"
+		else:
+			button.text = "头目未开"
+		_style_secondary_button(button)
+		if button.disabled:
+			button.add_theme_color_override("font_disabled_color", MainTheme.MUTED)
+
+
+func _refresh_sight() -> void:
+	if _session.state == null or _session.adventure == null:
+		return
+	var lines: PackedStringArray = PackedStringArray(["见闻"])
+	for stage in _session.adventure.stages:
+		if (
+			not _session.state.unlocked_stage_ids.has(stage.id)
+			and stage.id != _session.state.current_stage_id
+		):
+			continue
+		var outer := _session.state.kills_of(stage.id, StageLayer.OUTER)
+		var inner := _session.state.kills_of(stage.id, StageLayer.INNER)
+		var boss := _session.state.kills_of(stage.id, StageLayer.BOSS)
+		lines.append("%s · %s  斩%d/%d/%d" % [
+			stage.display_name,
+			_sight_status(stage),
+			outer,
+			inner,
+			boss,
+		])
+	sight_label.text = "\n".join(lines)
+	MainTheme.stamp_label(sight_label, MainTheme.SIZE_CAPTION, MainTheme.MUTED)
+
+
+func _sight_status(stage: StageDef) -> String:
+	if _session.state == null or stage == null:
+		return "外围"
+	var outer := _session.state.kills_of(stage.id, StageLayer.OUTER)
+	var inner := _session.state.kills_of(stage.id, StageLayer.INNER)
+	var boss := _session.state.kills_of(stage.id, StageLayer.BOSS)
+	if boss > 0:
+		return "头目已见"
+	if inner >= StageLayer.BOSS_KILLS:
+		return "头目可至"
+	if outer >= StageLayer.INNER_KILLS:
+		return "深处"
+	if inner > 0:
+		return "深处未满"
+	return "外围"
+
+
+func _bag_progress_stamp() -> String:
+	var parts := PackedStringArray()
+	if _session.state == null:
+		return ""
+	for stack in _session.state.inventory:
+		parts.append("%d:%d:%s" % [stack.uid, stack.merge_level, stack.tempered])
+	return ",".join(parts)
 
 
 func _has_book_for(skill_id: String) -> bool:

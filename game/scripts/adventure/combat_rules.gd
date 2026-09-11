@@ -44,13 +44,64 @@ static func player_stats_with_loadout(
 			continue
 		var item := adventure.item_by_id(stack.item_id)
 		if item != null and item.is_equipment():
-			stats.add(item.to_stats())
+			stats.add(item.to_stats(stack))
 	for skill_id in state.learned_skill_ids:
 		var skill := adventure.skill_by_id(skill_id)
 		if skill != null:
-			stats.add(skill.to_stats())
+			stats.add(skill.to_stats(state.skill_rank_of(skill_id)))
+	_apply_set_bonus(state, adventure, loadout, stats)
+	if state.body_pill_until > 0:
+		stats.defense *= 1.2
 	stats.apply_speed_to_interval()
 	return stats
+
+
+static func _apply_set_bonus(
+	state: CultivationState,
+	adventure: AdventureConfig,
+	loadout: EquipmentLoadout,
+	stats: CombatStats
+) -> void:
+	var counts: Dictionary = {}
+	for slot in EquipSlot.ORDER:
+		var stack := InventoryRules.find_stack(state, loadout.uid_for(slot))
+		if stack == null:
+			continue
+		var item := adventure.item_by_id(stack.item_id)
+		if item == null or not item.is_equipment():
+			continue
+		var set_id := item.set_id()
+		counts[set_id] = int(counts.get(set_id, 0)) + 1
+	var best := 0
+	for set_id in counts.keys():
+		best = maxi(best, int(counts[set_id]))
+	if best >= 5:
+		stats.damage_dealt_scale = 1.12
+		stats.damage_taken_scale = 0.92
+	elif best >= 3:
+		stats.damage_dealt_scale = 1.06
+
+
+static func layer_reason(state: CultivationState, stage: StageDef, layer: int) -> String:
+	if stage == null or state == null:
+		return "关卡不存在。"
+	if layer <= StageLayer.OUTER:
+		return ""
+	if layer == StageLayer.INNER:
+		if state.kills_of(stage.id, StageLayer.OUTER) < StageLayer.INNER_KILLS:
+			return "%s 深处未开，外围还需斩杀 %d。" % [
+				stage.display_name,
+				StageLayer.INNER_KILLS - state.kills_of(stage.id, StageLayer.OUTER),
+			]
+		return ""
+	if layer == StageLayer.BOSS:
+		if state.kills_of(stage.id, StageLayer.INNER) < StageLayer.BOSS_KILLS:
+			return "%s 头目未开，深处还需斩杀 %d。" % [
+				stage.display_name,
+				StageLayer.BOSS_KILLS - state.kills_of(stage.id, StageLayer.INNER),
+			]
+		return ""
+	return "层数不存在。"
 
 
 static func can_enter(
@@ -77,6 +128,12 @@ static func enter_reason(
 		return "境界不足，无法踏入 %s。" % stage.display_name
 	if stats == null or stats.power() + 0.0001 < stage.min_power:
 		return "战力不足，需 %.0f 才能挑战 %s。" % [stage.min_power, stage.display_name]
+	if stats.attack + 0.0001 < stage.min_attack:
+		return "此关缺攻，需攻 %.0f（当前 %s）。" % [stage.min_attack, CultivationFormat.amount(stats.attack)]
+	if stats.defense + 0.0001 < stage.min_defense:
+		return "此关缺防，需防 %.0f（当前 %s）。" % [stage.min_defense, CultivationFormat.amount(stats.defense)]
+	if stats.speed + 0.0001 < stage.min_speed:
+		return "此关缺速，需速 %.1f（当前 %s）。" % [stage.min_speed, CultivationFormat.amount(stats.speed)]
 	if require_unlocked and state != null and not state.unlocked_stage_ids.has(stage.id) and stage.order > 0:
 		return "尚未解开 %s。" % stage.display_name
 	return ""
@@ -85,7 +142,7 @@ static func enter_reason(
 static func time_to_kill(player: CombatStats, monster: CombatStats) -> float:
 	if player == null or monster == null or player.interval <= 0.0:
 		return -1.0
-	var damage := maxf(1.0, player.attack - monster.defense * DEFENSE_FACTOR)
+	var damage := maxf(1.0, player.attack * player.damage_dealt_scale - monster.defense * DEFENSE_FACTOR)
 	return monster.hp / (damage / player.interval)
 
 
@@ -93,6 +150,7 @@ static func time_to_die(player: CombatStats, monster: CombatStats) -> float:
 	if player == null or monster == null or monster.interval <= 0.0:
 		return -1.0
 	var damage := maxf(0.0, monster.attack - player.defense * MONSTER_DEFENSE_FACTOR)
+	damage *= player.damage_taken_scale
 	if damage <= 0.0:
 		return INF
 	return player.hp / (damage / monster.interval)
@@ -117,8 +175,9 @@ static func settle(
 		respawn = DEFAULT_RESPAWN
 	var loot_counts: Dictionary = {}
 	var sample_limit := 8
+	var layer := state.current_layer()
 	while remaining > 0.0001:
-		var monster := _pick_monster(stage, state)
+		var monster := _pick_monster(stage, state, layer)
 		var kill_time := time_to_kill(player, monster.to_stats())
 		var die_time := time_to_die(player, monster.to_stats())
 		if kill_time <= 0.0 or die_time <= kill_time:
@@ -146,17 +205,38 @@ static func settle(
 			continue
 		result.loot_names.append("%s ×%d" % [item.display_name, int(loot_counts[item_id])])
 	if result.kills > 0:
+		state.add_kills(stage.id, layer, result.kills)
 		_unlock_next(state, idle, adventure, player)
 	state.combat_remainder = 0.0 if result.retreated else remaining
 	return result
 
 
-static func _pick_monster(stage: StageDef, state: CultivationState) -> MonsterDef:
-	var roll := LootRng.roll(state.loot_seed)
-	state.loot_seed = int(roll.seed)
-	var index := int(floor(float(roll.value) * float(stage.monsters.size())))
-	index = clampi(index, 0, stage.monsters.size() - 1)
-	return stage.monsters[index]
+static func _pick_monster(stage: StageDef, state: CultivationState, layer: int) -> MonsterDef:
+	var source: MonsterDef
+	if layer == StageLayer.BOSS:
+		source = stage.monsters[stage.monsters.size() - 1]
+	else:
+		var roll := LootRng.roll(state.loot_seed)
+		state.loot_seed = int(roll.seed)
+		var index := int(floor(float(roll.value) * float(stage.monsters.size())))
+		index = clampi(index, 0, stage.monsters.size() - 1)
+		source = stage.monsters[index]
+	return _scaled_monster(source, layer)
+
+
+static func _scaled_monster(monster: MonsterDef, layer: int) -> MonsterDef:
+	var scale := StageLayer.monster_scale(layer)
+	if is_equal_approx(scale, 1.0):
+		return monster
+	var copy := MonsterDef.new()
+	copy.id = monster.id
+	copy.display_name = monster.display_name
+	copy.attack = monster.attack * scale
+	copy.defense = monster.defense * scale
+	copy.hp = monster.hp * scale
+	copy.interval = monster.interval
+	copy.drops = monster.drops
+	return copy
 
 
 static func _roll_drops(
@@ -172,7 +252,7 @@ static func _roll_drops(
 		var item_id := str(drop.get("item_id", ""))
 		if chance <= 0.0 or count <= 0 or item_id.is_empty():
 			continue
-		chance *= adventure.loot_chance_scale
+		chance *= adventure.loot_chance_scale * StageLayer.loot_scale(state.current_layer())
 		var roll := LootRng.roll(state.loot_seed)
 		state.loot_seed = int(roll.seed)
 		if float(roll.value) > chance:

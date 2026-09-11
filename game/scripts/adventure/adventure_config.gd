@@ -221,6 +221,9 @@ static func _load_stages(config: AdventureConfig, raw: Variant) -> bool:
 		stage.order = int(entry.get("order", -1))
 		stage.min_realm_order = int(entry.get("min_realm_order", 0))
 		stage.min_power = float(entry.get("min_power", 0.0))
+		stage.min_attack = float(entry.get("min_attack", 0.0))
+		stage.min_defense = float(entry.get("min_defense", 0.0))
+		stage.min_speed = float(entry.get("min_speed", 0.0))
 		stage.next_id = str(entry.get("next_id", "")).strip_edges()
 		var monsters: Variant = entry.get("monsters", [])
 		if typeof(monsters) != TYPE_ARRAY or stage.id.is_empty() or stage.display_name.is_empty():

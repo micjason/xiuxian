@@ -20,9 +20,9 @@
 ## 0.1.13 发布记录（2026-09-11）
 
 - 应用版本 `0.1.13`，`versionCode` 14。
-- GitHub Release 标签是 `release-0.1.13`。
+- GitHub Release：`https://github.com/micjason/xiuxian-releases/releases/tag/release-0.1.13`（`v0.1.13` 已给早期频道用过，不能复用）。
 - 公开仓频道标签：`v0.1.20`。
-- 安装包 asset、sha 待发布后回填。
+- 安装包 asset `556335040`，`apk_sha256` 前缀 `7b1d446d`。
 - 用途：已装 `0.1.12` 的手机用游戏内检查更新覆盖。
 
 ## 0.1.12 发布记录（2026-09-10）

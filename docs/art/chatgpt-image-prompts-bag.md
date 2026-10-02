@@ -1,427 +1,637 @@
-# 行囊 / 装备 · ChatGPT Image 提示词
+# 行囊 / 装备 · 完整中文提示词
 
-给 **ChatGPT 生图（GPT Image / Image 2）** 用。按本仓库 **0.1.13** 已落地的行囊页来写：竖屏 1080×1920，底栏五页不变，行囊页 = **角色居中装备环绕 + 分类网格 + 详情弹窗**。
+给 ChatGPT 生图用。下面**每一条都是完整提示词**，整段复制即可，不要再拼、不要再改花括号。
 
-用法：每次先贴「总风格」，再贴某一条。一次只出一张。图标类一律 **正方形、透明底、居中、不要字**。整页稿可以带字，那是设计稿，不是进游戏的素材。
+一次只出一张。图标类不要带字。整页设计稿可以带中文，那是对照稿，不进游戏包。
 
-生成后按 `docs/art/asset-register.md` 登记，再放进 `game/assets/art/`。没有许可证的图不要打进 APK。
+出图后按 `docs/art/asset-register.md` 登记。没有许可证的图不要打进 APK。
 
----
-
-## 1. 总风格（每次都贴）
-
-```text
-Style lock for a vertical mobile idle xianxia game (1080x1920 portrait).
-Quiet, premium, not flashy. Dark pine-ink night: charcoal teal #0B1413,
-deep moss panels #16211F at 90% opacity, ivory text #EDE8D6, muted sage
-#849A91, jade #ADCAB8, antique gold #DBC470.
-Soft inner glow, thin gold hairline borders, rounded 16–24px corners.
-No neon, no cyberpunk, no anime chibi, no western plate armor, no
-crowded UI chrome, no watermarks, no extra logos, no English UI unless
-asked. Lighting like lantern mist over wet stone. Painterly but clean
-enough to crop into game icons.
-```
-
-品质色（描边 / 光晕只用这个，不要整图标换画风）：
-
-| 品质 | 色 | 用途 |
-| --- | --- | --- |
-| 白 凡铁 | `#DBDBD6` | 细银边 |
-| 蓝 灵纹 | `#6B9EEB` | 淡蓝晕 |
-| 紫 幽光 | `#B87AEB` | 紫雾 |
-| 金 金篆 | `#EBC757` | 金线 |
-| 红 劫纹 | `#E65247` | 薄血光 |
+建议顺序：先出第 1 节三张整页 → 角色和空槽 → 白品质五件套和丹药材料 → 再补其余装备。
 
 ---
 
-## 2. 整页设计稿（先出这 3 张，用来对齐版式）
+## 1. 整页设计稿
 
-### 2.1 行囊页 · 空装
+### 1.1 行囊页 · 空装
 
-用途：对照现有代码排版。上：公共顶栏（境界 / 修为 / 战力）。中：装备板。下：Tab + 四列网格。底：五栏。
+保存为：`content-source/ui/bag_page_empty.png`（不进游戏包）
 
 ```text
-[paste 总风格]
+画一张竖屏手机放置修仙游戏的完整界面设计稿，尺寸正好 1080×1920。安静、克制、偏贵气，不要花哨。底色是松墨夜色，炭灰青绿 #0B1413，深苔藓半透明面板 #16211F，象牙色文字 #EDE8D6，暗青灰 #849A91，玉色 #ADCAB8，古金色 #DBC470。细金线描边，圆角 16 到 24，灯笼雾气打在湿石上。写实偏工笔。
 
-Full portrait UI mockup 1080x1920, Chinese idle game screen named 行囊.
-Top status bar two lines: left 凡人, right 战力 17; second line 修为 0 / 360.
-Main pane: dark jade card. Upper half is an equipment paper-doll:
-empty rounded slots around a standing young cultivator silhouette in
-the center. Slots labeled in Chinese only: 头盔 top, 武器 left, 玉佩
-right, 衣服 under the body, 鞋子 at the feet. Empty slots show faint
-slot icons, no items.
-Below: a count "行囊 0 / 36" and five compact tabs 全部 装备 丹药 材料 功法,
-with 全部 selected in gold.
-A 4-column empty item grid with dashed cells.
-Bottom tab bar 修炼 历练 行囊 功法 设置, 行囊 highlighted gold.
-No extra windows. Clean spacing, thumb-reach primary area on the grid.
+这是「行囊」页。最上方公共顶栏两行：左上写「凡人」，右上写「战力 17」；第二行写「修为 0 / 360」。主区是一张深绿玉色卡片。上半是装备板：正中站一名年轻修士剪影，五只空槽环绕——头顶「头盔」，左手边「武器」，右手边「玉佩」，身下「衣服」，脚下「鞋子」。空槽里只有极淡的槽位影子，没有装备。空槽下方写「行囊 0 / 36」，再下一行五个小标签：全部、装备、丹药、材料、功法，其中「全部」用金色选中。再下方是四列空网格，虚线空格子。最底栏五个字：修炼、历练、行囊、功法、设置，「行囊」用金色高亮。
+
+不要弹窗，不要英文，不要霓虹，不要赛博朋克，不要 Q 版，不要西方板甲，不要水印，不要额外 Logo，不要第六个底栏。
 ```
 
-建议文件：`content-source/ui/bag_page_empty.png`  
-进游戏：不进。只当对照稿。
+### 1.2 行囊页 · 已穿并有物品
 
-### 2.2 行囊页 · 已穿 + 有物
+保存为：`content-source/ui/bag_page_filled.png`（不进游戏包）
 
 ```text
-[paste 总风格]
+画一张竖屏手机放置修仙游戏的完整界面设计稿，尺寸正好 1080×1920。安静、克制、偏贵气，不要花哨。底色是松墨夜色，炭灰青绿 #0B1413，深苔藓半透明面板 #16211F，象牙色文字 #EDE8D6，暗青灰 #849A91，玉色 #ADCAB8，古金色 #DBC470。细金线描边，圆角 16 到 24，灯笼雾气打在湿石上。写实偏工笔。
 
-Same 1080x1920 行囊 screen as a lived-in state.
-Center cultivator now wears rustic starter gear: pale wooden sword,
-vine helmet, coarse cloth robe, old cloth shoes, a dull green pebble
-pendant. Each worn piece sits in its surrounding slot with a thin
-white-quality silver rim.
-Below tabs, 全部 is selected. Grid shows 8 items in 4 columns:
-two white pills, two materials (grass, bone), two skill-book pages,
-two spare white weapons. Equipped items do NOT appear in the grid.
-Cell captions can be tiny Chinese 2–4 characters. Quality-colored
-thin borders. No inspect popup yet.
+这是已经用过的「行囊」页。顶栏两行：左上「凡人」，右上「战力 23」；第二行「修为 80 / 360」。主区深绿玉色卡片。上半装备板：正中一名约十八岁的年轻修士，穿粗布衣、藤盔、旧布鞋，腰间青石坠，左手旁槽位里是削木剑。五件都是白色凡品质，槽位细银边。已穿的装备只出现在环绕槽里，不要再画进下面的背包网格。
+
+槽位下方写「行囊 8 / 36」。五个小标签：全部、装备、丹药、材料、功法，「全部」金色选中。四列网格里有八件未穿物品：两只白瓷丹瓶、一把灵草、一块兽骨、两张发黄残页、两把备用白品质短剑。格子小字用两到四个汉字，细品质描边。不要弹窗。
+
+最底栏：修炼、历练、行囊、功法、设置，「行囊」金色高亮。不要英文，不要霓虹，不要赛博朋克，不要 Q 版，不要西方板甲，不要水印，不要额外 Logo。
 ```
 
-建议文件：`content-source/ui/bag_page_filled.png`
+### 1.3 装备详情弹窗
 
-### 2.3 装备详情弹窗（盖在行囊上）
+保存为：`content-source/ui/item_inspect_popup.png`（不进游戏包）
 
 ```text
-[paste 总风格]
+画一张竖屏手机放置修仙游戏的完整界面设计稿，尺寸正好 1080×1920。安静、克制、偏贵气，不要花哨。底色是松墨夜色，炭灰青绿 #0B1413，深苔藓半透明面板 #16211F，象牙色文字 #EDE8D6，暗青灰 #849A91，玉色 #ADCAB8，古金色 #DBC470。细金线描边，圆角 16 到 24，灯笼雾气打在湿石上。写实偏工笔。
 
-Same 1080x1920 行囊 page dimmed to 72% black-teal.
-Centered large rounded card (~720x840) floating above the grid.
-Card title 削木剑 in ivory, white-quality silver hairline.
-A large 256px wooden sword icon in a square well.
-Lines in Chinese:
+背景是变暗的行囊页，蒙上约 72% 的黑青遮罩，隐约还能看见后面的装备板和四列网格。正中浮着一张大圆角卡片，大约 720×840，深绿玉色底板，细银白描边。卡片标题用象牙色写「削木剑」。标题下是一个方形凹槽，里面是一把浅色未上漆的短木剑大图标。正文全部用中文，依次写：
+
 白色 · 武器 · 装备
 词条  凡铁 · 破势
 攻5  防0.6  速0.4
 装备战力 6
 可以穿戴。该槽位空着。
 换上后 战力 17 → 23（+6）
-Three wide buttons in a row: 穿上 上锁 丢弃, plus 关闭 under them.
-No extra decorations, no English.
-```
 
-建议文件：`content-source/ui/item_inspect_popup.png`
+卡片下部一排三个宽按钮：穿上、上锁、丢弃；再下面一个「关闭」。不要英文，不要星级，不要强化数字，不要霓虹，不要赛博朋克，不要 Q 版，不要水印，不要额外 Logo。
+```
 
 ---
 
-## 3. 角色与装备板
+## 2. 角色与空槽
 
-### 3.1 中间角色（立绘，透明底）
+### 2.1 中间角色立绘
 
-用途：装备板正中。代码里现在是「境界 + 修士」字，替换成这张。
-
-```text
-[paste 总风格]
-
-Full-body standing young Chinese cultivator, front three-quarter,
-idle pose, hands empty, no weapon. Simple dark teal travel robe,
-hair in a loose bun, calm face, age about 18. No armor plates.
-Square 1024x1024, centered, full body visible with headroom,
-transparent background, no ground shadow text, no border, no UI.
-Soft lantern key light from upper left. Painterly, readable at 160px.
-```
-
-建议文件：`game/assets/art/character/cultivator_idle.webp`  
-预算：1024×1024 WebP。
-
-变体（可后做）：`cultivator_qi.webp` 炼气气质，衣纹多一点青光；先出凡人即可。
-
-### 3.2 空槽框（5 张，同一套）
-
-一次一张。把 `{SLOT}` / `{GLYPH}` 换掉。
-
-| 槽 | 文件 ID | 中文 | 空槽暗示物 |
-| --- | --- | --- | --- |
-| helmet | `slot_helmet_empty` | 头盔 | 浅冠影 |
-| weapon | `slot_weapon_empty` | 武器 | 浅剑影 |
-| clothes | `slot_clothes_empty` | 衣服 | 浅袍影 |
-| shoes | `slot_shoes_empty` | 鞋子 | 浅履影 |
-| accessory | `slot_accessory_empty` | 玉佩 | 浅坠影 |
+保存为：`game/assets/art/character/cultivator_idle.webp`
 
 ```text
-[paste 总风格]
+画一张游戏角色立绘，正方形 1024×1024，透明背景，全身站立，居中，头顶和脚下都留空。安静、克制、偏贵气的放置修仙风格。灯笼暖光从左上打在湿石雾气里。写实偏工笔，缩小到 160 像素仍能认出是人。
 
-UI slot frame 512x512, transparent background.
-Rounded square well, dark moss fill, thin antique-gold hairline,
-very faint inner glyph of a {GLYPH}, low contrast, no text,
-no item, no character, no sparkles. Must stay readable at 72px.
+一名约十八岁的年轻中土修士，四分之三正面，闲立，双手空着，不拿武器。深青绿行路布袍，头发松松挽起，神情平静。不要盔甲片，不要西方板甲，不要 Q 版大头，不要地面文字，不要边框，不要 UI，不要水印，不要 Logo，不要英文。
 ```
 
-例：头盔把 `{GLYPH}` 换成 `simple crown silhouette`。
+### 2.2 空槽 · 头盔
 
-### 3.3 品质槽框（5 品质 × 可共用）
-
-空槽是金细边；有装备时边框跟品质走。可先出 5 个通用框，套在任何图标外。
+保存为：`game/assets/art/ui/slot_helmet_empty.webp`
 
 ```text
-[paste 总风格]
-
-Empty rounded item frame 512x512, transparent outside.
-Dark teal well, 3px rim in {QUALITY_COLOR}, tiny matching corner
-motes, no icon inside, no text. Consistent thickness so frames
-can overlay any item icon.
+画一张游戏 UI 空槽，正方形 512×512，槽外透明。安静、克制的放置修仙风格。深苔藓色圆角方槽，细古金线描边，槽内只有极淡、低对比的冠冕剪影，没有实体头盔。不要文字，不要人物，不要闪光特效，不要水印。缩小到 72 像素仍能看出是头盔空槽。
 ```
 
-`{QUALITY_COLOR}` 用第 1 节的五色。
+### 2.3 空槽 · 武器
+
+保存为：`game/assets/art/ui/slot_weapon_empty.webp`
+
+```text
+画一张游戏 UI 空槽，正方形 512×512，槽外透明。安静、克制的放置修仙风格。深苔藓色圆角方槽，细古金线描边，槽内只有极淡、低对比的短剑剪影，没有实体武器。不要文字，不要人物，不要闪光特效，不要水印。缩小到 72 像素仍能看出是武器空槽。
+```
+
+### 2.4 空槽 · 衣服
+
+保存为：`game/assets/art/ui/slot_clothes_empty.webp`
+
+```text
+画一张游戏 UI 空槽，正方形 512×512，槽外透明。安静、克制的放置修仙风格。深苔藓色圆角方槽，细古金线描边，槽内只有极淡、低对比的交领袍剪影，没有实体衣服。不要文字，不要人物，不要闪光特效，不要水印。缩小到 72 像素仍能看出是衣服空槽。
+```
+
+### 2.5 空槽 · 鞋子
+
+保存为：`game/assets/art/ui/slot_shoes_empty.webp`
+
+```text
+画一张游戏 UI 空槽，正方形 512×512，槽外透明。安静、克制的放置修仙风格。深苔藓色圆角方槽，细古金线描边，槽内只有极淡、低对比的布履剪影，没有实体鞋子。不要文字，不要人物，不要闪光特效，不要水印。缩小到 72 像素仍能看出是鞋子空槽。
+```
+
+### 2.6 空槽 · 玉佩
+
+保存为：`game/assets/art/ui/slot_accessory_empty.webp`
+
+```text
+画一张游戏 UI 空槽，正方形 512×512，槽外透明。安静、克制的放置修仙风格。深苔藓色圆角方槽，细古金线描边，槽内只有极淡、低对比的坠饰剪影，没有实体玉佩。不要文字，不要人物，不要闪光特效，不要水印。缩小到 72 像素仍能看出是玉佩空槽。
+```
+
+### 2.7 品质外框 · 白
+
+保存为：`game/assets/art/ui/frame_white.webp`
+
+```text
+画一张空的圆角物品外框，正方形 512×512，框外透明。安静、克制的放置修仙风格。槽内是深青绿凹坑，约 3 像素细边，颜色为银白 #DBDBD6，四角只有极淡的同色微尘。框内完全空着，不要图标，不要文字，不要水印。边框粗细均匀，以后要叠在任何物品图标外面。
+```
+
+### 2.8 品质外框 · 蓝
+
+保存为：`game/assets/art/ui/frame_blue.webp`
+
+```text
+画一张空的圆角物品外框，正方形 512×512，框外透明。安静、克制的放置修仙风格。槽内是深青绿凹坑，约 3 像素细边，颜色为灵蓝 #6B9EEB，四角只有极淡的同色微尘。框内完全空着，不要图标，不要文字，不要水印。边框粗细均匀，以后要叠在任何物品图标外面。
+```
+
+### 2.9 品质外框 · 紫
+
+保存为：`game/assets/art/ui/frame_purple.webp`
+
+```text
+画一张空的圆角物品外框，正方形 512×512，框外透明。安静、克制的放置修仙风格。槽内是深青绿凹坑，约 3 像素细边，颜色为幽紫 #B87AEB，四角只有极淡的同色微尘。框内完全空着，不要图标，不要文字，不要水印。边框粗细均匀，以后要叠在任何物品图标外面。
+```
+
+### 2.10 品质外框 · 金
+
+保存为：`game/assets/art/ui/frame_gold.webp`
+
+```text
+画一张空的圆角物品外框，正方形 512×512，框外透明。安静、克制的放置修仙风格。槽内是深青绿凹坑，约 3 像素细边，颜色为古金 #EBC757，四角只有极淡的同色微尘。框内完全空着，不要图标，不要文字，不要水印。边框粗细均匀，以后要叠在任何物品图标外面。
+```
+
+### 2.11 品质外框 · 红
+
+保存为：`game/assets/art/ui/frame_red.webp`
+
+```text
+画一张空的圆角物品外框，正方形 512×512，框外透明。安静、克制的放置修仙风格。槽内是深青绿凹坑，约 3 像素细边，颜色为劫红 #E65247，四角只有极淡的同色微尘。框内完全空着，不要图标，不要文字，不要水印。边框粗细均匀，以后要叠在任何物品图标外面。
+```
 
 ---
 
-## 4. 装备图标（进网格 + 进槽 + 进弹窗）
+## 3. 装备图标
 
-规则：
+每件只出一张。正方形 512×512，透明底，物体居中，四周留约 10% 空白。不要字、不要外框（外框游戏自己叠）。弹窗放大也用这一张。
 
-- 正方形 **512×512**，透明底，物体居中，四周留 10% 空。
-- **不要字、不要品质框**（框由游戏叠）。
-- 同一件装备只出一张，白蓝紫金红用「材质 + 光」区分，不换外形。
-- 弹窗放大用同一张，不要另画一张大图。
+### 3.1 削木剑
 
-公共模板：
+保存为：`game/assets/art/items/sword_0.webp`
 
 ```text
-[paste 总风格]
-
-Game item icon 512x512, transparent background, object centered,
-no text, no frame, no UI, no ground plane.
-{ITEM_DESCRIPTION}
-Quality feel: {QUALITY_LOOK}. Readable at 88px and at 256px.
+画一张游戏物品图标，正方形 512×512，透明背景，物体居中，四周留出约 10% 空白。安静、克制的放置修仙风格，灯笼雾气，写实偏工笔。一把短而朴素的练习剑，浅色未上漆的木刃，绳缠剑柄，刃口有缺口，微微斜放。凡铁质感：干燥木料，只有极淡银尘，没有发光。不要文字，不要外框，不要 UI，不要地面，不要水印。缩小到 88 像素和放大到 256 像素都要能认出是木剑。
 ```
 
-### 4.1 按槽位的「族」提示（先出每槽 1 白 1 蓝，对齐手感）
+### 3.2 藤盔
 
-| 槽 | 白（凡人） | 蓝（青石涧） | 画什么 |
-| --- | --- | --- | --- |
-| 武器 | 削木剑 `sword_0` | 青石剑 `sword_2` | 单手短剑，木质 → 青石刃 |
-| 头盔 | 藤盔 `helm_0` | 石纹盔 `helm_2` | 轻盔，藤条 → 石纹 |
-| 衣服 | 粗布衣 `robe_0` | 涧蓝衣 `robe_2` | 交领袍，粗布 → 涧蓝 |
-| 鞋子 | 旧布鞋 `boots_0` | 湿岩靴 `boots_2` | 布鞋 → 湿岩石纹靴 |
-| 玉佩 | 青石坠 `jade_0` | 水纹佩 `jade_2` | 石坠 → 水波玉佩 |
-
-`{QUALITY_LOOK}`：
-
-- 白：`dry mundane materials, faint silver dust, no glow`
-- 蓝：`cool river-blue spirit lines, soft glow`
-- 紫：`dusk purple haze, bone or ember undertone`
-- 金：`antique gold inlay, warm lantern bloom`
-- 红：`thin crimson rift light, ancient stone`
-
-### 4.2 逐件提示词（复制后只改花括号）
-
-**削木剑 `sword_0`**
+保存为：`game/assets/art/items/helm_0.webp`
 
 ```text
-[paste 总风格 + 公共模板]
-
-{ITEM_DESCRIPTION} = a short rustic sword, pale unfinished wood blade
-and simple cord-wrapped hilt, chips on the edge, hanging at a slight
-angle.
-{QUALITY_LOOK} = dry mundane wood, faint silver dust, no glow
+画一张游戏物品图标，正方形 512×512，透明背景，物体居中，四周留出约 10% 空白。安静、克制的放置修仙风格，灯笼雾气，写实偏工笔。一顶用青藤和细竹编成的轻盔，能看见里面的布垫，不是金属 barbute，不是西方板甲盔。凡铁质感：干燥藤竹，只有极淡银尘，没有发光。不要文字，不要外框，不要 UI，不要地面，不要人物，不要水印。缩小到 88 像素仍能认出是藤盔。
 ```
 
-**藤盔 `helm_0`**
+### 3.3 粗布衣
+
+保存为：`game/assets/art/items/robe_0.webp`
 
 ```text
-a light helmet woven from green vines and thin bamboo, inner cloth
-pad visible, not a metal barbute.
-{QUALITY_LOOK} = dry mundane materials, faint silver dust, no glow
+画一张游戏物品图标，正方形 512×512，透明背景，物体居中，四周留出约 10% 空白。安静、克制的放置修仙风格，灯笼雾气，写实偏工笔。一件叠好的粗麻交领袍，绳带束腰，没有绣纹。只画衣服本身，不要人体模特。凡铁质感：干燥粗布，只有极淡银尘，没有发光。不要文字，不要外框，不要 UI，不要地面，不要水印。缩小到 88 像素仍能认出是布袍。
 ```
 
-**粗布衣 `robe_0`**
+### 3.4 旧布鞋
+
+保存为：`game/assets/art/items/boots_0.webp`
 
 ```text
-folded coarse hemp xianxia robe, crossed collar, rope belt, no
-embroidery, presented as a tidy clothing icon not a mannequin.
+画一张游戏物品图标，正方形 512×512，透明背景，物体居中，四周留出约 10% 空白。安静、克制的放置修仙风格，灯笼雾气，写实偏工笔。一双灰色旧布鞋，鞋头打过补丁，麻绳鞋底，四分之三俯视。凡铁质感：干燥布料，只有极淡银尘，没有发光。不要文字，不要外框，不要 UI，不要地面，不要水印。缩小到 88 像素仍能认出是布鞋。
 ```
 
-**旧布鞋 `boots_0`**
+### 3.5 青石坠
+
+保存为：`game/assets/art/items/jade_0.webp`
 
 ```text
-a pair of worn grey cloth shoes, patched toe, hemp sole, top-down
-three-quarter view.
+画一张游戏物品图标，正方形 512×512，透明背景，物体居中，四周留出约 10% 空白。安静、克制的放置修仙风格，灯笼雾气，写实偏工笔。一枚暗绿色不规则小石坠，穿在深色细绳上，没有雕龙。凡铁质感：干燥青石，只有极淡银尘，没有发光。不要文字，不要外框，不要 UI，不要地面，不要水印。缩小到 88 像素仍能认出是石坠。
 ```
 
-**青石坠 `jade_0`**
+### 3.6 猎骨刀
+
+保存为：`game/assets/art/items/sword_1.webp`
 
 ```text
-a small dull green pebble pendant on a dark cord, slightly irregular,
-no carved dragon.
+画一张游戏物品图标，正方形 512×512，透明背景，物体居中，四周留出约 10% 空白。安静、克制的放置修仙风格，灯笼雾气，写实偏工笔。一把带齿的短骨刃猎刀，刃缘像兽骨锯齿，深色缠柄。白色凡铁质感：干燥骨质，只有极淡银尘，没有发光。不要文字，不要外框，不要 UI，不要地面，不要水印。缩小到 88 像素仍能认出是骨刀。
 ```
 
-**青石剑 `sword_2`**
+### 3.7 皮盔
+
+保存为：`game/assets/art/items/helm_1.webp`
 
 ```text
-a straight sword with a blue-grey stone blade, faint water-line veins,
-dark wrapped hilt, cleaner silhouette than a wooden practice sword.
-{QUALITY_LOOK} = cool river-blue spirit lines, soft glow
+画一张游戏物品图标，正方形 512×512，透明背景，物体居中，四周留出约 10% 空白。安静、克制的放置修仙风格，灯笼雾气，写实偏工笔。一顶浅褐兽皮圆盔，边缘有缝线，不是金属盔，不是西方板甲。凡铁质感：干燥皮革，只有极淡银尘，没有发光。不要文字，不要外框，不要 UI，不要地面，不要人物，不要水印。缩小到 88 像素仍能认出是皮盔。
 ```
 
-其余装备按 `adventure.json` 的 `display_name` 换材质即可，外形跟槽位族走：
+### 3.8 兽皮甲
 
-| id | 名字 | 材质关键词 |
-| --- | --- | --- |
-| sword_1 | 猎骨刀 | 带齿骨刃短刀 |
-| helm_1 | 皮盔 | 兽皮圆盔 |
-| robe_1 | 兽皮甲 | 浅褐皮袍甲 |
-| boots_1 | 山行靴 | 绑腿布靴 |
-| jade_1 | 兽牙坠 | 一颗兽牙 |
-| helm_2 | 石纹盔 | 青石灰岩纹 |
-| robe_2 | 涧蓝衣 | 深蓝湿布 |
-| boots_2 | 湿岩靴 | 深青湿石 |
-| jade_2 | 水纹佩 | 水波玉片 |
-| sword_3 | 雾鸦枪 | 细枪 + 鸦羽穗 |
-| sword_4 | 断魂刃 | 暗紫残刃 |
-| sword_5 | 赤焰戟 | 赤铜戟 |
-| sword_6 | 沉渊尺 | 墨金镇尺 |
-| sword_7 | 古碑剑 | 碑文赤纹长剑 |
+保存为：`game/assets/art/items/robe_1.webp`
 
-高品质件把 `{QUALITY_LOOK}` 换成紫 / 金 / 红那一档。
+```text
+画一张游戏物品图标，正方形 512×512，透明背景，物体居中，四周留出约 10% 空白。安静、克制的放置修仙风格，灯笼雾气，写实偏工笔。一件叠好的浅褐兽皮袍甲，交领，皮绳束腰，只有衣服没有人体。凡铁质感：干燥兽皮，只有极淡银尘，没有发光。不要文字，不要外框，不要 UI，不要地面，不要水印。缩小到 88 像素仍能认出是皮甲。
+```
 
-文件名：`game/assets/art/items/{id}.webp`
+### 3.9 山行靴
+
+保存为：`game/assets/art/items/boots_1.webp`
+
+```text
+画一张游戏物品图标，正方形 512×512，透明背景，物体居中，四周留出约 10% 空白。安静、克制的放置修仙风格，灯笼雾气，写实偏工笔。一双绑腿布靴，适合爬山，鞋腰有布条缠绕，四分之三俯视。凡铁质感：干燥布革，只有极淡银尘，没有发光。不要文字，不要外框，不要 UI，不要地面，不要水印。缩小到 88 像素仍能认出是山靴。
+```
+
+### 3.10 兽牙坠
+
+保存为：`game/assets/art/items/jade_1.webp`
+
+```text
+画一张游戏物品图标，正方形 512×512，透明背景，物体居中，四周留出约 10% 空白。安静、克制的放置修仙风格，灯笼雾气，写实偏工笔。一颗弯弯的兽牙坠，穿深色细绳，牙根打孔，没有鲜血。凡铁质感：干燥象牙色，只有极淡银尘，没有发光。不要文字，不要外框，不要 UI，不要地面，不要水印。缩小到 88 像素仍能认出是兽牙。
+```
+
+### 3.11 青石剑
+
+保存为：`game/assets/art/items/sword_2.webp`
+
+```text
+画一张游戏物品图标，正方形 512×512，透明背景，物体居中，四周留出约 10% 空白。安静、克制的放置修仙风格，灯笼雾气，写实偏工笔。一把直刃剑，青灰色石刃，隐约水纹石脉，深色缠柄，轮廓比木剑更干净。蓝色灵纹质感：冷青河光，柔和淡蓝晕，不要刺眼霓虹。不要文字，不要外框，不要 UI，不要地面，不要水印。缩小到 88 像素仍能认出是青石剑。
+```
+
+### 3.12 石纹盔
+
+保存为：`game/assets/art/items/helm_2.webp`
+
+```text
+画一张游戏物品图标，正方形 512×512，透明背景，物体居中，四周留出约 10% 空白。安静、克制的放置修仙风格，灯笼雾气，写实偏工笔。一顶青石灰岩纹轻盔，石纹像涧壁，不是西方板甲。蓝色灵纹质感：冷青河光，柔和淡蓝晕。不要文字，不要外框，不要 UI，不要地面，不要人物，不要水印。缩小到 88 像素仍能认出是石盔。
+```
+
+### 3.13 涧蓝衣
+
+保存为：`game/assets/art/items/robe_2.webp`
+
+```text
+画一张游戏物品图标，正方形 512×512，透明背景，物体居中，四周留出约 10% 空白。安静、克制的放置修仙风格，灯笼雾气，写实偏工笔。一件叠好的深蓝湿布交领袍，像刚从涧水里捞起晾过，只有衣服没有人体。蓝色灵纹质感：冷青河光，柔和淡蓝晕。不要文字，不要外框，不要 UI，不要地面，不要水印。缩小到 88 像素仍能认出是蓝袍。
+```
+
+### 3.14 湿岩靴
+
+保存为：`game/assets/art/items/boots_2.webp`
+
+```text
+画一张游戏物品图标，正方形 512×512，透明背景，物体居中，四周留出约 10% 空白。安静、克制的放置修仙风格，灯笼雾气，写实偏工笔。一双深青湿岩石纹靴，靴面像被水浸过的岩石，四分之三俯视。蓝色灵纹质感：冷青河光，柔和淡蓝晕。不要文字，不要外框，不要 UI，不要地面，不要水印。缩小到 88 像素仍能认出是石靴。
+```
+
+### 3.15 水纹佩
+
+保存为：`game/assets/art/items/jade_2.webp`
+
+```text
+画一张游戏物品图标，正方形 512×512，透明背景，物体居中，四周留出约 10% 空白。安静、克制的放置修仙风格，灯笼雾气，写实偏工笔。一枚扁平的水波纹玉片佩，深色细绳，玉面上有浅浅涟漪。蓝色灵纹质感：冷青河光，柔和淡蓝晕。不要文字，不要外框，不要 UI，不要地面，不要水印。缩小到 88 像素仍能认出是玉佩。
+```
+
+### 3.16 雾鸦枪
+
+保存为：`game/assets/art/items/sword_3.webp`
+
+```text
+画一张游戏物品图标，正方形 512×512，透明背景，物体居中，四周留出约 10% 空白。安静、克制的放置修仙风格，灯笼雾气，写实偏工笔。一杆细长枪，枪头冷青，枪缨是几根灰黑鸦羽。蓝色灵纹质感：冷雾淡蓝晕，不要霓虹。不要文字，不要外框，不要 UI，不要地面，不要水印。缩小到 88 像素仍能认出是长枪。
+```
+
+### 3.17 羽盔
+
+保存为：`game/assets/art/items/helm_3.webp`
+
+```text
+画一张游戏物品图标，正方形 512×512，透明背景，物体居中，四周留出约 10% 空白。安静、克制的放置修仙风格，灯笼雾气，写实偏工笔。一顶轻盔，盔缘插着灰雾色短羽，不是西方板甲。蓝色灵纹质感：冷雾淡蓝晕。不要文字，不要外框，不要 UI，不要地面，不要人物，不要水印。缩小到 88 像素仍能认出是羽盔。
+```
+
+### 3.18 灰雾袍
+
+保存为：`game/assets/art/items/robe_3.webp`
+
+```text
+画一张游戏物品图标，正方形 512×512，透明背景，物体居中，四周留出约 10% 空白。安静、克制的放置修仙风格，灯笼雾气，写实偏工笔。一件叠好的灰雾色交领袍，布面像一层薄雾，只有衣服没有人体。蓝色灵纹质感：冷雾淡蓝晕。不要文字，不要外框，不要 UI，不要地面，不要水印。缩小到 88 像素仍能认出是灰袍。
+```
+
+### 3.19 岗风靴
+
+保存为：`game/assets/art/items/boots_3.webp`
+
+```text
+画一张游戏物品图标，正方形 512×512，透明背景，物体居中，四周留出约 10% 空白。安静、克制的放置修仙风格，灯笼雾气，写实偏工笔。一双利落的岗风布靴，靴口有风带，四分之三俯视。蓝色灵纹质感：冷雾淡蓝晕。不要文字，不要外框，不要 UI，不要地面，不要水印。缩小到 88 像素仍能认出是风靴。
+```
+
+### 3.20 鸦羽佩
+
+保存为：`game/assets/art/items/jade_3.webp`
+
+```text
+画一张游戏物品图标，正方形 512×512，透明背景，物体居中，四周留出约 10% 空白。安静、克制的放置修仙风格，灯笼雾气，写实偏工笔。一枚用灰黑鸦羽和一小片冷青玉组成的佩饰，深色细绳。蓝色灵纹质感：冷雾淡蓝晕。不要文字，不要外框，不要 UI，不要地面，不要水印。缩小到 88 像素仍能认出是羽佩。
+```
+
+### 3.21 断魂刃
+
+保存为：`game/assets/art/items/sword_4.webp`
+
+```text
+画一张游戏物品图标，正方形 512×512，透明背景，物体居中，四周留出约 10% 空白。安静、克制的放置修仙风格，灯笼雾气，写实偏工笔。一把暗紫色残刃短刀，刃口像被折过又磨过，柄缠黑布。紫色幽光质感：黄昏紫雾，骨色底光，不要霓虹。不要文字，不要外框，不要 UI，不要地面，不要水印。缩小到 88 像素仍能认出是残刃。
+```
+
+### 3.22 骨盔
+
+保存为：`game/assets/art/items/helm_4.webp`
+
+```text
+画一张游戏物品图标，正方形 512×512，透明背景，物体居中，四周留出约 10% 空白。安静、克制的放置修仙风格，灯笼雾气，写实偏工笔。一顶浅骨色轻盔，有克制的骨纹，不要骷髅脸，不要西方板甲。紫色幽光质感：黄昏紫雾。不要文字，不要外框，不要 UI，不要地面，不要人物，不要水印。缩小到 88 像素仍能认出是骨盔。
+```
+
+### 3.23 冥纹衣
+
+保存为：`game/assets/art/items/robe_4.webp`
+
+```text
+画一张游戏物品图标，正方形 512×512，透明背景，物体居中，四周留出约 10% 空白。安静、克制的放置修仙风格，灯笼雾气，写实偏工笔。一件叠好的暗紫冥纹交领袍，纹路像淡淡符线，只有衣服没有人体。紫色幽光质感：黄昏紫雾。不要文字，不要外框，不要 UI，不要地面，不要水印。缩小到 88 像素仍能认出是紫袍。
+```
+
+### 3.24 谷底靴
+
+保存为：`game/assets/art/items/boots_4.webp`
+
+```text
+画一张游戏物品图标，正方形 512×512，透明背景，物体居中，四周留出约 10% 空白。安静、克制的放置修仙风格，灯笼雾气，写实偏工笔。一双深暗的谷底靴，靴面像湿土和骨粉，四分之三俯视。紫色幽光质感：黄昏紫雾。不要文字，不要外框，不要 UI，不要地面，不要水印。缩小到 88 像素仍能认出是暗靴。
+```
+
+### 3.25 残魂佩
+
+保存为：`game/assets/art/items/jade_4.webp`
+
+```text
+画一张游戏物品图标，正方形 512×512，透明背景，物体居中，四周留出约 10% 空白。安静、克制的放置修仙风格，灯笼雾气，写实偏工笔。一枚半透明暗紫小佩，里面像锁着一缕淡烟，深色细绳。紫色幽光质感：黄昏紫雾。不要文字，不要外框，不要 UI，不要地面，不要水印。缩小到 88 像素仍能认出是魂佩。
+```
+
+### 3.26 赤焰戟
+
+保存为：`game/assets/art/items/sword_5.webp`
+
+```text
+画一张游戏物品图标，正方形 512×512，透明背景，物体居中，四周留出约 10% 空白。安静、克制的放置修仙风格，灯笼雾气，写实偏工笔。一杆赤铜戟，戟枝对称，金属上有克制的火纹，不要熊熊大火特效。紫色偏炎的幽光质感：薄薄紫红晕，不要霓虹。不要文字，不要外框，不要 UI，不要地面，不要水印。缩小到 88 像素仍能认出是戟。
+```
+
+### 3.27 熔岩盔
+
+保存为：`game/assets/art/items/helm_5.webp`
+
+```text
+画一张游戏物品图标，正方形 512×512，透明背景，物体居中，四周留出约 10% 空白。安静、克制的放置修仙风格，灯笼雾气，写实偏工笔。一顶深褐岩盔，缝里有极细的暗红熔线，不是西方板甲，不要喷火。紫色偏炎的幽光质感。不要文字，不要外框，不要 UI，不要地面，不要人物，不要水印。缩小到 88 像素仍能认出是岩盔。
+```
+
+### 3.28 火纹袍
+
+保存为：`game/assets/art/items/robe_5.webp`
+
+```text
+画一张游戏物品图标，正方形 512×512，透明背景，物体居中，四周留出约 10% 空白。安静、克制的放置修仙风格，灯笼雾气，写实偏工笔。一件叠好的赤褐交领袍，袖缘有克制火纹，只有衣服没有人体，不要火焰特效。紫色偏炎的幽光质感。不要文字，不要外框，不要 UI，不要地面，不要水印。缩小到 88 像素仍能认出是火袍。
+```
+
+### 3.29 燎原靴
+
+保存为：`game/assets/art/items/boots_5.webp`
+
+```text
+画一张游戏物品图标，正方形 512×512，透明背景，物体居中，四周留出约 10% 空白。安静、克制的放置修仙风格，灯笼雾气，写实偏工笔。一双赤褐燎原靴，靴头有细火纹，四分之三俯视，不要火焰。紫色偏炎的幽光质感。不要文字，不要外框，不要 UI，不要地面，不要水印。缩小到 88 像素仍能认出是火靴。
+```
+
+### 3.30 炎晶佩
+
+保存为：`game/assets/art/items/jade_5.webp`
+
+```text
+画一张游戏物品图标，正方形 512×512，透明背景，物体居中，四周留出约 10% 空白。安静、克制的放置修仙风格，灯笼雾气，写实偏工笔。一枚深红半透的炎晶坠，深色细绳，内部有极淡的暖核，不要火花四溅。紫色偏炎的幽光质感。不要文字，不要外框，不要 UI，不要地面，不要水印。缩小到 88 像素仍能认出是晶坠。
+```
+
+### 3.31 沉渊尺
+
+保存为：`game/assets/art/items/sword_6.webp`
+
+```text
+画一张游戏物品图标，正方形 512×512，透明背景，物体居中，四周留出约 10% 空白。安静、克制的放置修仙风格，灯笼雾气，写实偏工笔。一柄墨金色镇尺兵器，又扁又沉，像镇纸也像短兵，表面有极细金篆。金色金篆质感：古金镶线，温暖灯笼光，不要闪亮金币风。不要文字，不要外框，不要 UI，不要地面，不要水印。缩小到 88 像素仍能认出是尺兵。
+```
+
+### 3.32 泽鳞盔
+
+保存为：`game/assets/art/items/helm_6.webp`
+
+```text
+画一张游戏物品图标，正方形 512×512，透明背景，物体居中，四周留出约 10% 空白。安静、克制的放置修仙风格，灯笼雾气，写实偏工笔。一顶深泽色鳞纹轻盔，鳞片像湿泽鱼鳞，不是西方板甲。金色金篆质感：古金细线，温暖灯笼光。不要文字，不要外框，不要 UI，不要地面，不要人物，不要水印。缩小到 88 像素仍能认出是鳞盔。
+```
+
+### 3.33 墨藻衣
+
+保存为：`game/assets/art/items/robe_6.webp`
+
+```text
+画一张游戏物品图标，正方形 512×512，透明背景，物体居中，四周留出约 10% 空白。安静、克制的放置修仙风格，灯笼雾气，写实偏工笔。一件叠好的墨绿色交领袍，纹路像水底藻影，只有衣服没有人体。金色金篆质感：古金细线，温暖灯笼光。不要文字，不要外框，不要 UI，不要地面，不要水印。缩小到 88 像素仍能认出是墨袍。
+```
+
+### 3.34 渊行靴
+
+保存为：`game/assets/art/items/boots_6.webp`
+
+```text
+画一张游戏物品图标，正方形 512×512，透明背景，物体居中，四周留出约 10% 空白。安静、克制的放置修仙风格，灯笼雾气，写实偏工笔。一双深渊色长靴，靴面像湿泥与金线，四分之三俯视。金色金篆质感：古金细线，温暖灯笼光。不要文字，不要外框，不要 UI，不要地面，不要水印。缩小到 88 像素仍能认出是渊靴。
+```
+
+### 3.35 黑玉佩
+
+保存为：`game/assets/art/items/jade_6.webp`
+
+```text
+画一张游戏物品图标，正方形 512×512，透明背景，物体居中，四周留出约 10% 空白。安静、克制的放置修仙风格，灯笼雾气，写实偏工笔。一枚墨黑温润的玉佩，深色细绳，边缘有极细古金线。金色金篆质感：温暖灯笼光。不要文字，不要外框，不要 UI，不要地面，不要水印。缩小到 88 像素仍能认出是黑玉。
+```
+
+### 3.36 古碑剑
+
+保存为：`game/assets/art/items/sword_7.webp`
+
+```text
+画一张游戏物品图标，正方形 512×512，透明背景，物体居中，四周留出约 10% 空白。安静、克制的放置修仙风格，灯笼雾气，写实偏工笔。一把古碑纹长剑，青灰石刃上有朱红细篆，不要写成可认汉字，只是抽象碑纹。红色劫纹质感：薄薄血光，古石底子，不要喷血，不要霓虹。不要文字标题，不要外框，不要 UI，不要地面，不要水印。缩小到 88 像素仍能认出是古剑。
+```
+
+### 3.37 篆纹盔
+
+保存为：`game/assets/art/items/helm_7.webp`
+
+```text
+画一张游戏物品图标，正方形 512×512，透明背景，物体居中，四周留出约 10% 空白。安静、克制的放置修仙风格，灯笼雾气，写实偏工笔。一顶青灰石盔，盔面有朱红细篆，不是西方板甲，篆纹不要写成可认汉字。红色劫纹质感：薄薄血光，古石底子。不要文字标题，不要外框，不要 UI，不要地面，不要人物，不要水印。缩小到 88 像素仍能认出是碑盔。
+```
+
+### 3.38 碑前文袍
+
+保存为：`game/assets/art/items/robe_7.webp`
+
+```text
+画一张游戏物品图标，正方形 512×512，透明背景，物体居中，四周留出约 10% 空白。安静、克制的放置修仙风格，灯笼雾气，写实偏工笔。一件叠好的灰白交领文袍，衣缘有朱红碑纹，只有衣服没有人体，纹样不要写成可认汉字。红色劫纹质感：薄薄血光。不要文字标题，不要外框，不要 UI，不要地面，不要水印。缩小到 88 像素仍能认出是文袍。
+```
+
+### 3.39 台前靴
+
+保存为：`game/assets/art/items/boots_7.webp`
+
+```text
+画一张游戏物品图标，正方形 512×512，透明背景，物体居中，四周留出约 10% 空白。安静、克制的放置修仙风格，灯笼雾气，写实偏工笔。一双青灰石纹靴，靴头有朱红细线，四分之三俯视。红色劫纹质感：薄薄血光，古石底子。不要文字，不要外框，不要 UI，不要地面，不要水印。缩小到 88 像素仍能认出是石靴。
+```
+
+### 3.40 古篆佩
+
+保存为：`game/assets/art/items/jade_7.webp`
+
+```text
+画一张游戏物品图标，正方形 512×512，透明背景，物体居中，四周留出约 10% 空白。安静、克制的放置修仙风格，灯笼雾气，写实偏工笔。一枚青灰古玉佩，中央有朱红抽象篆纹，不要写成可认汉字，深色细绳。红色劫纹质感：薄薄血光。不要文字标题，不要外框，不要 UI，不要地面，不要水印。缩小到 88 像素仍能认出是古佩。
+```
 
 ---
 
-## 5. 背包网格与分类
+## 4. 背包网格、分类、消耗品
 
-### 5.1 空格子
+### 4.1 空格子
 
-```text
-[paste 总风格]
-
-Empty inventory cell 512x512, transparent outside.
-Rounded 14px dark well #0C1412, 1px muted gold rim at 40% opacity,
-no icon, no plus sign, no text. Identical so it can tile in a 4-column
-grid.
-```
-
-`ui/bag_cell_empty.webp`
-
-### 5.2 分类 Tab 图标（可选，现在 Tab 是纯字）
-
-5 张，线描小图标，24×24 观感，画 256 即可。
+保存为：`game/assets/art/ui/bag_cell_empty.webp`
 
 ```text
-[paste 总风格]
-
-Tiny UI glyph 256x256, transparent background, single color antique
-gold line icon, no text, no circle badge.
-Subject: {GLYPH}.
+画一张背包空格子，正方形 512×512，格外透明。安静、克制的放置修仙风格。圆角约 14 的深色凹槽，底色 #0C1412，一像素暗金描边，透明度大约四成。格子里什么都没有，不要加号，不要文字，不要图标，不要水印。要能四列重复铺满屏幕。
 ```
 
-| Tab | GLYPH |
-| --- | --- |
-| 全部 | four tiny squares |
-| 装备 | simple sword |
-| 丹药 | round gourd pill bottle |
-| 材料 | two herb leaves |
-| 功法 | open thin book |
+### 4.2 分类图标 · 全部
 
-`ui/tab_all.webp` … `ui/tab_book.webp`
-
-### 5.3 丹药 / 材料 / 功法格图标
-
-**回气丹 `pill_qi_0`**
+保存为：`game/assets/art/ui/tab_all.webp`
 
 ```text
-[paste 总风格 + 公共模板]
-
-a small matte white ceramic pill bottle with a cork, one pale pill
-beside it, no label text.
-{QUALITY_LOOK} = dry mundane materials, faint silver dust, no glow
+画一张极简 UI 线标，正方形 256×256，透明背景。安静、克制的放置修仙风格。只用古金色单线，画四个小小的方格排成田字。不要文字，不要圆形底徽章，不要彩色填充，不要水印。缩小到 28 像素仍能认出是网格。
 ```
 
-**养体丹 `pill_body_0`**
+### 4.3 分类图标 · 装备
+
+保存为：`game/assets/art/ui/tab_equip.webp`
 
 ```text
-a squat ochre pill bottle, warmer clay, two beige pills.
+画一张极简 UI 线标，正方形 256×256，透明背景。安静、克制的放置修仙风格。只用古金色单线，画一把很简单的短剑。不要文字，不要圆形底徽章，不要彩色填充，不要水印。缩小到 28 像素仍能认出是剑。
 ```
 
-**灵草 `mat_spirit_grass`**
+### 4.4 分类图标 · 丹药
+
+保存为：`game/assets/art/ui/tab_pill.webp`
 
 ```text
-three fresh spirit grass blades tied with a hemp thread, dew, no flower.
+画一张极简 UI 线标，正方形 256×256，透明背景。安静、克制的放置修仙风格。只用古金色单线，画一只圆葫芦小丹瓶。不要文字，不要圆形底徽章，不要彩色填充，不要水印。缩小到 28 像素仍能认出是瓶。
 ```
 
-**兽骨 `mat_beast_bone`**
+### 4.5 分类图标 · 材料
+
+保存为：`game/assets/art/ui/tab_material.webp`
 
 ```text
-a clean short beast bone, slight yellow ivory, no blood, no skull.
+画一张极简 UI 线标，正方形 256×256，透明背景。安静、克制的放置修仙风格。只用古金色单线，画两片草叶。不要文字，不要圆形底徽章，不要彩色填充，不要水印。缩小到 28 像素仍能认出是草。
 ```
 
-**功法残页（共用底，再出 4 阶色）**
+### 4.6 分类图标 · 功法
+
+保存为：`game/assets/art/ui/tab_book.webp`
 
 ```text
-a torn yellow xianxia scripture page, brush marks, burnt edge,
-rolled slightly, no readable characters (abstract strokes only).
-{QUALITY_LOOK} = white / blue / purple / gold / red as specified
+画一张极简 UI 线标，正方形 256×256，透明背景。安静、克制的放置修仙风格。只用古金色单线，画一本摊开的薄书。不要文字，不要圆形底徽章，不要彩色填充，不要水印。缩小到 28 像素仍能认出是书。
 ```
 
-4 张即可：`book_white.webp` `book_blue.webp` `book_purple.webp` `book_gold.webp`  
-红色残页用 `book_red.webp`。具体功法名用同一张底图，游戏叠字。
+### 4.7 回气丹
+
+保存为：`game/assets/art/items/pill_qi_0.webp`
+
+```text
+画一张游戏物品图标，正方形 512×512，透明背景，物体居中，四周留出约 10% 空白。安静、克制的放置修仙风格，灯笼雾气，写实偏工笔。一只哑光白瓷小丹瓶，软木塞，瓶旁一粒浅色小丸。瓶身不要写字。凡铁质感：干燥瓷土，只有极淡银尘，没有发光。不要文字，不要外框，不要 UI，不要地面，不要水印。缩小到 88 像素仍能认出是丹瓶。
+```
+
+### 4.8 养体丹
+
+保存为：`game/assets/art/items/pill_body_0.webp`
+
+```text
+画一张游戏物品图标，正方形 512×512，透明背景，物体居中，四周留出约 10% 空白。安静、克制的放置修仙风格，灯笼雾气，写实偏工笔。一只矮胖的土黄陶丹瓶，瓶旁两粒米色药丸。瓶身不要写字。凡铁质感：干燥陶土，只有极淡银尘，没有发光。不要文字，不要外框，不要 UI，不要地面，不要水印。缩小到 88 像素仍能认出是陶瓶。
+```
+
+### 4.9 灵草
+
+保存为：`game/assets/art/items/mat_spirit_grass.webp`
+
+```text
+画一张游戏物品图标，正方形 512×512，透明背景，物体居中，四周留出约 10% 空白。安静、克制的放置修仙风格，灯笼雾气，写实偏工笔。三株新鲜灵草，麻绳轻轻捆住，叶上有露，不要开花。凡铁质感：青绿草叶，只有极淡银尘，没有发光。不要文字，不要外框，不要 UI，不要地面，不要水印。缩小到 88 像素仍能认出是草。
+```
+
+### 4.10 兽骨
+
+保存为：`game/assets/art/items/mat_beast_bone.webp`
+
+```text
+画一张游戏物品图标，正方形 512×512，透明背景，物体居中，四周留出约 10% 空白。安静、克制的放置修仙风格，灯笼雾气，写实偏工笔。一根干净的短兽骨，浅黄象牙色，不要血，不要骷髅头。凡铁质感：干燥骨质，只有极淡银尘，没有发光。不要文字，不要外框，不要 UI，不要地面，不要水印。缩小到 88 像素仍能认出是骨头。
+```
+
+### 4.11 功法残页 · 白
+
+保存为：`game/assets/art/items/book_white.webp`
+
+```text
+画一张游戏物品图标，正方形 512×512，透明背景，物体居中，四周留出约 10% 空白。安静、克制的放置修仙风格，灯笼雾气，写实偏工笔。一张撕破的发黄经页，微微卷边，焦边，纸上只有抽象笔触，不要可认汉字，不要英文。白色凡铁质感：干燥纸，只有极淡银尘，没有发光。不要外框，不要 UI，不要地面，不要水印。缩小到 88 像素仍能认出是残页。
+```
+
+### 4.12 功法残页 · 蓝
+
+保存为：`game/assets/art/items/book_blue.webp`
+
+```text
+画一张游戏物品图标，正方形 512×512，透明背景，物体居中，四周留出约 10% 空白。安静、克制的放置修仙风格，灯笼雾气，写实偏工笔。一张撕破的发黄经页，微微卷边，纸上只有抽象笔触，不要可认汉字。蓝色灵纹质感：冷青淡蓝晕，不要霓虹。不要外框，不要 UI，不要地面，不要水印。缩小到 88 像素仍能认出是残页。
+```
+
+### 4.13 功法残页 · 紫
+
+保存为：`game/assets/art/items/book_purple.webp`
+
+```text
+画一张游戏物品图标，正方形 512×512，透明背景，物体居中，四周留出约 10% 空白。安静、克制的放置修仙风格，灯笼雾气，写实偏工笔。一张撕破的发黄经页，微微卷边，纸上只有抽象笔触，不要可认汉字。紫色幽光质感：黄昏紫雾。不要外框，不要 UI，不要地面，不要水印。缩小到 88 像素仍能认出是残页。
+```
+
+### 4.14 功法残页 · 金
+
+保存为：`game/assets/art/items/book_gold.webp`
+
+```text
+画一张游戏物品图标，正方形 512×512，透明背景，物体居中，四周留出约 10% 空白。安静、克制的放置修仙风格，灯笼雾气，写实偏工笔。一张撕破的发黄经页，微微卷边，纸上只有抽象笔触，不要可认汉字。金色金篆质感：古金细线，温暖灯笼光。不要外框，不要 UI，不要地面，不要水印。缩小到 88 像素仍能认出是残页。
+```
+
+### 4.15 功法残页 · 红
+
+保存为：`game/assets/art/items/book_red.webp`
+
+```text
+画一张游戏物品图标，正方形 512×512，透明背景，物体居中，四周留出约 10% 空白。安静、克制的放置修仙风格，灯笼雾气，写实偏工笔。一张撕破的发黄经页，微微卷边，纸上只有抽象笔触，不要可认汉字。红色劫纹质感：薄薄血光，不要喷血。不要外框，不要 UI，不要地面，不要水印。缩小到 88 像素仍能认出是残页。
+```
 
 ---
 
-## 6. 弹窗零件
+## 5. 弹窗零件
 
-### 6.1 弹窗底板
+### 5.1 弹窗底板
 
-```text
-[paste 总风格]
-
-Nine-slice friendly panel 1024x1024, transparent outside.
-Dark moss card #16211F, 24px rounded corners, 2px antique gold rim,
-soft inner shadow, empty center, no title, no buttons, no watermark.
-Even margins so it can stretch to 720x840.
-```
-
-`ui/inspect_panel.webp`
-
-### 6.2 弹窗大图标井
+保存为：`game/assets/art/ui/inspect_panel.webp`
 
 ```text
-Square icon well 512x512, transparent outside, inset dark pit,
-thin gold rim, empty, for placing an item icon in the inspect popup.
+画一张可九宫拉伸的空面板，正方形 1024×1024，板外透明。安静、克制的放置修仙风格。深苔藓色卡片 #16211F，圆角 24，两像素古金描边，内部有柔和内阴影，正中完全空着。不要标题，不要按钮，不要文字，不要水印。四边留白均匀，以后要拉成大约 720×840 的弹窗底板。
 ```
 
-`ui/inspect_icon_well.webp`
+### 5.2 弹窗图标井
 
-### 6.3 关闭 / 穿上 不必出图
+保存为：`game/assets/art/ui/inspect_icon_well.webp`
 
-按钮继续用现有金钮和幽灵钮。不要为按钮单独出拟物。
+```text
+画一个方形图标凹槽，正方形 512×512，槽外透明。安静、克制的放置修仙风格。向内凹的深坑，细古金线描边，槽内空着，准备放物品大图标。不要文字，不要图标，不要水印。
+```
 
----
-
-## 7. 建议出图顺序
-
-1. **2.1 空行囊整页** — 先看版式，不对就改提示词，不要先画 40 件装备。
-2. **2.3 弹窗整页** — 确认信息层级：名 → 图标 → 词条 → 攻防速 → 战力变化 → 按钮。
-3. **3.1 角色** + **3.2 五空槽**。
-4. 白品质五件套（`sword_0` 到 `jade_0`）+ 丹药材料各 1。
-5. **2.2 已穿整页** — 把 4 的图标贴进稿里看密不密。
-6. 再补蓝 / 紫 / 金 / 红和剩余刀枪戟尺。
-
-不要一上来让模型出「整套 40 图标一张精灵图」。ChatGPT Image 会糊，后期也难切。
+按钮不用出图，游戏里继续用现在的金钮。
 
 ---
 
-## 8. 进游戏时的尺寸
+## 6. 出图顺序
 
-| 用途 | 画布 | 运行时大约 |
-| --- | --- | --- |
-| 整页设计稿 | 1080×1920 | 不进包 |
-| 角色 | 1024×1024 | 装备板中约 160×200 |
-| 槽框 / 物品 / 格子 | 512×512 | 槽 72、格 88、弹窗 256 |
-| Tab 线标 | 256×256 | 28 |
-| 弹窗底板 | 1024×1024 | 九宫拉伸 |
+1. 1.1 空行囊整页
+2. 1.3 弹窗整页
+3. 2.1 角色，再出 2.2 到 2.6 五个空槽
+4. 3.1 到 3.5 白品质五件，加上 4.7、4.9 回气丹和灵草
+5. 1.2 已穿整页，看密不密
+6. 其余装备、框、格子、残页
 
-导出优先 **WebP**，透明，不要 JPG。
-
----
-
-## 9. 和代码的对应（给自己对照）
-
-- 装备板节点：`DollBoard`；五槽：武器 / 头盔 / 衣服 / 鞋子 / 玉佩。
-- 网格：`BagList`，4 列；已穿 uid **不会**出现在格子里。
-- Tab：全部、装备、丹药、材料、功法。
-- 弹窗：`ItemInspectLayer` + `ItemInspectCard`。
-- 装备可见数：攻、防、速、品质词条；装备战力 = `攻 + 防×0.8 + 速×1.5 + 血×0.04`。
-- 穿上后弹窗写人物战力 `旧 → 新（差）`。
-
-出图时不要发明第六槽、套装栏、星级、强化等级。那些不在这一版。
+不要让模型一次画一整页四十个小图标，会糊，也切不干净。

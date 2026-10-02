@@ -1,7 +1,7 @@
 class_name CultivationState
 extends RefCounted
 
-const DEFAULT_CAPACITY := 36
+const DEFAULT_CAPACITY := 100
 const DEFAULT_STAGE := "grove"
 
 var cultivation: float = 0.0
@@ -61,7 +61,7 @@ func apply_adventure_defaults(
 	long_term_config: LongTermConfig = null
 ) -> void:
 	if adventure != null:
-		if inventory_capacity <= 0:
+		if inventory_capacity < adventure.inventory_capacity:
 			inventory_capacity = adventure.inventory_capacity
 		var start := adventure.starting_stage()
 		if start != null:

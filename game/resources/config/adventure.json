@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "inventory_capacity": 36,
+  "inventory_capacity": 100,
   "respawn_seconds": 0.8,
   "loot_chance_scale": 0.2,
   "realm_bases": {

@@ -6,7 +6,7 @@ config_version=5
 [application]
 
 config/name="修仙"
-config/version="0.6.0"
+config/version="0.6.3"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 config/icon="res://assets/art/ui/app_icon.svg"
 run/main_scene="res://scenes/main.tscn"
@@ -20,6 +20,7 @@ window/size/viewport_height=1920
 window/size/window_width_override=540
 window/size/window_height_override=960
 window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
 window/handheld/orientation=1
 
 [editor_plugins]

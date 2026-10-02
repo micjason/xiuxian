@@ -19,6 +19,7 @@ func test_main_screen_shows_offline_breakthrough_journal_and_first_three_realms(
 	add_child_autofree(scene)
 	await get_tree().process_frame
 	await get_tree().process_frame
+	await get_tree().process_frame
 	Helper.silence_update(scene)
 
 	var offline := scene.get_node("%OfflineDialog") as AcceptDialog

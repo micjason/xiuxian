@@ -22,6 +22,7 @@ func test_project_adventure_table_is_complete() -> void:
 		assert_true(slots.has(slot), "missing slot %s" % slot)
 	for rank in SkillRank.ORDER:
 		assert_true(ranks.has(rank), "missing skill rank %s" % rank)
+	assert_eq(config.inventory_capacity, 100)
 	assert_eq(config.starting_stage().id, "grove")
 	assert_eq(config.stages[7].id, "stele_terrace")
 	assert_eq(config.stages[11].id, "void_frontier")

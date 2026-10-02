@@ -27,13 +27,13 @@ func _ready() -> void:
 	margin.add_child(root)
 	var heading := Label.new()
 	heading.text = "洞府"
-	heading.add_theme_font_size_override("font_size", 28)
+	heading.add_theme_font_size_override("font_size", MainTheme.SIZE_HERO)
 	heading.add_theme_color_override("font_color", Color("dcc076"))
 	root.add_child(heading)
 	var subtitle := Label.new()
 	subtitle.text = "安排人手、蕴养丹器，让离线时间沉淀为传承。"
 	subtitle.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	subtitle.add_theme_font_size_override("font_size", 16)
+	subtitle.add_theme_font_size_override("font_size", MainTheme.SIZE_CAPTION)
 	root.add_child(subtitle)
 	var tabs := HBoxContainer.new()
 	tabs.add_theme_constant_override("separation", 5)
@@ -432,7 +432,7 @@ func _cost_text(costs: Dictionary) -> String:
 func _add_section(text: String) -> void:
 	var label := Label.new()
 	label.text = text
-	label.add_theme_font_size_override("font_size", 22)
+	label.add_theme_font_size_override("font_size", MainTheme.SIZE_BODY)
 	label.add_theme_color_override("font_color", Color("dcc076"))
 	_content.add_child(label)
 
@@ -441,5 +441,5 @@ func _add_label(text: String) -> void:
 	var label := Label.new()
 	label.text = text
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	label.add_theme_font_size_override("font_size", 17)
+	label.add_theme_font_size_override("font_size", MainTheme.SIZE_CAPTION)
 	_content.add_child(label)

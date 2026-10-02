@@ -11,23 +11,28 @@ const GOLD := Color(0.86, 0.74, 0.44, 1)
 const IVORY := Color(0.93, 0.91, 0.84, 1)
 const MUTED := Color(0.58, 0.64, 0.61, 1)
 
-const SIZE_DISPLAY := 34
-const SIZE_NUMBER := 28
-const SIZE_HERO := 26
-const SIZE_BODY := 22
-const SIZE_UI := 20
-const SIZE_CAPTION := 18
-const SIZE_MICRO := 16
+const SIZE_DISPLAY := 64
+const SIZE_NUMBER := 56
+const SIZE_HERO := 52
+const SIZE_BODY := 44
+const SIZE_UI := 40
+const SIZE_CAPTION := 36
+const SIZE_MICRO := 32
+const SIZE_TAB := 36
 
-const H_CTA := 96
-const H_TAB := 80
-const H_ROW := 52
-const H_CELL := 88
-const H_ACTION := 52
-const H_BAR := 28
-const H_SLOT := 72
-const H_DOLL := 268
-const BAG_COLUMNS := 4
+const H_CTA := 128
+const H_TAB := 210
+const H_ROW := 80
+const H_CELL := 80
+const ICON_TAB := 96
+const ICON_CHROME := 64
+const ICON_SLOT := 72
+const H_ACTION := 72
+const H_BAR := 40
+const H_SLOT := 128
+const H_DOLL := 620
+const BAG_COLUMNS := 8
+const BAG_CELL_GAP := 6
 
 
 static func body_font() -> SystemFont:
@@ -77,7 +82,7 @@ static func make() -> Theme:
 	theme.set_stylebox("embedded_border", "Window", _box(CARD, Color(0.42, 0.5, 0.36, 0.7), 2, 24, 10, 22, 20))
 	theme.set_stylebox("embedded_unfocused_border", "Window", _box(CARD, Color(0.32, 0.4, 0.3, 0.55), 2, 24, 6, 22, 20))
 	theme.set_color("title_color", "Window", GOLD)
-	theme.set_font_size("title_font_size", "Window", 28)
+	theme.set_font_size("title_font_size", "Window", SIZE_HERO)
 	theme.set_font_size("font_size", "Label", SIZE_BODY)
 	theme.set_font_size("font_size", "Button", SIZE_UI)
 	theme.set_font_size("font_size", "CheckButton", SIZE_BODY)
@@ -98,6 +103,55 @@ static func footer_panel() -> StyleBoxFlat:
 
 static func ghost_button() -> StyleBoxFlat:
 	return _box(Color(0.07, 0.1, 0.09, 0.95), Color(0.55, 0.48, 0.28, 0.85), 1, 16, 0, 12, 8)
+
+
+static func clear_panel() -> StyleBoxFlat:
+	var box := StyleBoxFlat.new()
+	box.bg_color = Color(0, 0, 0, 0)
+	box.draw_center = false
+	box.set_border_width_all(0)
+	box.content_margin_left = 0
+	box.content_margin_right = 0
+	box.content_margin_top = 0
+	box.content_margin_bottom = 0
+	return box
+
+
+static func chrome_clear() -> StyleBoxFlat:
+	return _box(Color(0.04, 0.05, 0.05, 0.0), Color(0, 0, 0, 0), 0, 0, 0, 8, 4)
+
+
+static func cultivation_capsule() -> StyleBoxFlat:
+	return _box(Color(0.08, 0.1, 0.1, 0.42), Color(GOLD.r, GOLD.g, GOLD.b, 0.55), 1, 18, 0, 22, 6)
+
+
+static func bag_tab_idle() -> StyleBoxFlat:
+	return _box(Color(0.08, 0.1, 0.1, 0.28), Color(GOLD.r, GOLD.g, GOLD.b, 0.28), 1, 20, 0, 10, 6)
+
+
+static func bag_tab_active() -> StyleBoxFlat:
+	return _box(GOLD, Color(0.52, 0.41, 0.18, 1), 1, 20, 0, 10, 6)
+
+
+static func bag_cell_empty() -> StyleBoxFlat:
+	return _box(Color(0.05, 0.08, 0.07, 0.55), Color(GOLD.r, GOLD.g, GOLD.b, 0.28), 1, 10, 0, 2, 2)
+
+
+static func tab_dock() -> StyleBoxFlat:
+	var box := _box(Color(0.04, 0.05, 0.05, 0.88), Color(GOLD.r, GOLD.g, GOLD.b, 0.35), 0, 0, 0, 0, 0)
+	box.border_width_top = 1
+	box.border_color = Color(GOLD.r, GOLD.g, GOLD.b, 0.35)
+	return box
+
+
+static func circle_slot(border: Color) -> StyleBoxFlat:
+	var box := _box(Color(0.06, 0.09, 0.08, 0.72), border, 2, 999, 0, 10, 10)
+	box.set_corner_radius_all(999)
+	return box
+
+
+static func nav_tab() -> StyleBoxFlat:
+	return _box(Color(0, 0, 0, 0), Color(0, 0, 0, 0), 0, 8, 0, 4, 6)
 
 
 static func stamp_label(label: Label, size: int, color: Color) -> void:

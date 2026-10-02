@@ -57,6 +57,7 @@ const PAGE_SETTINGS := "settings"
 @onready var doll_board: PanelContainer = %DollBoard
 @onready var bag_count_label: Label = %BagCountLabel
 @onready var bag_tabs: HBoxContainer = %BagTabs
+@onready var bag_scroll: ScrollContainer = %BagScroll
 @onready var bag_list: GridContainer = %BagList
 @onready var inspect_layer: ColorRect = %ItemInspectLayer
 @onready var inspect_card: PanelContainer = %ItemInspectCard
@@ -71,6 +72,8 @@ const PAGE_SETTINGS := "settings"
 @onready var volume_slider: HSlider = %VolumeSlider
 @onready var export_button: Button = %ExportButton
 @onready var export_label: Label = %ExportLabel
+@onready var tab_bar_dock: Panel = %TabBarDock
+@onready var tab_bar: HBoxContainer = %TabBar
 @onready var tab_cultivate: Button = %TabCultivate
 @onready var tab_adventure: Button = %TabAdventure
 @onready var tab_cave: Button = %TabCave
@@ -87,6 +90,10 @@ const PAGE_SETTINGS := "settings"
 @onready var stage_list: VBoxContainer = %StageList
 @onready var expedition_panel: ExpeditionPanelController = %ExpeditionPanel
 @onready var inspect_panel: VBoxContainer = %InspectPanel
+@onready var bag_backdrop: TextureRect = %BagBackdrop
+@onready var bag_veil_top: ColorRect = %BagVeilTop
+@onready var bag_veil_bottom: ColorRect = %BagVeilBottom
+@onready var content_margin: MarginContainer = $Margin
 
 var _session: CultivationSession
 var _tick: Timer
@@ -103,7 +110,11 @@ var _stage_fingerprint := ""
 var _selected_bag_uid := 0
 var _bag_tab := "all"
 var _slot_buttons: Dictionary = {}
+var _slot_wraps: Dictionary = {}
 var _figure_label: Label
+var _figure_texture: TextureRect
+var _doll_stage: Control
+var _cultivation_capsule: PanelContainer
 var _inspect_empty_slot := ""
 var _selected_skill_id := ""
 var _skill_tab := "all"
@@ -121,9 +132,12 @@ func _ready() -> void:
 	update_card.add_theme_stylebox_override("panel", MainTheme.footer_panel())
 	adventure_page.add_theme_stylebox_override("panel", MainTheme.hero_panel())
 	cave_page.add_theme_stylebox_override("panel", MainTheme.hero_panel())
-	bag_page.add_theme_stylebox_override("panel", MainTheme.hero_panel())
+	bag_page.add_theme_stylebox_override("panel", MainTheme.clear_panel())
 	skill_page.add_theme_stylebox_override("panel", MainTheme.hero_panel())
 	settings_page.add_theme_stylebox_override("panel", MainTheme.hero_panel())
+	bag_backdrop.texture = BagArt.BACKGROUND
+	bag_backdrop.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	bag_backdrop.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	seal_ring.add_theme_stylebox_override("panel", MainTheme.seal_ring())
 	seal_inner.add_theme_stylebox_override("panel", MainTheme.seal_inner())
 	_install_chrome()
@@ -135,9 +149,12 @@ func _ready() -> void:
 	_style_secondary_button(install_button)
 	_style_secondary_button(bag_policy_button)
 	_style_secondary_button(export_button)
-	for tab in [tab_cultivate, tab_adventure, tab_cave, tab_bag, tab_skill]:
-		_style_secondary_button(tab)
-	_style_secondary_button(settings_button)
+	_install_nav_icons()
+	_install_bag_scroll()
+	_apply_safe_chrome()
+	resized.connect(_apply_safe_chrome)
+	get_viewport().size_changed.connect(_apply_safe_chrome)
+	_style_icon_button(settings_button, BagArt.ICON_SETTINGS)
 	_style_secondary_button(settings_back_button)
 	download_progress.visible = false
 	status_label.visible = false
@@ -223,6 +240,7 @@ func _show_page(page: String) -> void:
 	atmosphere.visible = false
 	hint_label.visible = false
 	update_card.visible = page == PAGE_SETTINGS
+	_apply_bag_atmosphere(page == PAGE_BAG)
 	_refresh_tabs()
 	_refresh_all()
 
@@ -259,7 +277,7 @@ func _refresh_cultivation() -> void:
 	journal_label.text = _session.journal.as_text()
 	var next_realm := _session.next_realm()
 	if next_realm == null:
-		cultivation_label.text = CultivationFormat.amount(_session.state.cultivation)
+		cultivation_label.text = "修为  %s" % CultivationFormat.amount(_session.state.cultivation)
 		next_cost_label.text = "—"
 		next_realm_label.text = "已至顶峰"
 		progress_hint.text = "已至当前示意表最高境界"
@@ -268,7 +286,7 @@ func _refresh_cultivation() -> void:
 		cultivation_progress.add_theme_stylebox_override("fill", MainTheme.progress_fill(false))
 		_set_ready_pulse(false)
 	else:
-		cultivation_label.text = "%s / %s" % [
+		cultivation_label.text = "修为  %s / %s" % [
 			CultivationFormat.amount(_session.state.cultivation),
 			CultivationFormat.amount(realm.breakthrough_cost),
 		]
@@ -369,13 +387,15 @@ func _refresh_bag() -> void:
 		_close_inspect()
 	_refresh_bag_tabs()
 	var visible := InventoryRules.filter_stacks(_session.state, _session.adventure, _bag_tab)
-	var fingerprint := "%d|%d|%s|%d|%s|%d|%s|%d|%d|%s" % [
+	var capacity := maxi(_session.state.inventory_capacity, MainTheme.BAG_COLUMNS)
+	var fingerprint := "%d|%d|%s|%d|%s|%d|%d|%s|%d|%d|%s" % [
 		_session.state.next_item_uid,
 		_session.state.inventory.size(),
 		JSON.stringify(_session.state.equipped.to_dictionary()),
 		_session.state.learned_skill_ids.size(),
 		_bag_tab,
 		visible.size(),
+		capacity,
 		JSON.stringify(_session.state.skill_ranks),
 		_session.state.qi_pill_until,
 		_session.state.body_pill_until,
@@ -385,21 +405,11 @@ func _refresh_bag() -> void:
 		_bag_fingerprint = fingerprint
 		for child in bag_list.get_children():
 			child.queue_free()
-		if visible.is_empty():
-			var empty := Label.new()
-			empty.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-			empty.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			if used == 0 and _session.state.inventory.is_empty():
-				empty.text = "行囊空空。去历练挂机，掉落会回到这里。"
-			elif used == 0:
-				empty.text = "穿戴中的装备在上方。袋里没有未穿的物品。"
-			else:
-				empty.text = "这一类还是空的。"
-			MainTheme.stamp_label(empty, MainTheme.SIZE_CAPTION, MainTheme.MUTED)
-			bag_list.add_child(empty)
-		else:
-			for stack in visible:
-				bag_list.add_child(_make_bag_cell(stack))
+		for stack in visible:
+			bag_list.add_child(_make_bag_cell(stack))
+		for _i in maxi(capacity - visible.size(), 0):
+			bag_list.add_child(_make_empty_bag_cell())
+		call_deferred("_sync_bag_cell_size")
 	if inspect_layer.visible:
 		_fill_inspect_card()
 
@@ -481,12 +491,16 @@ func _install_chrome() -> void:
 	realm_label.reparent(chrome_row)
 	chrome_row.move_child(realm_label, 0)
 	chrome_row.move_child(chrome_power, 1)
-	cultivation_label.reparent(chrome_cultivation_row)
+	_cultivation_capsule = PanelContainer.new()
+	_cultivation_capsule.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_cultivation_capsule.add_theme_stylebox_override("panel", MainTheme.cultivation_capsule())
+	chrome_cultivation_row.add_child(_cultivation_capsule)
+	cultivation_label.reparent(_cultivation_capsule)
 	realm_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	cultivation_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	chrome_power.size_flags_horizontal = Control.SIZE_SHRINK_END
 	realm_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	cultivation_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	cultivation_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	chrome_power.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	var settings_box := settings_page.get_node("SettingsMargin/SettingsBox") as VBoxContainer
 	if settings_box != null:
@@ -496,9 +510,12 @@ func _install_chrome() -> void:
 
 
 func _apply_layout() -> void:
-	MainTheme.stamp_label(realm_label, MainTheme.SIZE_DISPLAY, MainTheme.JADE)
-	MainTheme.stamp_label(cultivation_label, MainTheme.SIZE_NUMBER, MainTheme.IVORY)
-	MainTheme.stamp_label(chrome_power, MainTheme.SIZE_CAPTION, MainTheme.GOLD)
+	MainTheme.stamp_label(realm_label, MainTheme.SIZE_BODY, MainTheme.IVORY)
+	MainTheme.stamp_label(cultivation_label, MainTheme.SIZE_CAPTION, MainTheme.IVORY)
+	MainTheme.stamp_label(chrome_power, MainTheme.SIZE_UI, MainTheme.GOLD)
+	realm_label.add_theme_font_override("font", MainTheme.title_font())
+	chrome_power.add_theme_font_override("font", MainTheme.title_font())
+	bag_count_label.add_theme_font_override("font", MainTheme.title_font())
 	MainTheme.stamp_label(progress_hint, MainTheme.SIZE_UI, MainTheme.GOLD)
 	MainTheme.stamp_label(realm_path, MainTheme.SIZE_MICRO, Color(0.72, 0.68, 0.5, 0.9))
 	MainTheme.stamp_label(breakthrough_banner, MainTheme.SIZE_BODY, MainTheme.GOLD)
@@ -511,10 +528,14 @@ func _apply_layout() -> void:
 	MainTheme.stamp_label(loot_summary_label, MainTheme.SIZE_CAPTION, MainTheme.IVORY)
 	MainTheme.stamp_label(battle_log_label, MainTheme.SIZE_MICRO, Color(0.7, 0.74, 0.7, 1))
 	MainTheme.stamp_label(equip_summary, MainTheme.SIZE_MICRO, MainTheme.MUTED)
-	MainTheme.stamp_label(bag_count_label, MainTheme.SIZE_MICRO, MainTheme.MUTED)
-	doll_board.add_theme_stylebox_override("panel", MainTheme.inner_panel())
+	MainTheme.stamp_label(bag_count_label, MainTheme.SIZE_UI, MainTheme.IVORY)
+	doll_board.add_theme_stylebox_override("panel", MainTheme.clear_panel())
+	doll_board.custom_minimum_size = Vector2(0, MainTheme.H_DOLL)
+	doll_board.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	inspect_card.add_theme_stylebox_override("panel", MainTheme.hero_panel())
 	bag_list.columns = MainTheme.BAG_COLUMNS
+	bag_list.add_theme_constant_override("h_separation", MainTheme.BAG_CELL_GAP)
+	bag_list.add_theme_constant_override("v_separation", MainTheme.BAG_CELL_GAP)
 	MainTheme.stamp_label(learned_label, MainTheme.SIZE_BODY, MainTheme.IVORY)
 	MainTheme.stamp_label(version_label, MainTheme.SIZE_MICRO, MainTheme.MUTED)
 	MainTheme.stamp_label(volume_label, MainTheme.SIZE_CAPTION, MainTheme.MUTED)
@@ -526,7 +547,7 @@ func _apply_layout() -> void:
 	challenge_button.add_theme_font_size_override("font_size", MainTheme.SIZE_NUMBER)
 	for tab in [tab_cultivate, tab_adventure, tab_cave, tab_bag, tab_skill]:
 		tab.custom_minimum_size = Vector2(0, MainTheme.H_TAB)
-		tab.add_theme_font_size_override("font_size", MainTheme.SIZE_UI)
+		tab.add_theme_font_size_override("font_size", MainTheme.SIZE_TAB)
 	var cultivate_box := cultivation_card.get_node_or_null("CultivationMargin/CultivationDetails") as VBoxContainer
 	if cultivate_box != null:
 		cultivate_box.move_child(progress_hint, 0)
@@ -568,14 +589,18 @@ func _refresh_tabs() -> void:
 	}
 	for page in selected.keys():
 		var tab: Button = selected[page]
-		if str(page) == _page:
-			tab.remove_theme_stylebox_override("normal")
-			tab.remove_theme_stylebox_override("hover")
-			tab.remove_theme_stylebox_override("pressed")
-			tab.add_theme_color_override("font_color", Color(0.12, 0.1, 0.06, 1))
-			tab.add_theme_color_override("font_hover_color", Color(0.12, 0.1, 0.06, 1))
-		else:
-			_style_secondary_button(tab)
+		var active := str(page) == _page
+		tab.add_theme_stylebox_override("normal", MainTheme.nav_tab())
+		tab.add_theme_stylebox_override("hover", MainTheme.nav_tab())
+		tab.add_theme_stylebox_override("pressed", MainTheme.nav_tab())
+		var color := MainTheme.GOLD if active else Color(MainTheme.MUTED.r, MainTheme.MUTED.g, MainTheme.MUTED.b, 0.78)
+		tab.add_theme_color_override("font_color", color)
+		tab.add_theme_color_override("font_hover_color", MainTheme.IVORY)
+		tab.add_theme_color_override("font_pressed_color", MainTheme.GOLD)
+		tab.add_theme_color_override("icon_normal_color", color)
+		tab.add_theme_color_override("icon_hover_color", MainTheme.IVORY)
+		tab.add_theme_color_override("icon_pressed_color", MainTheme.GOLD)
+		tab.modulate = Color.WHITE
 
 
 func _refresh_stage_list(stats: CombatStats) -> void:
@@ -642,56 +667,32 @@ func _refresh_stage_list(stats: CombatStats) -> void:
 func _install_bag_board() -> void:
 	equip_summary.visible = false
 	inspect_panel.visible = false
-	doll_board.add_theme_stylebox_override("panel", MainTheme.inner_panel())
+	doll_board.add_theme_stylebox_override("panel", MainTheme.clear_panel())
 	for child in doll_board.get_children():
 		child.queue_free()
-	var margin := MarginContainer.new()
-	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	margin.add_theme_constant_override("margin_left", 8)
-	margin.add_theme_constant_override("margin_right", 8)
-	margin.add_theme_constant_override("margin_top", 8)
-	margin.add_theme_constant_override("margin_bottom", 8)
-	doll_board.add_child(margin)
-	var grid := GridContainer.new()
-	grid.columns = 3
-	grid.add_theme_constant_override("h_separation", 8)
-	grid.add_theme_constant_override("v_separation", 6)
-	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	grid.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	margin.add_child(grid)
-	var figure := PanelContainer.new()
-	figure.custom_minimum_size = Vector2(MainTheme.H_SLOT + 16, MainTheme.H_SLOT + 28)
-	figure.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	figure.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	figure.add_theme_stylebox_override("panel", MainTheme.seal_ring())
+	_doll_stage = Control.new()
+	_doll_stage.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_doll_stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	doll_board.add_child(_doll_stage)
+	_figure_texture = TextureRect.new()
+	_figure_texture.texture = BagArt.CULTIVATOR
+	_figure_texture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_figure_texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_figure_texture.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_figure_texture.custom_minimum_size = Vector2(340, 520)
+	_doll_stage.add_child(_figure_texture)
 	_figure_label = Label.new()
-	_figure_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_figure_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_figure_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_figure_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_figure_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	figure.add_child(_figure_label)
+	_figure_label.visible = false
+	doll_board.add_child(_figure_label)
 	_slot_buttons.clear()
-	var layout: Array = [
-		["", EquipSlot.HELMET, ""],
-		[EquipSlot.WEAPON, "figure", EquipSlot.ACCESSORY],
-		["", EquipSlot.CLOTHES, ""],
-		["", EquipSlot.SHOES, ""],
-	]
-	for row in layout:
-		for cell in row:
-			var key := str(cell)
-			if key.is_empty():
-				var pad := Control.new()
-				pad.custom_minimum_size = Vector2(MainTheme.H_SLOT, MainTheme.H_SLOT)
-				pad.mouse_filter = Control.MOUSE_FILTER_IGNORE
-				grid.add_child(pad)
-			elif key == "figure":
-				grid.add_child(figure)
-			else:
-				var button := _make_slot_button(key)
-				_slot_buttons[key] = button
-				grid.add_child(button)
+	_slot_wraps.clear()
+	for slot in [EquipSlot.HELMET, EquipSlot.WEAPON, EquipSlot.ACCESSORY, EquipSlot.CLOTHES, EquipSlot.SHOES]:
+		var wrap := _make_slot_wrap(slot)
+		_slot_wraps[slot] = wrap
+		_doll_stage.add_child(wrap)
+	if not doll_board.resized.is_connected(_layout_doll_slots):
+		doll_board.resized.connect(_layout_doll_slots)
+	_layout_doll_slots()
 	for child in bag_tabs.get_children():
 		child.queue_free()
 	for entry in [
@@ -705,7 +706,7 @@ func _install_bag_board() -> void:
 		tab.text = str(entry[1])
 		tab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		tab.custom_minimum_size = Vector2(0, MainTheme.H_ACTION)
-		tab.add_theme_font_size_override("font_size", MainTheme.SIZE_UI)
+		tab.add_theme_font_size_override("font_size", MainTheme.SIZE_CAPTION)
 		var tab_id := str(entry[0])
 		tab.pressed.connect(func() -> void:
 			_bag_tab = tab_id
@@ -715,43 +716,90 @@ func _install_bag_board() -> void:
 		bag_tabs.add_child(tab)
 	inspect_layer.gui_input.connect(_on_inspect_layer_gui_input)
 	inspect_card.mouse_filter = Control.MOUSE_FILTER_STOP
+	call_deferred("_layout_doll_slots")
 
 
-func _make_slot_button(slot: String) -> Button:
+func _make_slot_wrap(slot: String) -> VBoxContainer:
+	var wrap := VBoxContainer.new()
+	wrap.custom_minimum_size = Vector2(MainTheme.H_SLOT + 8, MainTheme.H_SLOT + 28)
+	wrap.add_theme_constant_override("separation", 6)
+	wrap.alignment = BoxContainer.ALIGNMENT_CENTER
 	var button := Button.new()
 	button.custom_minimum_size = Vector2(MainTheme.H_SLOT, MainTheme.H_SLOT)
-	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	button.add_theme_font_size_override("font_size", MainTheme.SIZE_MICRO)
-	button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	button.icon = BagArt.slot_icon(slot)
+	button.expand_icon = true
+	button.add_theme_constant_override("icon_max_width", MainTheme.ICON_SLOT)
+	button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	button.text = ""
 	button.pressed.connect(func() -> void:
 		_open_slot(slot)
 	)
-	return button
+	var label := Label.new()
+	label.text = EquipSlot.display_name(slot)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	MainTheme.stamp_label(label, MainTheme.SIZE_CAPTION, MainTheme.MUTED)
+	wrap.add_child(button)
+	wrap.add_child(label)
+	_slot_buttons[slot] = button
+	wrap.set_meta("slot_label", label)
+	return wrap
+
+
+func _layout_doll_slots() -> void:
+	if _doll_stage == null:
+		return
+	var size := doll_board.size
+	if size.x < 8.0 or size.y < 8.0:
+		return
+	_doll_stage.size = size
+	if _figure_texture != null:
+		_figure_texture.size = Vector2(minf(380.0, size.x * 0.52), minf(560.0, size.y * 0.72))
+		_figure_texture.position = Vector2(
+			(size.x - _figure_texture.size.x) * 0.5,
+			(size.y - _figure_texture.size.y) * 0.62
+		)
+	var places := {
+		EquipSlot.HELMET: Vector2(0.50, 0.08),
+		EquipSlot.WEAPON: Vector2(0.13, 0.36),
+		EquipSlot.ACCESSORY: Vector2(0.87, 0.36),
+		EquipSlot.CLOTHES: Vector2(0.26, 0.70),
+		EquipSlot.SHOES: Vector2(0.74, 0.70),
+	}
+	for slot in places.keys():
+		var wrap: Control = _slot_wraps.get(slot, null)
+		if wrap == null:
+			continue
+		var point: Vector2 = places[slot]
+		wrap.position = Vector2(size.x * point.x, size.y * point.y) - wrap.size * 0.5
 
 
 func _refresh_doll() -> void:
-	var realm := _session.current_realm()
-	if _figure_label != null:
-		_figure_label.text = "%s\n修士" % (realm.display_name if realm != null else "凡人")
-		MainTheme.stamp_label(_figure_label, MainTheme.SIZE_CAPTION, MainTheme.GOLD)
+	_layout_doll_slots()
 	for slot in EquipSlot.ORDER:
 		var button: Button = _slot_buttons.get(slot, null)
+		var wrap: Control = _slot_wraps.get(slot, null)
 		if button == null:
 			continue
 		var uid := _session.state.equipped.uid_for(slot)
 		var stack := InventoryRules.find_stack(_session.state, uid)
 		var item := _session.item_def(stack.item_id) if stack != null else null
+		var label := wrap.get_meta("slot_label") as Label if wrap != null else null
+		button.icon = BagArt.slot_icon(slot)
 		if item == null:
-			button.text = EquipSlot.display_name(slot)
-			_style_secondary_button(button)
-			button.add_theme_color_override("font_color", MainTheme.MUTED)
+			if label != null:
+				label.text = EquipSlot.display_name(slot)
+				MainTheme.stamp_label(label, MainTheme.SIZE_MICRO, MainTheme.MUTED)
+			button.add_theme_stylebox_override("normal", MainTheme.circle_slot(Color(MainTheme.GOLD.r, MainTheme.GOLD.g, MainTheme.GOLD.b, 0.7)))
+			button.add_theme_stylebox_override("hover", MainTheme.circle_slot(MainTheme.GOLD))
+			button.add_theme_stylebox_override("pressed", MainTheme.circle_slot(MainTheme.GOLD))
 		else:
-			button.text = item.display_name
-			button.add_theme_stylebox_override(
-				"normal",
-				MainTheme._box(Color(0.1, 0.12, 0.1, 1), QualityId.color(item.quality), 2, 16, 0, 8, 8)
-			)
-			button.add_theme_color_override("font_color", QualityId.color(item.quality))
+			if label != null:
+				label.text = item.display_name
+				MainTheme.stamp_label(label, MainTheme.SIZE_MICRO, QualityId.color(item.quality))
+			var border := QualityId.color(item.quality)
+			button.add_theme_stylebox_override("normal", MainTheme.circle_slot(border))
+			button.add_theme_stylebox_override("hover", MainTheme.circle_slot(border))
+			button.add_theme_stylebox_override("pressed", MainTheme.circle_slot(border))
 
 
 func _refresh_bag_tabs() -> void:
@@ -771,34 +819,46 @@ func _refresh_bag_tabs() -> void:
 			"功法":
 				id = ItemDef.KIND_SKILL_BOOK
 		if id == wanted:
-			button.remove_theme_stylebox_override("normal")
-			button.remove_theme_stylebox_override("hover")
-			button.remove_theme_stylebox_override("pressed")
-			button.add_theme_color_override("font_color", Color(0.12, 0.1, 0.06, 1))
+			button.add_theme_stylebox_override("normal", MainTheme.bag_tab_active())
+			button.add_theme_stylebox_override("hover", MainTheme.bag_tab_active())
+			button.add_theme_stylebox_override("pressed", MainTheme.bag_tab_active())
+			button.add_theme_color_override("font_color", Color(0.1, 0.09, 0.06, 1))
+			button.add_theme_color_override("font_hover_color", Color(0.1, 0.09, 0.06, 1))
 		else:
-			_style_secondary_button(button)
+			button.add_theme_stylebox_override("normal", MainTheme.bag_tab_idle())
+			button.add_theme_stylebox_override("hover", MainTheme.bag_tab_idle())
+			button.add_theme_stylebox_override("pressed", MainTheme.bag_tab_idle())
+			button.add_theme_color_override("font_color", MainTheme.MUTED)
+			button.add_theme_color_override("font_hover_color", MainTheme.IVORY)
 
 
 func _make_bag_cell(stack: ItemStack) -> Control:
 	var item := _session.item_def(stack.item_id)
-	var button := Button.new()
-	button.custom_minimum_size = Vector2(0, MainTheme.H_CELL)
-	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	button.add_theme_font_size_override("font_size", MainTheme.SIZE_CAPTION)
-	button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	button.text = _bag_cell_caption(item, stack)
+	var cell := Panel.new()
+	cell.custom_minimum_size = Vector2(MainTheme.H_CELL, MainTheme.H_CELL)
+	cell.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	cell.mouse_filter = Control.MOUSE_FILTER_PASS
+	cell.clip_contents = true
 	var quality := item.quality if item != null else QualityId.WHITE
-	_style_secondary_button(button)
-	button.add_theme_color_override("font_color", QualityId.color(quality))
-	button.add_theme_stylebox_override(
-		"normal",
-		MainTheme._box(Color(0.07, 0.1, 0.09, 0.95), QualityId.color(quality), 1, 14, 0, 8, 8)
+	cell.add_theme_stylebox_override(
+		"panel",
+		MainTheme._box(Color(0.05, 0.08, 0.07, 0.62), QualityId.color(quality), 1, 10, 0, 2, 2)
 	)
+	var caption := Label.new()
+	caption.set_anchors_preset(Control.PRESET_FULL_RECT)
+	caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	caption.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	caption.autowrap_mode = TextServer.AUTOWRAP_OFF
+	caption.clip_text = true
+	caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	caption.text = _bag_cell_caption(item, stack)
+	MainTheme.stamp_label(caption, MainTheme.SIZE_MICRO, QualityId.color(quality))
+	cell.add_child(caption)
 	var uid := stack.uid
-	button.pressed.connect(func() -> void:
+	_bind_bag_tap(cell, func() -> void:
 		_open_inspect(uid)
 	)
-	return button
+	return cell
 
 
 func _bag_cell_caption(item: ItemDef, stack: ItemStack) -> String:
@@ -1235,6 +1295,170 @@ func _on_breakthrough_succeeded(from_name: String, to_name: String, new_rate: fl
 		if generation == _banner_generation:
 			breakthrough_banner.visible = false
 	)
+
+
+func _make_empty_bag_cell() -> Control:
+	var cell := Panel.new()
+	cell.custom_minimum_size = Vector2(MainTheme.H_CELL, MainTheme.H_CELL)
+	cell.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	cell.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	cell.add_theme_stylebox_override("panel", MainTheme.bag_cell_empty())
+	return cell
+
+
+func _apply_bag_atmosphere(enabled: bool) -> void:
+	bag_backdrop.visible = enabled
+	bag_veil_top.visible = enabled
+	bag_veil_bottom.visible = enabled
+	var top_glow := get_node_or_null("TopGlow") as CanvasItem
+	if top_glow != null:
+		top_glow.visible = not enabled
+	if enabled:
+		call_deferred("_layout_doll_slots")
+	if enabled:
+		chrome.add_theme_stylebox_override("panel", MainTheme.chrome_clear())
+		if _cultivation_capsule != null:
+			_cultivation_capsule.add_theme_stylebox_override("panel", MainTheme.cultivation_capsule())
+	else:
+		chrome.add_theme_stylebox_override("panel", MainTheme.footer_panel())
+		if _cultivation_capsule != null:
+			_cultivation_capsule.add_theme_stylebox_override("panel", MainTheme.clear_panel())
+
+
+func _install_nav_icons() -> void:
+	var tabs := {
+		tab_cultivate: BagArt.TAB_CULTIVATE,
+		tab_adventure: BagArt.TAB_ADVENTURE,
+		tab_cave: BagArt.TAB_CAVE,
+		tab_bag: BagArt.TAB_BAG,
+		tab_skill: BagArt.TAB_SKILL,
+	}
+	for tab in tabs.keys():
+		var button: Button = tab
+		button.icon = tabs[tab]
+		button.expand_icon = true
+		button.add_theme_constant_override("icon_max_width", MainTheme.ICON_TAB)
+		button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		button.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP
+		button.add_theme_constant_override("h_separation", 0)
+		button.add_theme_stylebox_override("normal", MainTheme.nav_tab())
+		button.add_theme_stylebox_override("hover", MainTheme.nav_tab())
+		button.add_theme_stylebox_override("pressed", MainTheme.nav_tab())
+		button.add_theme_color_override("font_color", MainTheme.MUTED)
+		button.add_theme_font_size_override("font_size", MainTheme.SIZE_TAB)
+
+
+func _install_bag_scroll() -> void:
+	bag_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	bag_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
+	bag_scroll.scroll_deadzone = 16
+	bag_scroll.custom_minimum_size = Vector2(0, 280)
+	bag_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	tab_bar_dock.add_theme_stylebox_override("panel", MainTheme.tab_dock())
+	bag_scroll.resized.connect(_sync_bag_cell_size)
+	bag_list.resized.connect(_sync_bag_cell_size)
+
+
+func _apply_safe_chrome() -> void:
+	var inset := _viewport_safe_insets()
+	var tab_h := float(MainTheme.H_TAB)
+	var chrome_h := maxf(chrome.get_combined_minimum_size().y, 88.0)
+	chrome.offset_left = 16.0
+	chrome.offset_right = -16.0
+	chrome.offset_top = inset.y + 8.0
+	chrome.offset_bottom = chrome.offset_top + chrome_h
+	tab_bar_dock.offset_left = 0.0
+	tab_bar_dock.offset_right = 0.0
+	tab_bar_dock.offset_bottom = 0.0
+	tab_bar_dock.offset_top = -(inset.w + tab_h)
+	tab_bar.offset_left = 4.0
+	tab_bar.offset_right = -4.0
+	tab_bar.offset_bottom = -inset.w
+	tab_bar.offset_top = -(inset.w + tab_h)
+	content_margin.offset_left = 16.0
+	content_margin.offset_right = -16.0
+	content_margin.offset_top = chrome.offset_bottom + 8.0
+	content_margin.offset_bottom = -(inset.w + tab_h)
+	bag_veil_bottom.offset_top = -(inset.w + tab_h + 72.0)
+	bag_veil_bottom.offset_bottom = 0.0
+	call_deferred("_sync_bag_cell_size")
+
+
+func _viewport_safe_insets() -> Vector4:
+	var window_size := DisplayServer.window_get_size()
+	if window_size.x <= 0 or window_size.y <= 0:
+		return Vector4.ZERO
+	var window_pos := DisplayServer.window_get_position()
+	var window_rect := Rect2(window_pos, window_size)
+	var safe := Rect2(DisplayServer.get_display_safe_area())
+	var overlap := window_rect.intersection(safe)
+	if overlap.size.x <= 0.0 or overlap.size.y <= 0.0:
+		return Vector4.ZERO
+	var view := get_viewport_rect().size
+	if view.x <= 0.0 or view.y <= 0.0:
+		return Vector4.ZERO
+	var scale_x := view.x / float(window_size.x)
+	var scale_y := view.y / float(window_size.y)
+	return Vector4(
+		maxf(overlap.position.x - window_pos.x, 0.0) * scale_x,
+		maxf(overlap.position.y - window_pos.y, 0.0) * scale_y,
+		maxf(window_pos.x + window_size.x - overlap.end.x, 0.0) * scale_x,
+		maxf(window_pos.y + window_size.y - overlap.end.y, 0.0) * scale_y
+	)
+
+
+func _sync_bag_cell_size() -> void:
+	if bag_list == null or bag_scroll == null:
+		return
+	var width := bag_scroll.size.x
+	if width <= 1.0:
+		return
+	var gap := float(MainTheme.BAG_CELL_GAP)
+	var cols := float(MainTheme.BAG_COLUMNS)
+	var cell := floorf((width - gap * (cols - 1.0)) / cols)
+	if cell < 36.0:
+		cell = 36.0
+	var square := Vector2(cell, cell)
+	for child in bag_list.get_children():
+		var control := child as Control
+		if control != null:
+			control.custom_minimum_size = square
+
+
+func _bind_bag_tap(cell: Control, action: Callable) -> void:
+	var start := {"pos": Vector2.ZERO, "down": false}
+	cell.gui_input.connect(func(event: InputEvent) -> void:
+		if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+			if event.pressed:
+				start.pos = event.position
+				start.down = true
+			elif start.down:
+				start.down = false
+				if event.position.distance_to(start.pos) <= 14.0:
+					action.call()
+		elif event is InputEventScreenTouch:
+			if event.pressed:
+				start.pos = event.position
+				start.down = true
+			elif start.down:
+				start.down = false
+				if event.position.distance_to(start.pos) <= 14.0:
+					action.call()
+		elif start.down and (event is InputEventMouseMotion or event is InputEventScreenDrag):
+			if event.position.distance_to(start.pos) > 14.0:
+				start.down = false
+	)
+
+
+func _style_icon_button(button: Button, icon: Texture2D) -> void:
+	button.text = ""
+	button.icon = icon
+	button.expand_icon = true
+	button.add_theme_constant_override("icon_max_width", MainTheme.ICON_CHROME)
+	button.custom_minimum_size = Vector2(96, 96)
+	button.add_theme_stylebox_override("normal", MainTheme.nav_tab())
+	button.add_theme_stylebox_override("hover", MainTheme.nav_tab())
+	button.add_theme_stylebox_override("pressed", MainTheme.nav_tab())
 
 
 func _style_secondary_button(button: Button) -> void:

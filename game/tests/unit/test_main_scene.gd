@@ -37,6 +37,8 @@ const REQUIRED_UNIQUE_NODES := [
 	"SkillPage",
 	"SettingsPage",
 	"TabBar",
+	"TabBarDock",
+	"BagScroll",
 	"TabCave",
 	"SettingsButton",
 	"SettingsBackButton",

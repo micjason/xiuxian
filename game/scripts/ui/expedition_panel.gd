@@ -26,7 +26,7 @@ func _refresh() -> void:
 		return
 	var heading := Label.new()
 	heading.text = "秘境与奇遇 · 委托战力 %d" % session.expedition_power()
-	heading.add_theme_font_size_override("font_size", 21)
+	heading.add_theme_font_size_override("font_size", MainTheme.SIZE_BODY)
 	heading.add_theme_color_override("font_color", Color("dcc076"))
 	add_child(heading)
 	var state := session.state.long_term.expedition

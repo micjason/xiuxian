@@ -161,3 +161,11 @@ func test_gear_power_uses_attack_defense_speed() -> void:
 	assert_almost_eq(sword.gear_power(), expected, 0.0001)
 	var boots := config.item_by_id("boots_0")
 	assert_gt(boots.speed, sword.speed)
+
+
+func test_old_save_capacity_is_raised_to_config() -> void:
+	var config := AdventureConfig.from_resource()
+	var state := CultivationState.new()
+	state.inventory_capacity = 36
+	state.apply_adventure_defaults(config)
+	assert_eq(state.inventory_capacity, 100)

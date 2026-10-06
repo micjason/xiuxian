@@ -5,6 +5,8 @@ alwaysApply: true
 
 # Git 与发布安全
 
+- 平时开发只在 `dev` 分支进行。不为每个功能另开分支。
+- `main` 只保留已经验证过的完整功能。`dev` 上的改动全部验证通过后，才合并进 `main`。
 - 使用小而完整的里程碑提交，提交前检查 diff 和验证结果。
 - 提交信息采用 Conventional Commits，例如 `feat(cultivation): add offline gain calculation`。
 - 不提交 `.godot/`、构建产物、测试报告、下载临时文件和本地环境配置。

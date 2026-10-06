@@ -2,7 +2,7 @@
 
 ## 边界
 
-第一层更新配置、文本、图片、音频等内容；第二层更新 APK 程序。当前已用公开 GitHub Releases 完成 APK 更新 Demo；内容包更新仍只保留设计，不购买业务服务器。
+第一层更新程序包内的配置、文本、图片、音频；第二层更新 APK。玩法配置的发布走 ADR-0006 的后台和接口，不走这条 APK 渠道。当前 APK 热更已用公开 GitHub Releases 和 jsDelivr 在跑。
 
 日常内容更新不应把任意未审核脚本当作资源下发。涉及原生插件、引擎、权限或核心逻辑兼容性时发布新 APK。
 
@@ -49,7 +49,7 @@ manifest 至少包含：
 
 ## 托管建议
 
-Demo 使用公开仓库 `micjason/xiuxian-releases`，不购买业务服务器：
+APK 热更使用公开仓库 `micjason/xiuxian-releases`：
 
 - 清单和签名放在 `main` 分支，客户端从 jsDelivr 读取。
 - APK 放在 GitHub Releases，清单里的 `apk_url` 使用 Releases Assets API。

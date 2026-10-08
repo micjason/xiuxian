@@ -1,4 +1,5 @@
 import { eq } from "drizzle-orm";
+import { withTransaction, type Tx } from "../../db/tx.js";
 import { playerStates, players } from "../../db/schema.js";
 import { getPublishedRealm } from "../content/service.js";
 import { writeOperation, type Db } from "../operations/record.js";
@@ -6,7 +7,7 @@ import { rememberIncome, noticesForPlayer } from "../notices/service.js";
 import { piecePower } from "./power.js";
 import { breakthrough, settleCultivation } from "./progress-rules.js";
 
-async function lockedPlayer(db: Db, playerId: string) {
+async function lockedPlayer(db: Tx, playerId: string) {
   const [state] = await db
     .select()
     .from(playerStates)
@@ -21,20 +22,33 @@ async function lockedPlayer(db: Db, playerId: string) {
 }
 
 export async function openProgress(db: Db, playerId: string, now: Date, versionCode = 0) {
-  const { state, player } = await lockedPlayer(db, playerId);
-  const previousSettledAt = state.lastSettledAt;
-  const realm = await getPublishedRealm(db, state.realmSlug);
-  if (!realm) {
+  const realmPreview = await db.select({ realmSlug: playerStates.realmSlug, username: players.username, cultivation: playerStates.cultivation }).from(playerStates).innerJoin(players, eq(players.id, playerStates.playerId)).where(eq(playerStates.playerId, playerId)).limit(1);
+  const preview = realmPreview[0];
+  if (!preview) {
+    throw new Error("player missing");
+  }
+  const realmOutside = await getPublishedRealm(db, preview.realmSlug);
+  if (!realmOutside) {
     await writeOperation(db, {
       at: now,
       actorType: "player",
       actorId: playerId,
-      actorName: player.username,
+      actorName: preview.username,
       action: "settle",
       result: "failure",
       reason: "missing_release",
-      summary: { cultivation: state.cultivation, realmSlug: state.realmSlug },
+      summary: { cultivation: preview.cultivation, realmSlug: preview.realmSlug },
     });
+    throw new Error("published config missing");
+  }
+  return withTransaction(db, async (tx) => openProgressLocked(tx, playerId, now, versionCode));
+}
+
+async function openProgressLocked(db: Tx, playerId: string, now: Date, versionCode: number) {
+  const { state, player } = await lockedPlayer(db, playerId);
+  const previousSettledAt = state.lastSettledAt;
+  const realm = await getPublishedRealm(db, state.realmSlug);
+  if (!realm) {
     throw new Error("published config missing");
   }
   const elapsedSeconds = Math.floor((now.getTime() - previousSettledAt.getTime()) / 1000);
@@ -111,6 +125,10 @@ export async function listPlayers(db: Db) {
 }
 
 export async function tryBreakthrough(db: Db, playerId: string, now: Date) {
+  return withTransaction(db, async (tx) => tryBreakthroughLocked(tx, playerId, now));
+}
+
+async function tryBreakthroughLocked(db: Tx, playerId: string, now: Date) {
   const { state, player } = await lockedPlayer(db, playerId);
   const realm = await getPublishedRealm(db, state.realmSlug);
   if (!realm) {

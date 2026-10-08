@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import argon2 from "argon2";
 import { eq } from "drizzle-orm";
+import { withTransaction } from "../../db/tx.js";
 import { admins, playerStates, players, sessions } from "../../db/schema.js";
 import { writeOperation, type Db } from "../operations/record.js";
 
@@ -31,30 +32,32 @@ export async function registerPlayer(
   input: { username: string; password: string; now: Date },
 ): Promise<{ playerId: string; token: string }> {
   const passwordHash = await argon2.hash(input.password);
-  const [player] = await db
-    .insert(players)
-    .values({ username: input.username, passwordHash })
-    .returning({ id: players.id });
-  if (!player) {
-    throw new Error("player insert failed");
-  }
-  await db.insert(playerStates).values({
-    playerId: player.id,
-    cultivation: 0,
-    realmSlug: "mortal",
-    lastSettledAt: input.now,
+  return withTransaction(db, async (tx) => {
+    const [player] = await tx
+      .insert(players)
+      .values({ username: input.username, passwordHash })
+      .returning({ id: players.id });
+    if (!player) {
+      throw new Error("player insert failed");
+    }
+    await tx.insert(playerStates).values({
+      playerId: player.id,
+      cultivation: 0,
+      realmSlug: "mortal",
+      lastSettledAt: input.now,
+    });
+    const token = await issueSession(tx, "player", player.id, input.now);
+    await writeOperation(tx, {
+      at: input.now,
+      actorType: "player",
+      actorId: player.id,
+      actorName: input.username,
+      action: "login",
+      result: "success",
+      summary: { playerId: player.id },
+    });
+    return { playerId: player.id, token };
   });
-  const token = await issueSession(db, "player", player.id, input.now);
-  await writeOperation(db, {
-    at: input.now,
-    actorType: "player",
-    actorId: player.id,
-    actorName: input.username,
-    action: "login",
-    result: "success",
-    summary: { playerId: player.id },
-  });
-  return { playerId: player.id, token };
 }
 
 export async function loginPlayer(

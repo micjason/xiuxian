@@ -169,8 +169,7 @@ func _ready() -> void:
 	_session.state_changed.connect(_refresh_all)
 	_session.offline_settled.connect(_on_offline_settled)
 	_session.breakthrough_succeeded.connect(_on_breakthrough_succeeded)
-	var remote := PublishedConfig.fetch()
-	if not _session.start(remote):
+	if not _session.start({}):
 		status_label.text = "修炼配置读取失败。"
 		status_label.visible = true
 		return
@@ -216,6 +215,7 @@ func _ready() -> void:
 		_login.hide()
 		_pull_account()
 		_tick.start()
+	_refresh_published()
 
 	breakthrough_button.pressed.connect(_on_breakthrough_pressed)
 	challenge_button.pressed.connect(_on_challenge_pressed)
@@ -1324,7 +1324,7 @@ func _on_breakthrough_pressed() -> void:
 		return
 	if _account_offline:
 		return
-	var result := PlayerApi.breakthrough(PlayerApi.token())
+	var result: Dictionary = await PlayerApi.breakthrough(PlayerApi.token())
 	if result.is_empty() or int(result.get("code", 0)) >= 400:
 		_account_offline = true
 		breakthrough_button.disabled = true
@@ -1605,11 +1605,18 @@ func _on_update_failed(_message: String) -> void:
 	check_button.disabled = false
 
 
+func _refresh_published() -> void:
+	var remote: Dictionary = await PublishedConfig.fetch()
+	if remote.is_empty() or _session == null or _session.config_service == null:
+		return
+	_session.config_service.apply_published(remote)
+
+
 func _pull_account() -> void:
 	var session_token := PlayerApi.token()
 	if session_token.is_empty():
 		return
-	var snap := PlayerApi.me(session_token, update_service.get_version_code())
+	var snap: Dictionary = await PlayerApi.me(session_token, update_service.get_version_code())
 	if snap.is_empty() or int(snap.get("code", 0)) >= 400 or not snap.has("realmName"):
 		_account_offline = true
 		breakthrough_button.disabled = true
@@ -1666,7 +1673,7 @@ func _refresh_account_cultivation() -> void:
 
 func _on_notice_dismissed(notice_id: String, hide_for_session: bool) -> void:
 	if not hide_for_session:
-		PlayerApi.dismiss_notice(PlayerApi.token(), notice_id)
+		await PlayerApi.dismiss_notice(PlayerApi.token(), notice_id)
 	_notice_queue.close_current(hide_for_session)
 	_notice_layer.show_current()
 

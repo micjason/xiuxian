@@ -1,8 +1,6 @@
 class_name PlayerApi
 extends RefCounted
 
-static func _base_url() -> String:
-	return str(ProjectSettings.get_setting("xiuxian/network/api_base_url", "http://127.0.0.1:8080")).trim_suffix("/")
 const TOKEN_PATH := "user://player_token.txt"
 
 
@@ -25,70 +23,20 @@ static func clear_token() -> void:
 
 
 static func register(username: String, password: String) -> Dictionary:
-	return _request(HTTPClient.METHOD_POST, "/auth/register", {"username": username, "password": password}, "")
+	return await ApiClient.request_json(HTTPClient.METHOD_POST, "/api/v1/auth/register", {"username": username, "password": password})
 
 
 static func login(username: String, password: String) -> Dictionary:
-	return _request(HTTPClient.METHOD_POST, "/auth/login", {"username": username, "password": password}, "")
+	return await ApiClient.request_json(HTTPClient.METHOD_POST, "/api/v1/auth/login", {"username": username, "password": password})
 
 
 static func me(session_token: String, version_code: int) -> Dictionary:
-	return _request(HTTPClient.METHOD_GET, "/me?versionCode=%d" % version_code, {}, session_token)
+	return await ApiClient.request_json(HTTPClient.METHOD_GET, "/api/v1/me?versionCode=%d" % version_code, {}, session_token)
 
 
 static func dismiss_notice(session_token: String, notice_id: String) -> Dictionary:
-	return _request(HTTPClient.METHOD_POST, "/me/notices/%s/dismiss" % notice_id.uri_encode(), {}, session_token)
+	return await ApiClient.request_json(HTTPClient.METHOD_POST, "/api/v1/me/notices/%s/dismiss" % notice_id.uri_encode(), {}, session_token)
 
 
 static func breakthrough(session_token: String) -> Dictionary:
-	return _request(HTTPClient.METHOD_POST, "/me/breakthrough", {}, session_token)
-
-
-static func _request(method: int, path: String, body: Dictionary, session_token: String) -> Dictionary:
-	var client := HTTPClient.new()
-	var base := _base_url()
-	var host := base.trim_prefix("https://").trim_prefix("http://")
-	var port := 443 if base.begins_with("https://") else 80
-	if host.contains(":"):
-		var parts := host.split(":")
-		host = parts[0]
-		port = int(parts[1])
-	elif base.begins_with("http://") and port == 80 and base.get_slice(":", 2) == "":
-		port = 80
-	if client.connect_to_host(host, port) != OK:
-		return {}
-	var deadline := Time.get_ticks_msec() + 8000
-	while client.get_status() == HTTPClient.STATUS_CONNECTING or client.get_status() == HTTPClient.STATUS_RESOLVING:
-		if Time.get_ticks_msec() > deadline:
-			return {}
-		client.poll()
-		OS.delay_msec(10)
-	if client.get_status() != HTTPClient.STATUS_CONNECTED:
-		return {}
-	var headers := PackedStringArray(["User-Agent: xiuxian", "Content-Type: application/json"])
-	if not session_token.is_empty():
-		headers.append("Authorization: Bearer %s" % session_token)
-	var payload := JSON.stringify(body) if not body.is_empty() else ""
-	if client.request(method, path, headers, payload) != OK:
-		return {}
-	while client.get_status() == HTTPClient.STATUS_REQUESTING:
-		if Time.get_ticks_msec() > deadline:
-			return {}
-		client.poll()
-		OS.delay_msec(10)
-	var bytes := PackedByteArray()
-	while client.get_status() == HTTPClient.STATUS_BODY:
-		if Time.get_ticks_msec() > deadline:
-			break
-		client.poll()
-		var chunk := client.read_response_body_chunk()
-		if chunk.is_empty():
-			OS.delay_msec(10)
-		else:
-			bytes.append_array(chunk)
-	var parser := JSON.new()
-	if parser.parse(bytes.get_string_from_utf8()) != OK or typeof(parser.data) != TYPE_DICTIONARY:
-		return {"ok": false, "code": client.get_response_code()}
-	var data: Dictionary = parser.data
-	data["code"] = client.get_response_code()
-	return data
+	return await ApiClient.request_json(HTTPClient.METHOD_POST, "/api/v1/me/breakthrough", {}, session_token)

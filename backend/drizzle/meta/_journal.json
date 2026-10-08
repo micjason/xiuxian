@@ -43,6 +43,13 @@
       "when": 1791461174533,
       "tag": "0005_username_lower_unique",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791461910748,
+      "tag": "0006_player_loop_tables",
+      "breakpoints": true
     }
   ]
 }

@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import type { Db } from "../operations/record.js";
 import { dismissNotice } from "../notices/service.js";
-import { listPlayers, openProgress, syncFromSnapshot, tryBreakthrough } from "./service.js";
+import { listPlayers, openProgress, syncFromSnapshot } from "./service.js";
 
 
 
@@ -44,7 +44,4 @@ export async function registerPlayerRoutes(
     return syncFromSnapshot(deps.db, request.actor!.actorId, deps.now());
   });
 
-  app.post("/me/breakthrough", async (request, reply) => {
-    return tryBreakthrough(deps.db, request.actor!.actorId, deps.now());
-  });
 }

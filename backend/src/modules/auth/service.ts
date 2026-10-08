@@ -5,6 +5,7 @@ import { withTransaction } from "../../db/tx.js";
 import { admins, playerStates, players, sessions } from "../../db/schema.js";
 import { AppError } from "../../shared/errors.js";
 import { writeOperation, type Db } from "../operations/record.js";
+import { initializeProgress } from "../loop/actions.js";
 import { parseCredentials } from "./credentials.js";
 
 const PLAYER_SESSION_MS = 30 * 24 * 60 * 60 * 1000;
@@ -70,6 +71,7 @@ export async function registerPlayer(
         realmSlug: "mortal",
         lastSettledAt: input.now,
       });
+      await initializeProgress(tx, player.id, input.now);
       const token = await issueSession(tx, "player", player.id, input.now);
       await writeOperation(tx, {
         at: input.now,

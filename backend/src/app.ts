@@ -5,12 +5,14 @@ import { authPlugin } from "./plugins/auth.js";
 import { AppError } from "./shared/errors.js";
 import { registerAuthRoutes } from "./modules/auth/routes.js";
 import { registerContentRoutes } from "./modules/content/routes.js";
+import { registerDraftRoutes } from "./modules/content/draft-routes.js";
 import { registerNoticeRoutes } from "./modules/notices/routes.js";
 import { registerOperationRoutes } from "./modules/operations/routes.js";
 import type { Db } from "./modules/operations/record.js";
 import { registerPlayerRoutes } from "./modules/player/routes.js";
 import { registerReleaseRoutes } from "./modules/releases/routes.js";
 import { registerRepairRoutes } from "./modules/repairs/routes.js";
+import { registerGmRoutes } from "./modules/tools/gm.js";
 
 export async function buildApp(db: Db, now: () => Date = () => new Date()): Promise<FastifyInstance> {
   const app = Fastify();
@@ -39,14 +41,19 @@ export async function buildApp(db: Db, now: () => Date = () => new Date()): Prom
   await registerAuthRoutes(app, deps);
   await registerPlayerRoutes(app, deps);
   await registerContentRoutes(app, deps);
+  await registerDraftRoutes(app, deps);
   await registerNoticeRoutes(app, deps);
   await registerOperationRoutes(app, deps);
   await registerRepairRoutes(app, deps);
   await registerReleaseRoutes(app, deps);
+  if (process.env.ENABLE_GM_TOOLS === "true") {
+    await registerGmRoutes(app, deps);
+  }
   await app.register(async (scope) => {
     await registerAuthRoutes(scope, deps);
     await registerPlayerRoutes(scope, deps);
     await registerContentRoutes(scope, deps);
+    await registerDraftRoutes(scope, deps);
     await registerNoticeRoutes(scope, deps);
     await registerOperationRoutes(scope, deps);
     await registerRepairRoutes(scope, deps);

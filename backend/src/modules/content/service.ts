@@ -244,7 +244,7 @@ export async function publish(db: Db, admin: Actor, now: Date): Promise<{ releas
   await writeOperation(db, {
     at: now,
     actorType: "admin",
-    actorId: admin.id === "unused" ? null : admin.id,
+    actorId: admin.id,
     actorName: admin.name,
     action: "publish",
     result: "success",

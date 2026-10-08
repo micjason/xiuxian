@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { contentReleases, items, skills } from "../../db/schema.js";
 import { createAdmin, readSession, registerPlayer } from "../auth/service.js";
+import { testAdmin } from "../../test/admin.js";
 import { withDb } from "../../test/db.js";
 import { ensureDraft, getPublishedRealm, publish, saveItem, saveRealm, saveSkill } from "./service.js";
 
@@ -36,10 +37,10 @@ describe("content publish", () => {
     await withDb(async (db) => {
       await createAdmin(db, { username: "publisher", password: "admin-secret" });
       await saveChain(db);
-      await publish(db, { id: "unused", name: "publisher" }, now);
+      await publish(db, await testAdmin(db), now);
       await saveRealm(db, "publisher", { ...mortal, displayName: "凡人改" });
       expect((await getPublishedRealm(db, "mortal"))?.displayName).toBe("凡人");
-      await publish(db, { id: "unused", name: "publisher" }, now);
+      await publish(db, await testAdmin(db), now);
       const published = await getPublishedRealm(db, "mortal");
       expect(published?.displayName).toBe("凡人改");
       expect(published?.slug).toBe("mortal");
@@ -49,9 +50,9 @@ describe("content publish", () => {
   it("rejects an empty name and leaves the published realm", async () => {
     await withDb(async (db) => {
       await saveChain(db);
-      await publish(db, { id: "unused", name: "publisher" }, now);
+      await publish(db, await testAdmin(db), now);
       await saveRealm(db, "publisher", { ...mortal, displayName: "" });
-      await expect(publish(db, { id: "unused", name: "publisher" }, now)).rejects.toThrow(/empty/);
+      await expect(publish(db, await testAdmin(db), now)).rejects.toThrow(/empty/);
       expect((await getPublishedRealm(db, "mortal"))?.displayName).toBe("凡人");
     });
   });
@@ -83,7 +84,7 @@ describe("content publish", () => {
         hp: 0,
         speed: 0,
       });
-      await publish(db, { id: "unused", name: "publisher" }, now);
+      await publish(db, await testAdmin(db), now);
       const [release] = await db
         .select()
         .from(contentReleases)

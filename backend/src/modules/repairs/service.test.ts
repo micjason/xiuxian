@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { playerStates } from "../../db/schema.js";
 import { authPlugin } from "../../plugins/auth.js";
 import { createAdmin, loginAdmin, registerPlayer } from "../auth/service.js";
+import { testAdmin } from "../../test/admin.js";
 import { withDb } from "../../test/db.js";
 import { applyRepair, previewRepair, registerRepair } from "./service.js";
 import { registerRepairRoutes } from "./routes.js";
@@ -34,10 +35,11 @@ describe("repairs", { timeout: 30_000 }, () => {
           expect.objectContaining({ playerId: player.playerId, before: 10, after: 20, status: "pending" }),
         ]),
       );
-      const applied = await applyRepair(db, { id: "unused", name: "fixer" }, preview.previewId, now);
+      const admin = await testAdmin(db, "fixer");
+      const applied = await applyRepair(db, admin, preview.previewId, now);
       expect(applied.applied).toBeGreaterThan(0);
       expect(await cultivationOf(db, player.playerId)).toBe(20);
-      await applyRepair(db, { id: "unused", name: "fixer" }, preview.previewId, now);
+      await applyRepair(db, admin, preview.previewId, now);
       expect(await cultivationOf(db, player.playerId)).toBe(20);
     });
   });
@@ -48,7 +50,7 @@ describe("repairs", { timeout: 30_000 }, () => {
       await db.update(playerStates).set({ cultivation: 10 }).where(eq(playerStates.playerId, player.playerId));
       const preview = await previewRepair(db, "double-cultivation");
       await db.update(playerStates).set({ cultivation: 11 }).where(eq(playerStates.playerId, player.playerId));
-      await expect(applyRepair(db, { id: "unused", name: "fixer" }, preview.previewId, now)).rejects.toThrow(/stale/);
+      await expect(applyRepair(db, await testAdmin(db, "fixer"), preview.previewId, now)).rejects.toThrow(/stale/);
       expect(await cultivationOf(db, player.playerId)).toBe(11);
     });
   });

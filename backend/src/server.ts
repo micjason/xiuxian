@@ -14,6 +14,11 @@ process.on("uncaughtException", (error) => {
   process.exit(1);
 });
 
+process.on("unhandledRejection", (error) => {
+  writeCrash(error instanceof Error ? error : new Error(String(error)), crashLog);
+  process.exit(1);
+});
+
 const db = getDb();
 const stopSessionCleanup = startSessionCleanup(db);
 const app = await buildApp(db);

@@ -118,7 +118,7 @@ export async function applyRepair(
   await writeOperation(db, {
     at: now,
     actorType: "admin",
-    actorId: admin.id === "unused" ? null : admin.id,
+    actorId: admin.id,
     actorName: admin.name,
     action: "repair",
     result: "success",

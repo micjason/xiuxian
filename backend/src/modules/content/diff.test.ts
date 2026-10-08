@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { testAdmin } from "../../test/admin.js";
 import { withDb } from "../../test/db.js";
 import { updateDraftSettings } from "./pack.js";
 import { diffDraft, publish, saveRealm } from "./service.js";
@@ -22,13 +23,13 @@ describe("diffDraft", { timeout: 20_000 }, () => {
     await withDb(async (db) => {
       await saveRealm(db, "publisher", mortal);
       await saveRealm(db, "publisher", { ...mortal, slug: "qi_early", displayName: "炼气初期", sortOrder: 1, nextSlug: null });
-      await publish(db, { id: "unused", name: "publisher" }, now);
+      await publish(db, await testAdmin(db), now);
       await saveRealm(db, "publisher", { ...mortal, displayName: "凡人改" });
       const pending = await diffDraft(db);
       expect(pending.changes).toEqual([
         { kind: "realm", slug: "mortal", field: "displayName", before: "凡人", after: "凡人改" },
       ]);
-      await publish(db, { id: "unused", name: "publisher" }, now);
+      await publish(db, await testAdmin(db), now);
       const clean = await diffDraft(db);
       expect(clean.changes).toEqual([]);
     });
@@ -38,7 +39,7 @@ describe("diffDraft", { timeout: 20_000 }, () => {
     await withDb(async (db) => {
       await saveRealm(db, "publisher", mortal);
       await saveRealm(db, "publisher", { ...mortal, slug: "qi_early", displayName: "炼气初期", sortOrder: 1, nextSlug: null });
-      await publish(db, { id: "unused", name: "publisher" }, now);
+      await publish(db, await testAdmin(db), now);
       await updateDraftSettings(db, { offlineCapSeconds: 4 * 3600 });
       const pending = await diffDraft(db);
       expect(pending.offlineCapSeconds).toBe(4 * 3600);

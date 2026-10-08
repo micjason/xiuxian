@@ -1,7 +1,9 @@
+import { randomUUID } from "node:crypto";
 import rateLimit from "@fastify/rate-limit";
 import multipart from "@fastify/multipart";
 import { sql } from "drizzle-orm";
 import Fastify, { type FastifyInstance } from "fastify";
+import { contentCurrent } from "./db/schema.js";
 import { authPlugin } from "./plugins/auth.js";
 import { AppError } from "./shared/errors.js";
 import { registerAuthRoutes } from "./modules/auth/routes.js";
@@ -15,8 +17,22 @@ import { registerReleaseRoutes } from "./modules/releases/routes.js";
 import { registerRepairRoutes } from "./modules/repairs/routes.js";
 import { registerGmRoutes } from "./modules/tools/gm.js";
 
+export const logRedact = ["req.headers.authorization", "*.password", "*.token"];
+
 export async function buildApp(db: Db, now: () => Date = () => new Date()): Promise<FastifyInstance> {
-  const app = Fastify();
+  const app = Fastify({
+    logger: {
+      level: process.env.VITEST ? "silent" : (process.env.LOG_LEVEL ?? "info"),
+      redact: logRedact,
+    },
+    genReqId: (request) => {
+      const incoming = request.headers["x-request-id"];
+      return typeof incoming === "string" && incoming.length > 0 ? incoming : randomUUID();
+    },
+  });
+  app.addHook("onRequest", async (request, reply) => {
+    reply.header("x-request-id", request.id);
+  });
   app.setErrorHandler((error: unknown, _request, reply) => {
     if (error instanceof AppError) {
       return reply.code(error.status).send(error.body());
@@ -37,7 +53,12 @@ export async function buildApp(db: Db, now: () => Date = () => new Date()): Prom
   });
   app.get("/healthz", async () => {
     await db.execute(sql`select 1`);
-    return { ok: true, version: process.env.npm_package_version ?? "dev", contentVersion: null };
+    const [current] = await db.select().from(contentCurrent).limit(1);
+    return {
+      ok: true,
+      version: process.env.npm_package_version ?? "dev",
+      contentVersion: current?.version ?? null,
+    };
   });
   await app.register(rateLimit, {
     global: false,
@@ -67,6 +88,9 @@ export async function buildApp(db: Db, now: () => Date = () => new Date()): Prom
     await registerOperationRoutes(scope, deps);
     await registerRepairRoutes(scope, deps);
     await registerReleaseRoutes(scope, deps);
+    if (process.env.ENABLE_GM_TOOLS === "true") {
+      await registerGmRoutes(scope, deps);
+    }
   }, { prefix: "/api/v1" });
   app.addHook("onSend", async (request, reply) => {
     if (!request.url.startsWith("/api/v1")) {

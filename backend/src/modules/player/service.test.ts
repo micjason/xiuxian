@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { playerStates } from "../../db/schema.js";
 import { registerPlayer } from "../auth/service.js";
+import { testAdmin } from "../../test/admin.js";
 import { publish, saveRealm } from "../content/service.js";
 import { listOperations } from "../operations/record.js";
 import { withDb } from "../../test/db.js";
@@ -33,7 +34,7 @@ async function publishedMortal(db: Parameters<typeof saveRealm>[0]) {
     sortOrder: 1,
     nextSlug: null,
   });
-  await publish(db, { id: "unused", name: "publisher" }, start);
+  await publish(db, await testAdmin(db), start);
 }
 
 describe("openProgress", { timeout: 20_000 }, () => {

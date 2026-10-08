@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { publish, saveRealm } from "../content/service.js";
 import { registerPlayer } from "../auth/service.js";
+import { testAdmin } from "../../test/admin.js";
 import { withDb } from "../../test/db.js";
 import { openProgress, tryBreakthrough } from "./service.js";
 
@@ -25,7 +26,7 @@ describe("player concurrency", () => {
     await withDb(async (db) => {
       await saveRealm(db, "publisher", mortal);
       await saveRealm(db, "publisher", { ...mortal, slug: "qi_early", displayName: "炼气初期", sortOrder: 1, nextSlug: null, breakthroughCost: 999999 });
-      await publish(db, { id: "unused", name: "publisher" }, start);
+      await publish(db, await testAdmin(db), start);
       const player = await registerPlayer(db, { username: "racer", password: "correct-horse", now: start });
       const results = await Promise.all(Array.from({ length: 10 }, () => openProgress(db, player.playerId, later)));
       expect(results.every((row) => row.cultivation === 100)).toBe(true);
@@ -36,7 +37,7 @@ describe("player concurrency", () => {
     await withDb(async (db) => {
       await saveRealm(db, "publisher", { ...mortal, breakthroughCost: 0 });
       await saveRealm(db, "publisher", { ...mortal, slug: "qi_early", displayName: "炼气初期", sortOrder: 1, nextSlug: null, breakthroughCost: 999999 });
-      await publish(db, { id: "unused", name: "publisher" }, start);
+      await publish(db, await testAdmin(db), start);
       const player = await registerPlayer(db, { username: "racer2", password: "correct-horse", now: start });
       const results = await Promise.all(Array.from({ length: 5 }, () => tryBreakthrough(db, player.playerId, start)));
       const wins = results.filter((row) => row.ok && row.realmSlug === "qi_early");

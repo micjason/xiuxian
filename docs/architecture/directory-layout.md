@@ -30,7 +30,7 @@ xiuxian/
 - 可被游戏加载的优化后素材放 `game/assets/`；原始或候选素材放 `content-source/`。
 - `game/resources/config/` 放运行时配置，玩法规则代码不得硬编码其重复副本。
 - 构建输出只进入 `builds/`，不放在 `game/`，不提交 Git。
-- `backend/` 与 `admin/` 的技术选型以 ADR-0006 为准。两目录尚未实现可运行程序。
+- `backend/` 与 `admin/` 的技术选型以 ADR-0006 为准。两目录已有可运行程序，本机启动见 `docs/operations/local-dev.md`。
 - Godot 不打开 `backend/` 和 `admin/`。
 
 CodeGraph 索引在本机 `.codegraph/`，由该目录自带的忽略规则排除数据库，不提交索引本身。

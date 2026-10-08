@@ -2,7 +2,7 @@
 
 2026-10-02 起，产品边界以 [ADR-0006](../decisions/0006-online-product.md) 为准。下文若与它冲突，以 ADR-0006 执行。
 
-已发布客户端是应用 `0.6.3`、versionCode 20、本地存档 schema 5。后台、接口和数据库尚未实现。
+已发布客户端是应用 `0.6.7`、versionCode 24。后台、接口和数据库已可在本机运行，见 `docs/operations/local-dev.md`。手机端仍会改成只展示服务器结果，路线见 `docs/roadmap/`。
 
 ## 产品定位
 

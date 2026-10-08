@@ -1,5 +1,5 @@
 # 后端
 
-玩家注册登录、结算、突破、配置发布、操作记录和修复入口。接口跑在阿里云上，PostgreSQL 只监听那台机器的本机地址，不开放到公网。
+玩家注册登录、结算、突破、配置发布、操作记录和修复入口。本机开发见仓库根目录的 `docs/operations/local-dev.md`。
 
-页面开发时不用在本机启动这个目录。后台的 `npm run dev` 会把请求转到 `http://101.132.74.32`。接口由服务器上的 `xiuxian-api` 服务一直运行。
+PostgreSQL 只监听本机。开发时用 `backend/docker-compose.yml` 起 `xiuxian_dev` 和 `xiuxian_test`。后台的 `npm run dev` 默认把请求转到 `http://127.0.0.1:8080`，地址由 `VITE_API_PROXY` 覆盖。

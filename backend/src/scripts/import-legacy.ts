@@ -1,6 +1,14 @@
 import { readFileSync } from "node:fs";
 import { eq } from "drizzle-orm";
-import { contentGlobals, contentItems, contentRealms, contentSkills } from "../db/schema.js";
+import {
+  contentDropEntries,
+  contentDropTables,
+  contentGlobals,
+  contentItems,
+  contentRealms,
+  contentSkills,
+  contentStages,
+} from "../db/schema.js";
 import type { Db } from "../modules/operations/record.js";
 
 type IdleRealm = {
@@ -41,7 +49,30 @@ type Adventure = {
     cultivate_bonus?: number;
     min_realm_order?: number;
   }[];
+  stages?: {
+    id: string;
+    display_name: string;
+    order: number;
+    min_realm_order?: number;
+    min_power?: number;
+    next_id?: string;
+    monsters?: {
+      display_name: string;
+      attack: number;
+      defense: number;
+      hp: number;
+      interval: number;
+      drops?: { item_id: string; chance: number; count: number }[];
+    }[];
+  }[];
+  loot_chance_scale?: number;
 };
+
+const QUALITY_RANK = ["white", "blue", "purple", "gold", "red"];
+
+function chanceBp(chance: number, scale: number): number {
+  return Math.max(1, Math.round(chance * scale * 10000));
+}
 
 function majorOf(slug: string): string {
   if (slug.startsWith("mortal")) return "凡人";
@@ -58,6 +89,11 @@ export async function importLegacyContent(db: Db, idlePath: string, adventurePat
   const idle = JSON.parse(readFileSync(idlePath, "utf8")) as { offline_cap_seconds?: number; realms: IdleRealm[] };
   const adventure = JSON.parse(readFileSync(adventurePath, "utf8")) as Adventure;
   const byOrder = new Map(idle.realms.map((realm) => [realm.order, realm]));
+  const scale = adventure.loot_chance_scale ?? 1;
+  const itemsBySlug = new Map((adventure.items ?? []).map((item) => [item.id, item]));
+  await db.delete(contentDropEntries);
+  await db.delete(contentStages);
+  await db.delete(contentDropTables);
   await db.delete(contentSkills);
   await db.delete(contentItems);
   await db.delete(contentRealms);
@@ -97,12 +133,12 @@ export async function importLegacyContent(db: Db, idlePath: string, adventurePat
       description: item.description ?? "",
       kind: item.kind,
       quality: item.quality ?? "white",
-      slot: item.slot ?? null,
+      slot: item.slot || null,
       attack: item.attack ?? 0,
       defense: item.defense ?? 0,
       hp: item.hp ?? 0,
       speed: item.speed ?? 0,
-      skillSlug: item.skill_id ?? null,
+      skillSlug: item.skill_id || null,
       stackable: item.stackable ?? item.kind !== "equipment",
     });
   }
@@ -119,6 +155,87 @@ export async function importLegacyContent(db: Db, idlePath: string, adventurePat
       speed: skill.speed ?? 0,
       cultivateBonusBp: Math.round((skill.cultivate_bonus ?? 0) * 10000),
       requiredRealmOrder: skill.min_realm_order ?? 0,
+    });
+  }
+  for (const stage of adventure.stages ?? []) {
+    const monsters = stage.monsters ?? [];
+    const boss = monsters[monsters.length - 1];
+    const idleMonsters = monsters.slice(0, -1);
+    const tables = [
+      { suffix: "boss", drops: boss?.drops ?? [] },
+      {
+        suffix: "idle",
+        drops: idleMonsters.flatMap((monster) => monster.drops ?? []),
+      },
+    ];
+    for (const table of tables) {
+      const slug = `drop_${stage.id}_${table.suffix}`;
+      await db.insert(contentDropTables).values({ slug, displayName: `${stage.display_name}${table.suffix === "boss" ? "首领" : "挂机"}` });
+      const merged = new Map<string, { chanceBp: number; qty: number }>();
+      for (const drop of table.drops) {
+        const next = { chanceBp: chanceBp(drop.chance, scale), qty: Math.max(1, drop.count || 1) };
+        const current = merged.get(drop.item_id);
+        if (!current || next.chanceBp > current.chanceBp) {
+          merged.set(drop.item_id, next);
+        }
+      }
+      const entries = [...merged.entries()].filter(([itemSlug]) => itemsBySlug.has(itemSlug));
+      if (entries.length > 0) {
+        await db.insert(contentDropEntries).values(
+          entries.map(([itemSlug, value]) => ({
+            dropTableSlug: slug,
+            itemSlug,
+            chanceBp: value.chanceBp,
+            minQty: value.qty,
+            maxQty: value.qty,
+          })),
+        );
+      }
+    }
+    const firstSlug = `drop_${stage.id}_first`;
+    await db.insert(contentDropTables).values({ slug: firstSlug, displayName: `${stage.display_name}首通` });
+    let bestEquip: { slug: string; rank: number } | null = null;
+    let bookSlug: string | null = null;
+    for (const drop of boss?.drops ?? []) {
+      const item = itemsBySlug.get(drop.item_id);
+      if (!item) {
+        continue;
+      }
+      if (item.kind === "skill_book" && !bookSlug) {
+        bookSlug = item.id;
+      }
+      if (item.kind === "equipment") {
+        const rank = QUALITY_RANK.indexOf(item.quality ?? "white");
+        if (!bestEquip || rank >= bestEquip.rank) {
+          bestEquip = { slug: item.id, rank };
+        }
+      }
+    }
+    const firstEntries = [
+      ...(bestEquip ? [{ itemSlug: bestEquip.slug, chanceBp: 10000, minQty: 1, maxQty: 1 }] : []),
+      ...(bookSlug ? [{ itemSlug: bookSlug, chanceBp: 10000, minQty: 1, maxQty: 1 }] : []),
+    ];
+    if (firstEntries.length > 0) {
+      await db.insert(contentDropEntries).values(firstEntries.map((entry) => ({ dropTableSlug: firstSlug, ...entry })));
+    }
+    if (!boss) {
+      continue;
+    }
+    await db.insert(contentStages).values({
+      slug: stage.id,
+      displayName: stage.display_name,
+      sortOrder: stage.order,
+      nextStageSlug: stage.next_id || null,
+      requiredRealmOrder: stage.min_realm_order ?? 0,
+      recommendedPower: Math.round(stage.min_power ?? 0),
+      bossName: boss.display_name,
+      bossAttack: boss.attack,
+      bossDefense: boss.defense,
+      bossHp: boss.hp,
+      bossInterval: boss.interval,
+      bossDropTableSlug: `drop_${stage.id}_boss`,
+      idleDropTableSlug: `drop_${stage.id}_idle`,
+      firstClearDropTableSlug: firstSlug,
     });
   }
   await db.select().from(contentRealms).where(eq(contentRealms.slug, "mortal"));

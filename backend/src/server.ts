@@ -17,3 +17,12 @@ const db = getDb();
 const app = await buildApp(db);
 const port = config.PORT;
 await app.listen({ port, host: "0.0.0.0" });
+
+async function shutdown() {
+  await app.close();
+  const { getSql } = await import("./db/client.js");
+  await getSql().end();
+  process.exit(0);
+}
+process.on("SIGTERM", () => void shutdown());
+process.on("SIGINT", () => void shutdown());

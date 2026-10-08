@@ -1,4 +1,5 @@
 import multipart from "@fastify/multipart";
+import { sql } from "drizzle-orm";
 import Fastify, { type FastifyInstance } from "fastify";
 import { authPlugin } from "./plugins/auth.js";
 import { AppError } from "./shared/errors.js";
@@ -27,6 +28,10 @@ export async function buildApp(db: Db, now: () => Date = () => new Date()): Prom
     }
     app.log.error(error);
     return reply.code(500).send(new AppError("INTERNAL").body());
+  });
+  app.get("/healthz", async () => {
+    await db.execute(sql`select 1`);
+    return { ok: true, version: process.env.npm_package_version ?? "dev", contentVersion: null };
   });
   await app.register(multipart, { limits: { fileSize: 200 * 1024 * 1024 } });
   const deps = { db, now };

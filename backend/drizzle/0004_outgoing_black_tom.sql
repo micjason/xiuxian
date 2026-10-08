@@ -1,0 +1,1 @@
+ALTER TABLE "content_realms" ALTER COLUMN "breakthrough_cost" SET DATA TYPE double precision;

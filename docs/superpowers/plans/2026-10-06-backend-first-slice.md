@@ -1,5 +1,7 @@
 # 后端第一批 Implementation Plan
 
+> 已被 `docs/roadmap/` 取代，不再执行。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 在本机做出玩家登录、结算、突破、战力、配置发布、操作记录查询和修复入口，并用测试证明。

@@ -1,5 +1,9 @@
 # 内容发布与弹窗队列 Implementation Plan
 
+> 已被 `docs/roadmap/` 取代，不再执行。
+
+# 内容发布与弹窗队列 Implementation Plan
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 制作后台用同一份草稿发布境界、关卡、物品、技能和掉落；游戏端用一条弹窗队列显示服务器下发的通知。

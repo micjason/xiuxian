@@ -1,0 +1,8 @@
+---
+description: 实现前先读路线图规格，冲突时以路线图为准
+alwaysApply: true
+---
+
+# 路线图
+
+实现任何功能前先读 `docs/roadmap/02-target-architecture.md` 对应章节。`docs/roadmap/` 与旧文档冲突时以路线图为准。

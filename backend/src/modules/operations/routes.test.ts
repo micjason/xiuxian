@@ -13,7 +13,7 @@ describe("operation routes", { timeout: 20_000 }, () => {
     await withDb(async (db) => {
       await createAdmin(db, { username: "auditor", password: "admin-secret" });
       const admin = await loginAdmin(db, { username: "auditor", password: "admin-secret", now });
-      const player = await registerPlayer(db, { username: "甲", password: "correct-horse", now });
+      const player = await registerPlayer(db, { username: "玩家甲", password: "correct-horse", now });
       if (!admin.ok) {
         throw new Error("admin login failed");
       }
@@ -51,8 +51,8 @@ describe("operation routes", { timeout: 20_000 }, () => {
 
   it("returns publish records without a player name", async () => {
     await withDb(async (db) => {
-      await createAdmin(db, { username: "publisher-log", password: "admin-secret" });
-      const admin = await loginAdmin(db, { username: "publisher-log", password: "admin-secret", now });
+      await createAdmin(db, { username: "publisher_log", password: "admin-secret" });
+      const admin = await loginAdmin(db, { username: "publisher_log", password: "admin-secret", now });
       if (!admin.ok) {
         throw new Error("admin login failed");
       }

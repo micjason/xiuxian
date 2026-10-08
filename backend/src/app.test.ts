@@ -6,7 +6,7 @@ import { buildApp } from "./app.js";
 describe("buildApp", { timeout: 30_000 }, () => {
   it("serves register, publish, and progress without an admin signup route", async () => {
     await withDb(async (db) => {
-      await createAdmin(db, { username: "app-admin", password: "admin-secret" });
+      await createAdmin(db, { username: "app_admin", password: "admin-secret" });
       const app = await buildApp(db);
       const health = await app.inject({ method: "GET", url: "/healthz" });
       expect(health.statusCode).toBe(200);
@@ -21,7 +21,7 @@ describe("buildApp", { timeout: 30_000 }, () => {
       const registered = await app.inject({
         method: "POST",
         url: "/auth/register",
-        payload: { username: "app-player", password: "correct-horse" },
+        payload: { username: "app_player", password: "correct-horse" },
       });
       expect(registered.statusCode).toBe(200);
       const playerToken = registered.json().token as string;
@@ -29,7 +29,7 @@ describe("buildApp", { timeout: 30_000 }, () => {
       const adminLogin = await app.inject({
         method: "POST",
         url: "/admin/auth/login",
-        payload: { username: "app-admin", password: "admin-secret" },
+        payload: { username: "app_admin", password: "admin-secret" },
       });
       expect(adminLogin.statusCode).toBe(200);
       const adminToken = adminLogin.json().token as string;

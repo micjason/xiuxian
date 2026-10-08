@@ -17,31 +17,36 @@ declare module "fastify" {
 
 export function authPlugin(db: Db, now: () => Date) {
   return async function registerAuth(app: import("fastify").FastifyInstance) {
-    app.decorateRequest("actor", null);
-    app.decorate("requirePlayer", async (request: FastifyRequest, _reply: FastifyReply) => {
-      const actor = await actorFrom(db, request, now());
-      if (!actor || actor.actorType !== "player") {
-        throw new AppError(actor ? "FORBIDDEN" : "UNAUTHORIZED");
-      }
-      request.actor = actor;
-    });
-    app.decorate("requireAdmin", async (request: FastifyRequest, _reply: FastifyReply) => {
-      const actor = await actorFrom(db, request, now());
-      if (!actor || actor.actorType !== "admin") {
-        throw new AppError(actor ? "FORBIDDEN" : "UNAUTHORIZED");
-      }
-      request.actor = actor;
-    });
+    if (!app.hasRequestDecorator("actor")) {
+      app.decorateRequest("actor", null);
+    }
+    if (!app.hasDecorator("requirePlayer")) {
+      app.decorate("requirePlayer", async (request: FastifyRequest, _reply: FastifyReply) => {
+        const actor = await actorFrom(db, request, now());
+        if (!actor || actor.actorType !== "player") {
+          throw new AppError(actor ? "FORBIDDEN" : "UNAUTHORIZED");
+        }
+        request.actor = actor;
+      });
+      app.decorate("requireAdmin", async (request: FastifyRequest, _reply: FastifyReply) => {
+        const actor = await actorFrom(db, request, now());
+        if (!actor || actor.actorType !== "admin") {
+          throw new AppError(actor ? "FORBIDDEN" : "UNAUTHORIZED");
+        }
+        request.actor = actor;
+      });
+    }
     app.addHook("onRoute", (route) => {
-      const url = route.url;
+      const url = route.url.split("?")[0] ?? route.url;
       if (url.endsWith("/auth/login") || url.endsWith("/auth/register") || url.endsWith("/auth/logout")) {
         return;
       }
       const current = route.preHandler;
       const list = Array.isArray(current) ? current : current ? [current] : [];
+      const playerRoute = /(^|\/)me(\/|$)/.test(url);
       if (url.includes("/admin")) {
         route.preHandler = [app.requireAdmin, ...list];
-      } else if (url === "/me" || url.startsWith("/me/")) {
+      } else if (playerRoute) {
         route.preHandler = [app.requirePlayer, ...list];
       }
     });

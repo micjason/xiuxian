@@ -26,7 +26,7 @@ export const operationResult = pgEnum("operation_result", ["success", "failure"]
 export const players = pgTable("players", {
   id: uuid("id").primaryKey().defaultRandom(),
   username: text("username").notNull().unique(),
-  usernameLower: text("username_lower").notNull().default(""),
+  usernameLower: text("username_lower").notNull().default("").unique(),
   passwordHash: text("password_hash").notNull(),
   status: text("status").notNull().default("active"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

@@ -43,7 +43,7 @@ func is_valid() -> bool:
 
 
 static func _apk_url_allowed(url: String) -> bool:
-	return url.begins_with("https://") or url.begins_with("http://101.132.74.32/")
+	return url.begins_with("https://") or url.begins_with("http://127.0.0.1") or url.begins_with("http://localhost")
 
 
 func as_dictionary() -> Dictionary:

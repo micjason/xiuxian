@@ -24,7 +24,7 @@ func test_self_hosted_http_url_is_accepted() -> void:
 		"version": "0.6.4",
 		"version_code": 21,
 		"minimum_version": "0.6.4",
-		"apk_url": "http://101.132.74.32/apk/xiuxian.apk",
+		"apk_url": "http://127.0.0.1:8080/apk/xiuxian.apk",
 		"apk_size": 1024,
 		"apk_sha256": "a".repeat(64),
 	})

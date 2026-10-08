@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import type { Db } from "../operations/record.js";
 import { dismissNotice } from "../notices/service.js";
-import { listPlayers, openProgress, tryBreakthrough } from "./service.js";
+import { listPlayers, openProgress, syncFromSnapshot, tryBreakthrough } from "./service.js";
 
 
 
@@ -24,6 +24,10 @@ export async function registerPlayerRoutes(
     const params = request.params as { id: string };
     await dismissNotice(deps.db, request.actor!.actorId, params.id, deps.now());
     return { ok: true };
+  });
+
+  app.post("/me/sync", async (request, _reply) => {
+    return syncFromSnapshot(deps.db, request.actor!.actorId, deps.now());
   });
 
   app.post("/me/breakthrough", async (request, reply) => {

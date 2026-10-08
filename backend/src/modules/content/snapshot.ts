@@ -29,6 +29,7 @@ export async function loadDraftSnapshot(db: Db | Tx): Promise<ContentSnapshot> {
     globals: {
       startingRealmSlug: globals?.startingRealmSlug ?? "mortal",
       starterItems: (globals?.starterItems as { itemSlug: string; quantity: number }[] | undefined) ?? [],
+      offlineCapSeconds: globals?.offlineCapSeconds ?? 28800,
     },
     realms: realms.map((row) => ({
       slug: row.slug,

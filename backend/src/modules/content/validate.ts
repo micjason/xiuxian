@@ -6,6 +6,7 @@ export type ContentSnapshot = {
   globals: {
     startingRealmSlug: string;
     starterItems: { itemSlug: string; quantity: number }[];
+    offlineCapSeconds?: number;
   };
   realms: {
     slug: string;

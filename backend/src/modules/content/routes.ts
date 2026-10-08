@@ -12,6 +12,7 @@ import {
   saveStage,
   updateDraftSettings,
 } from "./pack.js";
+import { AppError } from "../../shared/errors.js";
 import { PublishRejected } from "./service.js";
 import {
   diffDraft,
@@ -83,7 +84,7 @@ export async function registerContentRoutes(
         quantity: Number(body.quantity),
       });
     } catch (cause) {
-      return reply.code(400).send({ reason: cause instanceof Error ? cause.message : "invalid" });
+      throw new AppError("INVALID_INPUT", cause instanceof Error ? cause.message : undefined);
     }
     return { ok: true };
   });
@@ -107,7 +108,7 @@ export async function registerContentRoutes(
   app.post("/admin/content/import", async (request, reply) => {
     const body = request.body as { idle?: JsonRecord; adventure?: JsonRecord; longterm?: JsonRecord };
     if (!body.idle || !body.adventure || !body.longterm) {
-      return reply.code(400).send({ reason: "invalid" });
+      throw new AppError("INVALID_INPUT");
     }
     await importContentBodies(deps.db, { idle: body.idle, adventure: body.adventure, longterm: body.longterm });
     return { ok: true };
@@ -161,7 +162,7 @@ export async function registerContentRoutes(
       return await publish(deps.db, { id: request.actor!.actorId, name: request.actor!.actorName, actorType: "admin" }, deps.now());
     } catch (cause) {
       if (cause instanceof PublishRejected) {
-        return reply.code(400).send({ reason: cause.message });
+        throw new AppError("PUBLISH_REJECTED", cause.message);
       }
       throw cause;
     }

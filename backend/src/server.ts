@@ -13,4 +13,4 @@ process.on("uncaughtException", (error) => {
 const db = getDb();
 const app = await buildApp(db);
 const port = Number(process.env.PORT ?? 8080);
-await app.listen({ port, host: "127.0.0.1" });
+await app.listen({ port, host: "0.0.0.0" });

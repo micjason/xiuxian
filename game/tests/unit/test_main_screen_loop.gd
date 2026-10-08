@@ -23,10 +23,7 @@ func test_main_screen_shows_offline_breakthrough_journal_and_first_three_realms(
 	Helper.silence_update(scene)
 
 	var offline := scene.get_node("%OfflineDialog") as AcceptDialog
-	assert_true(offline.visible, "capped offline should open the 闭关 dialog")
-	assert_true(offline.dialog_text.contains("闭关归来"), offline.dialog_text)
-	assert_true(offline.dialog_text.contains("获得修为"), offline.dialog_text)
-	assert_true(offline.dialog_text.contains("已顶到离线上限"), offline.dialog_text)
+	assert_false(offline.visible, "闭关详情改由通知队列显示，不再打开这扇窗口")
 	assert_true((scene.get_node("%OfflineLabel") as Label).text.contains("闭关归来"))
 	assert_true((scene.get_node("%JournalLabel") as Label).text.contains("闭关归来"))
 	assert_eq((scene.get_node("%RealmLabel") as Label).text, "凡人")

@@ -118,6 +118,12 @@ var _cultivation_capsule: PanelContainer
 var _inspect_empty_slot := ""
 var _selected_skill_id := ""
 var _skill_tab := "all"
+var _snap: Dictionary = {}
+var _account_offline := false
+var _login: PlayerLogin
+var _logout_button: Button
+var _notice_queue: NoticeQueue
+var _notice_layer: NoticeLayer
 
 
 func _ready() -> void:
@@ -163,7 +169,8 @@ func _ready() -> void:
 	_session.state_changed.connect(_refresh_all)
 	_session.offline_settled.connect(_on_offline_settled)
 	_session.breakthrough_succeeded.connect(_on_breakthrough_succeeded)
-	if not _session.start():
+	var remote := PublishedConfig.fetch()
+	if not _session.start(remote):
 		status_label.text = "修炼配置读取失败。"
 		status_label.visible = true
 		return
@@ -178,11 +185,37 @@ func _ready() -> void:
 	_page_router.register_page(PAGE_SETTINGS, settings_page)
 
 	_tick = Timer.new()
-	_tick.wait_time = TICK_SECONDS
-	_tick.autostart = true
-	_tick.timeout.connect(_session.tick_online)
+	_tick.wait_time = 5.0
+	_tick.autostart = false
+	_tick.timeout.connect(_pull_account)
 	add_child(_tick)
-	tree_exiting.connect(_session.tick_online)
+	tab_adventure.visible = false
+	tab_cave.visible = false
+	tab_bag.visible = false
+	tab_skill.visible = false
+	tab_bar_dock.visible = false
+	_logout_button = Button.new()
+	_logout_button.text = "退出"
+	_logout_button.custom_minimum_size = Vector2(160, 96)
+	_logout_button.add_theme_font_size_override("font_size", MainTheme.SIZE_UI)
+	_logout_button.add_theme_color_override("font_color", MainTheme.GOLD)
+	_logout_button.pressed.connect(_logout_account)
+	chrome_row.add_child(_logout_button)
+	_login = PlayerLogin.new()
+	_login.logged_in.connect(_on_account_logged_in)
+	add_child(_login)
+	_notice_queue = NoticeQueue.new()
+	_notice_layer = NoticeLayer.new()
+	_notice_layer.queue = _notice_queue
+	_notice_layer.dismissed.connect(_on_notice_dismissed)
+	_notice_layer.download_requested.connect(update_service.download_update)
+	add_child(_notice_layer)
+	if PlayerApi.token().is_empty():
+		_login.show()
+	else:
+		_login.hide()
+		_pull_account()
+		_tick.start()
 
 	breakthrough_button.pressed.connect(_on_breakthrough_pressed)
 	challenge_button.pressed.connect(_on_challenge_pressed)
@@ -263,6 +296,9 @@ func _refresh_all() -> void:
 
 
 func _refresh_cultivation() -> void:
+	if not _snap.is_empty():
+		_refresh_account_cultivation()
+		return
 	var realm := _session.current_realm()
 	if realm == null or _session.state == null:
 		return
@@ -572,6 +608,9 @@ func _apply_layout() -> void:
 
 
 func _refresh_chrome_power() -> void:
+	if not _snap.is_empty():
+		chrome_power.text = "战力 %s" % CultivationFormat.amount(float(_snap.get("power", 0)))
+		return
 	if _session == null or _session.state == null:
 		chrome_power.text = "战力 —"
 		return
@@ -1280,7 +1319,24 @@ func _on_export_pressed() -> void:
 
 
 func _on_breakthrough_pressed() -> void:
-	_session.try_breakthrough()
+	if PlayerApi.token().is_empty():
+		_session.try_breakthrough()
+		return
+	if _account_offline:
+		return
+	var result := PlayerApi.breakthrough(PlayerApi.token())
+	if result.is_empty() or int(result.get("code", 0)) >= 400:
+		_account_offline = true
+		breakthrough_button.disabled = true
+		status_label.text = "网络失败，突破未提交"
+		status_label.visible = true
+		return
+	if bool(result.get("ok", false)):
+		_on_breakthrough_succeeded(str(_snap.get("realmName", "")), str(result.get("realmSlug", "")), float(_snap.get("gainPerSecond", 0)))
+	else:
+		breakthrough_banner.text = "修为不足，未能突破"
+		breakthrough_banner.visible = true
+	_pull_account()
 
 
 func _on_breakthrough_succeeded(from_name: String, to_name: String, new_rate: float) -> void:
@@ -1510,17 +1566,6 @@ func _play_breakthrough_flash() -> void:
 
 func _on_offline_settled(result: SettlementResult) -> void:
 	offline_label.text = OfflineCopy.banner(result)
-	var message := OfflineCopy.dialog(result, _session.config.offline_cap_seconds)
-	if (
-		_session.state != null
-		and not _session.state.long_term.last_summary.is_empty()
-	):
-		message += "\n\n" + "\n".join(_session.state.long_term.last_summary)
-	if message.is_empty():
-		_refresh_all()
-		return
-	offline_dialog.dialog_text = message
-	offline_dialog.popup_centered(Vector2i(780, 520))
 	_refresh_all()
 
 
@@ -1536,16 +1581,8 @@ func _on_status_changed(message: String) -> void:
 	status_label.visible = not message.strip_edges().is_empty()
 
 
-func _on_update_available(info: Dictionary) -> void:
+func _on_update_available(_info: Dictionary) -> void:
 	check_button.disabled = false
-	var notes := str(info.get("release_notes", ""))
-	if notes.is_empty():
-		notes = "包含新的可玩内容。"
-	update_dialog.dialog_text = "新版本：%s\n\n%s\n\n是否立即下载？" % [
-		str(info.get("version", "")),
-		notes,
-	]
-	update_dialog.popup_centered(Vector2i(780, 520))
 
 
 func _on_no_update(_version: String) -> void:
@@ -1566,6 +1603,85 @@ func _on_download_ready(_path: String) -> void:
 
 func _on_update_failed(_message: String) -> void:
 	check_button.disabled = false
+
+
+func _pull_account() -> void:
+	var session_token := PlayerApi.token()
+	if session_token.is_empty():
+		return
+	var snap := PlayerApi.me(session_token, update_service.get_version_code())
+	if snap.is_empty() or int(snap.get("code", 0)) >= 400 or not snap.has("realmName"):
+		_account_offline = true
+		breakthrough_button.disabled = true
+		if not _snap.is_empty():
+			status_label.text = "网络失败，显示上次的修炼"
+			status_label.visible = true
+		return
+	_account_offline = false
+	status_label.visible = false
+	_snap = snap
+	offline_label.text = "本次修为 +%s" % CultivationFormat.amount(float(snap.get("gained", 0)))
+	_refresh_cultivation()
+	_refresh_chrome_power()
+	var notices: Array = snap.get("notices", [])
+	_notice_queue.sync(notices)
+	_notice_layer.show_current()
+
+
+func _refresh_account_cultivation() -> void:
+	var cultivation := float(_snap.get("cultivation", 0))
+	var cost := float(_snap.get("breakthroughCost", 0))
+	var rate := float(_snap.get("gainPerSecond", 0))
+	var next_name := str(_snap.get("nextRealmName", ""))
+	realm_label.text = str(_snap.get("realmName", ""))
+	realm_path.text = ""
+	rate_label.text = CultivationFormat.rate(rate)
+	journal_label.text = "进度记在账号上"
+	if next_name.is_empty():
+		cultivation_label.text = "修为  %s" % CultivationFormat.amount(cultivation)
+		next_cost_label.text = "—"
+		next_realm_label.text = "已至顶峰"
+		progress_hint.text = "已至当前最高境界"
+		breakthrough_button.disabled = true
+		breakthrough_button.text = "已圆满"
+		_set_ready_pulse(false)
+		return
+	cultivation_label.text = "修为  %s / %s" % [CultivationFormat.amount(cultivation), CultivationFormat.amount(cost)]
+	next_cost_label.text = CultivationFormat.amount(cost)
+	next_realm_label.text = next_name
+	var can_break := bool(_snap.get("canBreakthrough", false)) and not _account_offline
+	if can_break:
+		progress_hint.text = "修为已足，可突破至 %s" % next_name
+	else:
+		var remaining := maxf(0.0, cost - cultivation)
+		var wait := int(ceili(remaining / maxf(rate, 0.001)))
+		progress_hint.text = "距突破还需 %s · 约 %s" % [CultivationFormat.amount(remaining), CultivationFormat.duration_hours(wait)]
+	breakthrough_button.disabled = not can_break
+	breakthrough_button.text = "突破境界" if can_break else "修为不足"
+	cultivation_progress.max_value = 100.0
+	cultivation_progress.value = clampf(cultivation / maxf(cost, 0.001), 0.0, 1.0) * 100.0
+	cultivation_progress.add_theme_stylebox_override("fill", MainTheme.progress_fill(can_break))
+	_set_ready_pulse(can_break)
+
+
+func _on_notice_dismissed(notice_id: String, hide_for_session: bool) -> void:
+	if not hide_for_session:
+		PlayerApi.dismiss_notice(PlayerApi.token(), notice_id)
+	_notice_queue.close_current(hide_for_session)
+	_notice_layer.show_current()
+
+
+func _on_account_logged_in() -> void:
+	_pull_account()
+	_tick.start()
+
+
+func _logout_account() -> void:
+	PlayerApi.clear_token()
+	_snap = {}
+	_tick.stop()
+	breakthrough_button.disabled = true
+	_login.show()
 
 
 func _load_or_create_data_marker() -> String:

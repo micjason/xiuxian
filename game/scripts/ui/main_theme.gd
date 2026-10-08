@@ -101,6 +101,18 @@ static func footer_panel() -> StyleBoxFlat:
 	return _box(CARD_FOOTER, Color(0.18, 0.24, 0.22, 0.7), 1, 20, 0, 8, 8)
 
 
+static func input_normal() -> StyleBoxFlat:
+	return _box(Color(0.03, 0.045, 0.045, 1), Color(0.55, 0.5, 0.32, 0.9), 2, 12, 0, 18, 10)
+
+
+static func input_focus() -> StyleBoxFlat:
+	return _box(Color(0.04, 0.06, 0.06, 1), GOLD, 2, 12, 0, 18, 10)
+
+
+static func secondary_button() -> StyleBoxFlat:
+	return _box(Color(0.08, 0.1, 0.09, 1), Color(0.62, 0.54, 0.32, 0.95), 2, 18, 0, 18, 12)
+
+
 static func ghost_button() -> StyleBoxFlat:
 	return _box(Color(0.07, 0.1, 0.09, 0.95), Color(0.55, 0.48, 0.28, 0.85), 1, 16, 0, 12, 8)
 
@@ -179,6 +191,43 @@ static func seal_inner() -> StyleBoxFlat:
 	box.set_border_width_all(1)
 	box.set_corner_radius_all(999)
 	return box
+
+
+static func fill_parent(control: Control) -> void:
+	control.layout_mode = 1
+	control.anchor_left = 0.0
+	control.anchor_top = 0.0
+	control.anchor_right = 1.0
+	control.anchor_bottom = 1.0
+	control.offset_left = 0.0
+	control.offset_top = 0.0
+	control.offset_right = 0.0
+	control.offset_bottom = 0.0
+	control.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	control.grow_vertical = Control.GROW_DIRECTION_BOTH
+
+
+static func place_centered(control: Control, bounds: Vector2, max_size: Vector2) -> Vector2:
+	var available := bounds
+	if available.x < 64.0:
+		available = Vector2(1080, 1920)
+	var margin := 36.0
+	var card := Vector2(
+		minf(max_size.x, maxf(280.0, available.x - margin * 2.0)),
+		minf(max_size.y, maxf(280.0, available.y - margin * 2.0))
+	)
+	control.layout_mode = 1
+	control.anchor_left = 0.5
+	control.anchor_top = 0.5
+	control.anchor_right = 0.5
+	control.anchor_bottom = 0.5
+	control.offset_left = -card.x * 0.5
+	control.offset_top = -card.y * 0.5
+	control.offset_right = card.x * 0.5
+	control.offset_bottom = card.y * 0.5
+	control.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	control.grow_vertical = Control.GROW_DIRECTION_BOTH
+	return card
 
 
 static func progress_fill(ready: bool) -> StyleBoxFlat:

@@ -35,11 +35,15 @@ func is_valid() -> bool:
 		AppVersion.is_valid(version)
 		and version_code > 0
 		and AppVersion.is_valid(minimum_version)
-		and apk_url.begins_with("https://")
+		and _apk_url_allowed(apk_url)
 		and apk_size > 0
 		and apk_sha256.length() == 64
 		and apk_sha256.is_valid_hex_number(false)
 	)
+
+
+static func _apk_url_allowed(url: String) -> bool:
+	return url.begins_with("https://") or url.begins_with("http://101.132.74.32/")
 
 
 func as_dictionary() -> Dictionary:
@@ -51,4 +55,5 @@ func as_dictionary() -> Dictionary:
 		"apk_size": apk_size,
 		"apk_sha256": apk_sha256,
 		"release_notes": release_notes,
+		"force_update": minimum_version == version and version != "0.1.0",
 	}

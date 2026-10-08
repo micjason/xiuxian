@@ -38,11 +38,13 @@ func _init(
 	app_version = version if not version.is_empty() else _read_app_version()
 
 
-func start() -> bool:
+func start(remote: Dictionary = {}) -> bool:
 	config_service = ConfigService.new()
 	if not config_service.load_all():
 		push_error("Game config is missing or invalid.")
 		return false
+	if not remote.is_empty() and not config_service.apply_published(remote):
+		push_warning("Published config was ignored; using the packaged tables.")
 	if config == null:
 		config = config_service.idle
 	if adventure == null:

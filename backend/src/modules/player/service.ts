@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { playerStates, players } from "../../db/schema.js";
 import { getPublishedRealm } from "../content/service.js";
 import { writeOperation, type Db } from "../operations/record.js";
+import { rememberIncome, noticesForPlayer } from "../notices/service.js";
 import { piecePower } from "./power.js";
 import { breakthrough, settleCultivation } from "./progress-rules.js";
 
@@ -19,8 +20,9 @@ async function lockedPlayer(db: Db, playerId: string) {
   return { state, player };
 }
 
-export async function openProgress(db: Db, playerId: string, now: Date) {
+export async function openProgress(db: Db, playerId: string, now: Date, versionCode = 0) {
   const { state, player } = await lockedPlayer(db, playerId);
+  const previousSettledAt = state.lastSettledAt;
   const realm = await getPublishedRealm(db, state.realmSlug);
   if (!realm) {
     await writeOperation(db, {
@@ -35,7 +37,7 @@ export async function openProgress(db: Db, playerId: string, now: Date) {
     });
     throw new Error("published config missing");
   }
-  const elapsedSeconds = Math.floor((now.getTime() - state.lastSettledAt.getTime()) / 1000);
+  const elapsedSeconds = Math.floor((now.getTime() - previousSettledAt.getTime()) / 1000);
   const settled = settleCultivation({
     cultivation: state.cultivation,
     elapsedSeconds,
@@ -61,13 +63,51 @@ export async function openProgress(db: Db, playerId: string, now: Date) {
       realmSlug: state.realmSlug,
     },
   });
+  await rememberIncome(db, playerId, {
+    countedSeconds: settled.countedSeconds,
+    gained: settled.gained,
+    hitCap: elapsedSeconds > settled.countedSeconds,
+    offlineCapSeconds: realm.offlineCapSeconds,
+    previousSettledAt,
+  });
+  const next = realm.nextSlug ? await getPublishedRealm(db, realm.nextSlug) : null;
+  const notices = await noticesForPlayer(db, playerId, versionCode);
   return {
     realmSlug: state.realmSlug,
     realmName: realm.displayName,
     cultivation: settled.cultivation,
     gained: settled.gained,
+    gainPerSecond: realm.gainPerSecond,
+    offlineCapSeconds: realm.offlineCapSeconds,
+    breakthroughCost: realm.breakthroughCost,
+    nextRealmName: next?.displayName ?? "",
+    canBreakthrough: next !== null && settled.cultivation >= realm.breakthroughCost,
     power: piecePower(realm),
+    notices,
   };
+}
+
+export async function listPlayers(db: Db) {
+  const rows = await db
+    .select({
+      username: players.username,
+      cultivation: playerStates.cultivation,
+      realmSlug: playerStates.realmSlug,
+      lastSettledAt: playerStates.lastSettledAt,
+    })
+    .from(players)
+    .innerJoin(playerStates, eq(playerStates.playerId, players.id));
+  const listed = [];
+  for (const row of rows) {
+    const realm = await getPublishedRealm(db, row.realmSlug);
+    listed.push({
+      username: row.username,
+      realmName: realm?.displayName ?? row.realmSlug,
+      cultivation: row.cultivation,
+      lastSettledAt: row.lastSettledAt,
+    });
+  }
+  return listed;
 }
 
 export async function tryBreakthrough(db: Db, playerId: string, now: Date) {

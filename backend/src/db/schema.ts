@@ -1,8 +1,11 @@
 import {
+  boolean,
   doublePrecision,
+  integer,
   jsonb,
   pgEnum,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   unique,
@@ -88,6 +91,7 @@ export const skills = pgTable(
     speed: doublePrecision("speed").notNull(),
     cultivateBonus: doublePrecision("cultivate_bonus").notNull(),
     minRealmOrder: doublePrecision("min_realm_order").notNull(),
+    prerequisiteSlugs: jsonb("prerequisite_slugs").$type<string[]>().notNull().default([]),
   },
   (table) => [unique("skills_release_slug").on(table.releaseId, table.slug)],
 );
@@ -109,8 +113,53 @@ export const items = pgTable(
     defense: doublePrecision("defense").notNull(),
     hp: doublePrecision("hp").notNull(),
     speed: doublePrecision("speed").notNull(),
+    grantable: boolean("grantable").notNull().default(false),
+    skillSlug: text("skill_slug"),
   },
   (table) => [unique("items_release_slug").on(table.releaseId, table.slug)],
+);
+
+export const popupTypes = pgTable("popup_types", {
+  slug: text("slug").primaryKey(),
+  priority: integer("priority").notNull(),
+  enabled: boolean("enabled").notNull().default(true),
+  template: text("template").notNull(),
+});
+
+export const announcements = pgTable("announcements", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  title: text("title").notNull(),
+  body: text("body").notNull(),
+  enabled: boolean("enabled").notNull().default(false),
+  enabledAt: timestamp("enabled_at", { withTimezone: true }),
+});
+
+export const noticeDismissals = pgTable(
+  "notice_dismissals",
+  {
+    playerId: uuid("player_id")
+      .notNull()
+      .references(() => players.id),
+    noticeId: text("notice_id").notNull(),
+    dismissedAt: timestamp("dismissed_at", { withTimezone: true }).notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.playerId, table.noticeId] })],
+);
+
+export const playerNotices = pgTable(
+  "player_notices",
+  {
+    playerId: uuid("player_id")
+      .notNull()
+      .references(() => players.id),
+    noticeId: text("notice_id").notNull(),
+    type: text("type").notNull(),
+    priority: integer("priority").notNull(),
+    template: text("template").notNull(),
+    triggeredAt: timestamp("triggered_at", { withTimezone: true }).notNull(),
+    payload: jsonb("payload").notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.playerId, table.noticeId] })],
 );
 
 export const playerStates = pgTable("player_states", {
@@ -141,6 +190,31 @@ export const repairPreviews = pgTable("repair_previews", {
   entries: jsonb("entries").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   stateToken: text("state_token").notNull(),
+});
+
+export const contentDocuments = pgTable(
+  "content_documents",
+  {
+    releaseId: uuid("release_id")
+      .notNull()
+      .references(() => contentReleases.id),
+    kind: text("kind").notNull(),
+    body: jsonb("body").notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.releaseId, table.kind] })],
+);
+
+export const appReleases = pgTable("app_releases", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  versionName: text("version_name").notNull(),
+  versionCode: integer("version_code").notNull().unique(),
+  releaseNotes: text("release_notes").notNull().default(""),
+  forceUpdate: boolean("force_update").notNull().default(false),
+  sha256: text("sha256").notNull(),
+  sizeBytes: integer("size_bytes").notNull(),
+  storedName: text("stored_name").notNull(),
+  isCurrent: boolean("is_current").notNull().default(false),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const repairApplications = pgTable(

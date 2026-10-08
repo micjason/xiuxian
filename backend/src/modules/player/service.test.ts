@@ -26,6 +26,13 @@ const mortal = {
 
 async function publishedMortal(db: Parameters<typeof saveRealm>[0]) {
   await saveRealm(db, "publisher", mortal);
+  await saveRealm(db, "publisher", {
+    ...mortal,
+    slug: "qi_early",
+    displayName: "炼气初期",
+    sortOrder: 1,
+    nextSlug: null,
+  });
   await publish(db, { id: "unused", name: "publisher" }, start);
 }
 

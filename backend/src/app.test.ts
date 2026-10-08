@@ -49,6 +49,23 @@ describe("buildApp", { timeout: 30_000 }, () => {
         },
       });
       expect(saved.statusCode).toBe(200);
+      const savedNext = await app.inject({
+        method: "PUT",
+        url: "/admin/content/realms/qi_early",
+        headers: { authorization: `Bearer ${adminToken}` },
+        payload: {
+          displayName: "炼气初期",
+          sortOrder: 1,
+          gainPerSecond: 4,
+          breakthroughCost: 1200,
+          nextSlug: null,
+          attack: 16,
+          defense: 10,
+          hp: 70,
+          speed: 0,
+        },
+      });
+      expect(savedNext.statusCode).toBe(200);
       const published = await app.inject({
         method: "POST",
         url: "/admin/content/publish",

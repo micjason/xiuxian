@@ -17,6 +17,28 @@ func load_all() -> bool:
 	return idle != null and adventure != null and long_term != null
 
 
+func apply_published(data: Dictionary) -> bool:
+	var idle_data: Variant = data.get("idle", {})
+	if typeof(idle_data) == TYPE_DICTIONARY and not (idle_data as Dictionary).is_empty():
+		var parsed_idle := IdleConfig.from_json(JSON.stringify(idle_data))
+		if parsed_idle == null:
+			return false
+		idle = parsed_idle
+	var adventure_data: Variant = data.get("adventure", {})
+	if typeof(adventure_data) == TYPE_DICTIONARY and (adventure_data as Dictionary).has("stages"):
+		var parsed_adventure := AdventureConfig.from_json(JSON.stringify(adventure_data))
+		if parsed_adventure == null:
+			return false
+		adventure = parsed_adventure
+	var longterm_data: Variant = data.get("longterm", {})
+	if typeof(longterm_data) == TYPE_DICTIONARY and (longterm_data as Dictionary).has("buildings"):
+		var parsed_longterm := LongTermConfig.from_json(JSON.stringify(longterm_data))
+		if parsed_longterm == null:
+			return false
+		long_term = parsed_longterm
+	return idle != null and adventure != null and long_term != null
+
+
 func content_fingerprint() -> String:
 	if idle == null or adventure == null or long_term == null:
 		return ""

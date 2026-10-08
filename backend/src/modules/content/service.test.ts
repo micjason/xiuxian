@@ -7,6 +7,17 @@ import { ensureDraft, getPublishedRealm, publish, saveItem, saveRealm, saveSkill
 
 const now = new Date("2026-10-06T09:00:00.000Z");
 
+async function saveChain(db: Parameters<Parameters<typeof withDb>[0]>[0]) {
+  await saveRealm(db, "publisher", mortal);
+  await saveRealm(db, "publisher", {
+    ...mortal,
+    slug: "qi_early",
+    displayName: "炼气初期",
+    sortOrder: 1,
+    nextSlug: null,
+  });
+}
+
 const mortal = {
   slug: "mortal",
   displayName: "凡人",
@@ -24,7 +35,7 @@ describe("content publish", () => {
   it("keeps the published name until publish", async () => {
     await withDb(async (db) => {
       await createAdmin(db, { username: "publisher", password: "admin-secret" });
-      await saveRealm(db, "publisher", mortal);
+      await saveChain(db);
       await publish(db, { id: "unused", name: "publisher" }, now);
       await saveRealm(db, "publisher", { ...mortal, displayName: "凡人改" });
       expect((await getPublishedRealm(db, "mortal"))?.displayName).toBe("凡人");
@@ -37,7 +48,7 @@ describe("content publish", () => {
 
   it("rejects an empty name and leaves the published realm", async () => {
     await withDb(async (db) => {
-      await saveRealm(db, "publisher", mortal);
+      await saveChain(db);
       await publish(db, { id: "unused", name: "publisher" }, now);
       await saveRealm(db, "publisher", { ...mortal, displayName: "" });
       await expect(publish(db, { id: "unused", name: "publisher" }, now)).rejects.toThrow(/empty/);
@@ -47,6 +58,7 @@ describe("content publish", () => {
 
   it("copies a skill and an item into the published release", async () => {
     await withDb(async (db) => {
+      await saveChain(db);
       await saveSkill(db, {
         slug: "heart_0",
         displayName: "吐纳",

@@ -13,6 +13,12 @@ const tableNames = [
   "operationRecords",
   "repairPreviews",
   "repairApplications",
+  "contentDocuments",
+  "appReleases",
+  "popupTypes",
+  "announcements",
+  "noticeDismissals",
+  "playerNotices",
 ];
 
 describe("schema", () => {

@@ -9,6 +9,7 @@ alwaysApply: true
 - 索引不存在时，在仓库根执行 `codegraph init`。后端或工具代码有变动后执行 `codegraph sync`。索引数据库留在本机，不提交。
 - 当前索引覆盖 Java、Kotlin、Python、Swift 等它认识的语言，不覆盖 GDScript。查 `game/**/*.gd` 时直接读脚本；CodeGraph 没有结果，不能当成「项目里没有这段逻辑」。
 - 用户说「头脑风暴」「脑暴」或 brainstorm 时，先读并遵守 superpowers 的 brainstorming 技能，只讨论方案，不写代码。
+- 头脑风暴里每次提问都给出一个建议，并说明理由。不要只丢选项。
 - 新玩法或新系统先用 superpowers 的 brainstorming，多步实现先用 writing-plans，写实现前用 test-driven-development。
 - 修缺陷先用 systematic-debugging。宣称完成前用 verification-before-completion。
 - superpowers 已装在本机 Cursor 插件中。不要把插件复制进仓库。

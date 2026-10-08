@@ -37,8 +37,8 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
     throw new Error("需要重新登录");
   }
   if (!response.ok) {
-    const body = (await response.json().catch(() => ({}))) as { reason?: string };
-    throw new Error(body.reason ?? "请求失败");
+    const body = (await response.json().catch(() => ({}))) as { reason?: string; error?: { message?: string } };
+    throw new Error(body.error?.message ?? body.reason ?? "请求失败");
   }
   if (response.status === 204) {
     return undefined as T;

@@ -8,6 +8,9 @@ describe("buildApp", { timeout: 30_000 }, () => {
     await withDb(async (db) => {
       await createAdmin(db, { username: "app-admin", password: "admin-secret" });
       const app = await buildApp(db);
+      const health = await app.inject({ method: "GET", url: "/healthz" });
+      expect(health.statusCode).toBe(200);
+      expect(health.json().ok).toBe(true);
       const missing = await app.inject({
         method: "POST",
         url: "/admin/auth/register",

@@ -5,6 +5,7 @@ import { sql } from "drizzle-orm";
 import Fastify, { type FastifyInstance } from "fastify";
 import { contentCurrent } from "./db/schema.js";
 import { authPlugin } from "./plugins/auth.js";
+import { clientVersionPlugin } from "./plugins/client-version.js";
 import { AppError } from "./shared/errors.js";
 import { registerAuthRoutes } from "./modules/auth/routes.js";
 import { registerContentRoutes } from "./modules/content/routes.js";
@@ -72,6 +73,7 @@ export async function buildApp(
   await app.register(multipart, { limits: { fileSize: 200 * 1024 * 1024 } });
   const deps = { db, now, randomInt: options.randomInt ?? ((min: number, max: number) => cryptoRandomInt(min, max)) };
   await authPlugin(db, now)(app);
+  await clientVersionPlugin(db)(app);
   await registerAuthRoutes(app, deps);
   await registerPlayerRoutes(app, deps);
   await registerContentRoutes(app, deps);
@@ -86,6 +88,7 @@ export async function buildApp(
   }
   await app.register(async (scope) => {
     await authPlugin(db, now)(scope);
+    await clientVersionPlugin(db)(scope);
     await registerAuthRoutes(scope, deps);
     await registerPlayerRoutes(scope, deps);
     await registerContentRoutes(scope, deps);

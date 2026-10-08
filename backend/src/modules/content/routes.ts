@@ -1,5 +1,4 @@
-import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
-import { readSession } from "../auth/service.js";
+import type { FastifyInstance } from "fastify";
 import type { Db } from "../operations/record.js";
 import {
   buildPublishedContent,
@@ -33,21 +32,6 @@ function slugList(value: string | string[] | undefined): string[] {
   return source.map((item) => item.trim()).filter((item) => item.length > 0);
 }
 
-async function requireAdmin(
-  db: Db,
-  request: FastifyRequest,
-  reply: FastifyReply,
-  now: Date,
-) {
-  const header = request.headers.authorization ?? "";
-  const token = header.startsWith("Bearer ") ? header.slice("Bearer ".length) : "";
-  const session = await readSession(db, token, now);
-  if (!session || session.actorType !== "admin") {
-    reply.code(403).send({ reason: "admin required" });
-    return null;
-  }
-  return session;
-}
 
 export async function registerContentRoutes(
   app: FastifyInstance,
@@ -58,18 +42,10 @@ export async function registerContentRoutes(
   });
 
   app.get("/admin/content/settings", async (request, reply) => {
-    const session = await requireAdmin(deps.db, request, reply, deps.now());
-    if (!session) {
-      return;
-    }
     return readDraftSettings(deps.db);
   });
 
   app.put("/admin/content/settings", async (request, reply) => {
-    const session = await requireAdmin(deps.db, request, reply, deps.now());
-    if (!session) {
-      return;
-    }
     const body = request.body as {
       offlineCapSeconds?: number;
       inventoryCapacity?: number;
@@ -80,18 +56,10 @@ export async function registerContentRoutes(
   });
 
   app.get("/admin/content/stages", async (request, reply) => {
-    const session = await requireAdmin(deps.db, request, reply, deps.now());
-    if (!session) {
-      return;
-    }
     return listStages(deps.db);
   });
 
   app.put("/admin/content/stages/:id", async (request, reply) => {
-    const session = await requireAdmin(deps.db, request, reply, deps.now());
-    if (!session) {
-      return;
-    }
     const params = request.params as { id: string };
     const body = request.body as {
       displayName: string;
@@ -106,10 +74,6 @@ export async function registerContentRoutes(
   });
 
   app.put("/admin/content/stages/:id/drops", async (request, reply) => {
-    const session = await requireAdmin(deps.db, request, reply, deps.now());
-    if (!session) {
-      return;
-    }
     const params = request.params as { id: string };
     const body = request.body as { itemSlug: string; chance: number; quantity: number };
     try {
@@ -125,18 +89,10 @@ export async function registerContentRoutes(
   });
 
   app.get("/admin/content/buildings", async (request, reply) => {
-    const session = await requireAdmin(deps.db, request, reply, deps.now());
-    if (!session) {
-      return;
-    }
     return listBuildings(deps.db);
   });
 
   app.put("/admin/content/buildings/:id", async (request, reply) => {
-    const session = await requireAdmin(deps.db, request, reply, deps.now());
-    if (!session) {
-      return;
-    }
     const params = request.params as { id: string };
     const body = request.body as {
       displayName: string;
@@ -149,10 +105,6 @@ export async function registerContentRoutes(
   });
 
   app.post("/admin/content/import", async (request, reply) => {
-    const session = await requireAdmin(deps.db, request, reply, deps.now());
-    if (!session) {
-      return;
-    }
     const body = request.body as { idle?: JsonRecord; adventure?: JsonRecord; longterm?: JsonRecord };
     if (!body.idle || !body.adventure || !body.longterm) {
       return reply.code(400).send({ reason: "invalid" });
@@ -162,53 +114,29 @@ export async function registerContentRoutes(
   });
 
   app.get("/admin/content/realms", async (request, reply) => {
-    const session = await requireAdmin(deps.db, request, reply, deps.now());
-    if (!session) {
-      return;
-    }
     return listDraftRealms(deps.db);
   });
 
   app.get("/admin/content/skills", async (request, reply) => {
-    const session = await requireAdmin(deps.db, request, reply, deps.now());
-    if (!session) {
-      return;
-    }
     return listDraftSkills(deps.db);
   });
 
   app.get("/admin/content/items", async (request, reply) => {
-    const session = await requireAdmin(deps.db, request, reply, deps.now());
-    if (!session) {
-      return;
-    }
     return listDraftItems(deps.db);
   });
 
   app.get("/admin/content/diff", async (request, reply) => {
-    const session = await requireAdmin(deps.db, request, reply, deps.now());
-    if (!session) {
-      return;
-    }
     return diffDraft(deps.db);
   });
 
   app.put("/admin/content/realms/:slug", async (request, reply) => {
-    const session = await requireAdmin(deps.db, request, reply, deps.now());
-    if (!session) {
-      return;
-    }
     const body = request.body as Omit<RealmInput, "slug">;
     const params = request.params as { slug: string };
-    await saveRealm(deps.db, session.actorId, { ...body, slug: params.slug });
+    await saveRealm(deps.db, request.actor!.actorId, { ...body, slug: params.slug });
     return { ok: true };
   });
 
   app.put("/admin/content/skills/:slug", async (request, reply) => {
-    const session = await requireAdmin(deps.db, request, reply, deps.now());
-    if (!session) {
-      return;
-    }
     const body = request.body as Omit<SkillInput, "slug"> & { prerequisiteSlugs?: string | string[] };
     const params = request.params as { slug: string };
     await saveSkill(deps.db, { ...body, slug: params.slug, prerequisiteSlugs: slugList(body.prerequisiteSlugs) });
@@ -216,10 +144,6 @@ export async function registerContentRoutes(
   });
 
   app.put("/admin/content/items/:slug", async (request, reply) => {
-    const session = await requireAdmin(deps.db, request, reply, deps.now());
-    if (!session) {
-      return;
-    }
     const body = request.body as Omit<ItemInput, "slug">;
     const params = request.params as { slug: string };
     const raw = request.body as { grantable?: boolean | string; skillSlug?: string | null };
@@ -233,12 +157,8 @@ export async function registerContentRoutes(
   });
 
   app.post("/admin/content/publish", async (request, reply) => {
-    const session = await requireAdmin(deps.db, request, reply, deps.now());
-    if (!session) {
-      return;
-    }
     try {
-      return await publish(deps.db, { id: session.actorId, name: session.actorName, actorType: "admin" }, deps.now());
+      return await publish(deps.db, { id: request.actor!.actorId, name: request.actor!.actorName, actorType: "admin" }, deps.now());
     } catch (cause) {
       if (cause instanceof PublishRejected) {
         return reply.code(400).send({ reason: cause.message });

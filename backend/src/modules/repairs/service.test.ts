@@ -2,6 +2,7 @@ import Fastify from "fastify";
 import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { playerStates } from "../../db/schema.js";
+import { authPlugin } from "../../plugins/auth.js";
 import { createAdmin, loginAdmin, registerPlayer } from "../auth/service.js";
 import { withDb } from "../../test/db.js";
 import { applyRepair, previewRepair, registerRepair } from "./service.js";
@@ -62,6 +63,7 @@ describe("repairs", { timeout: 30_000 }, () => {
         throw new Error("admin login failed");
       }
       const app = Fastify();
+      await authPlugin(db, () => now)(app);
       await registerRepairRoutes(app, { db, now: () => now });
       const denied = await app.inject({
         method: "POST",

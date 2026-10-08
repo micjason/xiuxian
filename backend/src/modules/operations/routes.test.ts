@@ -1,5 +1,6 @@
 import Fastify from "fastify";
 import { describe, expect, it } from "vitest";
+import { authPlugin } from "../../plugins/auth.js";
 import { createAdmin, loginAdmin, registerPlayer } from "../auth/service.js";
 import { withDb } from "../../test/db.js";
 import { writeOperation } from "./record.js";
@@ -27,6 +28,7 @@ describe("operation routes", { timeout: 20_000 }, () => {
         summary: { cultivation: 0 },
       });
       const app = Fastify();
+      await authPlugin(db, () => now)(app);
       await registerOperationRoutes(app, { db, now: () => now });
       const found = await app.inject({
         method: "GET",
@@ -64,6 +66,7 @@ describe("operation routes", { timeout: 20_000 }, () => {
         summary: { releaseId: "new" },
       });
       const app = Fastify();
+      await authPlugin(db, () => now)(app);
       await registerOperationRoutes(app, { db, now: () => now });
       const found = await app.inject({
         method: "GET",

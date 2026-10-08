@@ -1,18 +1,7 @@
-import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
-import { readSession } from "../auth/service.js";
+import type { FastifyInstance } from "fastify";
 import type { Db } from "../operations/record.js";
 import { currentRelease, listReleases, manifestFor, openCurrentApk, saveRelease } from "./service.js";
 
-async function requireAdmin(db: Db, request: FastifyRequest, reply: FastifyReply, now: Date) {
-  const header = request.headers.authorization ?? "";
-  const token = header.startsWith("Bearer ") ? header.slice("Bearer ".length) : "";
-  const session = await readSession(db, token, now);
-  if (!session || session.actorType !== "admin") {
-    reply.code(403).send({ reason: "admin required" });
-    return null;
-  }
-  return session;
-}
 
 export async function registerReleaseRoutes(
   app: FastifyInstance,
@@ -37,18 +26,10 @@ export async function registerReleaseRoutes(
   });
 
   app.get("/admin/releases", async (request, reply) => {
-    const session = await requireAdmin(deps.db, request, reply, deps.now());
-    if (!session) {
-      return;
-    }
     return listReleases(deps.db);
   });
 
   app.post("/admin/releases", async (request, reply) => {
-    const session = await requireAdmin(deps.db, request, reply, deps.now());
-    if (!session) {
-      return;
-    }
     const file = await request.file();
     if (!file) {
       return reply.code(400).send({ reason: "invalid" });

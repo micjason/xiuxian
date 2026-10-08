@@ -1,8 +1,18 @@
 import type { FastifyInstance } from "fastify";
-import { eq } from "drizzle-orm";
 import { contentRealms } from "../../db/schema.js";
 import type { Db } from "../operations/record.js";
 import { AppError } from "../../shared/errors.js";
+import {
+  deleteDraftItem,
+  deleteDraftRealm,
+  deleteDraftSkill,
+  readDraftGlobals,
+  saveDraftDropTable,
+  saveDraftGlobals,
+  saveDraftItem,
+  saveDraftSkill,
+  saveDraftStage,
+} from "./draft-service.js";
 import { publishSnapshot } from "./snapshot.js";
 
 const SLUG = /^[a-z][a-z0-9_]{1,47}$/;
@@ -30,18 +40,29 @@ export async function registerDraftRoutes(app: FastifyInstance, deps: { db: Db; 
 
   app.delete("/admin/draft/realms/:slug", async (request) => {
     const params = request.params as { slug: string };
-    const { contentKnownSlugs } = await import("../../db/schema.js");
-    const [known] = await deps.db
-      .select()
-      .from(contentKnownSlugs)
-      .where(eq(contentKnownSlugs.slug, params.slug))
-      .limit(1);
-    if (known) {
-      throw new AppError("SLUG_PUBLISHED");
-    }
-    await deps.db.delete(contentRealms).where(eq(contentRealms.slug, params.slug));
-    return { ok: true };
+    return deleteDraftRealm(deps.db, params.slug);
   });
+
+  app.get("/admin/draft/globals", async () => readDraftGlobals(deps.db));
+  app.put("/admin/draft/globals", async (request) =>
+    saveDraftGlobals(deps.db, request.body as never, request.actor?.actorId ?? null),
+  );
+  app.post("/admin/draft/items", async (request) =>
+    saveDraftItem(deps.db, request.body as never, request.actor?.actorId ?? null),
+  );
+  app.delete("/admin/draft/items/:slug", async (request) => deleteDraftItem(deps.db, (request.params as { slug: string }).slug));
+  app.post("/admin/draft/skills", async (request) =>
+    saveDraftSkill(deps.db, request.body as never, request.actor?.actorId ?? null),
+  );
+  app.delete("/admin/draft/skills/:slug", async (request) =>
+    deleteDraftSkill(deps.db, (request.params as { slug: string }).slug),
+  );
+  app.post("/admin/draft/drop-tables", async (request) =>
+    saveDraftDropTable(deps.db, request.body as never, request.actor?.actorId ?? null),
+  );
+  app.post("/admin/draft/stages", async (request) =>
+    saveDraftStage(deps.db, request.body as never, request.actor?.actorId ?? null),
+  );
 
   app.post("/admin/draft/publish", async (request) => {
     const body = (request.body ?? {}) as { note?: string };

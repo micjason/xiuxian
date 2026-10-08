@@ -1,4 +1,3 @@
-import Fastify from "fastify";
 import { describe, expect, it } from "vitest";
 import { createAdmin } from "./modules/auth/service.js";
 import { withDb } from "./test/db.js";

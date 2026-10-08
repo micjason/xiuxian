@@ -32,15 +32,17 @@ export function authPlugin(db: Db, now: () => Date) {
       }
       request.actor = actor;
     });
-    app.addHook("preHandler", async function (request, reply) {
-      const path = request.url.split("?")[0] ?? "";
-      if (path.endsWith("/auth/login") || path.endsWith("/auth/register") || path.endsWith("/auth/logout")) {
+    app.addHook("onRoute", (route) => {
+      const url = route.url;
+      if (url.endsWith("/auth/login") || url.endsWith("/auth/register") || url.endsWith("/auth/logout")) {
         return;
       }
-      if (path.includes("/admin")) {
-        await this.requireAdmin(request, reply);
-      } else if (path === "/me" || path.startsWith("/me/")) {
-        await this.requirePlayer(request, reply);
+      const current = route.preHandler;
+      const list = Array.isArray(current) ? current : current ? [current] : [];
+      if (url.includes("/admin")) {
+        route.preHandler = [app.requireAdmin, ...list];
+      } else if (url === "/me" || url.startsWith("/me/")) {
+        route.preHandler = [app.requirePlayer, ...list];
       }
     });
   };

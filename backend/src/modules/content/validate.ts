@@ -7,9 +7,23 @@ export type ContentSnapshot = {
     startingRealmSlug: string;
     starterItems: { itemSlug: string; quantity: number }[];
     offlineCapSeconds?: number;
+    bagCapacity?: number;
+    powerWeights?: { attack: number; defense: number; hp: number; speed: number };
+    combat?: {
+      minInterval: number;
+      playerDefenseFactor: number;
+      bossDefenseFactor: number;
+      respawnSeconds: number;
+      challengeCooldownSeconds: number;
+    };
+    artSlotRules?: { minRealmOrder: number; slots: number }[];
+    idleKillCap?: number;
+    minClientVersionCode?: number;
   };
   realms: {
     slug: string;
+    displayName?: string;
+    sortOrder?: number;
     nextRealmSlug: string | null;
     tickSeconds: number;
     gainPerTick: number;
@@ -17,16 +31,30 @@ export type ContentSnapshot = {
     minRateBp: number;
     baseRateBp: number;
     maxRateBp: number;
+    failLossBp?: number;
+    pityStepBp?: number;
+    powerFactorBp?: number;
+    baseAttack?: number;
+    baseDefense?: number;
+    baseHp?: number;
+    baseSpeed?: number;
+    baseInterval?: number;
     requiredStageSlug: string | null;
     recommendedPower: number;
     enabled: boolean;
   }[];
   stages: {
     slug: string;
+    displayName?: string;
+    sortOrder?: number;
+    requiredRealmOrder?: number;
     nextStageSlug: string | null;
     bossDropTableSlug: string;
     idleDropTableSlug: string;
     firstClearDropTableSlug: string;
+    bossName?: string;
+    bossAttack?: number;
+    bossDefense?: number;
     bossHp: number;
     bossInterval: number;
     recommendedPower: number;
@@ -38,12 +66,31 @@ export type ContentSnapshot = {
   }[];
   items: {
     slug: string;
+    displayName?: string;
     kind: string;
     slot: string | null;
     skillSlug: string | null;
+    attack?: number;
+    defense?: number;
+    hp?: number;
+    speed?: number;
+    requiredRealmOrder?: number;
+    stackable?: boolean;
     enabled: boolean;
   }[];
-  skills: { slug: string; prerequisiteSkillSlugs: string[]; enabled: boolean }[];
+  skills: {
+    slug: string;
+    displayName?: string;
+    role?: string;
+    attack?: number;
+    defense?: number;
+    hp?: number;
+    speed?: number;
+    cultivateBonusBp?: number;
+    requiredRealmOrder?: number;
+    prerequisiteSkillSlugs: string[];
+    enabled: boolean;
+  }[];
 };
 
 const EQUIPMENT_SLOTS = new Set(["weapon", "helmet", "clothes", "shoes", "accessory"]);

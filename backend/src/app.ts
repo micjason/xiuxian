@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { randomInt as cryptoRandomInt, randomUUID } from "node:crypto";
 import rateLimit from "@fastify/rate-limit";
 import multipart from "@fastify/multipart";
 import { sql } from "drizzle-orm";
@@ -16,10 +16,15 @@ import { registerPlayerRoutes } from "./modules/player/routes.js";
 import { registerReleaseRoutes } from "./modules/releases/routes.js";
 import { registerRepairRoutes } from "./modules/repairs/routes.js";
 import { registerGmRoutes } from "./modules/tools/gm.js";
+import { registerLoopRoutes } from "./modules/loop/routes.js";
 
 export const logRedact = ["req.headers.authorization", "*.password", "*.token"];
 
-export async function buildApp(db: Db, now: () => Date = () => new Date()): Promise<FastifyInstance> {
+export async function buildApp(
+  db: Db,
+  now: () => Date = () => new Date(),
+  options: { randomInt?: (min: number, max: number) => number } = {},
+): Promise<FastifyInstance> {
   const app = Fastify({
     logger: {
       level: process.env.VITEST ? "silent" : (process.env.LOG_LEVEL ?? "info"),
@@ -65,7 +70,7 @@ export async function buildApp(db: Db, now: () => Date = () => new Date()): Prom
     errorResponseBuilder: () => new AppError("RATE_LIMITED"),
   });
   await app.register(multipart, { limits: { fileSize: 200 * 1024 * 1024 } });
-  const deps = { db, now };
+  const deps = { db, now, randomInt: options.randomInt ?? ((min: number, max: number) => cryptoRandomInt(min, max)) };
   await authPlugin(db, now)(app);
   await registerAuthRoutes(app, deps);
   await registerPlayerRoutes(app, deps);
@@ -75,6 +80,7 @@ export async function buildApp(db: Db, now: () => Date = () => new Date()): Prom
   await registerOperationRoutes(app, deps);
   await registerRepairRoutes(app, deps);
   await registerReleaseRoutes(app, deps);
+  await registerLoopRoutes(app, deps);
   if (process.env.ENABLE_GM_TOOLS === "true") {
     await registerGmRoutes(app, deps);
   }
@@ -88,6 +94,7 @@ export async function buildApp(db: Db, now: () => Date = () => new Date()): Prom
     await registerOperationRoutes(scope, deps);
     await registerRepairRoutes(scope, deps);
     await registerReleaseRoutes(scope, deps);
+    await registerLoopRoutes(scope, deps);
     if (process.env.ENABLE_GM_TOOLS === "true") {
       await registerGmRoutes(scope, deps);
     }

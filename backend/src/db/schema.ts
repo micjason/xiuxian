@@ -1,6 +1,9 @@
+import { sql } from "drizzle-orm";
 import {
+  bigint,
   boolean,
   doublePrecision,
+  index,
   integer,
   jsonb,
   pgEnum,
@@ -9,6 +12,7 @@ import {
   text,
   timestamp,
   unique,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 
@@ -205,6 +209,7 @@ export const contentGlobals = pgTable("content_globals", {
   idleKillCap: integer("idle_kill_cap").notNull().default(200),
   minClientVersionCode: integer("min_client_version_code").notNull().default(0),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedBy: uuid("updated_by"),
 });
 
 export const contentRealms = pgTable("content_realms", {
@@ -231,6 +236,7 @@ export const contentRealms = pgTable("content_realms", {
   pityStepBp: integer("pity_step_bp").notNull().default(1000),
   enabled: boolean("enabled").notNull().default(true),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedBy: uuid("updated_by"),
 });
 
 export const contentItems = pgTable("content_items", {
@@ -250,6 +256,7 @@ export const contentItems = pgTable("content_items", {
   iconKey: text("icon_key").notNull().default(""),
   enabled: boolean("enabled").notNull().default(true),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedBy: uuid("updated_by"),
 });
 
 export const contentSkills = pgTable("content_skills", {
@@ -267,12 +274,14 @@ export const contentSkills = pgTable("content_skills", {
   prerequisiteSkillSlugs: jsonb("prerequisite_skill_slugs").$type<string[]>().notNull().default([]),
   enabled: boolean("enabled").notNull().default(true),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedBy: uuid("updated_by"),
 });
 
 export const contentDropTables = pgTable("content_drop_tables", {
   slug: text("slug").primaryKey(),
   displayName: text("display_name").notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedBy: uuid("updated_by"),
 });
 
 export const contentDropEntries = pgTable(
@@ -306,6 +315,7 @@ export const contentStages = pgTable("content_stages", {
   firstClearDropTableSlug: text("first_clear_drop_table_slug").notNull(),
   enabled: boolean("enabled").notNull().default(true),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedBy: uuid("updated_by"),
 });
 
 export const playerStates = pgTable("player_states", {
@@ -313,9 +323,86 @@ export const playerStates = pgTable("player_states", {
     .primaryKey()
     .references(() => players.id),
   cultivation: doublePrecision("cultivation").notNull(),
+  spiritStones: bigint("spirit_stones", { mode: "number" }).notNull().default(0),
   realmSlug: text("realm_slug").notNull(),
   lastSettledAt: timestamp("last_settled_at", { withTimezone: true }).notNull(),
+  breakthroughFailStreak: integer("breakthrough_fail_streak").notNull().default(0),
+  idleStageSlug: text("idle_stage_slug"),
+  lastChallengeAt: timestamp("last_challenge_at", { withTimezone: true }),
+  stateVersion: integer("state_version").notNull().default(0),
 });
+
+export const playerItems = pgTable(
+  "player_items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    playerId: uuid("player_id")
+      .notNull()
+      .references(() => players.id),
+    itemSlug: text("item_slug").notNull(),
+    isStack: boolean("is_stack").notNull().default(false),
+    quantity: bigint("quantity", { mode: "number" }).notNull().default(1),
+    equippedSlot: text("equipped_slot"),
+    acquiredAt: timestamp("acquired_at", { withTimezone: true }).notNull().defaultNow(),
+    source: text("source").notNull().default("drop"),
+  },
+  (table) => [
+    index("player_items_player_idx").on(table.playerId),
+    uniqueIndex("player_items_equipped_slot")
+      .on(table.playerId, table.equippedSlot)
+      .where(sql`${table.equippedSlot} is not null`),
+    uniqueIndex("player_items_stack")
+      .on(table.playerId, table.itemSlug)
+      .where(sql`${table.isStack} = true`),
+  ],
+);
+
+export const playerSkills = pgTable(
+  "player_skills",
+  {
+    playerId: uuid("player_id")
+      .notNull()
+      .references(() => players.id),
+    skillSlug: text("skill_slug").notNull(),
+    learnedAt: timestamp("learned_at", { withTimezone: true }).notNull().defaultNow(),
+    runningSlot: text("running_slot"),
+  },
+  (table) => [
+    primaryKey({ columns: [table.playerId, table.skillSlug] }),
+    uniqueIndex("player_skills_running_slot")
+      .on(table.playerId, table.runningSlot)
+      .where(sql`${table.runningSlot} is not null`),
+  ],
+);
+
+export const playerStageProgress = pgTable(
+  "player_stage_progress",
+  {
+    playerId: uuid("player_id")
+      .notNull()
+      .references(() => players.id),
+    stageSlug: text("stage_slug").notNull(),
+    unlockedAt: timestamp("unlocked_at", { withTimezone: true }).notNull().defaultNow(),
+    firstClearedAt: timestamp("first_cleared_at", { withTimezone: true }),
+    clearCount: integer("clear_count").notNull().default(0),
+    bestClearSeconds: doublePrecision("best_clear_seconds"),
+  },
+  (table) => [primaryKey({ columns: [table.playerId, table.stageSlug] })],
+);
+
+export const idempotencyKeys = pgTable(
+  "idempotency_keys",
+  {
+    playerId: uuid("player_id")
+      .notNull()
+      .references(() => players.id),
+    key: text("key").notNull(),
+    endpoint: text("endpoint").notNull(),
+    response: jsonb("response").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.playerId, table.key] })],
+);
 
 export const operationRecords = pgTable("operation_records", {
   id: uuid("id").primaryKey().defaultRandom(),

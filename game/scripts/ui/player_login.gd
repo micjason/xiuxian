@@ -110,7 +110,11 @@ func _submit(is_register: bool) -> void:
 	if name.is_empty() or password.is_empty():
 		_error.text = "请填写用户名和密码"
 		return
-	var result := PlayerApi.register(name, password) if is_register else PlayerApi.login(name, password)
+	var result: Dictionary = {}
+	if is_register:
+		result = await PlayerApi.register(name, password)
+	else:
+		result = await PlayerApi.login(name, password)
 	if result.is_empty():
 		_error.text = "网络失败，请稍后再试"
 		return

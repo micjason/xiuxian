@@ -220,7 +220,7 @@ export const contentRealms = pgTable("content_realms", {
   baseHp: doublePrecision("base_hp").notNull().default(0),
   baseSpeed: doublePrecision("base_speed").notNull().default(0),
   baseInterval: doublePrecision("base_interval").notNull().default(1.5),
-  breakthroughCost: integer("breakthrough_cost").notNull().default(0),
+  breakthroughCost: doublePrecision("breakthrough_cost").notNull().default(0),
   requiredStageSlug: text("required_stage_slug"),
   recommendedPower: integer("recommended_power").notNull().default(0),
   baseRateBp: integer("base_rate_bp").notNull().default(9000),

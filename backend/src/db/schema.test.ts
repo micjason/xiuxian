@@ -19,6 +19,16 @@ const tableNames = [
   "announcements",
   "noticeDismissals",
   "playerNotices",
+  "contentVersions",
+  "contentCurrent",
+  "contentKnownSlugs",
+  "contentGlobals",
+  "contentRealms",
+  "contentItems",
+  "contentSkills",
+  "contentDropTables",
+  "contentDropEntries",
+  "contentStages",
 ];
 
 describe("schema", () => {

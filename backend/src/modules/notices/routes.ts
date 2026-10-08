@@ -1,4 +1,5 @@
 import type { FastifyInstance } from "fastify";
+import { AppError } from "../../shared/errors.js";
 import type { Db } from "../operations/record.js";
 import { listAnnouncements, listPopupTypes, saveAnnouncement, savePopupType } from "./service.js";
 
@@ -17,7 +18,7 @@ export async function registerNoticeRoutes(
     try {
       await savePopupType(deps.db, params.slug, { priority: Number(body.priority), enabled: Boolean(body.enabled) });
     } catch (cause) {
-      return reply.code(400).send({ reason: cause instanceof Error ? cause.message : "invalid" });
+      throw new AppError("INVALID_INPUT", cause instanceof Error ? cause.message : undefined);
     }
     return { ok: true };
   });
@@ -31,7 +32,7 @@ export async function registerNoticeRoutes(
     try {
       await saveAnnouncement(deps.db, body, deps.now());
     } catch (cause) {
-      return reply.code(400).send({ reason: cause instanceof Error ? cause.message : "invalid" });
+      throw new AppError("INVALID_INPUT", cause instanceof Error ? cause.message : undefined);
     }
     return { ok: true };
   });

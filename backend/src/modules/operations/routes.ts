@@ -1,4 +1,5 @@
 import type { FastifyInstance } from "fastify";
+import { AppError } from "../../shared/errors.js";
 import { listOperations, type Db, type OperationAction } from "./record.js";
 
 
@@ -9,7 +10,7 @@ export async function registerOperationRoutes(
   app.get("/admin/operations", async (request, reply) => {
     const query = request.query as { name?: string; from?: string; to?: string; action?: string };
     if (!query.from || !query.to) {
-      return reply.code(400).send({ reason: "invalid" });
+      throw new AppError("INVALID_INPUT");
     }
     return listOperations(deps.db, {
       name: query.name || undefined,

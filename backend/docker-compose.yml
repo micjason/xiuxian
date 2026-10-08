@@ -2,13 +2,14 @@ services:
   postgres:
     image: postgres:16
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     environment:
       POSTGRES_USER: xiuxian
       POSTGRES_PASSWORD: xiuxian
-      POSTGRES_DB: xiuxian
+      POSTGRES_DB: xiuxian_dev
     volumes:
       - pgdata:/var/lib/postgresql/data
+      - ./docker/init-databases.sql:/docker-entrypoint-initdb.d/init-databases.sql
 
 volumes:
   pgdata:

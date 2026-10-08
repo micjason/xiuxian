@@ -3,10 +3,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "vitest run",
-    "dev": "tsx src/server.ts",
+    "test": "DATABASE_URL=postgres://xiuxian:xiuxian@127.0.0.1:5432/xiuxian_test vitest run",
+    "dev": "node --env-file=.env --import tsx src/server.ts",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "tsx src/db/migrate.ts",
+    "db:migrate": "node --env-file=.env --import tsx src/db/migrate.ts",
+    "db:seed": "node --env-file=.env --import tsx src/scripts/seed-content.ts",
+    "typecheck": "tsc --noEmit",
     "admin:create": "tsx src/scripts/create-admin.ts",
     "content:import": "tsx src/scripts/import-content.ts"
   },
@@ -15,7 +17,8 @@
     "argon2": "^0.44.0",
     "drizzle-orm": "^0.44.5",
     "fastify": "^5.6.1",
-    "postgres": "^3.4.7"
+    "postgres": "^3.4.7",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@types/node": "^22.18.8",

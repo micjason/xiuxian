@@ -4,11 +4,13 @@
   "type": "module",
   "scripts": {
     "test": "DATABASE_URL=postgres://xiuxian:xiuxian@127.0.0.1:5432/xiuxian_test vitest run",
-    "dev": "node --env-file=.env --import tsx src/server.ts",
+    "dev": "node --env-file-if-exists=.env --import tsx src/server.ts",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "node --env-file=.env --import tsx src/db/migrate.ts",
-    "db:seed": "node --env-file=.env --import tsx src/scripts/seed-content.ts",
+    "db:migrate": "node --env-file-if-exists=.env --import tsx src/db/migrate.ts",
+    "db:seed": "node --env-file-if-exists=.env --import tsx src/scripts/seed-content.ts",
     "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "format": "prettier --write .",
     "admin:create": "tsx src/scripts/create-admin.ts",
     "content:import": "tsx src/scripts/import-content.ts"
   },
@@ -21,10 +23,15 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/node": "^22.18.8",
     "drizzle-kit": "^0.31.5",
+    "eslint": "^10.12.0",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.9.9",
     "tsx": "^4.20.6",
     "typescript": "^5.9.2",
+    "typescript-eslint": "^8.71.1",
     "vitest": "^3.2.4"
   }
 }

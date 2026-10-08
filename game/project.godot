@@ -28,6 +28,14 @@ window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 window/handheld/orientation=1
 
+[autoload]
+
+AppEnv="*res://autoload/app_env.gd"
+
+[xiuxian]
+
+network/api_base_url="http://127.0.0.1:8080"
+
 [editor_plugins]
 
 enabled=PackedStringArray("res://addons/xiuxian_android_updater/plugin.cfg")

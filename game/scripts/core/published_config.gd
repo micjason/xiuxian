@@ -1,15 +1,20 @@
 class_name PublishedConfig
 extends RefCounted
 
-const HOST := "101.132.74.32"
-const PORT := 80
 const PATH := "/content/published"
 const TIMEOUT_MSEC := 3000
 
 
 static func fetch() -> Dictionary:
+	var base := str(ProjectSettings.get_setting("xiuxian/network/api_base_url", "http://127.0.0.1:8080"))
+	var host := base.trim_prefix("https://").trim_prefix("http://").split("/")[0]
+	var port := 443 if base.begins_with("https://") else 80
+	if host.contains(":"):
+		var parts := host.split(":")
+		host = parts[0]
+		port = int(parts[1])
 	var client := HTTPClient.new()
-	if client.connect_to_host(HOST, PORT) != OK:
+	if client.connect_to_host(host, port) != OK:
 		return {}
 	var deadline := Time.get_ticks_msec() + TIMEOUT_MSEC
 	while client.get_status() == HTTPClient.STATUS_CONNECTING or client.get_status() == HTTPClient.STATUS_RESOLVING:

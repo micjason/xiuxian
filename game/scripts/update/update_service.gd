@@ -8,9 +8,10 @@ signal download_progress_changed(progress: float)
 signal download_ready(path: String)
 signal failed(message: String)
 
-const MANIFEST_URL := "http://101.132.74.32/update.json"
 const SIGNATURE_URL := "https://cdn.jsdelivr.net/gh/micjason/xiuxian-releases@latest/update.sig"
-const SELF_HOST := "http://101.132.74.32"
+
+func _api_base() -> String:
+	return str(ProjectSettings.get_setting("xiuxian/network/api_base_url", "http://127.0.0.1:8080")).trim_suffix("/")
 const PUBLIC_KEY_PATH := "res://assets/security/update_public.pem"
 const DOWNLOAD_DIRECTORY := "user://updates"
 const DOWNLOAD_TEMP_PATH := DOWNLOAD_DIRECTORY + "/xiuxian.apk.part"
@@ -68,7 +69,7 @@ func check_for_update(quiet: bool = false) -> void:
 	_is_checking = true
 	_check_started_at_msec = Time.get_ticks_msec()
 	status_changed.emit("" if quiet else "正在检查更新…")
-	var error := _manifest_request.request(MANIFEST_URL, _request_headers())
+	var error := _manifest_request.request(_api_base() + "/update.json", _request_headers())
 	if error != OK:
 		_fail("无法开始检查更新，请稍后重试。")
 
@@ -167,13 +168,7 @@ func _on_manifest_received(
 		_fail("获取更新信息失败（%d/%d），请检查网络。" % [result, response_code])
 		return
 	_manifest_bytes = body
-	if MANIFEST_URL.begins_with(SELF_HOST):
-		_accept_manifest()
-		return
-	status_changed.emit("正在验证更新信息…")
-	var error := _signature_request.request(SIGNATURE_URL, _request_headers())
-	if error != OK:
-		_fail("无法获取更新签名。")
+	_accept_manifest()
 
 
 func _on_signature_received(

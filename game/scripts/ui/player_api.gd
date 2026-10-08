@@ -1,8 +1,8 @@
 class_name PlayerApi
 extends RefCounted
 
-const HOST := "101.132.74.32"
-const PORT := 80
+static func _base_url() -> String:
+	return str(ProjectSettings.get_setting("xiuxian/network/api_base_url", "http://127.0.0.1:8080")).trim_suffix("/")
 const TOKEN_PATH := "user://player_token.txt"
 
 
@@ -46,7 +46,16 @@ static func breakthrough(session_token: String) -> Dictionary:
 
 static func _request(method: int, path: String, body: Dictionary, session_token: String) -> Dictionary:
 	var client := HTTPClient.new()
-	if client.connect_to_host(HOST, PORT) != OK:
+	var base := _base_url()
+	var host := base.trim_prefix("https://").trim_prefix("http://")
+	var port := 443 if base.begins_with("https://") else 80
+	if host.contains(":"):
+		var parts := host.split(":")
+		host = parts[0]
+		port = int(parts[1])
+	elif base.begins_with("http://") and port == 80 and base.get_slice(":", 2) == "":
+		port = 80
+	if client.connect_to_host(host, port) != OK:
 		return {}
 	var deadline := Time.get_ticks_msec() + 8000
 	while client.get_status() == HTTPClient.STATUS_CONNECTING or client.get_status() == HTTPClient.STATUS_RESOLVING:

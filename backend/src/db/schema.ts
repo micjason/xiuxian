@@ -26,15 +26,20 @@ export const operationResult = pgEnum("operation_result", ["success", "failure"]
 export const players = pgTable("players", {
   id: uuid("id").primaryKey().defaultRandom(),
   username: text("username").notNull().unique(),
+  usernameLower: text("username_lower").notNull().default(""),
   passwordHash: text("password_hash").notNull(),
+  status: text("status").notNull().default("active"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
 });
 
 export const admins = pgTable("admins", {
   id: uuid("id").primaryKey().defaultRandom(),
   username: text("username").notNull().unique(),
   passwordHash: text("password_hash").notNull(),
+  role: text("role").notNull().default("owner"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
 });
 
 export const sessions = pgTable("sessions", {
@@ -43,6 +48,8 @@ export const sessions = pgTable("sessions", {
   actorType: actorType("actor_type").notNull(),
   actorId: uuid("actor_id").notNull(),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
+  revokedAt: timestamp("revoked_at", { withTimezone: true }),
 });
 
 export const contentReleases = pgTable("content_releases", {
@@ -161,6 +168,145 @@ export const playerNotices = pgTable(
   },
   (table) => [primaryKey({ columns: [table.playerId, table.noticeId] })],
 );
+
+export const contentVersions = pgTable("content_versions", {
+  version: integer("version").primaryKey().generatedAlwaysAsIdentity(),
+  snapshot: jsonb("snapshot").notNull(),
+  checksum: text("checksum").notNull(),
+  note: text("note").notNull(),
+  publishedBy: uuid("published_by"),
+  publishedAt: timestamp("published_at", { withTimezone: true }).notNull(),
+  sourceVersion: integer("source_version"),
+});
+
+export const contentCurrent = pgTable("content_current", {
+  id: integer("id").primaryKey().default(1),
+  version: integer("version").notNull(),
+});
+
+export const contentKnownSlugs = pgTable(
+  "content_known_slugs",
+  {
+    kind: text("kind").notNull(),
+    slug: text("slug").notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.kind, table.slug] })],
+);
+
+export const contentGlobals = pgTable("content_globals", {
+  id: integer("id").primaryKey().default(1),
+  startingRealmSlug: text("starting_realm_slug").notNull().default("mortal"),
+  offlineCapSeconds: integer("offline_cap_seconds").notNull().default(28800),
+  bagCapacity: integer("bag_capacity").notNull().default(100),
+  starterItems: jsonb("starter_items").notNull().default([]),
+  powerWeights: jsonb("power_weights").notNull().default({ attack: 1, defense: 0.8, hp: 0.04, speed: 1.5 }),
+  combat: jsonb("combat").notNull().default({ minInterval: 0.7, respawnSeconds: 0.8, challengeCooldownSeconds: 3 }),
+  artSlotRules: jsonb("art_slot_rules").notNull().default([{ minRealmOrder: 0, slots: 1 }, { minRealmOrder: 4, slots: 2 }]),
+  idleKillCap: integer("idle_kill_cap").notNull().default(200),
+  minClientVersionCode: integer("min_client_version_code").notNull().default(0),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const contentRealms = pgTable("content_realms", {
+  slug: text("slug").primaryKey(),
+  displayName: text("display_name").notNull(),
+  majorName: text("major_name").notNull().default(""),
+  sortOrder: integer("sort_order").notNull(),
+  nextRealmSlug: text("next_realm_slug"),
+  tickSeconds: integer("tick_seconds").notNull().default(1),
+  gainPerTick: integer("gain_per_tick").notNull().default(0),
+  baseAttack: doublePrecision("base_attack").notNull().default(0),
+  baseDefense: doublePrecision("base_defense").notNull().default(0),
+  baseHp: doublePrecision("base_hp").notNull().default(0),
+  baseSpeed: doublePrecision("base_speed").notNull().default(0),
+  baseInterval: doublePrecision("base_interval").notNull().default(1.5),
+  breakthroughCost: integer("breakthrough_cost").notNull().default(0),
+  requiredStageSlug: text("required_stage_slug"),
+  recommendedPower: integer("recommended_power").notNull().default(0),
+  baseRateBp: integer("base_rate_bp").notNull().default(9000),
+  powerFactorBp: integer("power_factor_bp").notNull().default(3000),
+  minRateBp: integer("min_rate_bp").notNull().default(2000),
+  maxRateBp: integer("max_rate_bp").notNull().default(9500),
+  failLossBp: integer("fail_loss_bp").notNull().default(3000),
+  pityStepBp: integer("pity_step_bp").notNull().default(1000),
+  enabled: boolean("enabled").notNull().default(true),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const contentItems = pgTable("content_items", {
+  slug: text("slug").primaryKey(),
+  displayName: text("display_name").notNull(),
+  description: text("description").notNull().default(""),
+  kind: text("kind").notNull(),
+  quality: text("quality").notNull().default("white"),
+  slot: text("slot"),
+  attack: doublePrecision("attack").notNull().default(0),
+  defense: doublePrecision("defense").notNull().default(0),
+  hp: doublePrecision("hp").notNull().default(0),
+  speed: doublePrecision("speed").notNull().default(0),
+  requiredRealmOrder: integer("required_realm_order").notNull().default(0),
+  skillSlug: text("skill_slug"),
+  stackable: boolean("stackable").notNull().default(false),
+  iconKey: text("icon_key").notNull().default(""),
+  enabled: boolean("enabled").notNull().default(true),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const contentSkills = pgTable("content_skills", {
+  slug: text("slug").primaryKey(),
+  displayName: text("display_name").notNull(),
+  description: text("description").notNull().default(""),
+  role: text("role").notNull(),
+  rank: text("rank").notNull().default("yellow"),
+  attack: doublePrecision("attack").notNull().default(0),
+  defense: doublePrecision("defense").notNull().default(0),
+  hp: doublePrecision("hp").notNull().default(0),
+  speed: doublePrecision("speed").notNull().default(0),
+  cultivateBonusBp: integer("cultivate_bonus_bp").notNull().default(0),
+  requiredRealmOrder: integer("required_realm_order").notNull().default(0),
+  prerequisiteSkillSlugs: jsonb("prerequisite_skill_slugs").$type<string[]>().notNull().default([]),
+  enabled: boolean("enabled").notNull().default(true),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const contentDropTables = pgTable("content_drop_tables", {
+  slug: text("slug").primaryKey(),
+  displayName: text("display_name").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const contentDropEntries = pgTable(
+  "content_drop_entries",
+  {
+    dropTableSlug: text("drop_table_slug")
+      .notNull()
+      .references(() => contentDropTables.slug),
+    itemSlug: text("item_slug").notNull(),
+    chanceBp: integer("chance_bp").notNull(),
+    minQty: integer("min_qty").notNull(),
+    maxQty: integer("max_qty").notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.dropTableSlug, table.itemSlug] })],
+);
+
+export const contentStages = pgTable("content_stages", {
+  slug: text("slug").primaryKey(),
+  displayName: text("display_name").notNull(),
+  sortOrder: integer("sort_order").notNull().default(0),
+  nextStageSlug: text("next_stage_slug"),
+  requiredRealmOrder: integer("required_realm_order").notNull().default(0),
+  recommendedPower: integer("recommended_power").notNull().default(0),
+  bossName: text("boss_name").notNull().default(""),
+  bossAttack: doublePrecision("boss_attack").notNull().default(1),
+  bossDefense: doublePrecision("boss_defense").notNull().default(0),
+  bossHp: doublePrecision("boss_hp").notNull().default(1),
+  bossInterval: doublePrecision("boss_interval").notNull().default(1.5),
+  bossDropTableSlug: text("boss_drop_table_slug").notNull(),
+  idleDropTableSlug: text("idle_drop_table_slug").notNull(),
+  firstClearDropTableSlug: text("first_clear_drop_table_slug").notNull(),
+  enabled: boolean("enabled").notNull().default(true),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
 
 export const playerStates = pgTable("player_states", {
   playerId: uuid("player_id")

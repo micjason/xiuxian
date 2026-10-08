@@ -9,6 +9,20 @@ export async function registerPlayerRoutes(
   app: FastifyInstance,
   deps: { db: Db; now: () => Date },
 ): Promise<void> {
+  app.addHook("onRoute", (route) => {
+    if (route.url !== "/me" && !route.url.startsWith("/me/")) {
+      return;
+    }
+    route.config = {
+      ...route.config,
+      rateLimit: {
+        max: process.env.VITEST ? 1000 : 5,
+        timeWindow: "1 second",
+        keyGenerator: (request) => request.headers.authorization ?? request.ip,
+      },
+    };
+  });
+
   app.get("/admin/players", async (request, reply) => {
     return listPlayers(deps.db);
   });

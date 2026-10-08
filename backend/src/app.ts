@@ -1,3 +1,4 @@
+import rateLimit from "@fastify/rate-limit";
 import multipart from "@fastify/multipart";
 import { sql } from "drizzle-orm";
 import Fastify, { type FastifyInstance } from "fastify";
@@ -28,12 +29,19 @@ export async function buildApp(db: Db, now: () => Date = () => new Date()): Prom
     if (statusCode === 400) {
       return reply.code(400).send(new AppError("INVALID_INPUT", message).body());
     }
+    if (statusCode === 429) {
+      return reply.code(429).send(new AppError("RATE_LIMITED").body());
+    }
     app.log.error(error);
     return reply.code(500).send(new AppError("INTERNAL").body());
   });
   app.get("/healthz", async () => {
     await db.execute(sql`select 1`);
     return { ok: true, version: process.env.npm_package_version ?? "dev", contentVersion: null };
+  });
+  await app.register(rateLimit, {
+    global: false,
+    errorResponseBuilder: () => new AppError("RATE_LIMITED"),
   });
   await app.register(multipart, { limits: { fileSize: 200 * 1024 * 1024 } });
   const deps = { db, now };
@@ -50,6 +58,7 @@ export async function buildApp(db: Db, now: () => Date = () => new Date()): Prom
     await registerGmRoutes(app, deps);
   }
   await app.register(async (scope) => {
+    await authPlugin(db, now)(scope);
     await registerAuthRoutes(scope, deps);
     await registerPlayerRoutes(scope, deps);
     await registerContentRoutes(scope, deps);

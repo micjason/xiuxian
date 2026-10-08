@@ -1,14 +1,20 @@
 import { defineConfig } from "vite";
 import vue from "@vitejs/plugin-vue";
 
+const apiProxy = process.env.VITE_API_PROXY ?? "http://127.0.0.1:8080";
+
 export default defineConfig({
   plugins: [vue()],
   server: {
     host: "127.0.0.1",
     port: 5173,
     proxy: {
-      "/admin": "http://101.132.74.32",
-      "/auth": "http://101.132.74.32",
+      "/admin": apiProxy,
+      "/auth": apiProxy,
+      "/api": apiProxy,
+      "/me": apiProxy,
+      "/healthz": apiProxy,
+      "/update.json": apiProxy,
     },
   },
 });

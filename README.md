@@ -1,6 +1,6 @@
 # 修仙（xiuxian）
 
-一款 Android 优先、竖屏的放置修仙游戏。目标是可上架、可给多人玩的完整版本：Godot 客户端、后台管理、后端接口和 PostgreSQL。详见 ADR-0006。已发布客户端仍在手机本地结算。首个可玩闭环是：
+一款 Android 优先、竖屏的放置修仙游戏。目标是可上架、可给多人玩的完整版本：Godot 客户端、后台管理、后端接口和 PostgreSQL。详见 ADR-0006。后续开发以 `docs/roadmap/` 为准。已发布的 `0.6.x` 客户端仍有本地结算；新版本改为只展示服务器结果。首个可玩闭环是：
 
 `挂机获得修为 → 突破境界 → 提高修炼效率`
 
@@ -10,7 +10,7 @@
 
 - 应用名：修仙
 - Android 包名：`com.micjason.xiuxian`
-- 当前已发布客户端：`0.6.3`（versionCode 20，本地存档 schema 5）
+- 当前已发布客户端：`0.6.7`（versionCode 24）。本机开发见 `docs/operations/local-dev.md`。
 - 首次安装测试包：`builds/development/0.1.0/xiuxian.apk`
 - 公开更新页：`https://github.com/micjason/xiuxian-releases/releases/latest`
 - `0.1.3` 及更早的清单：`https://cdn.jsdelivr.net/gh/micjason/xiuxian-releases@main/update.json`
@@ -38,9 +38,10 @@ Android 不允许普通应用静默覆盖安装，下载完成后必须由用户
 - `game/`：Godot 可导入的运行时工程；只放游戏真正需要的文件。
 - `content-source/`：PSD、工程源文件、未筛选音视频等原始素材，Godot 不扫描。
 - `docs/`：产品、架构、美术、运营和 ADR 决策记录。
+- `docs/roadmap/`：后续开发的评审、规格、任务和执行规范。实现以这里为准。
 - `tools/`：自动化与校验工具。
-- `backend/`：玩家接口、结算和发布。技术见 ADR-0006，尚未实现。
-- `admin/`：后台管理页面。技术见 ADR-0006，尚未实现。
+- `backend/`：已可运行的玩家接口、结算和发布。本机用 Docker 起数据库，见 `docs/operations/local-dev.md`。
+- `admin/`：已可运行的 Vue 3 管理页面，开发时代理到本机后端。
 - `docs/changes/`：较大改动按日期目录写记录。
 - `builds/`：本机构建产物，不进入 Git。
 

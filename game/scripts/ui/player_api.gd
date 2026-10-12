@@ -38,5 +38,23 @@ static func dismiss_notice(session_token: String, notice_id: String) -> Dictiona
 	return await ApiClient.request_json(HTTPClient.METHOD_POST, "/api/v1/me/notices/%s/dismiss" % notice_id.uri_encode(), {}, session_token)
 
 
-static func breakthrough(session_token: String) -> Dictionary:
-	return await ApiClient.request_json(HTTPClient.METHOD_POST, "/api/v1/me/breakthrough", {}, session_token)
+static func fetch_state() -> Dictionary:
+	return await ApiClient.request_json(HTTPClient.METHOD_GET, "/api/v1/me/state", {}, token())
+
+
+static func fetch_content() -> Dictionary:
+	return await ApiClient.request_json(HTTPClient.METHOD_GET, "/api/v1/content/current")
+
+
+static func post_action(path: String, body: Dictionary = {}) -> Dictionary:
+	var key := "play-%d-%06d" % [Time.get_ticks_msec(), randi() % 1000000]
+	return await ApiClient.request_json(HTTPClient.METHOD_POST, path, body, token(), key)
+
+
+static func error_message(data: Dictionary) -> String:
+	var err: Variant = data.get("error", {})
+	if typeof(err) == TYPE_DICTIONARY:
+		return str((err as Dictionary).get("message", "请求失败"))
+	if data.is_empty():
+		return "网络失败，请确认本机服务器已打开"
+	return "请求失败"

@@ -179,27 +179,11 @@ export async function readDraftGlobals(db: Db) {
 }
 
 export async function saveDraftGlobals(
-  db: Db,
-  input: { offlineCapSeconds?: number; bagCapacity?: number; minClientVersionCode?: number; startingRealmSlug?: string },
-  adminId: string | null,
+  _db: Db,
+  _input: { offlineCapSeconds?: number; bagCapacity?: number; minClientVersionCode?: number; startingRealmSlug?: string },
+  _adminId: string | null,
 ) {
-  if (input.startingRealmSlug) {
-    const [realm] = await db.select().from(contentRealms).where(eq(contentRealms.slug, input.startingRealmSlug)).limit(1);
-    if (!realm) {
-      throw new AppError("INVALID_INPUT", "初始境界不存在", { field: "startingRealmSlug" });
-    }
-  }
-  const values = {
-    id: 1,
-    offlineCapSeconds: input.offlineCapSeconds ?? 28800,
-    bagCapacity: input.bagCapacity ?? 100,
-    minClientVersionCode: input.minClientVersionCode ?? 0,
-    startingRealmSlug: input.startingRealmSlug ?? "mortal",
-    updatedAt: new Date(),
-    updatedBy: adminId,
-  };
-  await db.insert(contentGlobals).values(values).onConflictDoUpdate({ target: contentGlobals.id, set: values });
-  return { ok: true };
+  throw new AppError("INVALID_INPUT", "请到规则页填写");
 }
 
 export async function saveDraftStage(

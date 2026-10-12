@@ -10,11 +10,14 @@ export type ContentSnapshot = {
     bagCapacity?: number;
     powerWeights?: { attack: number; defense: number; hp: number; speed: number };
     combat?: {
-      minInterval: number;
-      playerDefenseFactor: number;
-      bossDefenseFactor: number;
-      respawnSeconds: number;
-      challengeCooldownSeconds: number;
+      minInterval?: number;
+      playerDefenseFactor?: number;
+      bossDefenseFactor?: number;
+      challengeCooldownSeconds?: number;
+      timeLimitSeconds?: number;
+      playerDamageFloor?: number;
+      bossDamageFloor?: number;
+      speedBase?: number;
     };
     artSlotRules?: { minRealmOrder: number; slots: number }[];
     idleKillCap?: number;
@@ -57,6 +60,7 @@ export type ContentSnapshot = {
     bossDefense?: number;
     bossHp: number;
     bossInterval: number;
+    bosses?: { name: string; attack: number; defense: number; hp: number; interval: number; drops: { itemSlug: string; chanceBp: number }[] }[];
     recommendedPower: number;
     enabled: boolean;
   }[];
@@ -67,7 +71,7 @@ export type ContentSnapshot = {
   items: {
     slug: string;
     displayName?: string;
-    kind: string;
+    kind: string | null;
     slot: string | null;
     skillSlug: string | null;
     attack?: number;
@@ -81,7 +85,7 @@ export type ContentSnapshot = {
   skills: {
     slug: string;
     displayName?: string;
-    role?: string;
+    role?: string | null;
     attack?: number;
     defense?: number;
     hp?: number;

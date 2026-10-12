@@ -10,7 +10,7 @@ describe("publishSnapshot", () => {
   it("rejects an empty draft and publishes a valid realm chain", async () => {
     await withDb(async (db) => {
       await expect(publishSnapshot(db, "first", null, new Date("2026-10-08T00:00:00.000Z"))).rejects.toThrow(/发布校验未通过/);
-      await db.insert(contentGlobals).values({ id: 1 });
+      await db.insert(contentGlobals).values({ id: 1, offlineCapSeconds: 40 });
       await db.insert(contentRealms).values({
         slug: "mortal",
         displayName: "凡人",

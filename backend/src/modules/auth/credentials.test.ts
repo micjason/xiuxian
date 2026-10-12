@@ -10,9 +10,9 @@ describe("parseCredentials", () => {
     });
   });
 
-  it("rejects a short name, a hyphen, and a password equal to the username", () => {
+  it("rejects a short name or a hyphen, and allows a password equal to the username", () => {
     expect(() => parseCredentials("a", "correct-horse")).toThrow(AppError);
     expect(() => parseCredentials("bad-name", "correct-horse")).toThrow(AppError);
-    expect(() => parseCredentials("sameuser", "SameUser")).toThrow(AppError);
+    expect(parseCredentials("admin", "admin")).toEqual({ username: "admin", usernameLower: "admin" });
   });
 });

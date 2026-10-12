@@ -4,26 +4,13 @@
       <h2>发布</h2>
       <el-button type="primary" @click="confirmPublish">发布</el-button>
     </div>
-    <p>当前已发布：{{ publishedAt ? new Date(publishedAt).toLocaleString() : "还没有" }}</p>
+    <p>当前内容版本：{{ version ?? "还没有发布" }}</p>
+    <p>先在境界页写好「多少秒获得多少修为」，再发布。发布后版本从 1 开始往后加。玩家读的是已发布的版本，不是你正在改的草稿。</p>
     <el-form inline>
-      <el-form-item label="离线上限（小时）">
-        <el-input-number v-model="offlineHours" :min="1" :step="1" />
+      <el-form-item label="发布说明">
+        <el-input v-model="note" placeholder="例如：设置凡人修炼" />
       </el-form-item>
-      <el-form-item label="行囊容量">
-        <el-input-number v-model="inventoryCapacity" :min="1" :step="1" />
-      </el-form-item>
-      <el-form-item label="洞府队列">
-        <el-input-number v-model="queueLimit" :min="1" :step="1" />
-      </el-form-item>
-      <el-button @click="saveSettings">保存到草稿</el-button>
     </el-form>
-    <el-table :data="changes" v-loading="loading">
-      <el-table-column prop="kind" label="类型" width="100" />
-      <el-table-column prop="slug" label="编号" width="160" />
-      <el-table-column prop="field" label="字段" width="180" />
-      <el-table-column prop="before" label="已发布" />
-      <el-table-column prop="after" label="草稿" />
-    </el-table>
   </div>
 </template>
 
@@ -32,58 +19,26 @@ import { ElMessage, ElMessageBox } from "element-plus";
 import { onMounted, ref } from "vue";
 import { api } from "../api";
 
-type Change = {
-  kind: string;
-  slug: string;
-  field: string;
-  before: string | number | null;
-  after: string | number | null;
-};
-
-const loading = ref(false);
-const publishedAt = ref<string | null>(null);
-const changes = ref<Change[]>([]);
-const offlineHours = ref(8);
-const inventoryCapacity = ref(100);
-const queueLimit = ref(4);
+const version = ref<number | null>(null);
+const note = ref("第一次发布");
 
 async function load(): Promise<void> {
-  loading.value = true;
   try {
-    const result = await api<{ publishedAt: string | null; offlineCapSeconds: number; changes: Change[] }>(
-      "/admin/content/diff",
-    );
-    publishedAt.value = result.publishedAt;
-    changes.value = result.changes;
-    offlineHours.value = Math.round(result.offlineCapSeconds / 3600);
-    const settings = await api<{ inventoryCapacity: number; queueLimit: number }>("/admin/content/settings");
-    inventoryCapacity.value = settings.inventoryCapacity;
-    queueLimit.value = settings.queueLimit;
+    const health = await api<{ contentVersion: number | null }>("/healthz");
+    version.value = health.contentVersion;
   } catch (cause) {
     ElMessage.error(cause instanceof Error ? cause.message : "加载失败");
-  } finally {
-    loading.value = false;
   }
 }
 
-async function saveSettings(): Promise<void> {
-  await api("/admin/content/settings", {
-    method: "PUT",
-    body: JSON.stringify({
-      offlineCapSeconds: offlineHours.value * 3600,
-      inventoryCapacity: inventoryCapacity.value,
-      queueLimit: queueLimit.value,
-    }),
-  });
-  ElMessage.success("已写入草稿");
-  await load();
-}
-
 async function confirmPublish(): Promise<void> {
-  await ElMessageBox.confirm("确认把当前草稿发布给玩家？", "发布");
-  await api("/admin/content/publish", { method: "POST" });
-  ElMessage.success("已发布");
-  await load();
+  await ElMessageBox.confirm("确认把当前草稿发布给玩家？没填修炼秒数和获得修为时，玩家仍然得不到修为。", "发布");
+  const result = await api<{ version: number }>("/admin/draft/publish", {
+    method: "POST",
+    body: JSON.stringify({ note: note.value }),
+  });
+  version.value = result.version;
+  ElMessage.success(`已发布版本 ${result.version}`);
 }
 
 onMounted(load);

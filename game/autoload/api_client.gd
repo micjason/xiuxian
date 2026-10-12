@@ -1,13 +1,18 @@
 extends Node
 
-func request_json(method: int, path: String, body: Dictionary = {}, session_token: String = "") -> Dictionary:
+func request_json(method: int, path: String, body: Dictionary = {}, session_token: String = "", idempotency_key: String = "") -> Dictionary:
 	var http := HTTPRequest.new()
 	http.timeout = 8.0
 	add_child(http)
-	var headers := PackedStringArray(["User-Agent: xiuxian", "Content-Type: application/json"])
+	var headers := PackedStringArray(["User-Agent: xiuxian", "X-Client-Version: 24"])
 	if not session_token.is_empty():
 		headers.append("Authorization: Bearer %s" % session_token)
-	var payload := "" if body.is_empty() else JSON.stringify(body)
+	if not idempotency_key.is_empty():
+		headers.append("Idempotency-Key: %s" % idempotency_key)
+	var payload := ""
+	if not body.is_empty():
+		headers.append("Content-Type: application/json")
+		payload = JSON.stringify(body)
 	var url := "%s%s" % [AppEnv.api_base_url(), path]
 	if http.request(url, headers, method, payload) != OK:
 		http.queue_free()

@@ -27,35 +27,23 @@ export async function loadDraftSnapshot(db: Db | Tx): Promise<ContentSnapshot> {
   const stages = await db.select().from(contentStages);
   return {
     globals: {
-      startingRealmSlug: globals?.startingRealmSlug ?? "mortal",
+      startingRealmSlug: globals?.startingRealmSlug ?? "",
       starterItems: (globals?.starterItems as { itemSlug: string; quantity: number }[] | undefined) ?? [],
-      offlineCapSeconds: globals?.offlineCapSeconds ?? 28800,
-      bagCapacity: globals?.bagCapacity ?? 100,
-      powerWeights: (globals?.powerWeights as ContentSnapshot["globals"]["powerWeights"]) ?? {
-        attack: 1,
-        defense: 0.8,
-        hp: 0.04,
-        speed: 1.5,
-      },
-      combat: (globals?.combat as ContentSnapshot["globals"]["combat"]) ?? {
-        minInterval: 0.7,
-        playerDefenseFactor: 0.4,
-        bossDefenseFactor: 0.5,
-        respawnSeconds: 0.8,
-        challengeCooldownSeconds: 3,
-      },
-      artSlotRules: (globals?.artSlotRules as ContentSnapshot["globals"]["artSlotRules"]) ?? [
-        { minRealmOrder: 0, slots: 1 },
-        { minRealmOrder: 4, slots: 2 },
-      ],
-      idleKillCap: globals?.idleKillCap ?? 200,
-      minClientVersionCode: globals?.minClientVersionCode ?? 0,
+      offlineCapSeconds: globals?.offlineCapSeconds ?? undefined,
+      bagCapacity: globals?.bagCapacity ?? undefined,
+      powerWeights: globals?.powerWeights ?? undefined,
+      combat: globals?.combat ?? undefined,
+      artSlotRules: globals?.artSlotRules ?? undefined,
+      idleKillCap: globals?.idleKillCap ?? undefined,
+      minClientVersionCode: globals?.minClientVersionCode ?? undefined,
     },
-    realms: realms.map((row) => ({
+    realms: [...realms]
+      .sort((left, right) => left.sortOrder - right.sortOrder)
+      .map((row, index, ordered) => ({
       slug: row.slug,
       displayName: row.displayName,
       sortOrder: row.sortOrder,
-      nextRealmSlug: row.nextRealmSlug,
+      nextRealmSlug: ordered[index + 1]?.slug ?? null,
       tickSeconds: row.tickSeconds,
       gainPerTick: row.gainPerTick,
       breakthroughCost: row.breakthroughCost,
@@ -71,7 +59,7 @@ export async function loadDraftSnapshot(db: Db | Tx): Promise<ContentSnapshot> {
       baseDefense: row.baseDefense,
       baseHp: row.baseHp,
       baseSpeed: row.baseSpeed,
-      baseInterval: row.baseInterval,
+      baseInterval: row.baseInterval ?? undefined,
       enabled: row.enabled,
     })),
     stages: stages.map((row) => ({
@@ -88,6 +76,7 @@ export async function loadDraftSnapshot(db: Db | Tx): Promise<ContentSnapshot> {
       bossDefense: row.bossDefense,
       bossHp: row.bossHp,
       bossInterval: row.bossInterval,
+      bosses: row.bosses ?? [],
       recommendedPower: row.recommendedPower,
       enabled: row.enabled,
     })),
@@ -133,15 +122,11 @@ export async function loadDraftSnapshot(db: Db | Tx): Promise<ContentSnapshot> {
 }
 
 export async function loadCurrentWorld(db: Db | Tx): Promise<(ContentSnapshot & { version: number }) | null> {
-  const [current] = await db.select().from(contentCurrent).where(eq(contentCurrent.id, 1)).limit(1);
-  if (!current) {
+  const draft = await loadDraftSnapshot(db);
+  if (draft.realms.length === 0) {
     return null;
   }
-  const [row] = await db.select().from(contentVersions).where(eq(contentVersions.version, current.version)).limit(1);
-  if (!row) {
-    return null;
-  }
-  return row.snapshot as ContentSnapshot & { version: number };
+  return { ...draft, version: 0 };
 }
 
 export async function publishSnapshot(db: Db, note: string, adminId: string | null, now: Date) {

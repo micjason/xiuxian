@@ -7,7 +7,23 @@ import { buildApp } from "../app.js";
 describe("client version gate", () => {
   it("returns 426 when the client is older than the published minimum", async () => {
     await withDb(async (db) => {
-      await db.insert(contentGlobals).values({ id: 1, minClientVersionCode: 30 });
+      await db.insert(contentGlobals).values({
+        id: 1,
+        minClientVersionCode: 30,
+        offlineCapSeconds: 3600,
+        bagCapacity: 20,
+        powerWeights: { attack: 1, defense: 1, hp: 1, speed: 1 },
+        combat: {
+          minInterval: 1,
+          playerDefenseFactor: 0,
+          bossDefenseFactor: 0,
+          challengeCooldownSeconds: 0,
+          timeLimitSeconds: 30,
+          playerDamageFloor: 1,
+          bossDamageFloor: 0,
+          speedBase: 100,
+        },
+      });
       await db.insert(contentRealms).values({
         slug: "mortal",
         displayName: "凡人",
@@ -16,6 +32,7 @@ describe("client version gate", () => {
         baseRateBp: 10000,
         minRateBp: 10000,
         maxRateBp: 10000,
+        baseInterval: 1,
       });
       await publishSnapshot(db, "版本闸门", null, new Date("2026-10-08T00:00:00.000Z"));
       const app = await buildApp(db, () => new Date("2026-10-08T00:00:00.000Z"));

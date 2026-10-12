@@ -9,19 +9,18 @@ import {
   players,
 } from "../../db/schema.js";
 import { simulateBattle } from "../combat/battle.js";
-import { computePower } from "../combat/stats.js";
-import { breakthroughRate, resolveBreakthrough } from "../combat/stats.js";
+import { computePower, ratePower, resolveBreakthrough, sumReachedRealmStats } from "../combat/stats.js";
+import { ensureSkillBook } from "../content/ops-content.js";
 import { loadCurrentWorld } from "../content/snapshot.js";
 import { rollDropTable } from "../content/roll-drops.js";
 import type { ContentSnapshot } from "../content/validate.js";
 import { settleTicks } from "../progress/settle.js";
 import { AppError } from "../../shared/errors.js";
 import type { Db } from "../operations/record.js";
+import { readGameRules } from "../content/rules.js";
 
 type World = ContentSnapshot & { version: number };
 type RandomInt = (min: number, max: number) => number;
-
-const weights = { attack: 1, defense: 0.8, hp: 0.04, speed: 1.5 };
 
 async function lockedState(tx: Tx, playerId: string) {
   const [state] = await tx.select().from(playerStates).where(eq(playerStates.playerId, playerId)).for("update").limit(1);
@@ -35,17 +34,24 @@ async function lockedState(tx: Tx, playerId: string) {
 function realmOf(world: World, slug: string) {
   const realm = world.realms.find((row) => row.slug === slug);
   if (!realm) {
-    throw new AppError("CONTENT_NOT_PUBLISHED");
+    throw new AppError("NOT_FOUND", `境界编号 ${slug} 不存在，请删掉这个测试账号后重新注册`);
   }
   return realm;
 }
 
 function artSlotCount(world: World, sortOrder: number) {
-  let slots = 1;
-  for (const rule of world.globals.artSlotRules ?? []) {
+  const rules = world.globals.artSlotRules;
+  if (!rules || rules.length === 0) {
+    throw new AppError("INVALID_INPUT", "请先在后台填写功法栏");
+  }
+  let slots = 0;
+  for (const rule of rules) {
     if (sortOrder >= rule.minRealmOrder) {
       slots = Math.max(slots, rule.slots);
     }
+  }
+  if (slots <= 0) {
+    throw new AppError("INVALID_INPUT", "请先在后台填写功法栏");
   }
   return slots;
 }
@@ -57,44 +63,234 @@ async function loadPieces(tx: Tx, playerId: string) {
   return { items, skills, stages };
 }
 
-function statsOf(world: World, realmSlug: string, items: { itemSlug: string; equippedSlot: string | null }[], skills: { skillSlug: string; runningSlot: string | null }[]) {
-  const realm = realmOf(world, realmSlug);
-  let attack = realm.baseAttack ?? 0;
-  let defense = realm.baseDefense ?? 0;
-  let hp = realm.baseHp ?? 0;
-  let speed = realm.baseSpeed ?? 0;
+function statsOf(world: World, realmSlug: string, items: { itemSlug: string; equippedSlot: string | null }[], skills: { skillSlug: string; runningSlot: string | null; level: number }[]) {
+  return combatStats(
+    world,
+    realmSlug,
+    items.filter((item) => item.equippedSlot).map((item) => item.itemSlug),
+    skills.filter((skill) => skill.runningSlot).map((skill) => ({ slug: skill.skillSlug, level: skill.level })),
+  );
+}
+
+function skillLayers(skillSlugs: (string | { slug: string; level: number })[]) {
+  return skillSlugs.map((entry) => {
+    if (typeof entry === "string") {
+      return { slug: entry, level: 1 };
+    }
+    if (!Number.isInteger(entry.level) || entry.level < 1) {
+      throw new AppError("INVALID_INPUT", "功法层数不正确");
+    }
+    return entry;
+  });
+}
+
+export function combatStats(world: ContentSnapshot, realmSlug: string, itemSlugs: string[], skillSlugs: (string | { slug: string; level: number })[]) {
+  const realm = world.realms.find((row) => row.slug === realmSlug);
+  if (!realm) {
+    throw new AppError("NOT_FOUND", `境界编号 ${realmSlug} 不存在，请删掉这个测试账号后重新注册`);
+  }
+  if (realm.sortOrder == null) {
+    throw new AppError("INVALID_INPUT", "境界没有编号");
+  }
+  const reached = sumReachedRealmStats(
+    world.realms
+      .filter((row) => row.sortOrder != null)
+      .map((row) => ({
+        sortOrder: row.sortOrder as number,
+        attack: row.baseAttack ?? 0,
+        defense: row.baseDefense ?? 0,
+        hp: row.baseHp ?? 0,
+        speed: row.baseSpeed ?? 0,
+      })),
+    realm.sortOrder,
+  );
+  let attack = reached.attack;
+  let defense = reached.defense;
+  let hp = reached.hp;
+  let speed = reached.speed;
   let bonusBp = 0;
-  for (const item of items) {
-    if (!item.equippedSlot) {
-      continue;
-    }
-    const definition = world.items.find((row) => row.slug === item.itemSlug);
+  for (const itemSlug of itemSlugs) {
+    const definition = world.items.find((row) => row.slug === itemSlug);
     attack += definition?.attack ?? 0;
     defense += definition?.defense ?? 0;
     hp += definition?.hp ?? 0;
     speed += definition?.speed ?? 0;
   }
-  for (const skill of skills) {
-    if (!skill.runningSlot) {
-      continue;
-    }
-    const definition = world.skills.find((row) => row.slug === skill.skillSlug);
-    attack += definition?.attack ?? 0;
-    defense += definition?.defense ?? 0;
-    hp += definition?.hp ?? 0;
-    speed += definition?.speed ?? 0;
-    bonusBp += definition?.cultivateBonusBp ?? 0;
+  for (const entry of skillLayers(skillSlugs)) {
+    const definition = world.skills.find((row) => row.slug === entry.slug);
+    const level = entry.level;
+    attack += (definition?.attack ?? 0) * level;
+    defense += (definition?.defense ?? 0) * level;
+    hp += (definition?.hp ?? 0) * level;
+    speed += (definition?.speed ?? 0) * level;
+    bonusBp += (definition?.cultivateBonusBp ?? 0) * level;
   }
+  if (realm.baseInterval == null || realm.baseInterval <= 0) {
+    throw new AppError("INVALID_INPUT", `境界「${realm.displayName ?? realm.slug}」还没有基础出手间隔`);
+  }
+  const rules = readGameRules(world);
   const combat = computePower({
     attack,
     defense,
     hp,
     speed,
-    baseInterval: realm.baseInterval ?? 1.5,
-    minInterval: world.globals.combat?.minInterval ?? 0.7,
-    weights: world.globals.powerWeights ?? weights,
+    baseInterval: realm.baseInterval,
+    minInterval: rules.minInterval,
+    speedBase: rules.speedBase,
+    weights: rules.powerWeights,
   });
   return { attack, defense, hp, speed, interval: combat.interval, power: combat.power, bonusBp };
+}
+
+export type PowerSourceLine = {
+  group: "境界" | "武器" | "功法";
+  name: string;
+  attack: number;
+  defense: number;
+  hp: number;
+  speed: number;
+  counted: boolean;
+  note: string;
+};
+
+export type PowerBreakdown = {
+  power: number | null;
+  error: string | null;
+  attack: number;
+  defense: number;
+  hp: number;
+  speed: number;
+  weights: { attack: number; defense: number; hp: number; speed: number } | null;
+  lines: PowerSourceLine[];
+  steps: string[];
+};
+
+function showNumber(value: number): string {
+  return String(Math.round(value * 10000) / 10000);
+}
+
+function statOf(value: number | null | undefined): number {
+  return value ?? 0;
+}
+
+export function explainPlayerPower(
+  world: ContentSnapshot,
+  realmSlug: string,
+  items: { itemSlug: string; equippedSlot: string | null; quantity: number }[],
+  skills: { skillSlug: string; runningSlot: string | null; level: number }[],
+): PowerBreakdown {
+  const empty = { attack: 0, defense: 0, hp: 0, speed: 0, weights: null, lines: [] as PowerSourceLine[], steps: [] as string[] };
+  const realm = world.realms.find((row) => row.slug === realmSlug);
+  if (!realm || realm.sortOrder == null) {
+    return { ...empty, power: null, error: "境界不存在" };
+  }
+  const lines: PowerSourceLine[] = [];
+  for (const row of world.realms.filter((item) => item.sortOrder != null && item.sortOrder <= (realm.sortOrder as number)).sort((left, right) => (left.sortOrder ?? 0) - (right.sortOrder ?? 0))) {
+    lines.push({
+      group: "境界",
+      name: row.displayName || "名称缺失",
+      attack: statOf(row.baseAttack),
+      defense: statOf(row.baseDefense),
+      hp: statOf(row.baseHp),
+      speed: statOf(row.baseSpeed),
+      counted: true,
+      note: "到达过的境界都计入",
+    });
+  }
+  for (const item of items) {
+    const definition = world.items.find((row) => row.slug === item.itemSlug);
+    const name = definition?.displayName || (definition ? "名称缺失" : "已删除");
+    const quantity = item.quantity > 1 ? ` × ${item.quantity}` : "";
+    const equipped = Boolean(item.equippedSlot);
+    lines.push({
+      group: "武器",
+      name: `${name}${quantity}`,
+      attack: equipped ? statOf(definition?.attack) : 0,
+      defense: equipped ? statOf(definition?.defense) : 0,
+      hp: equipped ? statOf(definition?.hp) : 0,
+      speed: equipped ? statOf(definition?.speed) : 0,
+      counted: equipped,
+      note: !definition ? "后台里已经没有这件" : equipped ? "已穿上" : "在背包，不算战力",
+    });
+  }
+  for (const skill of skills) {
+    const definition = world.skills.find((row) => row.slug === skill.skillSlug);
+    const level = skill.level;
+    const running = Boolean(skill.runningSlot);
+    if (!Number.isInteger(level) || level < 1) {
+      lines.push({
+        group: "功法",
+        name: definition?.displayName || "名称缺失",
+        attack: 0,
+        defense: 0,
+        hp: 0,
+        speed: 0,
+        counted: false,
+        note: "功法层数不正确",
+      });
+      continue;
+    }
+    lines.push({
+      group: "功法",
+      name: `${definition?.displayName || (definition ? "名称缺失" : "已删除")} · ${level}层`,
+      attack: running ? statOf(definition?.attack) * level : 0,
+      defense: running ? statOf(definition?.defense) * level : 0,
+      hp: running ? statOf(definition?.hp) * level : 0,
+      speed: running ? statOf(definition?.speed) * level : 0,
+      counted: running,
+      note: !definition ? "后台里已经没有这门功法" : running ? `${level}层，效果按层数相乘` : "没有运转，不算战力",
+    });
+  }
+  const totals = lines.filter((line) => line.counted).reduce(
+    (sum, line) => ({
+      attack: sum.attack + line.attack,
+      defense: sum.defense + line.defense,
+      hp: sum.hp + line.hp,
+      speed: sum.speed + line.speed,
+    }),
+    { attack: 0, defense: 0, hp: 0, speed: 0 },
+  );
+  let weights: PowerBreakdown["weights"] = null;
+  let error: string | null = null;
+  try {
+    weights = readGameRules(world).powerWeights;
+  } catch (cause) {
+    error = cause instanceof Error ? cause.message : "规则还没填";
+  }
+  if (!weights) {
+    return { ...empty, ...totals, lines, power: null, error };
+  }
+  const attackPart = totals.attack * weights.attack;
+  const defensePart = totals.defense * weights.defense;
+  const hpPart = totals.hp * weights.hp;
+  const speedPart = totals.speed * weights.speed;
+  const raw = attackPart + defensePart + hpPart + speedPart;
+  const power = ratePower(totals, weights);
+  return {
+    power,
+    error: null,
+    ...totals,
+    weights,
+    lines,
+    steps: [
+      `攻击 ${showNumber(totals.attack)} × 权重 ${showNumber(weights.attack)} = ${showNumber(attackPart)}`,
+      `防御 ${showNumber(totals.defense)} × 权重 ${showNumber(weights.defense)} = ${showNumber(defensePart)}`,
+      `气血 ${showNumber(totals.hp)} × 权重 ${showNumber(weights.hp)} = ${showNumber(hpPart)}`,
+      `速度 ${showNumber(totals.speed)} × 权重 ${showNumber(weights.speed)} = ${showNumber(speedPart)}`,
+      `${showNumber(attackPart)} + ${showNumber(defensePart)} + ${showNumber(hpPart)} + ${showNumber(speedPart)} = ${showNumber(raw)}，四舍五入后战力 ${power}`,
+    ],
+  };
+}
+
+export function battleConfigOf(world: ContentSnapshot) {
+  const rules = readGameRules(world);
+  return {
+    timeLimitSeconds: rules.timeLimitSeconds,
+    playerDefenseFactor: rules.playerDefenseFactor,
+    bossDefenseFactor: rules.bossDefenseFactor,
+    playerDamageFloor: rules.playerDamageFloor,
+    bossDamageFloor: rules.bossDamageFloor,
+  };
 }
 
 async function settleLocked(tx: Tx, playerId: string, world: World, now: Date) {
@@ -108,7 +304,7 @@ async function settleLocked(tx: Tx, playerId: string, world: World, now: Date) {
     tickSeconds: realmOf(world, state.realmSlug).tickSeconds,
     gainPerTick: realmOf(world, state.realmSlug).gainPerTick,
     bonusBp: stats.bonusBp,
-    offlineCapSeconds: world.globals.offlineCapSeconds ?? 28800,
+    offlineCapSeconds: readGameRules(world).offlineCapSeconds,
   });
   const [saved] = await tx
     .update(playerStates)
@@ -125,18 +321,7 @@ async function settleLocked(tx: Tx, playerId: string, world: World, now: Date) {
 function stateDto(world: World, playerId: string, settled: Awaited<ReturnType<typeof settleLocked>>) {
   const realm = realmOf(world, settled.state.realmSlug);
   const next = realm.nextRealmSlug ? world.realms.find((row) => row.slug === realm.nextRealmSlug) : undefined;
-  const rateBp = next
-    ? breakthroughRate({
-        power: settled.stats.power,
-        recommendedPower: realm.recommendedPower,
-        baseRateBp: realm.baseRateBp,
-        powerFactorBp: realm.powerFactorBp ?? 3000,
-        minRateBp: realm.minRateBp,
-        maxRateBp: realm.maxRateBp,
-        failStreak: settled.state.breakthroughFailStreak,
-        pityStepBp: realm.pityStepBp ?? 1000,
-      })
-    : 0;
+  const rateBp = next ? 10000 : 0;
   return {
     playerId,
     contentVersion: world.version,
@@ -145,8 +330,13 @@ function stateDto(world: World, playerId: string, settled: Awaited<ReturnType<ty
     realmSlug: settled.state.realmSlug,
     realmName: realm.displayName ?? settled.state.realmSlug,
     power: settled.stats.power,
+    attack: settled.stats.attack,
+    defense: settled.stats.defense,
+    hp: settled.stats.hp,
+    speed: settled.stats.speed,
     cultivationRate: { bonusBp: settled.stats.bonusBp, gainPerTick: realm.gainPerTick },
     breakthrough: { rateBp, cost: realm.breakthroughCost, nextSlug: realm.nextRealmSlug },
+    challengeCooldownSeconds: readGameRules(world).challengeCooldownSeconds,
     items: settled.pieces.items,
     skills: settled.pieces.skills,
     stages: settled.pieces.stages,
@@ -260,22 +450,13 @@ export async function advanceRealm(tx: Tx, world: World, playerId: string, now: 
   if (settled.state.cultivation < realm.breakthroughCost) {
     throw new AppError("NOT_ENOUGH_CULTIVATION");
   }
-  const rateBp = breakthroughRate({
-    power: settled.stats.power,
-    recommendedPower: realm.recommendedPower,
-    baseRateBp: realm.baseRateBp,
-    powerFactorBp: realm.powerFactorBp ?? 3000,
-    minRateBp: realm.minRateBp,
-    maxRateBp: realm.maxRateBp,
-    failStreak: settled.state.breakthroughFailStreak,
-    pityStepBp: realm.pityStepBp ?? 1000,
-  });
-  const roll = randomInt(0, 10000);
+  const rateBp = 10000;
+  const roll = 0;
   const result = resolveBreakthrough({
     cultivation: settled.state.cultivation,
     cost: realm.breakthroughCost,
     rateBp,
-    failLossBp: realm.failLossBp ?? 3000,
+    failLossBp: realm.failLossBp ?? 0,
     failStreak: settled.state.breakthroughFailStreak,
     roll,
   });
@@ -300,22 +481,45 @@ export async function challengeStage(tx: Tx, world: World, playerId: string, sta
   if (!stage) {
     throw new AppError("NOT_FOUND");
   }
-  const progress = settled.pieces.stages.find((row) => row.stageSlug === stageSlug);
-  if (!progress) {
-    throw new AppError("STAGE_LOCKED");
-  }
   const realm = realmOf(world, settled.state.realmSlug);
-  if ((realm.sortOrder ?? 0) < (stage.requiredRealmOrder ?? 0)) {
+  if (realm.sortOrder == null || stage.requiredRealmOrder == null) {
+    throw new AppError("INVALID_INPUT", "关卡没有所属境界");
+  }
+  if (realm.sortOrder < stage.requiredRealmOrder) {
     throw new AppError("REALM_TOO_LOW");
   }
-  const cooldown = world.globals.combat?.challengeCooldownSeconds ?? 3;
-  if (settled.state.lastChallengeAt && now.getTime() - settled.state.lastChallengeAt.getTime() < cooldown * 1000) {
-    throw new AppError("CHALLENGE_COOLDOWN");
+  let progress = settled.pieces.stages.find((row) => row.stageSlug === stageSlug);
+  if (!progress) {
+    await tx.insert(playerStageProgress).values({ playerId, stageSlug, unlockedAt: now }).onConflictDoNothing();
+    progress = {
+      playerId,
+      stageSlug,
+      unlockedAt: now,
+      firstClearedAt: null,
+      clearCount: 0,
+      bestClearSeconds: null,
+    };
   }
-  const bagCapacity = world.globals.bagCapacity ?? 100;
+  const rules = readGameRules(world);
+  const cooldown = rules.challengeCooldownSeconds;
+  if (cooldown > 0 && settled.state.lastChallengeAt && now.getTime() - settled.state.lastChallengeAt.getTime() < cooldown * 1000) {
+    throw new AppError("CHALLENGE_COOLDOWN", `挑战冷却中，要间隔 ${cooldown} 秒`);
+  }
+  const bagCapacity = rules.bagCapacity;
   const used = settled.pieces.items.filter((row) => !row.equippedSlot).length;
   if (used >= bagCapacity) {
     throw new AppError("BAG_FULL");
+  }
+  if (stage.bosses && stage.bosses.length === 0) {
+    throw new AppError("INVALID_INPUT", "这个关卡还没有首领");
+  }
+  const boss = stage.bosses?.[0];
+  const bossAttack = boss ? boss.attack : (stage.bossAttack ?? 1);
+  const bossDefense = boss ? boss.defense : (stage.bossDefense ?? 0);
+  const bossHp = boss ? boss.hp : stage.bossHp;
+  const bossInterval = boss ? boss.interval : stage.bossInterval;
+  if (bossHp <= 0 || bossInterval <= 0) {
+    throw new AppError("INVALID_INPUT", "这个首领还没填气血或出手间隔");
   }
   const battle = simulateBattle(
     {
@@ -325,19 +529,21 @@ export async function challengeStage(tx: Tx, world: World, playerId: string, sta
       interval: settled.stats.interval,
     },
     {
-      attack: stage.bossAttack ?? 1,
-      defense: stage.bossDefense ?? 0,
-      hp: stage.bossHp,
-      interval: stage.bossInterval,
+      attack: bossAttack,
+      defense: bossDefense,
+      hp: bossHp,
+      interval: bossInterval,
     },
-    {
-      timeLimitSeconds: 60,
-      playerDefenseFactor: world.globals.combat?.playerDefenseFactor ?? 0.4,
-      bossDefenseFactor: world.globals.combat?.bossDefenseFactor ?? 0.5,
-    },
+    battleConfigOf(world),
   );
   const drops: { itemSlug: string; quantity: number }[] = [];
   if (battle.win) {
+    drops.push(
+      ...rollDropTable(
+        (boss?.drops ?? []).map((drop) => ({ itemSlug: drop.itemSlug, chanceBp: drop.chanceBp, minQty: 1, maxQty: 1 })),
+        randomInt,
+      ),
+    );
     const bossTable = world.dropTables.find((row) => row.slug === stage.bossDropTableSlug);
     drops.push(...rollDropTable(bossTable?.entries ?? [], randomInt));
     if (!progress.firstClearedAt) {
@@ -345,6 +551,23 @@ export async function challengeStage(tx: Tx, world: World, playerId: string, sta
       drops.push(...rollDropTable(firstTable?.entries ?? [], randomInt));
     }
     for (const drop of drops) {
+      const skill = world.skills.find((row) => row.slug === drop.itemSlug);
+      if (skill) {
+        const bookSlug = await ensureSkillBook(tx, { slug: skill.slug, displayName: skill.displayName ?? "名称缺失" }, null);
+        await tx.insert(playerItems).values({
+          playerId,
+          itemSlug: bookSlug,
+          isStack: false,
+          quantity: 1,
+          source: `drop:${stage.slug}`,
+          acquiredAt: now,
+        });
+        drop.itemSlug = bookSlug;
+        continue;
+      }
+      if (!world.items.some((item) => item.slug === drop.itemSlug)) {
+        throw new AppError("INVALID_INPUT", "有一件掉落已经不在后台");
+      }
       await grant(tx, world, playerId, drop.itemSlug, drop.quantity, `drop:${stage.slug}`, now);
     }
     await tx
@@ -375,18 +598,30 @@ export async function equipItem(tx: Tx, world: World, playerId: string, itemId: 
     throw new AppError("NOT_FOUND");
   }
   const definition = world.items.find((row) => row.slug === item.itemSlug);
-  if (!definition || definition.kind !== "equipment" || !definition.slot) {
-    throw new AppError("NOT_EQUIPMENT");
+  if (!definition || definition.kind !== "equipment") {
+    throw new AppError("NOT_EQUIPMENT", "这不是武器，不能穿");
   }
   const realm = realmOf(world, settled.state.realmSlug);
   if ((realm.sortOrder ?? 0) < (definition.requiredRealmOrder ?? 0)) {
     throw new AppError("REALM_TOO_LOW");
   }
-  const wearing = settled.pieces.items.find((row) => row.equippedSlot === definition.slot && row.id !== item.id);
-  if (wearing) {
-    await tx.update(playerItems).set({ equippedSlot: null }).where(eq(playerItems.id, wearing.id));
+  if (!item.equippedSlot) {
+    await tx.update(playerItems).set({ equippedSlot: item.id }).where(eq(playerItems.id, item.id));
   }
-  await tx.update(playerItems).set({ equippedSlot: definition.slot }).where(eq(playerItems.id, item.id));
+  const after = await settleLocked(tx, playerId, world, now);
+  return { state: stateDto(world, playerId, after) };
+}
+
+export async function unequipItem(tx: Tx, world: World, playerId: string, itemId: string, now: Date) {
+  const settled = await settleLocked(tx, playerId, world, now);
+  const item = settled.pieces.items.find((row) => row.id === itemId);
+  if (!item) {
+    throw new AppError("NOT_FOUND");
+  }
+  if (!item.equippedSlot) {
+    throw new AppError("INVALID_INPUT", "这件没有穿上");
+  }
+  await tx.update(playerItems).set({ equippedSlot: null }).where(eq(playerItems.id, item.id));
   const after = await settleLocked(tx, playerId, world, now);
   return { state: stateDto(world, playerId, after) };
 }
@@ -415,26 +650,30 @@ export async function useItem(tx: Tx, world: World, playerId: string, itemId: st
   if (!skill) {
     throw new AppError("NOT_FOUND");
   }
-  if (settled.pieces.skills.some((row) => row.skillSlug === skill.slug)) {
-    throw new AppError("ALREADY_LEARNED");
-  }
-  const realm = realmOf(world, settled.state.realmSlug);
-  if ((realm.sortOrder ?? 0) < (skill.requiredRealmOrder ?? 0)) {
-    throw new AppError("REALM_TOO_LOW");
-  }
-  for (const prerequisite of skill.prerequisiteSkillSlugs) {
-    if (!settled.pieces.skills.some((row) => row.skillSlug === prerequisite)) {
-      throw new AppError("PREREQUISITE_MISSING");
+  const existing = settled.pieces.skills.find((row) => row.skillSlug === skill.slug);
+  const level = existing ? existing.level + 1 : 1;
+  if (!existing) {
+    const realm = realmOf(world, settled.state.realmSlug);
+    if ((realm.sortOrder ?? 0) < (skill.requiredRealmOrder ?? 0)) {
+      throw new AppError("REALM_TOO_LOW");
+    }
+    for (const prerequisite of skill.prerequisiteSkillSlugs) {
+      if (!settled.pieces.skills.some((row) => row.skillSlug === prerequisite)) {
+        throw new AppError("PREREQUISITE_MISSING");
+      }
     }
   }
-  if (item.quantity <= 1) {
-    await tx.delete(playerItems).where(eq(playerItems.id, item.id));
+  await tx.delete(playerItems).where(eq(playerItems.id, item.id));
+  if (existing) {
+    await tx
+      .update(playerSkills)
+      .set({ level })
+      .where(and(eq(playerSkills.playerId, playerId), eq(playerSkills.skillSlug, skill.slug)));
   } else {
-    await tx.update(playerItems).set({ quantity: item.quantity - 1 }).where(eq(playerItems.id, item.id));
+    await tx.insert(playerSkills).values({ playerId, skillSlug: skill.slug, learnedAt: now, level: 1 });
   }
-  await tx.insert(playerSkills).values({ playerId, skillSlug: skill.slug, learnedAt: now });
   const after = await settleLocked(tx, playerId, world, now);
-  return { state: stateDto(world, playerId, after) };
+  return { state: stateDto(world, playerId, after), learned: { displayName: skill.displayName ?? "名称缺失", level } };
 }
 
 export async function runSkill(tx: Tx, world: World, playerId: string, skillSlug: string, slot: string, now: Date) {
@@ -444,8 +683,11 @@ export async function runSkill(tx: Tx, world: World, playerId: string, skillSlug
     throw new AppError("SKILL_NOT_LEARNED");
   }
   const skill = world.skills.find((row) => row.slug === skillSlug);
+  if (!skill?.role) {
+    throw new AppError("INVALID_INPUT", "这门功法还没有运转位置");
+  }
   const realm = realmOf(world, settled.state.realmSlug);
-  const allowed = skill?.role === "heart" ? ["heart"] : ["art_1", "art_2"].slice(0, artSlotCount(world, realm.sortOrder ?? 0));
+  const allowed = skill.role === "heart" ? ["heart"] : ["art_1", "art_2"].slice(0, artSlotCount(world, realm.sortOrder ?? 0));
   if (!allowed.includes(slot)) {
     throw new AppError("SKILL_SLOT_INVALID");
   }

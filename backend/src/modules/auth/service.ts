@@ -2,7 +2,7 @@ import { createHash, randomBytes } from "node:crypto";
 import argon2 from "argon2";
 import { eq } from "drizzle-orm";
 import { withTransaction } from "../../db/tx.js";
-import { admins, playerStates, players, sessions } from "../../db/schema.js";
+import { admins, contentRealms, playerStates, players, sessions } from "../../db/schema.js";
 import { AppError } from "../../shared/errors.js";
 import { writeOperation, type Db } from "../operations/record.js";
 import { initializeProgress } from "../loop/actions.js";
@@ -65,10 +65,15 @@ export async function registerPlayer(
       if (!player) {
         throw new Error("player insert failed");
       }
+      const realms = await tx.select().from(contentRealms);
+      if (realms.length === 0) {
+        throw new AppError("CONTENT_NOT_PUBLISHED", "还没有境界，不能注册");
+      }
+      const start = realms.reduce((smallest, row) => (row.sortOrder < smallest.sortOrder ? row : smallest));
       await tx.insert(playerStates).values({
         playerId: player.id,
         cultivation: 0,
-        realmSlug: "mortal",
+        realmSlug: start.slug,
         lastSettledAt: input.now,
       });
       await initializeProgress(tx, player.id, input.now);

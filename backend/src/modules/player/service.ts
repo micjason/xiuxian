@@ -1,12 +1,27 @@
 import { eq } from "drizzle-orm";
 import { withTransaction, type Tx } from "../../db/tx.js";
-import { contentCurrent, contentVersions, playerStates, players } from "../../db/schema.js";
+import {
+  contentCurrent,
+  contentRealms,
+  contentVersions,
+  idempotencyKeys,
+  noticeDismissals,
+  playerItems,
+  playerNotices,
+  playerSkills,
+  playerStageProgress,
+  playerStates,
+  players,
+  repairApplications,
+} from "../../db/schema.js";
 import { settleTicks } from "../progress/settle.js";
 import { AppError } from "../../shared/errors.js";
 import { getPublishedRealm } from "../content/service.js";
 import { writeOperation, type Db } from "../operations/record.js";
 import { rememberIncome, noticesForPlayer } from "../notices/service.js";
 import { piecePower } from "./power.js";
+import { explainPlayerPower } from "../loop/actions.js";
+import { loadCurrentWorld } from "../content/snapshot.js";
 import { breakthrough, settleCultivation } from "./progress-rules.js";
 
 async function lockedPlayer(db: Tx, playerId: string) {
@@ -122,6 +137,9 @@ export async function syncFromSnapshot(db: Db, playerId: string, now: Date) {
     if (!realm) {
       throw new AppError("CONTENT_NOT_PUBLISHED");
     }
+    if (snapshot.globals.offlineCapSeconds == null || snapshot.globals.offlineCapSeconds <= 0) {
+      throw new AppError("INVALID_INPUT", "请先在后台填写离线上限");
+    }
     const settled = settleTicks({
       cultivation: state.cultivation,
       lastSettledAt: state.lastSettledAt,
@@ -129,7 +147,7 @@ export async function syncFromSnapshot(db: Db, playerId: string, now: Date) {
       tickSeconds: realm.tickSeconds,
       gainPerTick: realm.gainPerTick,
       bonusBp: 0,
-      offlineCapSeconds: snapshot.globals.offlineCapSeconds ?? 28800,
+      offlineCapSeconds: snapshot.globals.offlineCapSeconds,
     });
     await tx
       .update(playerStates)
@@ -140,26 +158,83 @@ export async function syncFromSnapshot(db: Db, playerId: string, now: Date) {
 }
 
 export async function listPlayers(db: Db) {
-  const rows = await db
-    .select({
-      username: players.username,
-      cultivation: playerStates.cultivation,
-      realmSlug: playerStates.realmSlug,
-      lastSettledAt: playerStates.lastSettledAt,
-    })
-    .from(players)
-    .innerJoin(playerStates, eq(playerStates.playerId, players.id));
-  const listed = [];
-  for (const row of rows) {
-    const realm = await getPublishedRealm(db, row.realmSlug);
-    listed.push({
+  const world = await loadCurrentWorld(db);
+  const [rows, itemRows, skillRows] = await Promise.all([
+    db
+      .select({
+        playerId: players.id,
+        username: players.username,
+        cultivation: playerStates.cultivation,
+        realmSlug: playerStates.realmSlug,
+        lastSettledAt: playerStates.lastSettledAt,
+      })
+      .from(players)
+      .innerJoin(playerStates, eq(playerStates.playerId, players.id)),
+    db.select().from(playerItems),
+    db.select().from(playerSkills),
+  ]);
+  return rows.map((row) => {
+    const realmName = world?.realms.find((realm) => realm.slug === row.realmSlug)?.displayName || "境界不存在";
+    const breakdown = world
+      ? explainPlayerPower(
+          world,
+          row.realmSlug,
+          itemRows.filter((item) => item.playerId === row.playerId),
+          skillRows.filter((skill) => skill.playerId === row.playerId),
+        )
+      : { power: null, error: "还没有境界", attack: 0, defense: 0, hp: 0, speed: 0, weights: null, lines: [], steps: [] };
+    return {
       username: row.username,
-      realmName: realm?.displayName ?? row.realmSlug,
+      realmName,
       cultivation: row.cultivation,
       lastSettledAt: row.lastSettledAt,
-    });
+      power: breakdown.power,
+      powerError: breakdown.error,
+      breakdown,
+    };
+  });
+}
+
+export async function resetPlayer(db: Db, username: string, now: Date) {
+  const [player] = await db.select().from(players).where(eq(players.username, username)).limit(1);
+  if (!player) {
+    throw new AppError("NOT_FOUND", "没有这个账号");
   }
-  return listed;
+  const realms = await db.select().from(contentRealms);
+  if (realms.length === 0) {
+    throw new AppError("CONTENT_NOT_PUBLISHED", "还没有境界，不能清空");
+  }
+  const start = realms.reduce((smallest, row) => (row.sortOrder < smallest.sortOrder ? row : smallest));
+  await db.delete(idempotencyKeys).where(eq(idempotencyKeys.playerId, player.id));
+  await db.delete(playerItems).where(eq(playerItems.playerId, player.id));
+  await db.delete(playerSkills).where(eq(playerSkills.playerId, player.id));
+  await db.delete(playerStageProgress).where(eq(playerStageProgress.playerId, player.id));
+  await db.delete(noticeDismissals).where(eq(noticeDismissals.playerId, player.id));
+  await db.delete(playerNotices).where(eq(playerNotices.playerId, player.id));
+  await db.delete(repairApplications).where(eq(repairApplications.playerId, player.id));
+  const [state] = await db.select().from(playerStates).where(eq(playerStates.playerId, player.id)).limit(1);
+  if (!state) {
+    await db.insert(playerStates).values({
+      playerId: player.id,
+      cultivation: 0,
+      realmSlug: start.slug,
+      lastSettledAt: now,
+    });
+    return { ok: true };
+  }
+  await db
+    .update(playerStates)
+    .set({
+      cultivation: 0,
+      spiritStones: 0,
+      realmSlug: start.slug,
+      lastSettledAt: now,
+      breakthroughFailStreak: 0,
+      idleStageSlug: null,
+      lastChallengeAt: null,
+    })
+    .where(eq(playerStates.playerId, player.id));
+  return { ok: true };
 }
 
 export async function tryBreakthrough(db: Db, playerId: string, now: Date) {

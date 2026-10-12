@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { hitDamage, simulateBattle } from "./battle.js";
 
-const config = { timeLimitSeconds: 60, playerDefenseFactor: 0.4, bossDefenseFactor: 0.5 };
+const config = {
+  timeLimitSeconds: 60,
+  playerDefenseFactor: 0.4,
+  bossDefenseFactor: 0.5,
+  playerDamageFloor: 1,
+  bossDamageFloor: 0,
+};
 
 describe("simulateBattle", () => {
   it("deals at least 1 damage when attack is below boss defense", () => {

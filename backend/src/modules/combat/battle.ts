@@ -13,8 +13,8 @@ export type BattleConfig = {
   timeLimitSeconds: number;
   playerDefenseFactor: number;
   bossDefenseFactor: number;
-  damageBonus?: number;
-  takenFactor?: number;
+  playerDamageFloor: number;
+  bossDamageFloor: number;
 };
 
 function trimLog(log: BattleEvent[]): BattleEvent[] {
@@ -29,8 +29,8 @@ export function hitDamage(attack: number, defense: number, factor: number, bonus
 }
 
 export function simulateBattle(player: BattleSide, boss: BattleSide, config: BattleConfig): BattleResult {
-  const playerDamage = hitDamage(player.attack, boss.defense, config.playerDefenseFactor, config.damageBonus ?? 1, 1);
-  const bossDamage = hitDamage(boss.attack, player.defense, config.bossDefenseFactor, config.takenFactor ?? 1, 0);
+  const playerDamage = hitDamage(player.attack, boss.defense, config.playerDefenseFactor, 1, config.playerDamageFloor);
+  const bossDamage = hitDamage(boss.attack, player.defense, config.bossDefenseFactor, 1, config.bossDamageFloor);
   let playerHp = player.hp;
   let bossHp = boss.hp;
   let playerNext = player.interval;

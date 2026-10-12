@@ -101,7 +101,7 @@ export async function importLegacyContent(db: Db, idlePath: string, adventurePat
   await db.insert(contentGlobals).values({
     id: 1,
     startingRealmSlug: "mortal",
-    offlineCapSeconds: idle.offline_cap_seconds ?? 28800,
+    offlineCapSeconds: idle.offline_cap_seconds,
   });
   for (const realm of idle.realms) {
     const next = realm.next_id ? byOrder.get(realm.order + 1) : undefined;
@@ -119,7 +119,7 @@ export async function importLegacyContent(db: Db, idlePath: string, adventurePat
       baseDefense: base.defense ?? 0,
       baseHp: base.hp ?? 0,
       baseSpeed: 0,
-      baseInterval: base.interval ?? 1.5,
+      baseInterval: base.interval,
       breakthroughCost: realm.breakthrough_cost,
       baseRateBp: realm.id === "mortal" ? 10000 : cross ? 6000 : 9000,
       minRateBp: 2000,

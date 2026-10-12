@@ -3,10 +3,13 @@
     <el-aside width="200px">
       <div class="brand">修仙后台</div>
       <el-menu :default-active="route.path" router>
+        <el-menu-item index="/rules">规则</el-menu-item>
         <el-menu-item index="/realms">境界</el-menu-item>
-        <el-menu-item index="/skills">技能</el-menu-item>
-        <el-menu-item index="/items">物品</el-menu-item>
         <el-menu-item index="/stages">关卡</el-menu-item>
+        <el-menu-item index="/puppets">人偶</el-menu-item>
+        <el-menu-item index="/weapons">武器</el-menu-item>
+        <el-menu-item index="/items">物品</el-menu-item>
+        <el-menu-item index="/skills">技能</el-menu-item>
         <el-menu-item index="/buildings">洞府</el-menu-item>
         <el-menu-item index="/publish">发布</el-menu-item>
         <el-menu-item index="/releases">版本更新</el-menu-item>

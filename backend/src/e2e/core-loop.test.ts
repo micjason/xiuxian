@@ -14,7 +14,22 @@ import { buildApp } from "../app.js";
 const start = new Date("2026-10-08T03:00:00.000Z");
 
 async function seedWorld(db: Parameters<Parameters<typeof withDb>[0]>[0]) {
-  await db.insert(contentGlobals).values({ id: 1, offlineCapSeconds: 28800, bagCapacity: 20 });
+  await db.insert(contentGlobals).values({
+    id: 1,
+    offlineCapSeconds: 28800,
+    bagCapacity: 20,
+    powerWeights: { attack: 1, defense: 0.8, hp: 0.04, speed: 1.5 },
+    combat: {
+      minInterval: 0.7,
+      playerDefenseFactor: 0.4,
+      bossDefenseFactor: 0.5,
+      challengeCooldownSeconds: 0,
+      timeLimitSeconds: 60,
+      playerDamageFloor: 1,
+      bossDamageFloor: 0,
+      speedBase: 100,
+    },
+  });
   await db.insert(contentRealms).values([
     {
       slug: "mortal",
@@ -79,7 +94,6 @@ async function seedWorld(db: Parameters<Parameters<typeof withDb>[0]>[0]) {
   ]);
   const { contentDropEntries } = await import("../db/schema.js");
   await db.insert(contentDropEntries).values([
-    { dropTableSlug: "drop_first", itemSlug: "wood_sword", chanceBp: 10000, minQty: 1, maxQty: 1 },
     { dropTableSlug: "drop_first", itemSlug: "breath_book", chanceBp: 10000, minQty: 1, maxQty: 1 },
   ]);
   await db.insert(contentStages).values([
@@ -88,6 +102,8 @@ async function seedWorld(db: Parameters<Parameters<typeof withDb>[0]>[0]) {
       displayName: "林间",
       sortOrder: 0,
       nextStageSlug: "grove_2",
+      requiredRealmOrder: 0,
+      bosses: [{ name: "木傀", attack: 1, defense: 0, hp: 10, interval: 2, drops: [{ itemSlug: "wood_sword", chanceBp: 10000 }] }],
       bossName: "木傀",
       bossAttack: 1,
       bossDefense: 0,
@@ -185,7 +201,7 @@ describe("core loop", () => {
       expect(stopped.json().state.cultivationRate.bonusBp).toBe(0);
       const unequipped = await app.inject({
         method: "POST",
-        url: "/api/v1/me/equipment/weapon/unequip",
+        url: `/api/v1/me/items/${sword?.id}/unequip`,
         headers: { ...headers, "idempotency-key": "unequip-weapon" },
       });
       expect(unequipped.statusCode).toBe(200);

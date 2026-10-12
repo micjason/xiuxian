@@ -1,10 +1,7 @@
 [gd_scene load_steps=10 format=3]
 
-[ext_resource type="Script" path="res://scripts/ui/main_screen.gd" id="1_main"]
+[ext_resource type="Script" path="res://scripts/ui/play_screen.gd" id="1_main"]
 [ext_resource type="Script" path="res://scripts/update/update_service.gd" id="2_update"]
-[ext_resource type="Script" path="res://scripts/ui/cave_page.gd" id="3_cave"]
-[ext_resource type="Script" path="res://scripts/ui/sect_panel.gd" id="4_sect"]
-[ext_resource type="Script" path="res://scripts/ui/expedition_panel.gd" id="5_expedition"]
 
 [sub_resource type="Gradient" id="Gradient_bg"]
 offsets = PackedFloat32Array(0, 0.38, 1)
@@ -649,7 +646,6 @@ autowrap_mode = 3
 [node name="ExpeditionPanel" type="VBoxContainer" parent="Margin/Content/AdventurePage/AdventureMargin/AdventureBox"]
 unique_name_in_owner = true
 layout_mode = 2
-script = ExtResource("5_expedition")
 
 [node name="BattleLogScroll" type="ScrollContainer" parent="Margin/Content/AdventurePage/AdventureMargin/AdventureBox"]
 layout_mode = 2
@@ -763,7 +759,6 @@ horizontal_alignment = 1
 [node name="SectPanel" type="VBoxContainer" parent="Margin/Content/SkillPage/SkillMargin/SkillBox"]
 unique_name_in_owner = true
 layout_mode = 2
-script = ExtResource("4_sect")
 
 [node name="LearnedLabel" type="Label" parent="Margin/Content/SkillPage/SkillMargin/SkillBox"]
 unique_name_in_owner = true
@@ -797,7 +792,6 @@ unique_name_in_owner = true
 visible = false
 layout_mode = 2
 size_flags_vertical = 3
-script = ExtResource("3_cave")
 
 [node name="SettingsPage" type="PanelContainer" parent="Margin/Content"]
 unique_name_in_owner = true
@@ -938,6 +932,7 @@ text = "功法"
 
 [node name="Flash" type="ColorRect" parent="."]
 unique_name_in_owner = true
+visible = false
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0

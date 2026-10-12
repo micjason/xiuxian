@@ -5,18 +5,37 @@ export type StatInput = {
   speed: number;
   baseInterval: number;
   minInterval: number;
+  speedBase: number;
   weights: { attack: number; defense: number; hp: number; speed: number };
 };
 
+export function sumReachedRealmStats(
+  realms: { sortOrder: number; attack: number; defense: number; hp: number; speed: number }[],
+  currentSort: number,
+): { attack: number; defense: number; hp: number; speed: number } {
+  const totals = { attack: 0, defense: 0, hp: 0, speed: 0 };
+  for (const realm of realms) {
+    if (realm.sortOrder > currentSort) {
+      continue;
+    }
+    totals.attack += realm.attack;
+    totals.defense += realm.defense;
+    totals.hp += realm.hp;
+    totals.speed += realm.speed;
+  }
+  return totals;
+}
+
+export function ratePower(
+  stats: { attack: number; defense: number; hp: number; speed: number },
+  weights: { attack: number; defense: number; hp: number; speed: number },
+): number {
+  return Math.round(stats.attack * weights.attack + stats.defense * weights.defense + stats.hp * weights.hp + stats.speed * weights.speed);
+}
+
 export function computePower(input: StatInput): { interval: number; power: number } {
-  const interval = Math.max(input.minInterval, (input.baseInterval * 100) / (100 + Math.max(input.speed, 0)));
-  const power = Math.round(
-    input.attack * input.weights.attack +
-      input.defense * input.weights.defense +
-      input.hp * input.weights.hp +
-      input.speed * input.weights.speed,
-  );
-  return { interval, power };
+  const interval = Math.max(input.minInterval, (input.baseInterval * input.speedBase) / (input.speedBase + Math.max(input.speed, 0)));
+  return { interval, power: ratePower(input, input.weights) };
 }
 
 export function breakthroughRate(input: {

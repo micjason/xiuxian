@@ -200,13 +200,22 @@ export const contentKnownSlugs = pgTable(
 export const contentGlobals = pgTable("content_globals", {
   id: integer("id").primaryKey().default(1),
   startingRealmSlug: text("starting_realm_slug").notNull().default("mortal"),
-  offlineCapSeconds: integer("offline_cap_seconds").notNull().default(28800),
-  bagCapacity: integer("bag_capacity").notNull().default(100),
+  offlineCapSeconds: integer("offline_cap_seconds"),
+  bagCapacity: integer("bag_capacity"),
   starterItems: jsonb("starter_items").notNull().default([]),
-  powerWeights: jsonb("power_weights").notNull().default({ attack: 1, defense: 0.8, hp: 0.04, speed: 1.5 }),
-  combat: jsonb("combat").notNull().default({ minInterval: 0.7, respawnSeconds: 0.8, challengeCooldownSeconds: 3 }),
-  artSlotRules: jsonb("art_slot_rules").notNull().default([{ minRealmOrder: 0, slots: 1 }, { minRealmOrder: 4, slots: 2 }]),
-  idleKillCap: integer("idle_kill_cap").notNull().default(200),
+  powerWeights: jsonb("power_weights").$type<{ attack: number; defense: number; hp: number; speed: number }>(),
+  combat: jsonb("combat").$type<{
+    minInterval?: number;
+    playerDefenseFactor?: number;
+    bossDefenseFactor?: number;
+    challengeCooldownSeconds?: number;
+    timeLimitSeconds?: number;
+    playerDamageFloor?: number;
+    bossDamageFloor?: number;
+    speedBase?: number;
+  }>(),
+  artSlotRules: jsonb("art_slot_rules").$type<{ minRealmOrder: number; slots: number }[]>(),
+  idleKillCap: integer("idle_kill_cap"),
   minClientVersionCode: integer("min_client_version_code").notNull().default(0),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   updatedBy: uuid("updated_by"),
@@ -224,7 +233,7 @@ export const contentRealms = pgTable("content_realms", {
   baseDefense: doublePrecision("base_defense").notNull().default(0),
   baseHp: doublePrecision("base_hp").notNull().default(0),
   baseSpeed: doublePrecision("base_speed").notNull().default(0),
-  baseInterval: doublePrecision("base_interval").notNull().default(1.5),
+  baseInterval: doublePrecision("base_interval"),
   breakthroughCost: doublePrecision("breakthrough_cost").notNull().default(0),
   requiredStageSlug: text("required_stage_slug"),
   recommendedPower: integer("recommended_power").notNull().default(0),
@@ -239,11 +248,25 @@ export const contentRealms = pgTable("content_realms", {
   updatedBy: uuid("updated_by"),
 });
 
+export const contentWeaponCategories = pgTable("content_weapon_categories", {
+  slug: text("slug").primaryKey(),
+  displayName: text("display_name").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedBy: uuid("updated_by"),
+});
+
+export const contentSkillCategories = pgTable("content_skill_categories", {
+  slug: text("slug").primaryKey(),
+  displayName: text("display_name").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedBy: uuid("updated_by"),
+});
+
 export const contentItems = pgTable("content_items", {
   slug: text("slug").primaryKey(),
   displayName: text("display_name").notNull(),
   description: text("description").notNull().default(""),
-  kind: text("kind").notNull(),
+  kind: text("kind"),
   quality: text("quality").notNull().default("white"),
   slot: text("slot"),
   attack: doublePrecision("attack").notNull().default(0),
@@ -252,6 +275,7 @@ export const contentItems = pgTable("content_items", {
   speed: doublePrecision("speed").notNull().default(0),
   requiredRealmOrder: integer("required_realm_order").notNull().default(0),
   skillSlug: text("skill_slug"),
+  weaponCategorySlug: text("weapon_category_slug"),
   stackable: boolean("stackable").notNull().default(false),
   iconKey: text("icon_key").notNull().default(""),
   enabled: boolean("enabled").notNull().default(true),
@@ -263,7 +287,7 @@ export const contentSkills = pgTable("content_skills", {
   slug: text("slug").primaryKey(),
   displayName: text("display_name").notNull(),
   description: text("description").notNull().default(""),
-  role: text("role").notNull(),
+  role: text("role"),
   rank: text("rank").notNull().default("yellow"),
   attack: doublePrecision("attack").notNull().default(0),
   defense: doublePrecision("defense").notNull().default(0),
@@ -272,6 +296,7 @@ export const contentSkills = pgTable("content_skills", {
   cultivateBonusBp: integer("cultivate_bonus_bp").notNull().default(0),
   requiredRealmOrder: integer("required_realm_order").notNull().default(0),
   prerequisiteSkillSlugs: jsonb("prerequisite_skill_slugs").$type<string[]>().notNull().default([]),
+  skillCategorySlug: text("skill_category_slug"),
   enabled: boolean("enabled").notNull().default(true),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   updatedBy: uuid("updated_by"),
@@ -298,6 +323,15 @@ export const contentDropEntries = pgTable(
   (table) => [primaryKey({ columns: [table.dropTableSlug, table.itemSlug] })],
 );
 
+export type StageBoss = {
+  name: string;
+  attack: number;
+  defense: number;
+  hp: number;
+  interval: number;
+  drops: { itemSlug: string; chanceBp: number }[];
+};
+
 export const contentStages = pgTable("content_stages", {
   slug: text("slug").primaryKey(),
   displayName: text("display_name").notNull(),
@@ -310,10 +344,27 @@ export const contentStages = pgTable("content_stages", {
   bossDefense: doublePrecision("boss_defense").notNull().default(0),
   bossHp: doublePrecision("boss_hp").notNull().default(1),
   bossInterval: doublePrecision("boss_interval").notNull().default(1.5),
+  bosses: jsonb("bosses").$type<StageBoss[]>().notNull().default([]),
   bossDropTableSlug: text("boss_drop_table_slug").notNull(),
   idleDropTableSlug: text("idle_drop_table_slug").notNull(),
   firstClearDropTableSlug: text("first_clear_drop_table_slug").notNull(),
   enabled: boolean("enabled").notNull().default(true),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedBy: uuid("updated_by"),
+});
+
+export const contentTrialPuppets = pgTable("content_trial_puppets", {
+  slug: text("slug").primaryKey(),
+  displayName: text("display_name").notNull(),
+  kind: text("kind").notNull(),
+  realmCode: integer("realm_code"),
+  weaponIds: jsonb("weapon_ids").$type<string[]>().notNull().default([]),
+  skillIds: jsonb("skill_ids").$type<string[]>().notNull().default([]),
+  attack: doublePrecision("attack"),
+  defense: doublePrecision("defense"),
+  hp: doublePrecision("hp"),
+  speed: doublePrecision("speed"),
+  interval: doublePrecision("interval"),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   updatedBy: uuid("updated_by"),
 });
@@ -365,6 +416,7 @@ export const playerSkills = pgTable(
       .references(() => players.id),
     skillSlug: text("skill_slug").notNull(),
     learnedAt: timestamp("learned_at", { withTimezone: true }).notNull().defaultNow(),
+    level: integer("level").notNull().default(1),
     runningSlot: text("running_slot"),
   },
   (table) => [

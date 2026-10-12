@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import type { Db } from "../operations/record.js";
 import { dismissNotice } from "../notices/service.js";
-import { listPlayers, openProgress, syncFromSnapshot } from "./service.js";
+import { listPlayers, openProgress, resetPlayer, syncFromSnapshot } from "./service.js";
 
 
 
@@ -25,6 +25,11 @@ export async function registerPlayerRoutes(
 
   app.get("/admin/players", async (request, reply) => {
     return listPlayers(deps.db);
+  });
+
+  app.post("/admin/players/:username/reset", async (request) => {
+    const params = request.params as { username: string };
+    return resetPlayer(deps.db, params.username, deps.now());
   });
 
   app.get("/me", async (request, reply) => {

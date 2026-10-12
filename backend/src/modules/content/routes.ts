@@ -14,6 +14,8 @@ import {
 } from "./pack.js";
 import { AppError } from "../../shared/errors.js";
 import { PublishRejected } from "./service.js";
+import { ensureSkillBooks } from "./ops-content.js";
+import { loadCurrentWorld } from "./snapshot.js";
 import {
   diffDraft,
   listDraftItems,
@@ -40,6 +42,15 @@ export async function registerContentRoutes(
 ): Promise<void> {
   app.get("/content/published", async () => {
     return (await buildPublishedContent(deps.db)) ?? { offlineCapSeconds: null, idle: null, adventure: null, longterm: null };
+  });
+
+  app.get("/content/current", async () => {
+    await ensureSkillBooks(deps.db);
+    const world = await loadCurrentWorld(deps.db);
+    if (!world) {
+      throw new AppError("CONTENT_NOT_PUBLISHED");
+    }
+    return world;
   });
 
   app.get("/admin/content/settings", async (request, reply) => {

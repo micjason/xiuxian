@@ -17,6 +17,22 @@ describe("settleTicks", () => {
     expect(result.lastSettledAt.toISOString()).toBe(new Date(last.getTime() + 9_000).toISOString());
   });
 
+  it("does not grant cultivation until seconds and gain are configured", () => {
+    const last = new Date("2026-10-08T00:00:00.000Z");
+    const now = new Date(last.getTime() + 60_000);
+    const result = settleTicks({
+      cultivation: 5,
+      lastSettledAt: last,
+      now,
+      tickSeconds: 0,
+      gainPerTick: 0,
+      bonusBp: 0,
+      offlineCapSeconds: 28800,
+    });
+    expect(result.cultivation).toBe(5);
+    expect(result.countedSeconds).toBe(0);
+  });
+
   it("discards time beyond the offline cap", () => {
     const last = new Date("2026-10-08T00:00:00.000Z");
     const now = new Date(last.getTime() + 100_000);

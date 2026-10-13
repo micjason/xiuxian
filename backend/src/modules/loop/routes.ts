@@ -3,7 +3,7 @@ import { AppError } from "../../shared/errors.js";
 import type { Db } from "../operations/record.js";
 import { tryBreakthrough } from "../player/service.js";
 import { loadCurrentWorld } from "../content/snapshot.js";
-import { advanceRealm, challengeStage, equipItem, readState, runSkill, stopSkill, unequipItem, unequipSlot, useItem, withIdempotency } from "./actions.js";
+import { advanceRealm, challengeStage, decomposeItem, equipItem, readState, runSkill, setAutoDecompose, stopSkill, unequipItem, unequipSlot, useItem, withIdempotency } from "./actions.js";
 
 type RandomInt = (min: number, max: number) => number;
 
@@ -69,6 +69,25 @@ export async function registerLoopRoutes(
     const params = request.params as { itemId: string };
     return withIdempotency(deps.db, playerId, idempotencyKey(request.headers["idempotency-key"]), "use", deps.now(), (tx, world) =>
       useItem(tx, world, playerId, params.itemId, deps.now()),
+    );
+  });
+
+  app.post("/me/items/:itemId/decompose", async (request) => {
+    const playerId = request.actor!.actorId;
+    const params = request.params as { itemId: string };
+    return withIdempotency(deps.db, playerId, idempotencyKey(request.headers["idempotency-key"]), "decompose", deps.now(), (tx, world) =>
+      decomposeItem(tx, world, playerId, params.itemId, deps.now()),
+    );
+  });
+
+  app.post("/me/auto-decompose", async (request) => {
+    const playerId = request.actor!.actorId;
+    const body = request.body as { enabled?: boolean };
+    if (typeof body.enabled !== "boolean") {
+      throw new AppError("INVALID_INPUT", "请选择是否自动分解");
+    }
+    return withIdempotency(deps.db, playerId, idempotencyKey(request.headers["idempotency-key"]), "auto-decompose", deps.now(), (tx, world) =>
+      setAutoDecompose(tx, world, playerId, body.enabled === true, deps.now()),
     );
   });
 

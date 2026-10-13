@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { contentGlobals, contentRealms } from "../../db/schema.js";
 import { withDb } from "../../test/db.js";
 import { createOpsSkill, createOpsWeapon, createSkillCategory, createWeaponCategory, deleteOpsWeapon } from "./ops-content.js";
+import { duelTrialPuppets } from "./puppet-duel.js";
 import { createTrialPuppet, listTrialPuppets, updateTrialPuppet } from "./puppets.js";
 import { runTrial } from "./trial.js";
 
@@ -20,19 +21,17 @@ describe("trial puppets", () => {
         powerWeights: { attack: 1, defense: 0.8, hp: 0.04, speed: 1.5 },
         combat: {
           minInterval: 0.7,
-          playerDefenseFactor: 0.4,
-          bossDefenseFactor: 0.5,
+          defenseConstant: 1,
+          recommendedPowerMargin: 1.05,
           challengeCooldownSeconds: 3,
           timeLimitSeconds: 60,
-          playerDamageFloor: 1,
-          bossDamageFloor: 0,
           speedBase: 100,
         },
       });
       const weaponCategory = await createWeaponCategory(db, { displayName: "剑" }, null);
       const sword = await createOpsWeapon(
         db,
-        { displayName: "木剑", categoryId: weaponCategory.id, attack: 25, defense: 0, hp: 0, speed: 0 },
+        { displayName: "木剑", categoryId: weaponCategory.id, slot: "weapon", attack: 25, defense: 0, hp: 0, speed: 0 },
         null,
       );
       const skillCategory = await createSkillCategory(db, { displayName: "吐纳" }, null);
@@ -103,6 +102,50 @@ describe("trial puppets", () => {
       await db.delete(contentRealms).where(eq(contentRealms.slug, "1"));
       const noRealm = await runTrial(db, { puppetIds: [mortal.id], boss });
       expect(noRealm.results[0]?.error).toBe("境界已经不存在");
+    });
+  });
+
+  it("explains hand-filled power and fights both directions", async () => {
+    await withDb(async (db) => {
+      await db.insert(contentGlobals).values({
+        id: 1,
+        offlineCapSeconds: 36000,
+        bagCapacity: 20,
+        powerWeights: { attack: 4.7, defense: 1.6, hp: 0.95, speed: 2.6 },
+        combat: {
+          minInterval: 0.5,
+          defenseConstant: 1,
+          recommendedPowerMargin: 1.05,
+          challengeCooldownSeconds: 0,
+          timeLimitSeconds: 20,
+          speedBase: 100,
+        },
+      });
+      const strong = await createTrialPuppet(
+        db,
+        { displayName: "厚甲", kind: "manual", attack: 80, defense: 80, hp: 400, speed: 10, interval: 1.2 },
+        null,
+      );
+      const frail = await createTrialPuppet(
+        db,
+        { displayName: "薄皮", kind: "manual", attack: 40, defense: 10, hp: 40, speed: 10, interval: 1.2 },
+        null,
+      );
+      const listed = await listTrialPuppets(db);
+      const explained = listed.find((row) => row.id === strong.id);
+      expect(explained?.powerDetail?.lines).toHaveLength(4);
+      expect(explained?.powerDetail?.power).toBe(explained?.power);
+      expect(explained?.tendency).toBeTruthy();
+
+      const fought = await duelTrialPuppets(db, [strong.id, frail.id]);
+      expect(fought.timeLimitSeconds).toBe(20);
+      expect(fought.fights).toHaveLength(2);
+      expect(fought.fights.find((row) => row.attackerName === "厚甲")?.result).toBe("厚甲 胜");
+      expect(fought.fights.find((row) => row.attackerName === "薄皮")?.result).toBe("厚甲 胜");
+      const repeated = await duelTrialPuppets(db, [strong.id, frail.id], 6);
+      expect(repeated.fights.find((row) => row.attackerName === "厚甲")).toMatchObject({ wins: 6, losses: 0 });
+      expect(repeated.fights.find((row) => row.attackerName === "薄皮")).toMatchObject({ wins: 0, losses: 6 });
+      await expect(duelTrialPuppets(db, [strong.id])).rejects.toMatchObject({ message: "请至少选择两个人偶" });
     });
   });
 });

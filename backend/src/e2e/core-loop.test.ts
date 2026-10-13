@@ -21,12 +21,10 @@ async function seedWorld(db: Parameters<Parameters<typeof withDb>[0]>[0]) {
     powerWeights: { attack: 1, defense: 0.8, hp: 0.04, speed: 1.5 },
     combat: {
       minInterval: 0.7,
-      playerDefenseFactor: 0.4,
-      bossDefenseFactor: 0.5,
+      defenseConstant: 1,
+      recommendedPowerMargin: 1.05,
       challengeCooldownSeconds: 0,
       timeLimitSeconds: 60,
-      playerDamageFloor: 1,
-      bossDamageFloor: 0,
       speedBase: 100,
     },
   });

@@ -103,9 +103,9 @@ export async function runTrial(db: Db, input: TrialInput) {
       power: view.power,
     };
     const battle = simulateBattle(player, boss, config);
-    const playerHit = hitDamage(player.attack, boss.defense, config.playerDefenseFactor, 1, config.playerDamageFloor);
-    const bossHit = hitDamage(boss.attack, player.defense, config.bossDefenseFactor, 1, config.bossDamageFloor);
-    const playerHits = Math.ceil(boss.hp / playerHit);
+    const playerHit = hitDamage(player.attack, boss.defense, config.defenseConstant);
+    const bossHit = hitDamage(boss.attack, player.defense, config.defenseConstant);
+    const playerHits = playerHit > 0 ? Math.ceil(boss.hp / playerHit) : null;
     const bossHits = bossHit > 0 ? Math.ceil(player.hp / bossHit) : null;
     return {
       puppetId: view.id,
@@ -119,7 +119,7 @@ export async function runTrial(db: Db, input: TrialInput) {
       player,
       playerHit,
       playerHits,
-      playerKillSeconds: playerHits * player.interval,
+      playerKillSeconds: playerHits == null ? null : playerHits * player.interval,
       bossHit,
       bossHits,
       bossKillSeconds: bossHits == null ? null : bossHits * boss.interval,

@@ -20,8 +20,14 @@
     </div>
     <el-table :data="weapons">
       <el-table-column prop="displayName" label="名称" width="180" />
-      <el-table-column label="分类" width="180">
+      <el-table-column label="分类" width="140">
         <template #default="{ row }">{{ row.categoryMissing ? "分类不存在" : row.categoryName }}</template>
+      </el-table-column>
+      <el-table-column label="部位" width="100">
+        <template #default="{ row }">{{ slotName(row.slot) }}</template>
+      </el-table-column>
+      <el-table-column label="战力" width="100">
+        <template #default="{ row }">{{ row.power ?? "规则未填" }}</template>
       </el-table-column>
       <el-table-column label="" width="160">
         <template #default="{ row }">
@@ -51,6 +57,11 @@
         <el-form-item label="分类">
           <el-select v-model="form.categoryId" placeholder="选择分类" style="width: 220px">
             <el-option v-for="category in categories" :key="category.id" :label="category.displayName" :value="category.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="部位">
+          <el-select v-model="form.slot" placeholder="选择部位" style="width: 220px">
+            <el-option v-for="slot in slots" :key="slot.id" :label="slot.name" :value="slot.id" />
           </el-select>
         </el-form-item>
         <el-form-item label="描述">
@@ -88,11 +99,25 @@ type Weapon = Category & {
   categoryId: string;
   categoryName: string;
   categoryMissing: boolean;
+  slot: string | null;
+  power: number | null;
   attack: number;
   defense: number;
   hp: number;
   speed: number;
 };
+
+const slots = [
+  { id: "weapon", name: "武器" },
+  { id: "helmet", name: "头冠" },
+  { id: "clothes", name: "衣服" },
+  { id: "shoes", name: "鞋子" },
+  { id: "accessory", name: "饰品" },
+];
+
+function slotName(slot: string | null): string {
+  return slots.find((item) => item.id === slot)?.name ?? "未选";
+}
 
 const loading = ref(false);
 const categories = ref<Category[]>([]);
@@ -108,6 +133,7 @@ const form = reactive({
   displayName: "",
   description: "",
   categoryId: "",
+  slot: "weapon",
   attack: 0,
   defense: 0,
   hp: 0,
@@ -160,6 +186,7 @@ function openWeapon(row?: Weapon): void {
   form.displayName = row?.displayName ?? "";
   form.description = row?.description ?? "";
   form.categoryId = row?.categoryId ?? "";
+  form.slot = row?.slot ?? "weapon";
   form.attack = row?.attack ?? 0;
   form.defense = row?.defense ?? 0;
   form.hp = row?.hp ?? 0;

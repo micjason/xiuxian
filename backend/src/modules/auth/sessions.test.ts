@@ -1,13 +1,14 @@
 import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { sessions } from "../../db/schema.js";
-import { withDb } from "../../test/db.js";
+import { insertStartingRealm, withDb } from "../../test/db.js";
 import { registerPlayer } from "./service.js";
 import { purgeOldSessions } from "./sessions.js";
 
 describe("purgeOldSessions", () => {
   it("deletes sessions that expired or were revoked more than seven days ago", async () => {
     await withDb(async (db) => {
+      await insertStartingRealm(db);
       const now = new Date("2026-10-08T00:00:00.000Z");
       const player = await registerPlayer(db, { username: "old_player", password: "correct-horse", now });
       const old = new Date(now.getTime() - 8 * 24 * 60 * 60 * 1000);

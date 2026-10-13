@@ -1,3 +1,5 @@
+import { stagePowerErrors } from "./stage-power.js";
+
 const SLUG = /^[a-z][a-z0-9_]{1,47}$/;
 
 export type ContentError = { kind: string; slug: string; field: string; message: string };
@@ -11,13 +13,11 @@ export type ContentSnapshot = {
     powerWeights?: { attack: number; defense: number; hp: number; speed: number };
     combat?: {
       minInterval?: number;
-      playerDefenseFactor?: number;
-      bossDefenseFactor?: number;
       challengeCooldownSeconds?: number;
       timeLimitSeconds?: number;
-      playerDamageFloor?: number;
-      bossDamageFloor?: number;
+      defenseConstant?: number;
       speedBase?: number;
+      recommendedPowerMargin?: number;
     };
     artSlotRules?: { minRealmOrder: number; slots: number }[];
     idleKillCap?: number;
@@ -60,7 +60,15 @@ export type ContentSnapshot = {
     bossDefense?: number;
     bossHp: number;
     bossInterval: number;
-    bosses?: { name: string; attack: number; defense: number; hp: number; interval: number; drops: { itemSlug: string; chanceBp: number }[] }[];
+    bosses?: {
+      name: string;
+      attack: number;
+      defense: number;
+      hp: number;
+      interval: number;
+      drops: { itemSlug: string; chanceBp: number }[];
+      reward?: { major: string; stageIndex: number; nextMajor: string | null };
+    }[];
     recommendedPower: number;
     enabled: boolean;
   }[];
@@ -78,6 +86,7 @@ export type ContentSnapshot = {
     defense?: number;
     hp?: number;
     speed?: number;
+    quality?: string;
     requiredRealmOrder?: number;
     stackable?: boolean;
     enabled: boolean;
@@ -93,11 +102,72 @@ export type ContentSnapshot = {
     cultivateBonusBp?: number;
     requiredRealmOrder?: number;
     prerequisiteSkillSlugs: string[];
+    rank?: string | null;
     enabled: boolean;
   }[];
 };
 
 const EQUIPMENT_SLOTS = new Set(["weapon", "helmet", "clothes", "shoes", "accessory"]);
+const QUALITY_ORDER = ["white", "green", "blue", "purple", "orange"];
+
+const STAT_KEYS = ["attack", "defense", "hp", "speed"] as const;
+
+export function equipmentPowerErrors(items: ContentSnapshot["items"]): { slug: string; message: string }[] {
+  const errors: { slug: string; message: string }[] = [];
+  const gear = items.filter((item) => item.kind === "equipment" && item.enabled);
+  const bySlot = new Map<string, ContentSnapshot["items"]>();
+  for (const item of gear) {
+    const slot = `${item.slot ?? ""}:${item.requiredRealmOrder ?? 0}`;
+    bySlot.set(slot, [...(bySlot.get(slot) ?? []), item]);
+  }
+  for (const rows of bySlot.values()) {
+    const byQuality = new Map<string, ContentSnapshot["items"][number]>();
+    let crowded = false;
+    for (const item of rows) {
+      const quality = item.quality ?? "white";
+      if (byQuality.has(quality)) {
+        crowded = true;
+        break;
+      }
+      byQuality.set(quality, item);
+    }
+    if (crowded) {
+      continue;
+    }
+    const ordered = QUALITY_ORDER.flatMap((quality) => {
+      const item = byQuality.get(quality);
+      return item ? [item] : [];
+    });
+    const base = ordered[0];
+    if (!base) {
+      continue;
+    }
+    for (const item of ordered.slice(1)) {
+      const scales: number[] = [];
+      let broken = false;
+      for (const key of STAT_KEYS) {
+        const from = base[key] ?? 0;
+        const to = item[key] ?? 0;
+        if (from === 0 && to === 0) {
+          continue;
+        }
+        if (from === 0 || to === 0 || to + 1e-9 < from) {
+          broken = true;
+          break;
+        }
+        scales.push(to / from);
+      }
+      const sameScale = scales.length === 0 || scales.every((scale) => Math.abs(scale - (scales[0] ?? 0)) <= 0.02);
+      if (broken || !sameScale) {
+        errors.push({
+          slug: item.slug,
+          message: `部位 ${item.slot ?? "未填"}、境界 ${item.requiredRealmOrder ?? 0} 的「${item.displayName ?? item.slug}」和同部位低品质装备的属性比例不一致`,
+        });
+      }
+    }
+  }
+  return errors;
+}
 
 export function validateContent(
   draft: ContentSnapshot,
@@ -180,6 +250,10 @@ export function validateContent(
     }
   }
 
+  for (const problem of stagePowerErrors(draft)) {
+    push("stage", problem.slug, "bosses", problem.message);
+  }
+
   for (const table of draft.dropTables) {
     for (const entry of table.entries) {
       if (!itemSlugs.has(entry.itemSlug) || draft.items.find((item) => item.slug === entry.itemSlug)?.enabled === false) {
@@ -208,6 +282,9 @@ export function validateContent(
         bookBySkill.set(item.skillSlug, item.slug);
       }
     }
+  }
+  for (const problem of equipmentPowerErrors(draft.items)) {
+    push("item", problem.slug, "quality", problem.message);
   }
   for (const starter of draft.globals.starterItems) {
     const item = draft.items.find((row) => row.slug === starter.itemSlug);
@@ -242,8 +319,12 @@ export function validateContent(
   }
 
   const droppedBooks = new Set(draft.dropTables.flatMap((table) => table.entries.map((entry) => entry.itemSlug)));
+  const rewardedMajors = new Set(
+    draft.stages.flatMap((stage) => (stage.bosses ?? []).flatMap((boss) => (boss.reward ? [boss.reward.major] : []))),
+  );
   for (const [skillSlug, bookSlug] of bookBySkill) {
-    if (!droppedBooks.has(bookSlug)) {
+    const rewarded = [...rewardedMajors].some((major) => skillSlug.startsWith(`skill_${major}_`));
+    if (!droppedBooks.has(bookSlug) && !rewarded) {
       warn("item", bookSlug, "slug", `功法 ${skillSlug} 的书不在任何掉落表里`);
     }
   }

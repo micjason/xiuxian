@@ -32,7 +32,7 @@ describe("ops content", () => {
       const weaponCategory = await createWeaponCategory(db, { displayName: "长剑" }, null);
       const sword = await createOpsWeapon(
         db,
-        { displayName: "木剑", categoryId: weaponCategory.id, attack: 4, defense: 0, hp: 0, speed: 0 },
+        { displayName: "木剑", categoryId: weaponCategory.id, slot: "weapon", attack: 4, defense: 0, hp: 0, speed: 0 },
         null,
       );
       await expect(createOpsStage(db, { displayName: "山门", realmCode: 9 }, null)).rejects.toBeInstanceOf(AppError);

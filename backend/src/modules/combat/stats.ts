@@ -33,9 +33,31 @@ export function ratePower(
   return Math.round(stats.attack * weights.attack + stats.defense * weights.defense + stats.hp * weights.hp + stats.speed * weights.speed);
 }
 
+export function skillLayerFactor(level: number): number {
+  if (level >= 7) {
+    return 1.6;
+  }
+  if (level >= 4) {
+    return 1.35;
+  }
+  if (level >= 2) {
+    return 1.15;
+  }
+  return 1;
+}
+
 export function computePower(input: StatInput): { interval: number; power: number } {
   const interval = Math.max(input.minInterval, (input.baseInterval * input.speedBase) / (input.speedBase + Math.max(input.speed, 0)));
   return { interval, power: ratePower(input, input.weights) };
+}
+
+export function bossPower(
+  boss: { attack: number; defense: number; hp: number; interval: number },
+  input: { baseInterval: number; speedBase: number; weights: { attack: number; defense: number; hp: number; speed: number } },
+): number {
+  const speed = Math.max(0, input.speedBase * (input.baseInterval / boss.interval - 1));
+  const weights = input.weights;
+  return boss.attack * weights.attack + boss.defense * weights.defense + boss.hp * weights.hp + speed * weights.speed;
 }
 
 export function breakthroughRate(input: {

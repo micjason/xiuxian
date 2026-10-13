@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildApp } from "../../app.js";
-import { withDb } from "../../test/db.js";
+import { insertStartingRealm, withDb } from "../../test/db.js";
 import { createAdmin } from "./service.js";
 
 const now = new Date("2026-10-08T08:00:00.000Z");
@@ -8,6 +8,7 @@ const now = new Date("2026-10-08T08:00:00.000Z");
 describe("auth routes", () => {
   it("rejects a bad username, a duplicate, and a logged-out token", async () => {
     await withDb(async (db) => {
+      await insertStartingRealm(db);
       const app = await buildApp(db, () => now);
       const invalid = await app.inject({
         method: "POST",

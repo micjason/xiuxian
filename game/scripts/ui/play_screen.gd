@@ -354,7 +354,9 @@ func _render_stages() -> void:
 	var boss_name := ""
 	if not bosses.is_empty() and typeof(bosses[0]) == TYPE_DICTIONARY:
 		boss_name = str((bosses[0] as Dictionary).get("name", ""))
-	challenge_button.text = "挑战 %s" % boss_name if not boss_name.is_empty() else "挑战首领"
+	var power := int(selected.get("recommendedPower", 0))
+	var power_text := " · 推荐战力 %d" % power if power > 0 else ""
+	challenge_button.text = "挑战 %s%s" % [boss_name if not boss_name.is_empty() else "首领", power_text]
 
 
 func _plain_text(value: Variant) -> String:
@@ -388,16 +390,31 @@ func _bag_empty(text: String) -> void:
 
 
 func _bag_button(item: Dictionary, worn: bool) -> void:
+	var item_id := str(item.get("id", ""))
+	var slug := str(item.get("itemSlug", ""))
 	var button := Button.new()
 	_style_choice(button)
-	button.text = _item_name(str(item.get("itemSlug", "")))
-	button.pressed.connect(_on_item.bind(str(item.get("id", "")), worn))
+	button.text = _item_name(slug)
+	button.pressed.connect(_on_item.bind(item_id, worn))
 	bag_list.add_child(button)
+	if worn or str(_item_def(slug).get("kind", "")) != "equipment":
+		return
+	var decompose := Button.new()
+	_style_choice(decompose)
+	decompose.text = "分解 %s" % _item_name(slug)
+	decompose.pressed.connect(_on_decompose.bind(item_id))
+	bag_list.add_child(decompose)
 
 
 func _render_bag() -> void:
 	for child in bag_list.get_children():
 		child.queue_free()
+	var auto := Button.new()
+	_style_choice(auto)
+	var enabled := bool(_state.get("autoDecompose", false))
+	auto.text = "自动分解低于身上的装备：%s" % ("开" if enabled else "关")
+	auto.pressed.connect(_on_auto_decompose.bind(not enabled))
+	bag_list.add_child(auto)
 	var worn_items: Array[Dictionary] = []
 	var bag_items: Array[Dictionary] = []
 	for row in _state.get("items", []):
@@ -489,7 +506,10 @@ func _on_challenge() -> void:
 	var names: PackedStringArray = []
 	for drop in result.get("drops", []):
 		if typeof(drop) == TYPE_DICTIONARY:
-			names.append(_reward_name(str((drop as Dictionary).get("itemSlug", ""))))
+			var reward := _reward_name(str((drop as Dictionary).get("itemSlug", "")))
+			if bool((drop as Dictionary).get("decomposed", false)):
+				reward += "（已分解）"
+			names.append(reward)
 	loot_summary_label.text = "获得：" + ("、".join(names) if not names.is_empty() else "无")
 	battle_log_label.text = stage_hint.text
 	_apply_action_state(result)
@@ -514,10 +534,42 @@ func _on_item(item_id: String, worn: bool) -> void:
 		return
 	if action == "use":
 		var learned: Dictionary = result.get("learned", {})
-		_bag_hint.text = "学会了，现在是 %s 层" % str(learned.get("level", ""))
+		if learned.has("convertedCultivation"):
+			_bag_hint.text = "功法已圆满，转为修为 %s" % CultivationFormat.amount(float(learned.get("convertedCultivation", 0)))
+		else:
+			_bag_hint.text = "学会了，现在是 %s 层" % str(learned.get("level", ""))
 		_bag_hint.visible = true
 	else:
 		_bag_hint.visible = false
+	_apply_action_state(result)
+
+
+func _on_decompose(item_id: String) -> void:
+	if _busy or item_id.is_empty():
+		return
+	_busy = true
+	var result := await PlayerApi.post_action("/api/v1/me/items/%s/decompose" % item_id.uri_encode())
+	_busy = false
+	if int(result.get("code", 0)) != 200:
+		_bag_hint.text = PlayerApi.error_message(result)
+		_bag_hint.visible = true
+		return
+	_bag_hint.text = "分解得到修为 %s" % CultivationFormat.amount(float(result.get("convertedCultivation", 0)))
+	_bag_hint.visible = true
+	_apply_action_state(result)
+
+
+func _on_auto_decompose(enabled: bool) -> void:
+	if _busy:
+		return
+	_busy = true
+	var result := await PlayerApi.post_action("/api/v1/me/auto-decompose", {"enabled": enabled})
+	_busy = false
+	if int(result.get("code", 0)) != 200:
+		_bag_hint.text = PlayerApi.error_message(result)
+		_bag_hint.visible = true
+		return
+	_bag_hint.visible = false
 	_apply_action_state(result)
 
 
@@ -602,6 +654,9 @@ func _stage_button_text(stage: Dictionary) -> String:
 	var stage_name := str(stage.get("displayName", ""))
 	if stage_name.is_empty():
 		stage_name = "名称缺失"
+	var power := int(stage.get("recommendedPower", 0))
+	if power > 0:
+		return "%s · %s · 推荐战力 %d" % [realm_name, stage_name, power]
 	return "%s · %s" % [realm_name, stage_name]
 
 

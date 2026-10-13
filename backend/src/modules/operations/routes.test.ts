@@ -2,7 +2,7 @@ import Fastify from "fastify";
 import { describe, expect, it } from "vitest";
 import { authPlugin } from "../../plugins/auth.js";
 import { createAdmin, loginAdmin, registerPlayer } from "../auth/service.js";
-import { withDb } from "../../test/db.js";
+import { insertStartingRealm, withDb } from "../../test/db.js";
 import { writeOperation } from "./record.js";
 import { registerOperationRoutes } from "./routes.js";
 
@@ -11,6 +11,7 @@ const now = new Date("2026-10-06T10:00:00.000Z");
 describe("operation routes", { timeout: 20_000 }, () => {
   it("lets an admin read a failed settle and rejects a player", async () => {
     await withDb(async (db) => {
+      await insertStartingRealm(db);
       await createAdmin(db, { username: "auditor", password: "admin-secret" });
       const admin = await loginAdmin(db, { username: "auditor", password: "admin-secret", now });
       const player = await registerPlayer(db, { username: "玩家甲", password: "correct-horse", now });

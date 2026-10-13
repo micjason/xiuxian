@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { contentReleases, items, skills } from "../../db/schema.js";
 import { createAdmin, readSession, registerPlayer } from "../auth/service.js";
 import { testAdmin } from "../../test/admin.js";
-import { withDb } from "../../test/db.js";
+import { insertStartingRealm, withDb } from "../../test/db.js";
 import { ensureDraft, getPublishedRealm, publish, saveItem, saveRealm, saveSkill } from "./service.js";
 
 const now = new Date("2026-10-06T09:00:00.000Z");
@@ -99,6 +99,7 @@ describe("content publish", () => {
 
   it("rejects a player session on publish", async () => {
     await withDb(async (db) => {
+      await insertStartingRealm(db);
       const player = await registerPlayer(db, { username: "walker", password: "correct-horse", now });
       const session = await readSession(db, player.token, now);
       expect(session?.actorType).toBe("player");

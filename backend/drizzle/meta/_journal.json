@@ -99,6 +99,13 @@
       "when": 1792100000000,
       "tag": "0013_skill_level",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1792200000000,
+      "tag": "0014_drop_pity",
+      "breakpoints": true
     }
   ]
 }

@@ -26,17 +26,15 @@ describe("wear a weapon", () => {
         powerWeights: { attack: 1, defense: 0.8, hp: 0.04, speed: 1.5 },
         combat: {
           minInterval: 0.7,
-          playerDefenseFactor: 0.4,
-          bossDefenseFactor: 0.5,
+          defenseConstant: 1,
+          recommendedPowerMargin: 1.05,
           challengeCooldownSeconds: 0,
           timeLimitSeconds: 60,
-          playerDamageFloor: 1,
-          bossDamageFloor: 0,
           speedBase: 100,
         },
       });
       const category = await createWeaponCategory(db, { displayName: "刀" }, null);
-      const knife = await createOpsWeapon(db, { displayName: "刀", categoryId: category.id, attack: 10, defense: 0, hp: 0, speed: 0 }, null);
+      const knife = await createOpsWeapon(db, { displayName: "刀", categoryId: category.id, slot: "weapon", attack: 10, defense: 0, hp: 0, speed: 0 }, null);
       const herb = await createOpsItem(db, { displayName: "灵芝" }, null);
       const now = new Date("2026-10-10T12:00:00.000Z");
       const player = await registerPlayer(db, { username: "wearer", password: "correct-horse", now });
@@ -54,7 +52,7 @@ describe("wear a weapon", () => {
       }
       const worn = await withTransaction(db, (tx) => equipItem(tx, world, player.playerId, knifeRow.id, now));
       expect(worn.state.attack).toBe(20);
-      expect(worn.state.items.find((item) => item.id === knifeRow.id)?.equippedSlot).toBe(knifeRow.id);
+      expect(worn.state.items.find((item) => item.id === knifeRow.id)?.equippedSlot).toBe("weapon");
       await expect(withTransaction(db, (tx) => equipItem(tx, world, player.playerId, herbRow.id, now))).rejects.toMatchObject({
         message: "这不是武器，不能穿",
       });

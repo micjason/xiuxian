@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
-import { playerStates } from "../../db/schema.js";
+import { contentGlobals, contentRealms, playerStates } from "../../db/schema.js";
 import { registerPlayer } from "../auth/service.js";
 import { testAdmin } from "../../test/admin.js";
 import { publish, saveRealm } from "../content/service.js";
@@ -25,6 +25,8 @@ const mortal = {
   speed: 0,
 };
 
+const weights = { attack: 4.7, defense: 1.6, hp: 0.95, speed: 2.6 };
+
 async function publishedMortal(db: Parameters<typeof saveRealm>[0]) {
   await saveRealm(db, "publisher", mortal);
   await saveRealm(db, "publisher", {
@@ -35,6 +37,22 @@ async function publishedMortal(db: Parameters<typeof saveRealm>[0]) {
     nextSlug: null,
   });
   await publish(db, await testAdmin(db), start);
+  await db.insert(contentRealms).values({ slug: "mortal", displayName: "凡人", sortOrder: 0, nextRealmSlug: "qi_early" });
+  await db.insert(contentGlobals).values({
+    id: 1,
+    startingRealmSlug: "mortal",
+    offlineCapSeconds: 28800,
+    bagCapacity: 20,
+    powerWeights: weights,
+    combat: {
+      minInterval: 0.5,
+      challengeCooldownSeconds: 0,
+      timeLimitSeconds: 20,
+      defenseConstant: 1,
+      speedBase: 100,
+      recommendedPowerMargin: 1.05,
+    },
+  });
 }
 
 describe("openProgress", { timeout: 20_000 }, () => {
@@ -48,7 +66,7 @@ describe("openProgress", { timeout: 20_000 }, () => {
         realmName: "凡人",
         cultivation: 100,
         gained: 100,
-        power: piecePower({ attack: 10, defense: 6, hp: 50, speed: 0 }),
+        power: piecePower({ attack: 10, defense: 6, hp: 50, speed: 0 }, weights),
       });
       const second = await openProgress(db, player.playerId, later);
       expect(second.cultivation).toBe(100);
@@ -67,6 +85,7 @@ describe("openProgress", { timeout: 20_000 }, () => {
 
   it("fails without a published config and does not change cultivation", async () => {
     await withDb(async (db) => {
+      await db.insert(contentRealms).values({ slug: "mortal", displayName: "凡人", sortOrder: 0, nextRealmSlug: null });
       const player = await registerPlayer(db, { username: "unpublished", password: "correct-horse", now: start });
       await expect(openProgress(db, player.playerId, later)).rejects.toThrow(/published/);
       const rows = await listOperations(db, {

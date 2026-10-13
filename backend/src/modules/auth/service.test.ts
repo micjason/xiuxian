@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { listOperations } from "../operations/record.js";
-import { withDb } from "../../test/db.js";
+import { insertStartingRealm, withDb } from "../../test/db.js";
 import { createAdmin, loginAdmin, loginPlayer, readSession, registerPlayer, revokeSession } from "./service.js";
 import { AppError } from "../../shared/errors.js";
 import { admins } from "../../db/schema.js";
@@ -11,6 +11,7 @@ const now = new Date("2026-10-06T08:00:00.000Z");
 describe("auth", () => {
   it("registers a player and reads the session", async () => {
     await withDb(async (db) => {
+      await insertStartingRealm(db);
       const created = await registerPlayer(db, {
         username: "player_one",
         password: "correct-horse",
@@ -27,6 +28,7 @@ describe("auth", () => {
 
   it("rejects a bad password without storing it", async () => {
     await withDb(async (db) => {
+      await insertStartingRealm(db);
       await registerPlayer(db, { username: "player_two", password: "correct-horse", now });
       const result = await loginPlayer(db, {
         username: "player_two",
@@ -67,6 +69,7 @@ describe("auth", () => {
 
   it("treats usernames as case-insensitive and revokes a logged-out token", async () => {
     await withDb(async (db) => {
+      await insertStartingRealm(db);
       await registerPlayer(db, { username: "CaseUser", password: "correct-horse", now });
       await expect(registerPlayer(db, { username: "caseuser", password: "correct-horse", now })).rejects.toBeInstanceOf(
         AppError,
@@ -84,6 +87,7 @@ describe("auth", () => {
 
   it("expires an admin session after twelve hours and keeps a player session", async () => {
     await withDb(async (db) => {
+      await insertStartingRealm(db);
       const player = await registerPlayer(db, { username: "long_player", password: "correct-horse", now });
       await createAdmin(db, { username: "short_admin", password: "admin-secret", role: "designer" });
       const admin = await loginAdmin(db, { username: "short_admin", password: "admin-secret", now });

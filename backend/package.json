@@ -12,7 +12,8 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "admin:create": "tsx src/scripts/create-admin.ts",
-    "content:import": "tsx src/scripts/import-content.ts"
+    "content:import": "tsx src/scripts/import-content.ts",
+    "content:scheme": "node --env-file-if-exists=.env --import tsx src/scripts/apply-numeric-scheme.ts"
   },
   "dependencies": {
     "@fastify/multipart": "^9.0.3",

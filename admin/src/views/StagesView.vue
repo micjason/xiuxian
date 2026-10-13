@@ -4,7 +4,7 @@
       <h2>关卡</h2>
       <el-button type="primary" @click="create">新建关卡</el-button>
     </div>
-    <p>一个境界下面可以有多关。首领可以有多个，玩家挑战时打第一个。首领身上可以挂武器、物品或功法，并填掉率，打赢后每件按掉率判定。功法掉进背包，是一本技能书，点了才学会。同一门功法的技能书各算一本，不叠在一起。填好数后可以点「试打」，选好已经保存的人偶一起打。保存后游戏立刻使用。</p>
+    <p>一个境界下面可以有多关。首领可以有多个，玩家挑战时打第一个。首领身上可以挂武器、物品或功法，并填掉率，打赢后每件按掉率判定。功法掉进背包，是一本技能书，点了才学会。同一门功法的技能书各算一本，不叠在一起。填好数后可以点「试打」，选好已经保存的人偶一起打。保存后游戏立刻使用。推荐战力由服务器按第一个首领自动算出，不能手填。</p>
     <el-table :data="rows" v-loading="loading">
       <el-table-column prop="displayName" label="名称" width="180" />
       <el-table-column label="境界" width="180">
@@ -15,6 +15,12 @@
       <el-table-column label="首领">
         <template #default="{ row }">
           {{ bossSummary(row) }}
+        </template>
+      </el-table-column>
+      <el-table-column label="推荐战力" width="220">
+        <template #default="{ row }">
+          <span v-if="row.powerProblem" class="hint">{{ row.powerProblem }}</span>
+          <span v-else>{{ row.recommendedPower }}</span>
         </template>
       </el-table-column>
       <el-table-column label="" width="160">
@@ -109,11 +115,12 @@
             战力 {{ result.player.power }}，攻击 {{ result.player.attack }}，防御 {{ result.player.defense }}，气血
             {{ result.player.hp }}，速度 {{ result.player.speed }}，每 {{ round(result.player.interval) }} 秒出手一次
           </p>
-          <p>
+          <p v-if="result.playerHits == null">人偶攻击是 0，打不动首领</p>
+          <p v-else>
             每下打掉 {{ round(result.playerHit ?? 0) }}，要打 {{ result.playerHits }} 下，约
             {{ round(result.playerKillSeconds ?? 0) }} 秒打死首领
           </p>
-          <p v-if="result.bossHits == null">首领破不了这个人偶的防，打不死</p>
+          <p v-if="result.bossHits == null">首领攻击是 0，打不动这个人偶</p>
           <p v-else>
             首领每下打掉 {{ round(result.bossHit ?? 0) }}，要打 {{ result.bossHits }} 下，约
             {{ round(result.bossKillSeconds ?? 0) }} 秒打死这个人偶
@@ -140,6 +147,8 @@ type Stage = {
   realmCode: number;
   realmName: string;
   realmMissing: boolean;
+  recommendedPower: number | null;
+  powerProblem: string | null;
   bosses: {
     name: string;
     attack: number;

@@ -22,6 +22,7 @@ import { rememberIncome, noticesForPlayer } from "../notices/service.js";
 import { piecePower } from "./power.js";
 import { explainPlayerPower } from "../loop/actions.js";
 import { loadCurrentWorld } from "../content/snapshot.js";
+import { readRules } from "../content/rules.js";
 import { breakthrough, settleCultivation } from "./progress-rules.js";
 
 async function lockedPlayer(db: Tx, playerId: string) {
@@ -103,6 +104,22 @@ async function openProgressLocked(db: Tx, playerId: string, now: Date, versionCo
   });
   const next = realm.nextSlug ? await getPublishedRealm(db, realm.nextSlug) : null;
   const notices = await noticesForPlayer(db, playerId, versionCode);
+  const rules = await readRules(db);
+  const weights = {
+    attack: rules.attackWeight,
+    defense: rules.defenseWeight,
+    hp: rules.hpWeight,
+    speed: rules.speedWeight,
+  };
+  if (weights.attack == null || weights.defense == null || weights.hp == null || weights.speed == null) {
+    throw new AppError("INVALID_INPUT", "请先在后台填写：攻击权重、防御权重、气血权重、速度权重");
+  }
+  const powerWeights = {
+    attack: weights.attack,
+    defense: weights.defense,
+    hp: weights.hp,
+    speed: weights.speed,
+  };
   return {
     realmSlug: state.realmSlug,
     realmName: realm.displayName,
@@ -113,7 +130,7 @@ async function openProgressLocked(db: Tx, playerId: string, now: Date, versionCo
     breakthroughCost: realm.breakthroughCost,
     nextRealmName: next?.displayName ?? "",
     canBreakthrough: next !== null && settled.cultivation >= realm.breakthroughCost,
-    power: piecePower(realm),
+    power: piecePower(realm, powerWeights),
     notices,
   };
 }

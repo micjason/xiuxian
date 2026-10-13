@@ -16,6 +16,7 @@ import { AppError } from "../../shared/errors.js";
 import { PublishRejected } from "./service.js";
 import { ensureSkillBooks } from "./ops-content.js";
 import { loadCurrentWorld } from "./snapshot.js";
+import { stageRecommendedPower } from "./stage-power.js";
 import {
   diffDraft,
   listDraftItems,
@@ -50,7 +51,22 @@ export async function registerContentRoutes(
     if (!world) {
       throw new AppError("CONTENT_NOT_PUBLISHED");
     }
-    return world;
+    return {
+      ...world,
+      stages: world.stages.map((stage) => {
+        if (!stage.bosses?.[0]) {
+          return stage;
+        }
+        try {
+          return { ...stage, recommendedPower: stageRecommendedPower(world, stage) };
+        } catch (cause) {
+          if (cause instanceof AppError) {
+            return { ...stage, powerProblem: cause.message };
+          }
+          throw cause;
+        }
+      }),
+    };
   });
 
   app.get("/admin/content/settings", async (request, reply) => {

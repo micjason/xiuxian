@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { publish, saveRealm } from "../content/service.js";
 import { registerPlayer } from "../auth/service.js";
 import { testAdmin } from "../../test/admin.js";
-import { withDb } from "../../test/db.js";
+import { insertStartingRealm, withDb } from "../../test/db.js";
 import { openProgress, tryBreakthrough } from "./service.js";
 
 const start = new Date("2026-10-08T00:00:00.000Z");
@@ -24,6 +24,7 @@ const mortal = {
 describe("player concurrency", () => {
   it("settles ten parallel reads as one gain", async () => {
     await withDb(async (db) => {
+      await insertStartingRealm(db);
       await saveRealm(db, "publisher", mortal);
       await saveRealm(db, "publisher", { ...mortal, slug: "qi_early", displayName: "炼气初期", sortOrder: 1, nextSlug: null, breakthroughCost: 999999 });
       await publish(db, await testAdmin(db), start);
@@ -35,6 +36,7 @@ describe("player concurrency", () => {
 
   it("lets only one of five parallel breakthroughs advance the realm", async () => {
     await withDb(async (db) => {
+      await insertStartingRealm(db);
       await saveRealm(db, "publisher", { ...mortal, breakthroughCost: 0 });
       await saveRealm(db, "publisher", { ...mortal, slug: "qi_early", displayName: "炼气初期", sortOrder: 1, nextSlug: null, breakthroughCost: 999999 });
       await publish(db, await testAdmin(db), start);

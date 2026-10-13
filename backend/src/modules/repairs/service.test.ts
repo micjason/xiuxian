@@ -5,7 +5,7 @@ import { playerStates } from "../../db/schema.js";
 import { authPlugin } from "../../plugins/auth.js";
 import { createAdmin, loginAdmin, registerPlayer } from "../auth/service.js";
 import { testAdmin } from "../../test/admin.js";
-import { withDb } from "../../test/db.js";
+import { insertStartingRealm, withDb } from "../../test/db.js";
 import { applyRepair, previewRepair, registerRepair } from "./service.js";
 import { registerRepairRoutes } from "./routes.js";
 
@@ -26,6 +26,7 @@ async function cultivationOf(db: Parameters<typeof previewRepair>[0], playerId: 
 describe("repairs", { timeout: 30_000 }, () => {
   it("previews without writing, applies once, and rejects a stale preview", async () => {
     await withDb(async (db) => {
+      await insertStartingRealm(db);
       const player = await registerPlayer(db, { username: "repair_me", password: "correct-horse", now });
       await db.update(playerStates).set({ cultivation: 10 }).where(eq(playerStates.playerId, player.playerId));
       const preview = await previewRepair(db, "double-cultivation");
@@ -46,6 +47,7 @@ describe("repairs", { timeout: 30_000 }, () => {
 
   it("refuses to apply after cultivation changes", async () => {
     await withDb(async (db) => {
+      await insertStartingRealm(db);
       const player = await registerPlayer(db, { username: "repair_stale", password: "correct-horse", now });
       await db.update(playerStates).set({ cultivation: 10 }).where(eq(playerStates.playerId, player.playerId));
       const preview = await previewRepair(db, "double-cultivation");
@@ -57,6 +59,7 @@ describe("repairs", { timeout: 30_000 }, () => {
 
   it("rejects an unknown repair and a player token", async () => {
     await withDb(async (db) => {
+      await insertStartingRealm(db);
       await expect(previewRepair(db, "missing-repair")).rejects.toThrow(/unknown repair/);
       await createAdmin(db, { username: "repair_admin", password: "admin-secret" });
       const admin = await loginAdmin(db, { username: "repair_admin", password: "admin-secret", now });

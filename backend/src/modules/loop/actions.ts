@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { withTransaction, type Tx } from "../../db/tx.js";
 import {
   idempotencyKeys,
@@ -9,10 +9,11 @@ import {
   players,
 } from "../../db/schema.js";
 import { simulateBattle } from "../combat/battle.js";
-import { computePower, ratePower, resolveBreakthrough, sumReachedRealmStats } from "../combat/stats.js";
+import { computePower, ratePower, resolveBreakthrough, skillLayerFactor, sumReachedRealmStats } from "../combat/stats.js";
 import { ensureSkillBook } from "../content/ops-content.js";
 import { loadCurrentWorld } from "../content/snapshot.js";
 import { rollDropTable } from "../content/roll-drops.js";
+import { bookOverflowCultivation, decomposeCultivation, rollSchemeReward } from "../content/scheme-drops.js";
 import type { ContentSnapshot } from "../content/validate.js";
 import { settleTicks } from "../progress/settle.js";
 import { AppError } from "../../shared/errors.js";
@@ -37,23 +38,6 @@ function realmOf(world: World, slug: string) {
     throw new AppError("NOT_FOUND", `境界编号 ${slug} 不存在，请删掉这个测试账号后重新注册`);
   }
   return realm;
-}
-
-function artSlotCount(world: World, sortOrder: number) {
-  const rules = world.globals.artSlotRules;
-  if (!rules || rules.length === 0) {
-    throw new AppError("INVALID_INPUT", "请先在后台填写功法栏");
-  }
-  let slots = 0;
-  for (const rule of rules) {
-    if (sortOrder >= rule.minRealmOrder) {
-      slots = Math.max(slots, rule.slots);
-    }
-  }
-  if (slots <= 0) {
-    throw new AppError("INVALID_INPUT", "请先在后台填写功法栏");
-  }
-  return slots;
 }
 
 async function loadPieces(tx: Tx, playerId: string) {
@@ -104,27 +88,33 @@ export function combatStats(world: ContentSnapshot, realmSlug: string, itemSlugs
       })),
     realm.sortOrder,
   );
-  let attack = reached.attack;
-  let defense = reached.defense;
-  let hp = reached.hp;
-  let speed = reached.speed;
+  let gearAttack = 0;
+  let gearDefense = 0;
+  let gearHp = 0;
+  let gearSpeed = 0;
   let bonusBp = 0;
   for (const itemSlug of itemSlugs) {
     const definition = world.items.find((row) => row.slug === itemSlug);
-    attack += definition?.attack ?? 0;
-    defense += definition?.defense ?? 0;
-    hp += definition?.hp ?? 0;
-    speed += definition?.speed ?? 0;
+    gearAttack += definition?.attack ?? 0;
+    gearDefense += definition?.defense ?? 0;
+    gearHp += definition?.hp ?? 0;
+    gearSpeed += definition?.speed ?? 0;
   }
+  let attackPercent = 0;
+  let defensePercent = 0;
+  let hpPercent = 0;
   for (const entry of skillLayers(skillSlugs)) {
     const definition = world.skills.find((row) => row.slug === entry.slug);
-    const level = entry.level;
-    attack += (definition?.attack ?? 0) * level;
-    defense += (definition?.defense ?? 0) * level;
-    hp += (definition?.hp ?? 0) * level;
-    speed += (definition?.speed ?? 0) * level;
-    bonusBp += (definition?.cultivateBonusBp ?? 0) * level;
+    const factor = skillLayerFactor(entry.level);
+    attackPercent += ((definition?.attack ?? 0) / 10000) * factor;
+    defensePercent += ((definition?.defense ?? 0) / 10000) * factor;
+    hpPercent += ((definition?.hp ?? 0) / 10000) * factor;
+    bonusBp += (definition?.cultivateBonusBp ?? 0) * factor;
   }
+  const attack = reached.attack * (1 + attackPercent) + gearAttack;
+  const defense = reached.defense * (1 + defensePercent) + gearDefense;
+  const hp = reached.hp * (1 + hpPercent) + gearHp;
+  const speed = reached.speed + gearSpeed;
   if (realm.baseInterval == null || realm.baseInterval <= 0) {
     throw new AppError("INVALID_INPUT", `境界「${realm.displayName ?? realm.slug}」还没有基础出手间隔`);
   }
@@ -213,6 +203,18 @@ export function explainPlayerPower(
       note: !definition ? "后台里已经没有这件" : equipped ? "已穿上" : "在背包，不算战力",
     });
   }
+  const reached = sumReachedRealmStats(
+    world.realms
+      .filter((item) => item.sortOrder != null && item.sortOrder <= (realm.sortOrder as number))
+      .map((item) => ({
+        sortOrder: item.sortOrder as number,
+        attack: statOf(item.baseAttack),
+        defense: statOf(item.baseDefense),
+        hp: statOf(item.baseHp),
+        speed: statOf(item.baseSpeed),
+      })),
+    realm.sortOrder as number,
+  );
   for (const skill of skills) {
     const definition = world.skills.find((row) => row.slug === skill.skillSlug);
     const level = skill.level;
@@ -230,15 +232,16 @@ export function explainPlayerPower(
       });
       continue;
     }
+    const factor = skillLayerFactor(level);
     lines.push({
       group: "功法",
-      name: `${definition?.displayName || (definition ? "名称缺失" : "已删除")} · ${level}层`,
-      attack: running ? statOf(definition?.attack) * level : 0,
-      defense: running ? statOf(definition?.defense) * level : 0,
-      hp: running ? statOf(definition?.hp) * level : 0,
-      speed: running ? statOf(definition?.speed) * level : 0,
+      name: `${definition?.displayName || (definition ? "名称缺失" : "已删除")} · ${level}本`,
+      attack: running ? reached.attack * (statOf(definition?.attack) / 10000) * factor : 0,
+      defense: running ? reached.defense * (statOf(definition?.defense) / 10000) * factor : 0,
+      hp: running ? reached.hp * (statOf(definition?.hp) / 10000) * factor : 0,
+      speed: 0,
       counted: running,
-      note: !definition ? "后台里已经没有这门功法" : running ? `${level}层，效果按层数相乘` : "没有运转，不算战力",
+      note: !definition ? "后台里已经没有这门功法" : running ? "境界基础 × 百分比 × 层数系数" : "没有运转，不算战力",
     });
   }
   const totals = lines.filter((line) => line.counted).reduce(
@@ -286,10 +289,7 @@ export function battleConfigOf(world: ContentSnapshot) {
   const rules = readGameRules(world);
   return {
     timeLimitSeconds: rules.timeLimitSeconds,
-    playerDefenseFactor: rules.playerDefenseFactor,
-    bossDefenseFactor: rules.bossDefenseFactor,
-    playerDamageFloor: rules.playerDamageFloor,
-    bossDamageFloor: rules.bossDamageFloor,
+    defenseConstant: rules.defenseConstant,
   };
 }
 
@@ -337,6 +337,7 @@ function stateDto(world: World, playerId: string, settled: Awaited<ReturnType<ty
     cultivationRate: { bonusBp: settled.stats.bonusBp, gainPerTick: realm.gainPerTick },
     breakthrough: { rateBp, cost: realm.breakthroughCost, nextSlug: realm.nextRealmSlug },
     challengeCooldownSeconds: readGameRules(world).challengeCooldownSeconds,
+    autoDecompose: settled.state.autoDecompose,
     items: settled.pieces.items,
     skills: settled.pieces.skills,
     stages: settled.pieces.stages,
@@ -378,10 +379,55 @@ export async function withIdempotency<T>(
   });
 }
 
-async function grant(tx: Tx, world: World, playerId: string, itemSlug: string, quantity: number, source: string, now: Date) {
+async function addCultivation(tx: Tx, playerId: string, amount: number) {
+  await tx
+    .update(playerStates)
+    .set({ cultivation: sql`${playerStates.cultivation} + ${amount}` })
+    .where(eq(playerStates.playerId, playerId));
+}
+
+function wornGear(world: World, items: { itemSlug: string; equippedSlot: string | null }[], slot: string) {
+  const worn = items.find((row) => row.equippedSlot === slot);
+  if (!worn) {
+    return null;
+  }
+  return world.items.find((row) => row.slug === worn.itemSlug) ?? null;
+}
+
+async function grant(
+  tx: Tx,
+  world: World,
+  playerId: string,
+  itemSlug: string,
+  quantity: number,
+  source: string,
+  now: Date,
+  options?: {
+    autoDecompose: boolean;
+    worn: { itemSlug: string; equippedSlot: string | null }[];
+    gainPerTick: number;
+    weights: { attack: number; defense: number; hp: number; speed: number };
+  },
+): Promise<{ decomposed: boolean; cultivation: number }> {
   const definition = world.items.find((row) => row.slug === itemSlug);
   if (!definition || quantity <= 0) {
-    return;
+    return { decomposed: false, cultivation: 0 };
+  }
+  if (options?.autoDecompose && definition.kind === "equipment" && definition.slot) {
+    const worn = wornGear(world, options.worn, definition.slot);
+    if (worn) {
+      const stats = (item: { attack?: number; defense?: number; hp?: number; speed?: number }) => ({
+        attack: item.attack ?? 0,
+        defense: item.defense ?? 0,
+        hp: item.hp ?? 0,
+        speed: item.speed ?? 0,
+      });
+      if (ratePower(stats(definition), options.weights) < ratePower(stats(worn), options.weights)) {
+        const cultivation = decomposeCultivation(definition.quality ?? "", options.gainPerTick);
+        await addCultivation(tx, playerId, cultivation * quantity);
+        return { decomposed: true, cultivation: cultivation * quantity };
+      }
+    }
   }
   const stackable = definition.kind !== "equipment";
   if (stackable) {
@@ -392,7 +438,7 @@ async function grant(tx: Tx, world: World, playerId: string, itemSlug: string, q
       .limit(1);
     if (row) {
       await tx.update(playerItems).set({ quantity: row.quantity + quantity }).where(eq(playerItems.id, row.id));
-      return;
+      return { decomposed: false, cultivation: 0 };
     }
     await tx.insert(playerItems).values({
       playerId,
@@ -402,7 +448,7 @@ async function grant(tx: Tx, world: World, playerId: string, itemSlug: string, q
       source,
       acquiredAt: now,
     });
-    return;
+    return { decomposed: false, cultivation: 0 };
   }
   for (let index = 0; index < quantity; index += 1) {
     await tx.insert(playerItems).values({
@@ -414,6 +460,7 @@ async function grant(tx: Tx, world: World, playerId: string, itemSlug: string, q
       acquiredAt: now,
     });
   }
+  return { decomposed: false, cultivation: 0 };
 }
 
 export async function initializeProgress(tx: Tx, playerId: string, now: Date) {
@@ -536,19 +583,36 @@ export async function challengeStage(tx: Tx, world: World, playerId: string, sta
     },
     battleConfigOf(world),
   );
-  const drops: { itemSlug: string; quantity: number }[] = [];
+  const drops: { itemSlug: string; quantity: number; decomposed?: boolean; cultivation?: number }[] = [];
+  let nextPity: Record<string, number> | undefined;
   if (battle.win) {
-    drops.push(
-      ...rollDropTable(
-        (boss?.drops ?? []).map((drop) => ({ itemSlug: drop.itemSlug, chanceBp: drop.chanceBp, minQty: 1, maxQty: 1 })),
+    const reward = boss?.reward;
+    if (reward) {
+      const rolled = rollSchemeReward({
+        major: reward.major,
+        nextMajor: reward.nextMajor,
+        stageIndex: reward.stageIndex,
+        firstClear: !progress.firstClearedAt,
+        pity: settled.state.dropPity,
         randomInt,
-      ),
-    );
-    const bossTable = world.dropTables.find((row) => row.slug === stage.bossDropTableSlug);
-    drops.push(...rollDropTable(bossTable?.entries ?? [], randomInt));
-    if (!progress.firstClearedAt) {
-      const firstTable = world.dropTables.find((row) => row.slug === stage.firstClearDropTableSlug);
-      drops.push(...rollDropTable(firstTable?.entries ?? [], randomInt));
+      });
+      nextPity = rolled.pity;
+      for (const row of rolled.grants) {
+        drops.push({ itemSlug: row.slug, quantity: 1 });
+      }
+    } else {
+      drops.push(
+        ...rollDropTable(
+          (boss?.drops ?? []).map((drop) => ({ itemSlug: drop.itemSlug, chanceBp: drop.chanceBp, minQty: 1, maxQty: 1 })),
+          randomInt,
+        ),
+      );
+      const bossTable = world.dropTables.find((row) => row.slug === stage.bossDropTableSlug);
+      drops.push(...rollDropTable(bossTable?.entries ?? [], randomInt));
+      if (!progress.firstClearedAt) {
+        const firstTable = world.dropTables.find((row) => row.slug === stage.firstClearDropTableSlug);
+        drops.push(...rollDropTable(firstTable?.entries ?? [], randomInt));
+      }
     }
     for (const drop of drops) {
       const skill = world.skills.find((row) => row.slug === drop.itemSlug);
@@ -568,7 +632,16 @@ export async function challengeStage(tx: Tx, world: World, playerId: string, sta
       if (!world.items.some((item) => item.slug === drop.itemSlug)) {
         throw new AppError("INVALID_INPUT", "有一件掉落已经不在后台");
       }
-      await grant(tx, world, playerId, drop.itemSlug, drop.quantity, `drop:${stage.slug}`, now);
+      const granted = await grant(tx, world, playerId, drop.itemSlug, drop.quantity, `drop:${stage.slug}`, now, {
+        autoDecompose: settled.state.autoDecompose,
+        worn: settled.pieces.items,
+        gainPerTick: realm.gainPerTick,
+        weights: rules.powerWeights,
+      });
+      if (granted.decomposed) {
+        drop.decomposed = true;
+        drop.cultivation = granted.cultivation;
+      }
     }
     await tx
       .update(playerStageProgress)
@@ -586,7 +659,10 @@ export async function challengeStage(tx: Tx, world: World, playerId: string, sta
         .onConflictDoNothing();
     }
   }
-  await tx.update(playerStates).set({ lastChallengeAt: now }).where(eq(playerStates.playerId, playerId));
+  await tx
+    .update(playerStates)
+    .set(nextPity ? { lastChallengeAt: now, dropPity: nextPity } : { lastChallengeAt: now })
+    .where(eq(playerStates.playerId, playerId));
   const after = await settleLocked(tx, playerId, world, now);
   return { battle, drops, state: stateDto(world, playerId, after) };
 }
@@ -601,12 +677,25 @@ export async function equipItem(tx: Tx, world: World, playerId: string, itemId: 
   if (!definition || definition.kind !== "equipment") {
     throw new AppError("NOT_EQUIPMENT", "这不是武器，不能穿");
   }
+  if (!definition.slot) {
+    throw new AppError("INVALID_INPUT", "这件装备还没有部位");
+  }
   const realm = realmOf(world, settled.state.realmSlug);
   if ((realm.sortOrder ?? 0) < (definition.requiredRealmOrder ?? 0)) {
     throw new AppError("REALM_TOO_LOW");
   }
-  if (!item.equippedSlot) {
-    await tx.update(playerItems).set({ equippedSlot: item.id }).where(eq(playerItems.id, item.id));
+  const sameSlot = settled.pieces.items.filter((row) => {
+    if (row.id === item.id || !row.equippedSlot) {
+      return false;
+    }
+    const worn = world.items.find((candidate) => candidate.slug === row.itemSlug);
+    return worn?.slot === definition.slot || row.equippedSlot === definition.slot;
+  });
+  for (const worn of sameSlot) {
+    await tx.update(playerItems).set({ equippedSlot: null }).where(eq(playerItems.id, worn.id));
+  }
+  if (item.equippedSlot !== definition.slot) {
+    await tx.update(playerItems).set({ equippedSlot: definition.slot }).where(eq(playerItems.id, item.id));
   }
   const after = await settleLocked(tx, playerId, world, now);
   return { state: stateDto(world, playerId, after) };
@@ -651,9 +740,19 @@ export async function useItem(tx: Tx, world: World, playerId: string, itemId: st
     throw new AppError("NOT_FOUND");
   }
   const existing = settled.pieces.skills.find((row) => row.skillSlug === skill.slug);
+  const realm = realmOf(world, settled.state.realmSlug);
+  if (existing && existing.level >= 7) {
+    const gained = bookOverflowCultivation(skill.rank, realm.gainPerTick);
+    await tx.delete(playerItems).where(eq(playerItems.id, item.id));
+    await addCultivation(tx, playerId, gained);
+    const after = await settleLocked(tx, playerId, world, now);
+    return {
+      state: stateDto(world, playerId, after),
+      learned: { displayName: skill.displayName ?? "名称缺失", level: existing.level, convertedCultivation: gained },
+    };
+  }
   const level = existing ? existing.level + 1 : 1;
   if (!existing) {
-    const realm = realmOf(world, settled.state.realmSlug);
     if ((realm.sortOrder ?? 0) < (skill.requiredRealmOrder ?? 0)) {
       throw new AppError("REALM_TOO_LOW");
     }
@@ -676,31 +775,71 @@ export async function useItem(tx: Tx, world: World, playerId: string, itemId: st
   return { state: stateDto(world, playerId, after), learned: { displayName: skill.displayName ?? "名称缺失", level } };
 }
 
-export async function runSkill(tx: Tx, world: World, playerId: string, skillSlug: string, slot: string, now: Date) {
+export async function decomposeItem(tx: Tx, world: World, playerId: string, itemId: string, now: Date) {
+  const settled = await settleLocked(tx, playerId, world, now);
+  const item = settled.pieces.items.find((row) => row.id === itemId);
+  if (!item) {
+    throw new AppError("NOT_FOUND");
+  }
+  if (item.equippedSlot) {
+    throw new AppError("INVALID_INPUT", "先脱下来再分解");
+  }
+  const definition = world.items.find((row) => row.slug === item.itemSlug);
+  if (!definition || definition.kind !== "equipment" || !definition.slot) {
+    throw new AppError("NOT_EQUIPMENT", "这不是装备，不能分解");
+  }
+  const worn = wornGear(world, settled.pieces.items, definition.slot);
+  if (!worn) {
+    throw new AppError("INVALID_INPUT", "身上这个部位还是空的");
+  }
+  const rules = readGameRules(world);
+  const stats = (row: { attack?: number; defense?: number; hp?: number; speed?: number }) => ({
+    attack: row.attack ?? 0,
+    defense: row.defense ?? 0,
+    hp: row.hp ?? 0,
+    speed: row.speed ?? 0,
+  });
+  if (ratePower(stats(definition), rules.powerWeights) >= ratePower(stats(worn), rules.powerWeights)) {
+    throw new AppError("INVALID_INPUT", "这件不比身上的差");
+  }
+  const realm = realmOf(world, settled.state.realmSlug);
+  const gained = decomposeCultivation(definition.quality ?? "", realm.gainPerTick) * item.quantity;
+  await tx.delete(playerItems).where(eq(playerItems.id, item.id));
+  await addCultivation(tx, playerId, gained);
+  const after = await settleLocked(tx, playerId, world, now);
+  return { state: stateDto(world, playerId, after), convertedCultivation: gained };
+}
+
+export async function setAutoDecompose(tx: Tx, world: World, playerId: string, enabled: boolean, now: Date) {
+  await settleLocked(tx, playerId, world, now);
+  await tx.update(playerStates).set({ autoDecompose: enabled }).where(eq(playerStates.playerId, playerId));
+  const after = await settleLocked(tx, playerId, world, now);
+  return { state: stateDto(world, playerId, after) };
+}
+
+export async function runSkill(tx: Tx, world: World, playerId: string, skillSlug: string, _slot: string, now: Date) {
   const settled = await settleLocked(tx, playerId, world, now);
   const learned = settled.pieces.skills.find((row) => row.skillSlug === skillSlug);
   if (!learned) {
     throw new AppError("SKILL_NOT_LEARNED");
   }
   const skill = world.skills.find((row) => row.slug === skillSlug);
-  if (!skill?.role) {
-    throw new AppError("INVALID_INPUT", "这门功法还没有运转位置");
+  if (!skill) {
+    throw new AppError("INVALID_INPUT", "这门功法已经不存在");
   }
-  const realm = realmOf(world, settled.state.realmSlug);
-  const allowed = skill.role === "heart" ? ["heart"] : ["art_1", "art_2"].slice(0, artSlotCount(world, realm.sortOrder ?? 0));
-  if (!allowed.includes(slot)) {
-    throw new AppError("SKILL_SLOT_INVALID");
+  const slots = ["run_1", "run_2", "run_3"];
+  const others = settled.pieces.skills.filter((row) => row.runningSlot && row.skillSlug !== skillSlug);
+  if (others.length >= slots.length) {
+    throw new AppError("SKILL_SLOT_INVALID", "最多同时运转 3 门功法");
   }
-  const occupant = settled.pieces.skills.find((row) => row.runningSlot === slot && row.skillSlug !== skillSlug);
-  if (occupant) {
-    await tx
-      .update(playerSkills)
-      .set({ runningSlot: null })
-      .where(and(eq(playerSkills.playerId, playerId), eq(playerSkills.skillSlug, occupant.skillSlug)));
+  const used = new Set(others.map((row) => row.runningSlot));
+  const free = learned.runningSlot && slots.includes(learned.runningSlot) ? learned.runningSlot : slots.find((slot) => !used.has(slot));
+  if (!free) {
+    throw new AppError("SKILL_SLOT_INVALID", "最多同时运转 3 门功法");
   }
   await tx
     .update(playerSkills)
-    .set({ runningSlot: slot })
+    .set({ runningSlot: free })
     .where(and(eq(playerSkills.playerId, playerId), eq(playerSkills.skillSlug, skillSlug)));
   const after = await settleLocked(tx, playerId, world, now);
   return { state: stateDto(world, playerId, after) };

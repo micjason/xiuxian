@@ -3,6 +3,11 @@ import { eq } from "drizzle-orm";
 import { contentDropEntries, contentDropTables, contentItems, contentRealms, contentSkillCategories, contentSkills, contentStages, contentWeaponCategories, playerItems, type StageBoss } from "../../db/schema.js";
 import { AppError } from "../../shared/errors.js";
 import type { Db } from "../operations/record.js";
+import { ratePower } from "../combat/stats.js";
+import { loadDraftSnapshot } from "./snapshot.js";
+import { stageRecommendedPower } from "./stage-power.js";
+import { readRules } from "./rules.js";
+import type { ContentSnapshot } from "./validate.js";
 
 type BossInput = {
   name?: string;
@@ -82,11 +87,27 @@ async function readBosses(db: Db, bosses: BossInput[] | undefined): Promise<Stag
   });
 }
 
+function stagePowerOf(world: ContentSnapshot, slug: string): { recommendedPower: number | null; powerProblem: string | null } {
+  const stage = world.stages.find((candidate) => candidate.slug === slug);
+  if (!stage) {
+    throw new AppError("INTERNAL");
+  }
+  try {
+    return { recommendedPower: stageRecommendedPower(world, stage), powerProblem: null };
+  } catch (cause) {
+    if (cause instanceof AppError) {
+      return { recommendedPower: null, powerProblem: cause.message };
+    }
+    throw cause;
+  }
+}
+
 function stageView(
   row: typeof contentStages.$inferSelect,
   realms: { slug: string; displayName: string; sortOrder: number }[],
   items: { slug: string; displayName: string }[],
   skills: { slug: string; displayName: string }[],
+  power: { recommendedPower: number | null; powerProblem: string | null },
 ) {
   const realm = realms.find((candidate) => candidate.sortOrder === row.requiredRealmOrder);
   const bosses = (row.bosses ?? []).map((boss) => ({
@@ -108,19 +129,21 @@ function stageView(
     realmName: realm?.displayName ?? "",
     realmMissing: realm == null,
     bosses,
+    ...power,
   };
 }
 
 export async function listOpsStages(db: Db) {
-  const [stages, realms, items, skills] = await Promise.all([
+  const [stages, realms, items, skills, world] = await Promise.all([
     db.select().from(contentStages),
     db.select().from(contentRealms),
     db.select().from(contentItems),
     db.select().from(contentSkills),
+    loadDraftSnapshot(db),
   ]);
   return stages
     .sort((left, right) => left.requiredRealmOrder - right.requiredRealmOrder || left.displayName.localeCompare(right.displayName, "zh"))
-    .map((row) => stageView(row, realms, items, skills));
+    .map((row) => stageView(row, realms, items, skills, stagePowerOf(world, row.slug)));
 }
 
 export async function createOpsStage(
@@ -300,10 +323,10 @@ function skillView(row: typeof contentSkills.$inferSelect, categories: { slug: s
     categoryId: row.skillCategorySlug ?? "",
     categoryName: category?.displayName ?? "",
     categoryMissing: Boolean(row.skillCategorySlug) && !category,
-    attack: row.attack,
-    defense: row.defense,
-    hp: row.hp,
-    speed: row.speed,
+    attack: row.attack / 100,
+    defense: row.defense / 100,
+    hp: row.hp / 100,
+    speed: 0,
     cultivateBonus: row.cultivateBonusBp,
   };
 }
@@ -392,6 +415,14 @@ export async function updateOpsSkill(
   return { id };
 }
 
+function percentBp(value: unknown, label: string): number {
+  const number = numberOf(value, label);
+  if (number > 100) {
+    throw new AppError("INVALID_INPUT", `${label}不能超过 100%`);
+  }
+  return Math.round(number * 100);
+}
+
 async function skillValues(
   db: Db,
   input: {
@@ -423,10 +454,10 @@ async function skillValues(
     description: textOf(input.description),
     role: null,
     skillCategorySlug: categoryId,
-    attack: numberOf(input.attack, "攻击"),
-    defense: numberOf(input.defense, "防御"),
-    hp: numberOf(input.hp, "气血"),
-    speed: numberOf(input.speed, "速度"),
+    attack: percentBp(input.attack, "攻击百分比"),
+    defense: percentBp(input.defense, "防御百分比"),
+    hp: percentBp(input.hp, "气血百分比"),
+    speed: 0,
     cultivateBonusBp: numberOf(input.cultivateBonus, "修炼加成"),
     prerequisiteSkillSlugs: [] as string[],
     updatedAt: new Date(),
@@ -568,7 +599,17 @@ export async function deleteSkillCategory(db: Db, id: string) {
   return { ok: true };
 }
 
-function weaponView(row: typeof contentItems.$inferSelect, categories: { slug: string; displayName: string }[]) {
+const EQUIPMENT_SLOTS = new Set(["weapon", "helmet", "clothes", "shoes", "accessory"]);
+
+function equipmentSlot(value: unknown): string {
+  const slot = textOf(value);
+  if (!EQUIPMENT_SLOTS.has(slot)) {
+    throw new AppError("INVALID_INPUT", "请选择部位：武器、头冠、衣服、鞋子、饰品");
+  }
+  return slot;
+}
+
+function weaponView(row: typeof contentItems.$inferSelect, categories: { slug: string; displayName: string }[], power: number | null) {
   const category = categories.find((item) => item.slug === row.weaponCategorySlug);
   return {
     id: row.slug,
@@ -581,15 +622,31 @@ function weaponView(row: typeof contentItems.$inferSelect, categories: { slug: s
     defense: row.defense,
     hp: row.hp,
     speed: row.speed,
+    slot: row.slot,
+    power,
   };
 }
 
 export async function listOpsWeapons(db: Db) {
-  const [rows, categories] = await Promise.all([db.select().from(contentItems), db.select().from(contentWeaponCategories)]);
+  const [rows, categories, rules] = await Promise.all([
+    db.select().from(contentItems),
+    db.select().from(contentWeaponCategories),
+    readRules(db),
+  ]);
+  const weights =
+    rules.attackWeight == null || rules.defenseWeight == null || rules.hpWeight == null || rules.speedWeight == null
+      ? null
+      : { attack: rules.attackWeight, defense: rules.defenseWeight, hp: rules.hpWeight, speed: rules.speedWeight };
   return rows
     .filter((row) => row.kind === "equipment")
     .sort((left, right) => left.displayName.localeCompare(right.displayName, "zh"))
-    .map((row) => weaponView(row, categories));
+    .map((row) =>
+      weaponView(
+        row,
+        categories,
+        weights ? ratePower({ attack: row.attack, defense: row.defense, hp: row.hp, speed: row.speed }, weights) : null,
+      ),
+    );
 }
 
 async function weaponValues(
@@ -622,7 +679,7 @@ async function weaponValues(
     displayName,
     description: textOf(input.description),
     kind: "equipment",
-    slot: null,
+    slot: equipmentSlot(input.slot),
     skillSlug: null,
     weaponCategorySlug: categoryId,
     attack: numberOf(input.attack, "攻击"),

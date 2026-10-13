@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { createAdmin } from "./modules/auth/service.js";
-import { withDb } from "./test/db.js";
+import { insertStartingRealm, withDb } from "./test/db.js";
 import { buildApp } from "./app.js";
 
 describe("buildApp", { timeout: 30_000 }, () => {
   it("serves register, publish, and progress without an admin signup route", async () => {
     await withDb(async (db) => {
+      await insertStartingRealm(db);
       await createAdmin(db, { username: "app_admin", password: "admin-secret" });
       const app = await buildApp(db);
       const health = await app.inject({ method: "GET", url: "/healthz" });

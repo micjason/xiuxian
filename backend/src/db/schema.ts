@@ -206,13 +206,11 @@ export const contentGlobals = pgTable("content_globals", {
   powerWeights: jsonb("power_weights").$type<{ attack: number; defense: number; hp: number; speed: number }>(),
   combat: jsonb("combat").$type<{
     minInterval?: number;
-    playerDefenseFactor?: number;
-    bossDefenseFactor?: number;
     challengeCooldownSeconds?: number;
     timeLimitSeconds?: number;
-    playerDamageFloor?: number;
-    bossDamageFloor?: number;
+    defenseConstant?: number;
     speedBase?: number;
+    recommendedPowerMargin?: number;
   }>(),
   artSlotRules: jsonb("art_slot_rules").$type<{ minRealmOrder: number; slots: number }[]>(),
   idleKillCap: integer("idle_kill_cap"),
@@ -330,6 +328,7 @@ export type StageBoss = {
   hp: number;
   interval: number;
   drops: { itemSlug: string; chanceBp: number }[];
+  reward?: { major: string; stageIndex: number; nextMajor: string | null };
 };
 
 export const contentStages = pgTable("content_stages", {
@@ -381,6 +380,8 @@ export const playerStates = pgTable("player_states", {
   idleStageSlug: text("idle_stage_slug"),
   lastChallengeAt: timestamp("last_challenge_at", { withTimezone: true }),
   stateVersion: integer("state_version").notNull().default(0),
+  dropPity: jsonb("drop_pity").$type<Record<string, number>>().notNull().default({}),
+  autoDecompose: boolean("auto_decompose").notNull().default(false),
 });
 
 export const playerItems = pgTable(

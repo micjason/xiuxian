@@ -43,17 +43,14 @@
         <el-form-item label="描述">
           <el-input v-model="form.description" />
         </el-form-item>
-        <el-form-item label="攻击">
-          <el-input-number v-model="form.attack" :min="0" :controls="false" />
+        <el-form-item label="攻击（%）">
+          <el-input-number v-model="form.attack" :min="0" :max="100" :step="0.01" :controls="false" />
         </el-form-item>
-        <el-form-item label="防御">
-          <el-input-number v-model="form.defense" :min="0" :controls="false" />
+        <el-form-item label="防御（%）">
+          <el-input-number v-model="form.defense" :min="0" :max="100" :step="0.01" :controls="false" />
         </el-form-item>
-        <el-form-item label="气血">
-          <el-input-number v-model="form.hp" :min="0" :controls="false" />
-        </el-form-item>
-        <el-form-item label="速度">
-          <el-input-number v-model="form.speed" :min="0" :controls="false" />
+        <el-form-item label="气血（%）">
+          <el-input-number v-model="form.hp" :min="0" :max="100" :step="0.01" :controls="false" />
         </el-form-item>
         <el-form-item label="修炼加成（万分比）">
           <el-input-number v-model="form.cultivateBonus" :min="0" :controls="false" />

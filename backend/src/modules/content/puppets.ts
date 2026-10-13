@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { contentItems, contentRealms, contentSkills, contentTrialPuppets } from "../../db/schema.js";
 import { ratePower } from "../combat/stats.js";
 import { AppError } from "../../shared/errors.js";
+import { describeBuild, type PowerDetail } from "./puppet-build.js";
 import { readGameRules } from "./rules.js";
 import type { Db } from "../operations/record.js";
 import { combatStats } from "../loop/actions.js";
@@ -40,10 +41,26 @@ export type PuppetView = {
   speed: number | null;
   interval: number | null;
   power: number | null;
+  powerDetail: PowerDetail | null;
+  tendency: string | null;
+  tendencyNote: string | null;
   problem: string | null;
 };
 
 const missingGear = "有武器或功法已经删除，先改这个人偶";
+const noBuild = { powerDetail: null, tendency: null, tendencyNote: null };
+
+function buildOf(
+  stats: { attack: number; defense: number; hp: number; speed: number },
+  weights: { attack: number; defense: number; hp: number; speed: number },
+) {
+  const described = describeBuild(stats, weights);
+  return {
+    powerDetail: { lines: described.lines, total: described.total, power: described.power, shares: described.shares },
+    tendency: described.tendency,
+    tendencyNote: described.note,
+  };
+}
 
 function newId(): string {
   return `p${randomBytes(8).toString("hex")}`;
@@ -110,6 +127,7 @@ function blankView(row: typeof contentTrialPuppets.$inferSelect, kind: PuppetKin
     speed: null,
     interval: null,
     power: null,
+    ...noBuild,
     problem,
   };
 }
@@ -119,7 +137,7 @@ export function presentPuppet(row: typeof contentTrialPuppets.$inferSelect, worl
     return blankView(row, "configured", "人偶类型不能识别");
   }
   if (row.kind === "manual") {
-    let rules: ReturnType<typeof rulesOf> | null = null;
+    let rules: ReturnType<typeof rulesOf>;
     try {
       rules = rulesOf(world);
     } catch (error) {
@@ -142,6 +160,7 @@ export function presentPuppet(row: typeof contentTrialPuppets.$inferSelect, worl
         speed: row.speed,
         interval: row.interval,
         power: null,
+        ...noBuild,
         problem: error.message,
       };
     }
@@ -176,6 +195,9 @@ export function presentPuppet(row: typeof contentTrialPuppets.$inferSelect, worl
         problem || row.attack == null || row.defense == null || row.hp == null || row.speed == null
           ? null
           : ratePower({ attack: row.attack, defense: row.defense, hp: row.hp, speed: row.speed }, weights),
+      ...(problem || row.attack == null || row.defense == null || row.hp == null || row.speed == null
+        ? noBuild
+        : buildOf({ attack: row.attack, defense: row.defense, hp: row.hp, speed: row.speed }, weights)),
       problem,
     };
   }
@@ -226,6 +248,34 @@ export function presentPuppet(row: typeof contentTrialPuppets.$inferSelect, worl
       speed: null,
       interval: null,
       power: null,
+      ...noBuild,
+      problem: error.message,
+    };
+  }
+  let rules: ReturnType<typeof rulesOf>;
+  try {
+    rules = rulesOf(world);
+  } catch (error) {
+    if (!(error instanceof AppError)) {
+      throw error;
+    }
+    return {
+      id: row.slug,
+      displayName: row.displayName,
+      kind: "configured",
+      kindName: kindName("configured"),
+      realmCode: row.realmCode ?? null,
+      realmName: realm.displayName ?? "",
+      realmMissing: false,
+      weapons,
+      skills,
+      attack: stats.attack,
+      defense: stats.defense,
+      hp: stats.hp,
+      speed: stats.speed,
+      interval: stats.interval,
+      power: null,
+      ...noBuild,
       problem: error.message,
     };
   }
@@ -245,6 +295,7 @@ export function presentPuppet(row: typeof contentTrialPuppets.$inferSelect, worl
     speed: stats.speed,
     interval: stats.interval,
     power: stats.power,
+    ...buildOf(stats, rules.powerWeights),
     problem: null,
   };
 }
@@ -254,7 +305,6 @@ async function storedValues(db: Db, input: PuppetInput, kind: PuppetKind, adminI
   if (!displayName) {
     throw new AppError("INVALID_INPUT", "请填写名称");
   }
-  const rows = await db.select().from(contentTrialPuppets);
   const base = { displayName, kind, updatedAt: new Date(), updatedBy: adminId };
   if (kind === "manual") {
     const world = await loadDraftSnapshot(db);

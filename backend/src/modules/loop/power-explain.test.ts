@@ -20,17 +20,15 @@ describe("player power source", () => {
         powerWeights: { attack: 1, defense: 0.8, hp: 0.04, speed: 1.5 },
         combat: {
           minInterval: 0.7,
-          playerDefenseFactor: 0.4,
-          bossDefenseFactor: 0.5,
+          defenseConstant: 1,
+          recommendedPowerMargin: 1.05,
           challengeCooldownSeconds: 3,
           timeLimitSeconds: 60,
-          playerDamageFloor: 1,
-          bossDamageFloor: 0,
           speedBase: 100,
         },
       });
       const weaponCategory = await createWeaponCategory(db, { displayName: "剑" }, null);
-      const sword = await createOpsWeapon(db, { displayName: "木剑", categoryId: weaponCategory.id, attack: 25, defense: 0, hp: 0, speed: 0 }, null);
+      const sword = await createOpsWeapon(db, { displayName: "木剑", categoryId: weaponCategory.id, slot: "weapon", attack: 25, defense: 0, hp: 0, speed: 0 }, null);
       const herb = await createOpsItem(db, { displayName: "灵芝" }, null);
       const skillCategory = await createSkillCategory(db, { displayName: "吐纳" }, null);
       const skill = await createOpsSkill(

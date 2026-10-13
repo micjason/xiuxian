@@ -9,13 +9,11 @@ export type GameRules = {
   bagCapacity: number;
   powerWeights: { attack: number; defense: number; hp: number; speed: number };
   minInterval: number;
-  playerDefenseFactor: number;
-  bossDefenseFactor: number;
   challengeCooldownSeconds: number;
   timeLimitSeconds: number;
-  playerDamageFloor: number;
-  bossDamageFloor: number;
+  defenseConstant: number;
   speedBase: number;
+  recommendedPowerMargin: number;
 };
 
 export type RulesInput = {
@@ -26,13 +24,11 @@ export type RulesInput = {
   hpWeight?: number;
   speedWeight?: number;
   minInterval?: number;
-  playerDefenseFactor?: number;
-  bossDefenseFactor?: number;
   challengeCooldownSeconds?: number;
   timeLimitSeconds?: number;
-  playerDamageFloor?: number;
-  bossDamageFloor?: number;
+  defenseConstant?: number;
   speedBase?: number;
+  recommendedPowerMargin?: number;
 };
 
 const fields = [
@@ -43,13 +39,11 @@ const fields = [
   ["hpWeight", "气血权重", true],
   ["speedWeight", "速度权重", true],
   ["minInterval", "最短出手间隔", false],
-  ["playerDefenseFactor", "玩家攻击时的防御比例", true],
-  ["bossDefenseFactor", "首领攻击时的防御比例", true],
   ["challengeCooldownSeconds", "挑战冷却", true],
   ["timeLimitSeconds", "单场时限", false],
-  ["playerDamageFloor", "玩家每下最少伤害", true],
-  ["bossDamageFloor", "首领每下最少伤害", true],
+  ["defenseConstant", "防御常数 k", false],
   ["speedBase", "速度基数", false],
+  ["recommendedPowerMargin", "推荐战力倍数", false],
 ] as const;
 
 function numberOf(value: unknown, label: string, allowZero: boolean): number {
@@ -61,6 +55,24 @@ function numberOf(value: unknown, label: string, allowZero: boolean): number {
     throw new AppError("INVALID_INPUT", allowZero ? `${label}不能小于 0` : `${label}必须大于 0`);
   }
   return number;
+}
+
+export function rulesForSave(
+  input: RulesInput,
+  stored: {
+    offlineCapSeconds: number | null;
+    bagCapacity: number | null;
+    combat: { challengeCooldownSeconds?: number; timeLimitSeconds?: number; recommendedPowerMargin?: number } | null;
+  } | null,
+): RulesInput {
+  return {
+    ...input,
+    offlineCapSeconds: input.offlineCapSeconds ?? stored?.offlineCapSeconds ?? undefined,
+    bagCapacity: input.bagCapacity ?? stored?.bagCapacity ?? undefined,
+    challengeCooldownSeconds: input.challengeCooldownSeconds ?? stored?.combat?.challengeCooldownSeconds,
+    timeLimitSeconds: input.timeLimitSeconds ?? stored?.combat?.timeLimitSeconds,
+    recommendedPowerMargin: input.recommendedPowerMargin ?? stored?.combat?.recommendedPowerMargin,
+  };
 }
 
 export function rulesFromInput(input: RulesInput): GameRules {
@@ -84,13 +96,11 @@ export function rulesFromInput(input: RulesInput): GameRules {
       speed: values.speedWeight,
     },
     minInterval: values.minInterval,
-    playerDefenseFactor: values.playerDefenseFactor,
-    bossDefenseFactor: values.bossDefenseFactor,
     challengeCooldownSeconds: values.challengeCooldownSeconds,
     timeLimitSeconds: values.timeLimitSeconds,
-    playerDamageFloor: values.playerDamageFloor,
-    bossDamageFloor: values.bossDamageFloor,
+    defenseConstant: values.defenseConstant,
     speedBase: values.speedBase,
+    recommendedPowerMargin: values.recommendedPowerMargin,
   };
 }
 
@@ -105,13 +115,11 @@ function rulesInputOf(world: ContentSnapshot): RulesInput {
     hpWeight: weights?.hp,
     speedWeight: weights?.speed,
     minInterval: combat?.minInterval,
-    playerDefenseFactor: combat?.playerDefenseFactor,
-    bossDefenseFactor: combat?.bossDefenseFactor,
     challengeCooldownSeconds: combat?.challengeCooldownSeconds,
     timeLimitSeconds: combat?.timeLimitSeconds,
-    playerDamageFloor: combat?.playerDamageFloor,
-    bossDamageFloor: combat?.bossDamageFloor,
+    defenseConstant: combat?.defenseConstant,
     speedBase: combat?.speedBase,
+    recommendedPowerMargin: combat?.recommendedPowerMargin,
   };
 }
 
@@ -144,13 +152,11 @@ export function rulesView(row: typeof contentGlobals.$inferSelect | null) {
     hpWeight: weights?.hp ?? null,
     speedWeight: weights?.speed ?? null,
     minInterval: combat?.minInterval ?? null,
-    playerDefenseFactor: combat?.playerDefenseFactor ?? null,
-    bossDefenseFactor: combat?.bossDefenseFactor ?? null,
     challengeCooldownSeconds: combat?.challengeCooldownSeconds ?? null,
     timeLimitSeconds: combat?.timeLimitSeconds ?? null,
-    playerDamageFloor: combat?.playerDamageFloor ?? null,
-    bossDamageFloor: combat?.bossDamageFloor ?? null,
+    defenseConstant: combat?.defenseConstant ?? null,
     speedBase: combat?.speedBase ?? null,
+    recommendedPowerMargin: combat?.recommendedPowerMargin ?? null,
   };
 }
 
@@ -160,8 +166,8 @@ export async function readRules(db: Db) {
 }
 
 export async function saveRules(db: Db, input: RulesInput, adminId: string | null) {
-  const rules = rulesFromInput(input);
   const [current] = await db.select().from(contentGlobals).where(eq(contentGlobals.id, 1)).limit(1);
+  const rules = rulesFromInput(rulesForSave(input, current ?? null));
   const values = {
     id: 1,
     offlineCapSeconds: rules.offlineCapSeconds,
@@ -169,13 +175,11 @@ export async function saveRules(db: Db, input: RulesInput, adminId: string | nul
     powerWeights: rules.powerWeights,
     combat: {
       minInterval: rules.minInterval,
-      playerDefenseFactor: rules.playerDefenseFactor,
-      bossDefenseFactor: rules.bossDefenseFactor,
       challengeCooldownSeconds: rules.challengeCooldownSeconds,
       timeLimitSeconds: rules.timeLimitSeconds,
-      playerDamageFloor: rules.playerDamageFloor,
-      bossDamageFloor: rules.bossDamageFloor,
+      defenseConstant: rules.defenseConstant,
       speedBase: rules.speedBase,
+      recommendedPowerMargin: rules.recommendedPowerMargin,
     },
     updatedAt: new Date(),
     updatedBy: adminId,

@@ -15,12 +15,10 @@ describe("client version gate", () => {
         powerWeights: { attack: 1, defense: 1, hp: 1, speed: 1 },
         combat: {
           minInterval: 1,
-          playerDefenseFactor: 0,
-          bossDefenseFactor: 0,
+          defenseConstant: 1,
+          recommendedPowerMargin: 1.05,
           challengeCooldownSeconds: 0,
           timeLimitSeconds: 30,
-          playerDamageFloor: 1,
-          bossDamageFloor: 0,
           speedBase: 100,
         },
       });

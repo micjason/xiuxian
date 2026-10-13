@@ -4,7 +4,10 @@ import { contentRealms } from "../../db/schema.js";
 import type { Db } from "../operations/record.js";
 import { AppError } from "../../shared/errors.js";
 import { saveDraftDropTable } from "./draft-service.js";
-import { readRules, saveRules } from "./rules.js";
+import { readRules, readGameRules, rulesForSave, rulesFromInput, saveRules } from "./rules.js";
+import { formulaExamples } from "./formula-examples.js";
+import { buildFormulaPreview } from "./formula-preview.js";
+import { loadDraftSnapshot } from "./snapshot.js";
 import {
   createOpsItem,
   createOpsSkill,
@@ -32,6 +35,7 @@ import {
   updateWeaponCategory,
 } from "./ops-content.js";
 import { publishSnapshot } from "./snapshot.js";
+import { duelTrialPuppets } from "./puppet-duel.js";
 import { createTrialPuppet, deleteTrialPuppet, listTrialPuppets, updateTrialPuppet } from "./puppets.js";
 import { runTrial, type TrialInput } from "./trial.js";
 
@@ -198,6 +202,26 @@ export async function registerDraftRoutes(app: FastifyInstance, deps: { db: Db; 
   app.put("/admin/draft/rules", async (request) =>
     saveRules(deps.db, request.body as never, request.actor?.actorId ?? null),
   );
+  app.post("/admin/draft/formula-preview", async (request) => {
+    const rules = rulesFromInput(
+      rulesForSave(request.body as Parameters<typeof rulesFromInput>[0], {
+        offlineCapSeconds: 36000,
+        bagCapacity: 20,
+        combat: { challengeCooldownSeconds: 0, timeLimitSeconds: 20, recommendedPowerMargin: 1.05 },
+      }),
+    );
+    return buildFormulaPreview(rules);
+  });
+  app.get("/admin/draft/formula-examples", async () => {
+    const world = await loadDraftSnapshot(deps.db);
+    const rules = readGameRules(world);
+    return formulaExamples({
+      defenseConstant: rules.defenseConstant,
+      speedBase: rules.speedBase,
+      minInterval: rules.minInterval,
+      weights: rules.powerWeights,
+    });
+  });
   app.get("/admin/draft/items", async () => listOpsItems(deps.db));
   app.post("/admin/draft/items", async (request) =>
     createOpsItem(deps.db, request.body as never, request.actor?.actorId ?? null),
@@ -251,6 +275,9 @@ export async function registerDraftRoutes(app: FastifyInstance, deps: { db: Db; 
   );
   app.delete("/admin/draft/stages/:id", async (request) => deleteOpsStage(deps.db, (request.params as { id: string }).id));
   app.get("/admin/draft/puppets", async () => listTrialPuppets(deps.db));
+  app.post("/admin/draft/puppets/duels", async (request) =>
+    duelTrialPuppets(deps.db, (request.body as { ids?: unknown; times?: unknown }).ids, (request.body as { times?: unknown }).times),
+  );
   app.post("/admin/draft/puppets", async (request) =>
     createTrialPuppet(deps.db, request.body as never, request.actor?.actorId ?? null),
   );

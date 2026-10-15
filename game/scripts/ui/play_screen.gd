@@ -286,6 +286,7 @@ func _render(feedback: bool = false) -> void:
 	if feedback:
 		var last: Variant = _state.get("lastSettle", null)
 		if typeof(last) == TYPE_DICTIONARY:
+			_enrich_drops((last as Dictionary).get("drops", []))
 			var lines := WaveView.feedback(last as Dictionary, _reward_name)
 			if not lines.is_empty():
 				_home_page.show_feedback(lines)
@@ -410,6 +411,7 @@ func _on_battle_submit(slug: String, taps: Array) -> void:
 			_show_bag_full(bag.used_slots(), bag.capacity)
 		_battle_page.show_submit_error(PlayerApi.error_message(result))
 		return
+	_enrich_drops(result.get("drops", []))
 	_apply_action_state(result)
 	_battle_page.show_result(result, _reward_name)
 
@@ -646,6 +648,17 @@ func _stage_def(slug: String) -> Dictionary:
 		if typeof(row) == TYPE_DICTIONARY and str((row as Dictionary).get("slug", "")) == slug:
 			return row
 	return {}
+
+
+## 服务器返回的掉落行不带品质，按内容里的物品定义补上（界面按品质上色）。
+func _enrich_drops(rows: Variant) -> void:
+	if typeof(rows) != TYPE_ARRAY:
+		return
+	for row in rows:
+		if typeof(row) == TYPE_DICTIONARY and str((row as Dictionary).get("quality", "")).is_empty():
+			var quality := str(_item_def(str((row as Dictionary).get("itemSlug", ""))).get("quality", ""))
+			if not quality.is_empty():
+				(row as Dictionary)["quality"] = quality
 
 
 func _reward_name(slug: String) -> String:

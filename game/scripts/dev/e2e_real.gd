@@ -7,6 +7,17 @@ extends Node
 var _scene: Node
 
 
+func _shot(name: String) -> void:
+	var dir := OS.get_environment("XIUXIAN_E2E_SHOTS")
+	if dir.is_empty():
+		return
+	DirAccess.make_dir_recursive_absolute(dir)
+	await get_tree().create_timer(0.6).timeout
+	var image := get_tree().root.get_viewport().get_texture().get_image()
+	image.save_png("%s/%s.png" % [dir, name])
+	print("E2E shot=", name)
+
+
 func _out(key: String, value: Variant) -> void:
 	print("E2E %s=%s" % [key, str(value)])
 
@@ -77,6 +88,7 @@ func _offline() -> void:
 	_out("popup_bonus", view.get("bonus_text"))
 	var state: Dictionary = _scene.get("_state")
 	_out("report", state.get("offlineReport"))
+	await _shot("real_01_offline_popup")
 	if popup.visible:
 		popup.claim_button().pressed.emit()
 		await get_tree().create_timer(1.0).timeout
@@ -97,15 +109,20 @@ func _battle() -> void:
 	var page: BattlePage = _scene.get("_battle_page")
 	var bag_gate: Dictionary = page.get("_gate")
 	_out("gate_state", bag_gate)
+	await _shot("real_02_battle_ready")
 	page.submit_requested.connect(func(_slug: String, taps: Array) -> void: _out("uploaded_taps", taps))
 	page._on_start()
 	if page.phase != BattlePage.Phase.RUNNING:
 		_out("blocked", true)
 		return
 	var guard := 0
+	var shot_mid := false
 	while page.phase == BattlePage.Phase.RUNNING and guard < 400:
 		page.step(0.25)
 		if page.fight.ult_ready() and page.fight.taps.is_empty():
+			if not shot_mid:
+				shot_mid = true
+				await _shot("real_03_battle_ult_ready")
 			page._on_ult_tapped()
 		guard += 1
 	var predicted_win := page.fight.win
@@ -115,6 +132,7 @@ func _battle() -> void:
 		await get_tree().create_timer(0.1).timeout
 		guard2 += 1
 	_out("phase", page.phase)
+	await _shot("real_04_battle_result")
 	var view := page.last_view()
 	_out("client_predicted_win", predicted_win)
 	_out("server_win", view.get("win"))
@@ -143,8 +161,10 @@ func _breakthrough() -> void:
 		_out("direct_breakthrough_code", denied.get("code"))
 		_out("direct_breakthrough_error", (denied.get("error", {}) as Dictionary).get("code") if typeof(denied.get("error", null)) == TYPE_DICTIONARY else "")
 		return
+	await _shot("real_05_breakthrough_page")
 	_scene.call("_on_breakthrough")
 	await get_tree().create_timer(1.5).timeout
+	await _shot("real_06_breakthrough_success")
 	var after: Dictionary = _scene.get("_state")
 	var success: BreakthroughSuccess = _scene.get("_success_popup")
 	_out("success_visible", success.visible)
@@ -159,6 +179,7 @@ func _bagfull() -> void:
 	var page: BattlePage = _scene.get("_battle_page")
 	_out("client_gate", page.get("_gate"))
 	page._on_start()
+	await _shot("real_07_bag_full_prompt")
 	_out("phase_after_start", page.phase)
 	var result := await PlayerApi.post_action("/api/v1/me/stages/%s/challenge" % slug, {"ultTaps": []})
 	_out("direct_challenge_code", result.get("code"))

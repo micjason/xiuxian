@@ -6,6 +6,7 @@
 //   fillbag <数量>    往背包塞白色装备到指定总数（不含已穿戴）
 //   autodecompose <on|off>
 //   gear <品质>       穿上一整套 major1 装备（weapon/helmet/clothes/gloves/shoes/accessory），先卸掉已穿的
+//   skill <slug>      学会并运行某本功法（running_slot=heart）
 //   clear <stageSlug> 标记某关卡已首通
 import postgres from "postgres";
 
@@ -25,6 +26,9 @@ if (action === "offline") {
 } else if (action === "clear") {
   await sql`insert into player_stage_progress (player_id, stage_slug, first_cleared_at, clear_count) values (${id}, ${arg}, now(), 1)
     on conflict (player_id, stage_slug) do update set first_cleared_at = coalesce(player_stage_progress.first_cleared_at, now())`;
+} else if (action === "skill") {
+  await sql`insert into player_skills (player_id, skill_slug, level, running_slot) values (${id}, ${arg}, 1, 'heart')
+    on conflict (player_id, skill_slug) do update set running_slot = 'heart'`;
 } else if (action === "gear") {
   await sql`delete from player_items where player_id = ${id} and equipped_slot is not null`;
   for (const slot of ["weapon", "helmet", "clothes", "gloves", "shoes", "accessory"]) {

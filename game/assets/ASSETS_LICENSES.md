@@ -129,6 +129,20 @@ OFL 允许商用、嵌入游戏、修改和再发布，不得单独出售字体�
 - ZCOOL XiaoWei（OFL）只在评估时下载，**没有**放进仓库。
 - game-icons.net 里其他图标没有用，也不在仓库里。
 
+## 7. 美术交付（2026-10-16，美术同事交付的切图，已并入）
+
+来源说明按美术提供的 `art_out/ASSETS_LICENSES_art_entry.md` 如实记录，**授权条款美术方标注为"待确认"，发布前必须核对**：
+
+| 目录 | 数量 | 来源（美术自述） | 状态 |
+|---|---|---|---|
+| `art/ui/*.png`、`art/ui/app_icon.svg` | 60 | 自绘矢量合成；部分图（离线/突破头图、引导手指、标题字等）含 AI 生成素材再加工 | 商用授权待确认；同名覆盖了此前的程序绘制占位（九宫格边距未变） |
+| `art/icons/*.png` | 41 | 白色剪影图标。美术说明"若取自 game-icons.net（CC BY 3.0）需保留署名；具体图标与作者待核对" | **来源未核对**：在核对清楚之前，上面第 1 节的署名文字保持不变、致谢页保留 |
+| `art/items/*.png` | 35 | AI 图像生成工具（Grok Bot 内置图像生成）按文字描述生成，再抠底、缩放、压缩 | 商用授权条款待确认；本批文件与仓库里已有的逐字节相同（此前已并入） |
+| `art/bg/*.webp`（login、character、bag、skill、stage_1–6）+ home/battle/breakthrough | 13 | AI 生成素材裁切 + 自绘合成（1080×2400）。home/battle/breakthrough 来自 `/workspace/art_bg/` | 商用授权待确认；覆盖了此前的古画裁切占位（第 2 节的公有领域署名对被覆盖的文件不再适用，核对完后再删致谢） |
+| `art/android/adaptive_{foreground,background}_432x432.png` | 2 | 美术交付的 Android 自适应图标，已在 `export_presets.cfg` 配置 | 同上 |
+
+二进制文件（png/webp/svg）按仓库既有做法直接提交；`.gitattributes` 里写了 LFS 过滤规则，但本机没装 git-lfs，所以这些文件和之前的美术一样是普通二进制提交（以后在装了 git-lfs 的机器上迁移）。
+
 ## 如何替换
 
 1. 同名文件覆盖 `game/assets/art/...`；尺寸可以不同，九宫格边距改 `art_lib.gd` 里的 `NINE`。

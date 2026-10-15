@@ -7,6 +7,10 @@ extends Node
 var _scene: Node
 
 
+func _wait(seconds: float) -> void:
+	await get_tree().create_timer(seconds).timeout
+
+
 func _shot(name: String) -> void:
 	var dir := OS.get_environment("XIUXIAN_E2E_SHOTS")
 	if dir.is_empty():

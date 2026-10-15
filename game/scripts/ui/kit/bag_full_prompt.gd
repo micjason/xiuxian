@@ -6,7 +6,8 @@ extends RefCounted
 
 
 static func texts(used: int, capacity: int) -> Array[String]:
-	return ["背包已满（%d/%d）" % [used, capacity], "新掉落的装备没能入包，请先分解装备"]
+	# 首通固定奖励可以超出容量，显示时不超过上限（23/20 读起来像 bug）
+	return ["背包已满（%d/%d）" % [mini(used, capacity), capacity], "新掉落的装备没能入包，请先分解装备"]
 
 
 static func show_prompt(popup: GamePopup, used: int, capacity: int, on_open_bag: Callable = Callable()) -> void:

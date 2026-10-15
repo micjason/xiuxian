@@ -161,7 +161,7 @@ export function combatStats(world: ContentSnapshot, realmSlug: string, itemSlugs
 }
 
 export type PowerSourceLine = {
-  group: "境界" | "武器" | "功法";
+  group: "境界" | "物品" | "功法";
   name: string;
   attack: number;
   defense: number;
@@ -223,7 +223,7 @@ export function explainPlayerPower(
     const level = item.enhanceLevel ?? 0;
     const grown = equipped ? enhancedGear(world, definition, level) : { attack: 0, defense: 0, hp: 0, speed: 0 };
     lines.push({
-      group: "武器",
+      group: "物品",
       name: `${name}${level > 0 ? ` +${level}` : ""}${quantity}`,
       attack: grown.attack,
       defense: grown.defense,

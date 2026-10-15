@@ -54,7 +54,7 @@ async function main() {
     for (const schedule of ["A", "B"] as Schedule[]) {
       for (const variant of ["auto", "manual"] as Variant[]) {
         const started = Date.now();
-        const r = await runBot(db, { seed, schedule, variant, days });
+        const r: Awaited<ReturnType<typeof runBot>> & { wallSeconds?: number } = await runBot(db, { seed, schedule, variant, days });
         r.wallSeconds = (Date.now() - started) / 1000;
         results.push(r);
         console.error(`done seed=${seed} ${schedule} ${variant} reached=${r.finalRealm} day=${r.finalDay.toFixed(2)} wall=${r.wallSeconds}s`);

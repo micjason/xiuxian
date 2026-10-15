@@ -65,15 +65,15 @@
             <el-table :data="current.breakdown?.lines ?? []" size="small">
               <el-table-column prop="group" label="来源" width="80" />
               <el-table-column prop="name" label="名称" min-width="140" />
-              <el-table-column prop="attack" label="攻击" width="70" />
-              <el-table-column prop="defense" label="防御" width="70" />
-              <el-table-column prop="hp" label="气血" width="70" />
-              <el-table-column prop="speed" label="速度" width="70" />
+              <el-table-column label="攻击" width="70"><template #default="{ row }">{{ num(row.attack) }}</template></el-table-column>
+              <el-table-column label="防御" width="70"><template #default="{ row }">{{ num(row.defense) }}</template></el-table-column>
+              <el-table-column label="气血" width="70"><template #default="{ row }">{{ num(row.hp) }}</template></el-table-column>
+              <el-table-column label="速度" width="70"><template #default="{ row }">{{ num(row.speed) }}</template></el-table-column>
               <el-table-column label="计入" width="70"><template #default="{ row }">{{ row.counted ? "是" : "否" }}</template></el-table-column>
               <el-table-column prop="note" label="说明" min-width="140" />
             </el-table>
             <div v-if="current.breakdown && current.breakdown.steps.length > 0" class="math">
-              <p>计入后合计：攻击 {{ current.breakdown.attack }}，防御 {{ current.breakdown.defense }}，气血 {{ current.breakdown.hp }}，速度 {{ current.breakdown.speed }}</p>
+              <p>计入后合计：攻击 {{ num(current.breakdown.attack) }}，防御 {{ num(current.breakdown.defense) }}，气血 {{ num(current.breakdown.hp) }}，速度 {{ num(current.breakdown.speed) }}</p>
               <p v-for="step in current.breakdown.steps" :key="step">{{ step }}</p>
             </div>
           </el-tab-pane>
@@ -111,6 +111,11 @@ import DataState from "../../components/DataState.vue";
 import PageHeader from "../../components/PageHeader.vue";
 import { confirmDanger } from "../../composables/confirm";
 import { compactNumber, downloadText, formatTime, relativeTime, toCsv } from "../../composables/format";
+
+/** 属性合计里会混入浮点误差（119.06000000000002），只在显示时收成两位。 */
+function num(value: number): number {
+  return Math.round(value * 100) / 100;
+}
 
 type Breakdown = {
   power: number | null;

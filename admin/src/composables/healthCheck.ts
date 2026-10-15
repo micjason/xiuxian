@@ -2,13 +2,13 @@
 export type Problem = { level: "error" | "warn"; area: string; message: string; to: string };
 
 export type HealthInput = {
-  realms: { code: number; displayName: string; majorName: string; tickSeconds: number; gainPerTick: number; interval: number | null }[];
+  realms: { requiredStageId?: string | null; code: number; displayName: string; majorName: string; tickSeconds: number; gainPerTick: number; interval: number | null }[];
   stages: {
     id: string;
     displayName: string;
     realmMissing?: boolean;
     powerProblem?: string | null;
-    bosses: { name: string; hp: number; interval: number; drops: unknown[] }[];
+    bosses: { name: string; hp: number; interval: number; drops: unknown[]; firstClear?: unknown[]; repeat?: unknown }[];
   }[];
   items: { id: string; displayName: string }[];
   skills: { id: string; displayName: string; categoryMissing?: boolean }[];
@@ -34,19 +34,23 @@ export function analyzeDraft(input: HealthInput): Problem[] {
       problems.push({ level: "warn", area: "境界", message: `「${realm.displayName || realm.code}」没填基础出手间隔，战斗会算不出出手间隔。`, to });
     }
   });
+  // 没有首领的关卡是正常的（只刷小怪、挂机）；只有被某个境界的「突破前要先通关」指到，才必须有首领。
+  const gateStages = new Set(input.realms.map((realm) => realm.requiredStageId).filter((id): id is string => Boolean(id)));
   for (const stage of input.stages) {
     const to = `/config/stages?open=${stage.id}`;
     if (stage.realmMissing) {
       problems.push({ level: "error", area: "关卡", message: `关卡「${stage.displayName}」指向的境界不存在。`, to });
     }
-    if (stage.bosses.length === 0) {
-      problems.push({ level: "error", area: "关卡", message: `关卡「${stage.displayName}」还没有首领。`, to });
+    if (stage.bosses.length === 0 && gateStages.has(stage.id)) {
+      problems.push({ level: "error", area: "关卡", message: `关卡「${stage.displayName}」是某个境界突破前要通关的关卡，但还没有首领，玩家永远通不了。`, to });
     }
     for (const boss of stage.bosses) {
       if (boss.hp <= 0 || boss.interval <= 0) {
         problems.push({ level: "error", area: "关卡", message: `首领「${boss.name || "未命名"}」的气血或出手间隔没填，玩家无法挑战。`, to });
       }
-      if (boss.drops.length === 0) {
+      const hasFirstClear = (boss.firstClear?.length ?? 0) > 0;
+      const hasRepeat = Boolean(boss.repeat);
+      if (boss.drops.length === 0 && !hasFirstClear && !hasRepeat) {
         problems.push({ level: "warn", area: "关卡", message: `首领「${boss.name || "未命名"}」没有任何掉落。`, to });
       }
     }

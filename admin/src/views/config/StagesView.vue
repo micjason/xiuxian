@@ -47,6 +47,32 @@
               :hidden-keys="hidden"
               @active="(field) => (active = field)"
             />
+            <section class="monsters">
+              <header class="mhead">
+                <h3>普通怪与掉落</h3>
+                <span class="sub">玩家前台在线时在这个关卡刷怪：每波几只依次上前，每只击杀给固定修为，并按概率掉本境界阶装备。</span>
+                <el-button size="small" @click="addMonster(form as StageForm)">添加怪物</el-button>
+              </header>
+              <p v-if="(form as StageForm).monsters.length === 0" class="muted">没有普通怪：这个关卡不能刷怪（只有首领）。</p>
+              <div v-for="(monster, mIndex) in (form as StageForm).monsters" :key="mIndex" class="mrow">
+                <el-input v-model="monster.name" placeholder="名称" class="mname" />
+                <label>攻击<el-input-number v-model="monster.attack" :min="0" :controls="false" class="mnum" /></label>
+                <label>防御<el-input-number v-model="monster.defense" :min="0" :controls="false" class="mnum" /></label>
+                <label>气血<el-input-number v-model="monster.hp" :min="1" :controls="false" class="mnum" /></label>
+                <label>间隔<el-input-number v-model="monster.interval" :min="0.1" :step="0.05" :precision="2" :controls="false" class="mnum" /></label>
+                <label>击杀修为<el-input-number v-model="monster.killCultivation" :min="0" :precision="0" :controls="false" class="mnum" /></label>
+                <el-button link type="danger" @click="(form as StageForm).monsters.splice(mIndex, 1)">去掉</el-button>
+              </div>
+              <div v-if="(form as StageForm).monsters.length > 0" class="mdrop">
+                <strong>装备掉落</strong>
+                <label>每只击杀掉落率<el-input-number v-model="dropOf(form as StageForm).chancePercent" :min="0" :max="100" :precision="2" :controls="false" class="mnum" />%</label>
+                <label>品质权重 白<el-input-number v-model="dropOf(form as StageForm).weights.white" :min="0" :controls="false" class="mnum" /></label>
+                <label>绿<el-input-number v-model="dropOf(form as StageForm).weights.green" :min="0" :controls="false" class="mnum" /></label>
+                <label>蓝<el-input-number v-model="dropOf(form as StageForm).weights.blue" :min="0" :controls="false" class="mnum" /></label>
+                <label>紫<el-input-number v-model="dropOf(form as StageForm).weights.purple" :min="0" :controls="false" class="mnum" /></label>
+                <span class="muted">6 个部位等概率。掉的是本关卡所属境界所在大境界的装备。</span>
+              </div>
+            </section>
             <BossEditor
               v-model="(form as StageForm).bosses"
               :items="items"
@@ -79,8 +105,19 @@ import { loadWeapons, type Named } from "../../composables/lookups";
 import { stageSchema } from "../../schema/resources";
 import type { FieldDef } from "../../schema/types";
 
-type StageForm = { displayName: string; realmCode: number | undefined; bosses: BossRow[] };
-type ApiBoss = { name: string; attack: number; defense: number; hp: number; interval: number; drops: { itemId: string; chancePercent: number }[] };
+type MonsterRow = { name: string; attack: number; defense: number; hp: number; interval: number; killCultivation: number };
+type DropForm = { chancePercent: number; weights: { white: number; green: number; blue: number; purple: number } };
+type StageForm = { displayName: string; realmCode: number | undefined; bosses: BossRow[]; monsters: MonsterRow[]; monsterDrop: DropForm | null };
+type ApiBoss = {
+  name: string;
+  attack: number;
+  defense: number;
+  hp: number;
+  interval: number;
+  drops: { itemId: string; chancePercent: number }[];
+  firstClear: ({ kind: "item"; itemId: string; quantity: number } | { kind: "cultivation"; amount: number })[];
+  repeat: { gear: boolean; extras: { itemId: string; chancePercent: number; minQty: number; maxQty: number }[] } | null;
+};
 type ApiStage = {
   id: string;
   displayName: string;
@@ -90,6 +127,8 @@ type ApiStage = {
   recommendedPower: number | null;
   powerProblem: string | null;
   bosses: ApiBoss[];
+  monsters: MonsterRow[];
+  monsterDrop: { chancePercent: number; weights: Partial<DropForm["weights"]> } | null;
 };
 
 const rows = ref<Record<string, unknown>[]>([]);
@@ -103,7 +142,18 @@ const active = ref<FieldDef | null>(null);
 const trialOpen = ref(false);
 const trialBoss = ref<BossRow | null>(null);
 
-const hidden = ['id', 'dropCount', 'realmName', 'realmMissing', 'recommendedPower', 'powerProblem', 'bossText', 'bosses'];
+const hidden = ['id', 'dropCount', 'realmName', 'realmMissing', 'recommendedPower', 'powerProblem', 'bossText', 'bosses', 'monsters', 'monsterDrop'];
+
+function addMonster(form: StageForm): void {
+  form.monsters.push({ name: '', attack: 0, defense: 0, hp: 100, interval: 1.5, killCultivation: 1 });
+}
+
+function dropOf(form: StageForm): DropForm {
+  if (!form.monsterDrop) {
+    form.monsterDrop = { chancePercent: 4, weights: { white: 70, green: 25, blue: 5, purple: 0 } };
+  }
+  return form.monsterDrop;
+}
 const realmOptions = computed(() => realms.value.map((realm) => ({ label: `${realm.code} ${realm.displayName}`, value: realm.code })));
 const filters = computed(() => [{ key: "realmCode", label: "境界", options: realmOptions.value }]);
 const columns = [
@@ -140,7 +190,13 @@ async function reload(): Promise<void> {
         hp: boss.hp,
         interval: boss.interval,
         drops: boss.drops.map((drop) => ({ itemId: drop.itemId, chancePercent: drop.chancePercent })),
+        firstClear: boss.firstClear.map((entry) => (entry.kind === "cultivation" ? { kind: "cultivation" as const, amount: entry.amount } : { kind: "item" as const, itemId: entry.itemId, quantity: entry.quantity })),
+        repeat: boss.repeat ? { gear: boss.repeat.gear, extras: boss.repeat.extras.map((extra) => ({ ...extra })) } : null,
       })),
+      monsters: stage.monsters.map((monster) => ({ ...monster })),
+      monsterDrop: stage.monsterDrop
+        ? { chancePercent: stage.monsterDrop.chancePercent, weights: { white: 0, green: 0, blue: 0, purple: 0, ...stage.monsterDrop.weights } }
+        : null,
     }));
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : "加载失败";
@@ -150,11 +206,11 @@ async function reload(): Promise<void> {
 }
 
 function newRow(): Record<string, unknown> {
-  return { displayName: "", realmCode: realms.value[0]?.code, bosses: [] as BossRow[] };
+  return { displayName: "", realmCode: realms.value[0]?.code, bosses: [] as BossRow[], monsters: [] as MonsterRow[], monsterDrop: null };
 }
 
 async function save(values: Record<string, unknown>, mode: "create" | "edit", editingId: string): Promise<void> {
-  const body = JSON.stringify({ displayName: values.displayName, realmCode: values.realmCode, bosses: values.bosses });
+  const body = JSON.stringify({ displayName: values.displayName, realmCode: values.realmCode, bosses: values.bosses, monsters: values.monsters, monsterDrop: (values.monsters as MonsterRow[]).length > 0 ? values.monsterDrop : null });
   if (mode === "create") {
     await api("/admin/draft/stages", { method: "POST", body });
   } else {
@@ -182,5 +238,44 @@ onMounted(reload);
 }
 .main {
   min-width: 0;
+}
+.monsters {
+  margin-bottom: var(--xx-space-4);
+  padding-bottom: var(--xx-space-3);
+  border-bottom: 1px solid var(--xx-border);
+}
+.mhead {
+  display: flex;
+  align-items: center;
+  gap: var(--xx-space-3);
+}
+.mhead h3 {
+  margin: 0;
+  font-size: var(--xx-fs-md);
+}
+.sub {
+  flex: 1;
+  color: var(--xx-text-secondary);
+  font-size: var(--xx-fs-xs);
+}
+.mrow,
+.mdrop {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--xx-space-2);
+  margin-top: var(--xx-space-2);
+  font-size: var(--xx-fs-sm);
+}
+.mname {
+  width: 120px;
+}
+.mnum {
+  width: 78px;
+  margin-left: 4px;
+}
+.muted {
+  color: var(--xx-text-secondary);
+  font-size: var(--xx-fs-sm);
 }
 </style>

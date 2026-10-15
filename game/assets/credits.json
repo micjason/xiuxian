@@ -2,20 +2,12 @@
   "intro": "本游戏使用了以下第三方素材。完整来源、作者和授权见仓库里的 ASSETS_LICENSES.md。",
   "groups": [
     {
-      "title": "图标",
+      "title": "图标（旧图标，仍需署名）",
       "note": "占位 · 上线前建议替换；不替换必须保留下面的署名",
       "lines": [
         "Icons by Lorc, Delapouite and DarkZaitzev, from game-icons.net, licensed under CC BY 3.0.",
         "https://game-icons.net/ · https://creativecommons.org/licenses/by/3.0/",
-        "已修改：去掉底板，缩放为 160px 白色剪影，运行时染色。"
-      ]
-    },
-    {
-      "title": "背景画（公有领域）",
-      "note": "占位 · 正式版建议换成原创插画",
-      "lines": [
-        "王希孟《千里江山图》· 范宽《谿山行旅图》· 郭熙《早春图》· 仇英《玉洞仙源图》",
-        "图像来自维基共享资源（Wikimedia Commons），已裁切并调色。"
+        "仅 15 个未被美术图标覆盖的旧图标使用；已修改：去掉底板，缩放为 160px 白色剪影，运行时染色。"
       ]
     },
     {
@@ -35,11 +27,12 @@
       ]
     },
     {
-      "title": "美术交付（2026-10-16）",
-      "note": "来源与授权待核对 · 发布前确认",
+      "title": "美术资源",
+      "note": "部分素材含 AI 生成内容 · 发布前确认授权",
       "lines": [
-        "界面切图、头图、背景、物品图标由美术团队交付，含 AI 生成素材再加工。",
-        "详见仓库里的 ASSETS_LICENSES.md 第 7 节；图标来源核对完成前，上面的图标署名保持不变。"
+        "界面切图、图标、Logo、启动图为原创绘制；物品图标、背景和弹窗头图含 AI 生成素材再加工（商用条款待确认）。",
+        "Logo 与启动图的字形来自 Ma Shan Zheng（SIL OFL 1.1）。",
+        "详见仓库里的 ASSETS_LICENSES.md 第 7 节。"
       ]
     }
   ]

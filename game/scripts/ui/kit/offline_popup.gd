@@ -94,7 +94,7 @@ func _header() -> Control:
 	frame.add_theme_stylebox_override("panel", ArtLib.nine("panel_inset"))
 	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	holder.add_child(frame)
-	# 顶部插画：交付 popup_offline_header 切图前先用渡劫背景图裁一块。
+	# 顶部插画：popup_offline_header（美术交付）；没有时用渡劫背景图裁一块。
 	var art := TextureRect.new()
 	art.texture = ArtLib.ui("popup_offline_header") if ArtLib.has_ui("popup_offline_header") else ArtLib.bg("breakthrough")
 	art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -107,7 +107,7 @@ func _header() -> Control:
 	ribbon.offset_right = 300
 	ribbon.offset_top = -104
 	ribbon.offset_bottom = 0
-	ribbon.add_theme_stylebox_override("panel", ArtLib.nine("ribbon_title", Color(1.0, 0.55, 0.5)))
+	ribbon.add_theme_stylebox_override("panel", ArtLib.nine("ribbon_title"))
 	ribbon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var text := UiKit.label("闭关归来", UiTokens.FS_H1, UiTokens.GOLD_HOVER, HORIZONTAL_ALIGNMENT_CENTER)
 	text.add_theme_font_override("font", ArtLib.title_font())

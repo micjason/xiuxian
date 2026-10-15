@@ -138,6 +138,9 @@ static func reddot(count: int = 0) -> Control:
 
 
 ## 横向进度条（占比）。fill_art 取 bar_fill_jade / bar_fill_gold / bar_fill_cin / bar_fill_blue。
+const FILL_INSET_Y := 3.0
+
+
 static func ratio_bar(ratio: float, fill_art: String = "bar_fill_jade", height: int = 28) -> Control:
 	var track := PanelContainer.new()
 	track.custom_minimum_size = Vector2(0, maxi(height, 44))
@@ -155,6 +158,9 @@ static func ratio_bar(ratio: float, fill_art: String = "bar_fill_jade", height: 
 	fill.anchor_right = clampf(ratio, 0.06, 1.0)
 	fill.offset_left = 2
 	fill.offset_right = -2
+	# 填充条在框里上下各缩进约 3px（bar_frame 内容边距为 0，不缩进会压到框线）
+	fill.offset_top = FILL_INSET_Y
+	fill.offset_bottom = -FILL_INSET_Y
 	inner.add_child(fill)
 	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return track
@@ -172,7 +178,7 @@ static func page_title(text: String) -> Control:
 	holder.alignment = BoxContainer.ALIGNMENT_CENTER
 	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var panel := PanelContainer.new()
-	panel.add_theme_stylebox_override("panel", ArtLib.nine("ribbon_title"))
+	panel.add_theme_stylebox_override("panel", ArtLib.nine("page_title_plate"))
 	panel.custom_minimum_size = Vector2(560, 100)
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var title := label(text, UiTokens.FS_H1, UiTokens.GOLD, HORIZONTAL_ALIGNMENT_CENTER)

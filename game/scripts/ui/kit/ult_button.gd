@@ -39,6 +39,11 @@ func _init() -> void:
 	focus_mode = Control.FOCUS_NONE
 
 
+const ART_CANVAS := 220.0
+const RING_RADIUS := 40.0
+const RING_WIDTH := 6.4
+
+
 func _process(delta: float) -> void:
 	if ready_now and enabled:
 		_pulse = fmod(_pulse + delta * 3.0, TAU)
@@ -87,14 +92,17 @@ func _draw() -> void:
 		draw_string(body, Vector2(center.x - sub_width / 2.0, center.y + 56.0), sub_text, HORIZONTAL_ALIGNMENT_LEFT, -1, sub_size, color)
 
 
-## 正式切图版：图铺满圆钮，代码只叠冷却进度环（在图的外缘）和文字。
+## 正式切图版：图铺满圆钮，代码只叠冷却进度环（在图中间的暗槽里）和文字。
 func _draw_art(art_name: String, center: Vector2, outer: float, live: bool) -> void:
 	var side := outer * 2.0
 	draw_texture_rect(ArtLib.ui(art_name), Rect2(center - Vector2(outer, outer), Vector2(side, side)), false)
 	if not live and enabled:
-		var r := outer * 0.93
-		draw_arc(center, r, 0.0, TAU, 96, Color(0.03, 0.05, 0.05, 0.55), 8.0, true)
-		draw_arc(center, r, -PI / 2.0, -PI / 2.0 + TAU * ratio, 96, UiTokens.GOLD_PRESSED, 8.0, true)
+		# 新交付的冷却图（2026-10-16 第 3 轮）没有烘焙的弧线，中间有一圈暗槽：槽的中线半径 40px、宽 6.4px（220px 画布），按按钮大小等比放大。
+		var scale := side / ART_CANVAS
+		var r := RING_RADIUS * scale
+		var w := RING_WIDTH * scale
+		draw_arc(center, r, 0.0, TAU, 96, Color(0.03, 0.05, 0.05, 0.55), w, true)
+		draw_arc(center, r, -PI / 2.0, -PI / 2.0 + TAU * ratio, 96, UiTokens.GOLD_HOVER, w, true)
 	var font := ArtLib.title_font()
 	var color := Color(1.0, 0.92, 0.7) if live else Color(0.78, 0.7, 0.62)
 	var title_size := 56

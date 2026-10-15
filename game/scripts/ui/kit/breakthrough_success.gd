@@ -11,6 +11,8 @@ var _body: VBoxContainer
 var _summary: Dictionary = {}
 var _unlocks: Array[Dictionary] = []
 
+const HEADER_HEIGHT := 330.0
+
 
 func _init() -> void:
 	name = "BreakthroughSuccess"
@@ -41,18 +43,7 @@ func show_success(summary: Dictionary, unlocks: Array[Dictionary]) -> void:
 	_summary = summary
 	_unlocks = unlocks
 	UiKit.clear(_body)
-	var ribbon := PanelContainer.new()
-	ribbon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	ribbon.custom_minimum_size = Vector2(620, 110)
-	ribbon.add_theme_stylebox_override("panel", ArtLib.nine("ribbon_title", Color(1.0, 0.55, 0.5)))
-	var title := UiKit.label("突破成功", 72, UiTokens.GOLD_HOVER, HORIZONTAL_ALIGNMENT_CENTER)
-	title.name = "Title"
-	title.add_theme_font_override("font", ArtLib.title_font())
-	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	title.add_theme_color_override("font_outline_color", Color(0.3, 0.05, 0.02, 0.9))
-	title.add_theme_constant_override("outline_size", 10)
-	ribbon.add_child(title)
-	_body.add_child(ribbon)
+	_body.add_child(_header())
 	var names := UiKit.hbox(UiTokens.SP_2)
 	names.alignment = BoxContainer.ALIGNMENT_CENTER
 	names.add_child(UiKit.label(str(summary.from_name), UiTokens.FS_H2, UiTokens.TEXT_MUTED))
@@ -94,6 +85,46 @@ func show_success(summary: Dictionary, unlocks: Array[Dictionary]) -> void:
 	button.pressed.connect(close_popup)
 	_body.add_child(button)
 	visible = true
+
+
+## 顶部插画（popup_breakthrough_header 960×420）+ 压在底边的红色丝带「突破成功」。
+func _header() -> Control:
+	var holder := Control.new()
+	holder.custom_minimum_size = Vector2(0, HEADER_HEIGHT)
+	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if ArtLib.has_ui("popup_breakthrough_header"):
+		var frame := PanelContainer.new()
+		frame.set_anchors_preset(Control.PRESET_FULL_RECT)
+		frame.offset_bottom = -40
+		frame.clip_contents = true
+		frame.add_theme_stylebox_override("panel", ArtLib.nine("panel_inset"))
+		frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		holder.add_child(frame)
+		var art := TextureRect.new()
+		art.name = "HeaderArt"
+		art.texture = ArtLib.ui("popup_breakthrough_header")
+		art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		frame.add_child(art)
+	var ribbon := PanelContainer.new()
+	ribbon.name = "Ribbon"
+	ribbon.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	ribbon.offset_left = -310
+	ribbon.offset_right = 310
+	ribbon.offset_top = -110
+	ribbon.offset_bottom = 0
+	ribbon.add_theme_stylebox_override("panel", ArtLib.nine("ribbon_title"))
+	ribbon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var title := UiKit.label("突破成功", 72, UiTokens.GOLD_HOVER, HORIZONTAL_ALIGNMENT_CENTER)
+	title.name = "Title"
+	title.add_theme_font_override("font", ArtLib.title_font())
+	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	title.add_theme_color_override("font_outline_color", Color(0.3, 0.05, 0.02, 0.9))
+	title.add_theme_constant_override("outline_size", 10)
+	ribbon.add_child(title)
+	holder.add_child(ribbon)
+	return holder
 
 
 func _stat_row(row: Dictionary) -> Control:

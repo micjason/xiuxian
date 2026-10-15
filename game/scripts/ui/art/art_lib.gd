@@ -20,6 +20,9 @@ const NINE := {
 	"panel_popup_scroll": [40, 116, 56, 100],
 	"panel_inset": [24, 24, 20, 16],
 	"ribbon_title": [64, 30, 56, 12],
+	# 页面标题牌（暗色牌）：美术第 3 轮把 ribbon_title 交成了红色两端平切的卷轴缎带（只用在弹窗标题），
+	# 页面标题仍用此前的暗色牌，文件是仓库里原来的 ribbon_title.png 另存的，等美术补正式图（见 art-integration 说明）。
+	"page_title_plate": [64, 30, 56, 12],
 	# 2026-10-16 交付：战报面板（N119）、新手引导气泡（N144）、引导高亮框（N146）。引导两张原型里还没有界面用到，先登记边距。
 	"battle_log_panel": [40, 40, 20, 16],
 	"guide_bubble": [40, 40, 28, 20],

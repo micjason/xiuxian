@@ -117,7 +117,7 @@ export async function registerDraftRoutes(app: FastifyInstance, deps: { db: Db; 
       majorName: body.majorName?.trim() ?? "",
       sortOrder: code,
       nextRealmSlug: null,
-      tickSeconds: body.tickSeconds ?? 0,
+      tickSeconds: body.tickSeconds ?? 1,
       gainPerTick: body.gainPerTick ?? 0,
       breakthroughCost: body.breakthroughCost ?? 0,
       baseAttack: statNumber(body.attack, "攻击", 0),

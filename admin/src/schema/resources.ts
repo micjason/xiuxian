@@ -25,8 +25,8 @@ export const realmSchema: Schema = {
       affects: "装备分阶与自动生成（6 部位 × 5 品质）", column: { width: 100 },
     },
     {
-      key: "tickSeconds", label: "修炼间隔", kind: "number", group: "cultivate", min: 0, step: 1, unit: "秒", default: 0,
-      hint: "每隔多少秒结算一次修为。0 表示还没设置，玩家得不到修为。", affects: "挂机修为速度（与「每次获得修为」一起算）",
+      key: "tickSeconds", label: "修炼间隔", kind: "number", group: "cultivate", min: 0, step: 1, unit: "秒", default: 1,
+      hint: "每隔多少秒结算一次修为。原型统一填 1。0 表示还没设置，玩家得不到修为。", affects: "挂机修为速度（与「每次获得修为」一起算）",
       column: { width: 100 },
     },
     {
@@ -156,7 +156,7 @@ export const rulesSchema: Schema = {
     { key: "challengeCooldownSeconds", label: "挑战冷却", kind: "number", group: "battle", required: true, min: 0, step: 1, unit: "秒", default: 0, hint: "两次挑战首领之间要间隔的秒数，0 表示没有冷却。", affects: "玩家挑战频率" },
     { key: "timeLimitSeconds", label: "单场时限", kind: "number", group: "battle", required: true, min: 1, step: 5, unit: "秒", default: 45, hint: "首领战超过这个时间没分出胜负，算玩家输。原型默认 45 秒；全局一个值，所有首领共用。", affects: "战斗胜负、试打结果" },
     { key: "recommendedPowerMargin", label: "推荐战力倍数", kind: "number", group: "battle", required: true, min: 0.1, step: 0.05, default: 1.05, hint: "关卡推荐战力 = 打赢首领所需战力 × 这个倍数。大于 1 更保守。", affects: "关卡推荐战力" },
-    { key: "bagCapacity", label: "行囊容量", kind: "int", group: "world", required: true, min: 1, step: 10, unit: "格", default: 100, hint: "玩家行囊最多放多少件（已穿戴的不占格）。满了无法挑战拿掉落。", affects: "行囊、掉落", warning: "调小不会清掉玩家已有物品，但已超出的玩家会无法挑战。" },
+    { key: "bagCapacity", label: "行囊容量", kind: "int", group: "world", required: true, min: 1, step: 10, unit: "格", default: 20, hint: "玩家行囊最多放多少件（已穿戴的不占格）。满了无法挑战拿掉落。", affects: "行囊、掉落", warning: "调小不会清掉玩家已有物品，但已超出的玩家会无法挑战。" },
     { key: "offlineCapSeconds", label: "离线收益上限", kind: "int", group: "world", required: true, min: 1, step: 3600, unit: "秒", default: 28800, hint: "离线最多按多少秒结算修为，28800 = 8 小时。", affects: "离线收益" },
   ],
 };

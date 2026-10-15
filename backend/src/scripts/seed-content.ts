@@ -12,7 +12,7 @@ if (!existing) {
     displayName: "凡人",
     sortOrder: 1,
     nextRealmSlug: null,
-    tickSeconds: 0,
+    tickSeconds: 1,
     gainPerTick: 0,
     breakthroughCost: 0,
   });

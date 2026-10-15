@@ -51,10 +51,10 @@ describe("server pipeline vs the design table (reference configuration)", () => 
         const average = values.reduce((sum, value) => sum + value, 0) / values.length;
         expect(average, `${major} kills per hour`).toBeGreaterThan(sim.killsPerHourClaims[major]! * 0.95);
         expect(average, `${major} kills per hour`).toBeLessThan(sim.killsPerHourClaims[major]! * 1.05);
-        // 4% 掉率 → 约每小时 30–35 件
-        const gear = average * 0.04;
-        expect(gear, `${major} gear per hour`).toBeGreaterThan(29);
-        expect(gear, `${major} gear per hour`).toBeLessThan(36);
+        // 5% 掉率（负责人 2026-10-16 决定，原 4%）→ 按设计表击杀数约每小时 38–44 件
+        const gear = average * 0.05;
+        expect(gear, `${major} gear per hour`).toBeGreaterThan(36);
+        expect(gear, `${major} gear per hour`).toBeLessThan(45);
       }
     });
   });

@@ -154,7 +154,7 @@ function addMonster(form: StageForm): void {
 
 function dropOf(form: StageForm): DropForm {
   if (!form.monsterDrop) {
-    form.monsterDrop = { chancePercent: 4, weights: { white: 70, green: 25, blue: 5, purple: 0 } };
+    form.monsterDrop = { chancePercent: 5, weights: { white: 70, green: 25, blue: 5, purple: 0 } };
   }
   return form.monsterDrop;
 }

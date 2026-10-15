@@ -46,7 +46,7 @@ static func build(result: Dictionary, boss_name: String, name_of: Callable) -> D
 	if first_clear and float(reward.get("cultivation", 0)) > 0.0:
 		notes.append("首通奖励：修为 +%s" % CultivationFormat.amount(float(reward.get("cultivation", 0))))
 	if bool(result.get("bagFull", false)):
-		notes.append("背包已满，部分装备没有掉落，请先分解装备")
+		notes.append("背包已满，新掉落的装备没能入包")
 	return {
 		"win": win,
 		"title": title,

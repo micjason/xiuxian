@@ -38,15 +38,15 @@ describe("monster gear drops", () => {
     expect(rollGearPiece("major1", qi, seq(0, 5))!.slug).toBe("gear_major1_accessory_white");
   });
 
-  it("4% per kill: roll 399 drops, 400 does not", () => {
-    const config = { chanceBp: 400, qualityWeights: core };
-    expect(rollMonsterKillDrop("major3", config, seq(399, 70000, 0))).toMatchObject({ slug: "gear_major3_weapon_green" });
-    expect(rollMonsterKillDrop("major3", config, seq(400))).toBeNull();
+  it("5% per kill: roll 499 drops, 500 does not", () => {
+    const config = { chanceBp: 500, qualityWeights: core };
+    expect(rollMonsterKillDrop("major3", config, seq(499, 70000, 0))).toMatchObject({ slug: "gear_major3_weapon_green" });
+    expect(rollMonsterKillDrop("major3", config, seq(500))).toBeNull();
     expect(rollMonsterKillDrop("major3", null, seq())).toBeNull();
     expect(rollMonsterKillDrop("major3", { chanceBp: 0, qualityWeights: core }, seq())).toBeNull();
   });
 
-  it("statistics: 200000 kills at 4% give ~8000 drops with the regional quality mix", () => {
+  it("statistics: 200000 kills at 5% give ~10000 drops with the regional quality mix", () => {
     let state = 12345;
     const rand = (min: number, max: number) => {
       // mulberry32：确定性的伪随机，测试可重复
@@ -59,14 +59,14 @@ describe("monster gear drops", () => {
     let drops = 0;
     const kills = 200000;
     for (let i = 0; i < kills; i += 1) {
-      const drop = rollMonsterKillDrop("major2", { chanceBp: 400, qualityWeights: { white: 50, green: 35, blue: 13, purple: 2 } }, rand);
+      const drop = rollMonsterKillDrop("major2", { chanceBp: 500, qualityWeights: { white: 50, green: 35, blue: 13, purple: 2 } }, rand);
       if (drop) {
         drops += 1;
         counts[drop.quality] = (counts[drop.quality] ?? 0) + 1;
       }
     }
-    expect(drops / kills).toBeGreaterThan(0.038);
-    expect(drops / kills).toBeLessThan(0.042);
+    expect(drops / kills).toBeGreaterThan(0.048);
+    expect(drops / kills).toBeLessThan(0.052);
     expect((counts.white! / drops) * 100).toBeGreaterThan(47);
     expect((counts.white! / drops) * 100).toBeLessThan(53);
     expect((counts.purple! / drops) * 100).toBeGreaterThan(1.2);

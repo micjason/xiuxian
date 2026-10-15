@@ -184,7 +184,7 @@ export const rulesSchema: Schema = {
     { key: "onlineGapSeconds", label: "在线判定间隔", kind: "int", group: "world", min: 1, max: 600, step: 1, unit: "秒", default: 15, hint: "“在线”= 玩家前台打开游戏。两次请求间隔不超过这个秒数算在线（打普通怪、拿击杀修为和掉落）；超过就按离线段结算（只产修为）。客户端前台每 15 秒内至少请求一次。", affects: "普通怪波次、击杀修为、装备掉落、离线结算" },
     { key: "offlinePopupMinSeconds", label: "离线弹窗最短时长", kind: "int", group: "world", min: 0, max: 86400, step: 60, unit: "秒", default: 300, hint: "离线达到这个秒数才弹“闭关归来”窗；不足时修为照常入账，只是不弹窗。", affects: "离线弹窗" },
     { key: "dayStartHour", label: "每日重置整点", kind: "int", group: "world", min: 0, max: 23, step: 1, unit: "点", default: 5, hint: "北京时间的几点算新的一天（首领每日奖励次数按它重置）。", affects: "首领每日奖励次数" },
-    { key: "bossDailyRewardCount", label: "首领每日奖励次数", kind: "int", group: "battle", min: 0, max: 99, step: 1, unit: "次", default: 3, hint: "首领首通之后，每天前几次胜利有奖励；再赢也行，但没有奖励。", affects: "首领重复挑战奖励" },
+    { key: "bossDailyRewardCount", label: "首领每日奖励次数", kind: "int", group: "battle", min: 0, max: 99, step: 1, unit: "次", default: 5, hint: "首领首通之后，每天前几次胜利有奖励；再赢也行，但没有奖励。", affects: "首领重复挑战奖励" },
     { key: "ultAutoCastWindowSeconds", label: "大招自动释放等待", kind: "number", group: "battle", min: 0, max: 30, step: 0.5, precision: 1, unit: "秒", default: 2, hint: "大招冷却好之后等玩家点击的时间，超时自动释放。大招的名称、倍率、冷却在“境界”里按层填。", affects: "首领战大招" },
     { key: "waveSize", label: "每波怪物数", kind: "int", group: "battle", min: 1, max: 10, step: 1, unit: "只", default: 3, hint: "普通怪一波有几只，依次上前，一次只和一只交战，中间不回血。", affects: "普通怪击杀速度" },
     { key: "waveTransitionSeconds", label: "波次转场秒数", kind: "number", group: "battle", min: 0, max: 60, step: 0.5, precision: 1, unit: "秒", default: 2, hint: "一波打完到下一波之间的转场时间，转场时主角回满血。", affects: "普通怪击杀速度" },

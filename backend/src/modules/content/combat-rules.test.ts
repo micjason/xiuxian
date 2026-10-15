@@ -23,12 +23,12 @@ const base = {
 };
 
 describe("combat-system rules are admin-configurable with table defaults", () => {
-  it("old content without the new keys reads the defaults (15 s, 300 s, 2 s, 3 per day, 05:00, 3 per wave, 2 s, 3 s)", async () => {
+  it("old content without the new keys reads the defaults (15 s, 300 s, 2 s, 5 per day, 05:00, 3 per wave, 2 s, 3 s)", async () => {
     await withDb(async (db) => {
       await insertStartingRealm(db);
       const rules = await readRules(db);
       expect(rules).toMatchObject(DEFAULT_OPTIONAL_RULES);
-      expect(DEFAULT_OPTIONAL_RULES).toEqual({ onlineGapSeconds: 15, offlinePopupMinSeconds: 300, ultAutoCastWindowSeconds: 2, bossDailyRewardCount: 3, dayStartHour: 5, waveSize: 3, waveTransitionSeconds: 2, reviveSeconds: 3 });
+      expect(DEFAULT_OPTIONAL_RULES).toEqual({ onlineGapSeconds: 15, offlinePopupMinSeconds: 300, ultAutoCastWindowSeconds: 2, bossDailyRewardCount: 5, dayStartHour: 5, waveSize: 3, waveTransitionSeconds: 2, reviveSeconds: 3 });
       const world = await loadCurrentWorld(db);
       expect(readGameRules(world!)).toMatchObject(DEFAULT_OPTIONAL_RULES);
     });

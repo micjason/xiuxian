@@ -6,10 +6,10 @@ import { createOpsStage, listOpsStages, updateOpsStage } from "./ops-content.js"
 import { applyPrototypeV12 } from "./prototype-v12.js";
 
 const monsters = [{ name: "青鬃狼", attack: 24, defense: 14, hp: 110, interval: 1.5, killCultivation: 3 }];
-const drop = { chancePercent: 4, weights: { white: 70, green: 25, blue: 5, purple: 0 } };
+const drop = { chancePercent: 5, weights: { white: 70, green: 25, blue: 5, purple: 0 } };
 
 describe("stage admin API: monsters, monster drop, boss first-clear and repeat rewards", () => {
-  it("creates and edits a stage with monsters + 4% drop + reward lists, returns them in the list, and keeps what an edit does not mention", async () => {
+  it("creates and edits a stage with monsters + 5% drop + reward lists, returns them in the list, and keeps what an edit does not mention", async () => {
     await withDb(async (db) => {
       await applyPrototypeV12(db);
       const created = await createOpsStage(
@@ -27,7 +27,7 @@ describe("stage admin API: monsters, monster drop, boss first-clear and repeat r
               hp: 1600,
               interval: 1.5,
               firstClear: [{ kind: "cultivation", amount: 1500 }, { kind: "item", itemId: "enh_stone_low", quantity: 3 }],
-              repeat: { gear: true, extras: [{ itemId: "enh_stone_low", chancePercent: 35, minQty: 1, maxQty: 2 }] },
+              repeat: { gear: true, extras: [{ itemId: "enh_stone_low", chancePercent: 70, minQty: 1, maxQty: 2 }] },
             },
           ],
         },
@@ -35,9 +35,9 @@ describe("stage admin API: monsters, monster drop, boss first-clear and repeat r
       );
       const [row] = await db.select().from(contentStages).where(eq(contentStages.slug, created.id));
       expect(row?.monsters).toEqual(monsters);
-      expect(row?.monsterDrop).toEqual({ chanceBp: 400, qualityWeights: { white: 70, green: 25, blue: 5, purple: 0 } });
+      expect(row?.monsterDrop).toEqual({ chanceBp: 500, qualityWeights: { white: 70, green: 25, blue: 5, purple: 0 } });
       expect(row?.bosses[0]?.firstClear).toEqual([{ kind: "cultivation", amount: 1500 }, { kind: "item", itemSlug: "enh_stone_low", quantity: 3 }]);
-      expect(row?.bosses[0]?.repeat).toEqual({ gear: true, extras: [{ itemSlug: "enh_stone_low", chanceBp: 3500, minQty: 1, maxQty: 2 }] });
+      expect(row?.bosses[0]?.repeat).toEqual({ gear: true, extras: [{ itemSlug: "enh_stone_low", chanceBp: 7000, minQty: 1, maxQty: 2 }] });
       const listed = (await listOpsStages(db)).find((item) => item.id === created.id)!;
       expect(listed.monsters).toEqual(monsters);
       expect(listed.monsterDrop).toEqual(drop);
@@ -49,7 +49,7 @@ describe("stage admin API: monsters, monster drop, boss first-clear and repeat r
       expect(after?.bosses[0]?.firstClear).toHaveLength(2);
       expect(after?.bosses[0]?.repeat?.gear).toBe(true);
       expect(after?.monsters).toEqual(monsters);
-      expect(after?.monsterDrop?.chanceBp).toBe(400);
+      expect(after?.monsterDrop?.chanceBp).toBe(500);
       // 显式清空
       await updateOpsStage(db, created.id, { displayName: "试炼场", realmCode: 3, monsters: [], monsterDrop: null, bosses: [{ name: "试炼熊", attack: 41, defense: 20, hp: 1700, interval: 1.5, firstClear: [], repeat: null }] }, null);
       const [cleared] = await db.select().from(contentStages).where(eq(contentStages.slug, created.id));
@@ -76,7 +76,7 @@ describe("stage admin API: monsters, monster drop, boss first-clear and repeat r
       await expect(make({ monsters: [{ name: "x", attack: 1, defense: 1, hp: 0, interval: 1, killCultivation: 3 }] })).rejects.toThrow("怪物气血和出手间隔必须大于 0");
       await expect(make({ monsters: [{ name: "x", attack: 1, defense: 1, hp: 5, interval: 1, killCultivation: 1.5 }] })).rejects.toThrow("击杀修为要填整数");
       await expect(make({ monsterDrop: { chancePercent: 101, weights: { white: 1 } } })).rejects.toThrow("不能超过 100%");
-      await expect(make({ monsterDrop: { chancePercent: 4, weights: {} } })).rejects.toThrow("品质权重至少有一档大于 0");
+      await expect(make({ monsterDrop: { chancePercent: 5, weights: {} } })).rejects.toThrow("品质权重至少有一档大于 0");
       await expect(make({ bosses: [{ name: "b", attack: 1, defense: 1, hp: 5, interval: 1, firstClear: [{ kind: "item", itemId: "nope", quantity: 1 }] }] })).rejects.toThrow("不存在");
       await expect(make({ bosses: [{ name: "b", attack: 1, defense: 1, hp: 5, interval: 1, firstClear: [{ kind: "cultivation", amount: 0.5 }] }] })).rejects.toThrow("整数");
       await expect(make({ bosses: [{ name: "b", attack: 1, defense: 1, hp: 5, interval: 1, repeat: { gear: true, extras: [{ itemId: "enh_stone_low", chancePercent: 5, minQty: 3, maxQty: 1 }] } }] })).rejects.toThrow("数量区间");

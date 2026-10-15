@@ -379,7 +379,7 @@ async function runBot(db: Json, cfg: { seed: number; schedule: Schedule; variant
       noteLayer("breakthrough");
       await equipBest(); await spendEnhance();
     }
-    // 每天首领重复挑战（前 3 次胜利有奖励）：打当前能挑战的最高已通关首领
+    // 每天首领重复挑战（前 N 次胜利有奖励，N 来自服务器 bossDaily.limit）：打当前能挑战的最高已通关首领
     const cleared = stagesWithBoss.filter((s) => (state.stages as Json[]).some((x) => x.stageSlug === s.slug && x.firstClearedAt));
     const top = cleared[cleared.length - 1];
     if (top) {

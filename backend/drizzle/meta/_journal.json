@@ -155,6 +155,13 @@
       "when": 1792900000000,
       "tag": "0021_recommended_power_manual_stones",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1792990000000,
+      "tag": "0022_drop_rate_5pct_stones_x2_daily5",
+      "breakpoints": true
     }
   ]
 }

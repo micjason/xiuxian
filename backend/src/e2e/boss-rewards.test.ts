@@ -131,26 +131,26 @@ describe("boss first-clear fixed rewards", () => {
 });
 
 describe("boss repeat rewards: first N wins per day (Beijing time, day starts 05:00)", () => {
-  it("first clear does not use the daily count; the next 3 wins reward gear (white → green) + stones; the 4th still wins but has no reward; it resets at 05:00 Beijing", async () => {
+  it("first clear does not use the daily count; the next 5 wins reward gear (white → green) + stones; the 6th still wins but has no reward; it resets at 05:00 Beijing", async () => {
     await withDb(async (db) => {
       const { app, challenge, state, setClock, weakBear, playerId } = await boot(db, "boss_e");
       await weakBear();
       await challenge("lianqi_3"); // 首通
       const rewarded: boolean[] = [];
       const gear: string[] = [];
-      for (let index = 0; index < 4; index += 1) {
+      for (let index = 0; index < 6; index += 1) {
         const body = (await challenge("lianqi_3")).json();
         expect(body.battle.win).toBe(true);
         rewarded.push(body.reward.rewarded);
         gear.push(...body.drops.map((row: { itemSlug: string }) => row.itemSlug).filter((slug: string) => slug.startsWith("gear_")));
-        expect(body.reward.dailyRewardLimit).toBe(3);
+        expect(body.reward.dailyRewardLimit).toBe(5);
       }
-      expect(rewarded).toEqual([true, true, true, false]);
+      expect(rewarded).toEqual([true, true, true, true, true, false]);
       // roll 0 = 最低一档品质 = 白，白色改为绿色
-      expect(gear).toEqual(["gear_major1_weapon_green", "gear_major1_weapon_green", "gear_major1_weapon_green"]);
+      expect(gear).toEqual(Array(5).fill("gear_major1_weapon_green"));
       let progress = (await db.select().from(playerStageProgress).where(and(eq(playerStageProgress.playerId, playerId), eq(playerStageProgress.stageSlug, "lianqi_3"))))[0]!;
-      expect(progress).toMatchObject({ dailyRewardCount: 3, dailyRewardDay: "2026-10-08" });
-      expect((await state()).bossDaily).toEqual([{ stageSlug: "lianqi_3", used: 3, limit: 3 }]);
+      expect(progress).toMatchObject({ dailyRewardCount: 5, dailyRewardDay: "2026-10-08" });
+      expect((await state()).bossDaily).toEqual([{ stageSlug: "lianqi_3", used: 5, limit: 5 }]);
       // 北京 10-09 04:59:59（UTC 10-08 20:59:59）仍是同一天
       setClock(new Date("2026-10-08T20:59:59.000Z"));
       expect((await challenge("lianqi_3")).json().reward.rewarded).toBe(false);

@@ -122,7 +122,7 @@ func test_bag_full_does_not_block_the_fight_and_the_result_shows_the_prompt() ->
 	assert_true(bool((page.get("_gate") as Dictionary).full))
 	page._on_start()
 	assert_eq(page.phase, BattlePage.Phase.RUNNING, "背包满也照常开战")
-	assert_eq(BagFullPrompt.texts(20, 20), ["背包已满（20/20）", "新掉落的装备没能入包，请先分解装备"] as Array[String])
+	assert_eq(BagFullPrompt.texts(20, 20), ["背包已满（20/20）", "新掉落的装备没能入包"] as Array[String])
 	await _run_fight(scene, true)
 	assert_eq(page.phase, BattlePage.Phase.RESULT)
 	var view: Dictionary = page.last_view()

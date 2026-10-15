@@ -62,11 +62,11 @@ async function boot(db: TestDb, name: string) {
   return { app, control, state, jump, bag, fill, playerId: player!.id };
 }
 
-describe("monster kill drops (4% per kill, regional quality weights, equal 6-slot pick)", () => {
-  it("every kill rolls the 4% chance; a hit drops one gear piece of the stage's tier with the rolled quality and slot", async () => {
+describe("monster kill drops (5% per kill, regional quality weights, equal 6-slot pick)", () => {
+  it("every kill rolls the 5% chance; a hit drops one gear piece of the stage's tier with the rolled quality and slot", async () => {
     await withDb(async (db) => {
       const { app, control, state, bag } = await boot(db, "drop_a");
-      control.chance = 399; // < 400 → 掉
+      control.chance = 499; // < 500 → 掉
       control.quality = 70000; // 70/25/5/0 ×1000：70000 起是绿
       control.slot = 2; // 头冠
       const result = await state(30);
@@ -82,10 +82,10 @@ describe("monster kill drops (4% per kill, regional quality weights, equal 6-slo
     });
   });
 
-  it("chance roll at 400 (4.00 %) does not drop", async () => {
+  it("chance roll at 500 (5.00 %) does not drop", async () => {
     await withDb(async (db) => {
       const { app, control, state, bag } = await boot(db, "drop_b");
-      control.chance = 400;
+      control.chance = 500;
       const result = await state(30);
       expect(result.lastSettle.kills).toBeGreaterThan(0);
       expect(result.lastSettle.drops).toEqual([]);

@@ -112,31 +112,24 @@ func test_chain3_breakthrough_needs_the_gate_boss_then_succeeds_and_shows_before
 	assert_eq(int((scene.get("_state") as Dictionary).power), int(summary.power_after))
 
 
-func test_bag_full_blocks_the_challenge_with_the_spec_prompt() -> void:
+func test_bag_full_does_not_block_the_fight_and_the_result_shows_the_prompt() -> void:
 	var scene := await _boot("full")
 	var state: Dictionary = scene.get("_state")
 	state["autoDecompose"] = false
 	scene.call("_render")
 	scene.call("_open_battle", _gate_slug(scene))
 	var page := scene.get("_battle_page") as BattlePage
-	watch_signals(page)
+	assert_true(bool((page.get("_gate") as Dictionary).full))
 	page._on_start()
-	assert_eq(page.phase, BattlePage.Phase.READY, "背包满且没开自动分解：不开战")
-	assert_signal_emitted(page, "start_blocked")
-	assert_eq(BagFullPrompt.texts(20, 20), ["背包已满（20/20）", "请先分解装备再挑战"] as Array[String])
-
-
-func test_full_bag_with_auto_decompose_frees_a_slot_and_still_fights() -> void:
-	var scene := await _boot("full")
-	(scene.get("_state") as Dictionary)["autoDecompose"] = true
-	scene.call("_render")
-	scene.call("_open_battle", _gate_slug(scene))
-	var before := int(BagModel.from_state(scene.get("_state"), scene.get("_content"), {}).used_slots())
-	assert_eq(before, 20)
+	assert_eq(page.phase, BattlePage.Phase.RUNNING, "背包满也照常开战")
+	assert_eq(BagFullPrompt.texts(20, 20), ["背包已满（20/20）", "新掉落的装备没能入包，请先分解装备"] as Array[String])
 	await _run_fight(scene, true)
-	var page := scene.get("_battle_page") as BattlePage
 	assert_eq(page.phase, BattlePage.Phase.RESULT)
-	assert_true(((page.last_view() as Dictionary).notes as Array).any(func(n: String) -> bool: return n.begins_with("开战前自动分解")))
+	var view: Dictionary = page.last_view()
+	assert_true(bool(view.win))
+	assert_true((view.notes as Array).any(func(n: String) -> bool: return n.begins_with("背包已满")))
+	assert_true((view.loot as Array).any(func(l: Dictionary) -> bool: return str(l.text).contains("背包已满，没有掉落")))
+	assert_true((scene.get("_popup") as GamePopup).visible, "结果里有没掉落的装备：弹背包已满提示")
 
 
 func test_four_tabs_and_heartbeat_interval_follow_server_window() -> void:

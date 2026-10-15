@@ -5,7 +5,6 @@ extends VBoxContainer
 ## 挑战请求以 ultTaps 上报，胜负和掉落以服务器返回为准。
 ## 流程：就绪（点「开始挑战」，行囊已满时先弹提示）→ 进行中（可点大招）→ 提交 → 结算面板。
 
-signal start_blocked(used: int, capacity: int)
 signal submit_requested(stage_slug: String, taps: Array)
 signal back_requested
 signal retry_requested(stage_slug: String)
@@ -271,15 +270,12 @@ func _set_speed(value: float) -> void:
 func _on_start() -> void:
 	if fight == null or phase != Phase.READY:
 		return
-	if bool(_gate.get("blocked", false)):
-		start_blocked.emit(int(_gate.get("used", 0)), int(_gate.get("capacity", 0)))
-		return
 	phase = Phase.RUNNING
 	_clock = 0.0
 	_start_button.visible = false
 	_append_info("战斗开始")
-	if bool(_gate.get("will_free", false)):
-		_append_info("背包已满，开战前会自动分解一件未强化的白/绿装备腾出一格")
+	if bool(_gate.get("full", false)):
+		_append_info(GateNotice.text(_gate))
 
 
 func _on_ult_tapped() -> void:

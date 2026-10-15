@@ -232,28 +232,19 @@ static func _challenge(slug: String, body: Dictionary, state_data: Dictionary, c
 	if stage.is_empty() or ((stage.get("bosses", []) as Array).is_empty()):
 		return {"code": 400, "error": {"code": "INVALID_INPUT", "message": "这个关卡还没有首领"}}
 	var bag := BagModel.from_state(state_data, content_data, {})
-	var gate := bag.challenge_gate(bool(state_data.get("autoDecompose", false)))
-	var freed: Array = []
 	var items: Array = state_data.get("items", [])
-	if bool(gate.full):
-		if not bool(gate.will_free):
-			return {"code": 409, "error": {"code": "BAG_FULL", "message": "背包已满（%d/%d），请先分解装备再挑战" % [int(gate.used), int(gate.capacity)]}}
-		for item in bag.items:
-			if str(item.category) == "equip" and not bool(item.equipped) and int(item.rarity) <= 1 and int(item.enhance) == 0:
-				freed.append({"itemSlug": str(item.slug), "enhanceExp": int(item.decompose_exp)})
-				state_data["enhanceExp"] = int(state_data.get("enhanceExp", 0)) + int(item.decompose_exp)
-				items.erase(_find_row(items, str(item.id)))
-				break
 	var fight := BossFight.from_state(state_data, content_data, stage)
 	var taps: Array = body.get("ultTaps", []) if typeof(body.get("ultTaps", null)) == TYPE_ARRAY else []
 	_play(fight, taps)
 	var drops: Array = []
+	var bag_full := false
 	if fight.win:
 		var bag_after := BagModel.from_state(state_data, content_data, {})
 		var drop_slug := "gear_major1_weapon_blue"
 		var row := {"itemSlug": drop_slug, "quantity": 1, "quality": "blue"}
 		if bag_after.is_full():
 			row["dropped"] = true
+			bag_full = true
 		else:
 			items.append(_row(drop_slug))
 		drops.append(row)
@@ -265,7 +256,7 @@ static func _challenge(slug: String, body: Dictionary, state_data: Dictionary, c
 		casts.append({"t": cast.t, "manual": cast.manual, "damage": cast.damage})
 	var battle := {"win": fight.win, "reason": fight.reason, "durationSeconds": fight.duration if fight.finished else fight.time_limit, "log": fight.log, "ultCasts": casts}
 	UiMock.recompute(state_data, content_data)
-	return {"code": 200, "battle": battle, "drops": drops, "freedBeforeFight": freed, "bagFull": false, "reward": {"firstClear": false}, "state": state_data}
+	return {"code": 200, "battle": battle, "drops": drops, "bagFull": bag_full, "reward": {"firstClear": false}, "state": state_data}
 
 
 ## 把预演跑完：按上报的点击时间依次点大招，没点的由自动释放兜底。

@@ -113,6 +113,7 @@ async function runBot(db: Json, cfg: { seed: number; schedule: Schedule; variant
     bag: { maxUsed: 0, overCapacity: 0, bossBagFull: 0, manualDecomposeCalls: 0 },
     boss: { attempts: 0, wins: 0, losses: 0, byStage: {} as Json },
     breakthroughs: [] as Json[],
+    stones: { gained: {} as Json, gainedFromRepeat: {} as Json, consumed: {} as Json },
     skills: { booksUsed: 0, refused: {} as Json, learnedAtDay: {} as Json, running: 0 },
     layerReached: {} as Json,
     powerAtLayer: {} as Json,
@@ -240,7 +241,7 @@ async function runBot(db: Json, cfg: { seed: number; schedule: Schedule; variant
           const have = (slug: string) => (state.items as Json[]).filter((x) => x.itemSlug === slug).reduce((s, x) => s + (x.quantity ?? 1), 0);
           if (need.every((n) => have(n.itemSlug) >= n.count)) {
             const r = await call("POST", `/me/items/${o.i.id}/breakthrough`);
-            if (r.code === 200) { m.enhance.nodeBreaks++; state = (await call("GET", "/me/state")).body; acted = true; break; }
+            if (r.code === 200) { m.enhance.nodeBreaks++; for (const n of need) m.stones.consumed[n.itemSlug] = (m.stones.consumed[n.itemSlug] ?? 0) + n.count; m.enhance.breakDays ??= []; m.enhance.breakDays.push({ day: +((clock - T0) / 86400000).toFixed(2), quality: o.q, level: o.level }); state = (await call("GET", "/me/state")).body; acted = true; break; }
           } else { m.enhance.blockedAtNode++; continue; }
         }
         if ((state.enhanceExp as number) < cost) continue;
@@ -300,6 +301,13 @@ async function runBot(db: Json, cfg: { seed: number; schedule: Schedule; variant
       if (r.code === 409) return "bagfull";
     }
     if (r.code !== 200) return "err";
+    for (const d of (r.body.drops as Json[]) ?? []) {
+      if (String(d.itemSlug).startsWith("enh_stone")) {
+        m.stones.gained[d.itemSlug] = (m.stones.gained[d.itemSlug] ?? 0) + (d.quantity ?? 0);
+        if (!r.body.reward?.firstClear) m.stones.gainedFromRepeat[d.itemSlug] = (m.stones.gainedFromRepeat[d.itemSlug] ?? 0) + (d.quantity ?? 0);
+      }
+    }
+    if (r.body.bagFull) m.bag.bossBagFullNotice = (m.bag.bossBagFullNotice ?? 0) + 1;
     state = (await call("GET", "/me/state")).body;
     if (r.body.battle.win) { m.boss.wins++; m.boss.byStage[stageSlug].wins++; return "win"; }
     m.boss.losses++;
@@ -392,7 +400,13 @@ async function runBot(db: Json, cfg: { seed: number; schedule: Schedule; variant
   return {
     seed: cfg.seed, schedule: cfg.schedule, variant: cfg.variant, finalRealm: state.realmSlug, finalDay: (clock - T0) / 86400000,
     layerReached: m.layerReached, powerAtLayer: m.powerAtLayer, metrics: { ...m, timeline: undefined }, timeline: m.timeline,
-    finalPower: state.power, finalGear: finalItems.map((i) => ({ slot: i.equippedSlot, slug: i.itemSlug, level: i.enhanceLevel })),
+    finalPower: state.power, finalGear: finalItems.map((i) => {
+      const q = quality(i);
+      const nodes: Json[] = (content.enhance?.qualities ?? content.globals.enhance.qualities)[q]?.breakthroughs ?? [];
+      const pending = nodes.filter((n) => (i.breakLevel ?? 0) < n.level && n.level <= (i.enhanceLevel as number));
+      return { slot: i.equippedSlot, slug: i.itemSlug, level: i.enhanceLevel, breakLevel: i.breakLevel ?? 0, nodesLeft: nodes.filter((n) => (i.breakLevel ?? 0) < n.level).length, atNodeBlocked: pending.length > 0 };
+    }),
+    stonesLeft: Object.fromEntries(["enh_stone_low", "enh_stone_mid", "enh_stone_high"].map((k) => [k, (state.items as Json[]).filter((x) => x.itemSlug === k).reduce((sum, x) => sum + (x.quantity ?? 1), 0)])),
     finalEnhanceExp: state.enhanceExp, TABLE_ref: TABLE.referencePower,
   };
 }

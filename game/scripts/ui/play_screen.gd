@@ -151,7 +151,6 @@ func _build_shell() -> void:
 	_stage_page.idle_stage_requested.connect(_on_idle_stage)
 	_stage_page.back_requested.connect(func() -> void: _show_page(PAGE_CULTIVATE))
 	_battle_page = BattlePage.new()
-	_battle_page.start_blocked.connect(_show_bag_full)
 	_battle_page.submit_requested.connect(_on_battle_submit)
 	_battle_page.back_requested.connect(func() -> void: _show_page(PAGE_ADVENTURE))
 	_battle_page.retry_requested.connect(_open_battle)
@@ -405,15 +404,14 @@ func _on_battle_submit(slug: String, taps: Array) -> void:
 	var result := await _post("/api/v1/me/stages/%s/challenge" % slug.uri_encode(), {"ultTaps": taps})
 	_busy = false
 	if int(result.get("code", 0)) != 200:
-		var error: Variant = result.get("error", {})
-		if typeof(error) == TYPE_DICTIONARY and str((error as Dictionary).get("code", "")) == "BAG_FULL":
-			var bag := BagModel.from_state(_state, _content, {})
-			_show_bag_full(bag.used_slots(), bag.capacity)
 		_battle_page.show_submit_error(PlayerApi.error_message(result))
 		return
 	_enrich_drops(result.get("drops", []))
 	_apply_action_state(result)
 	_battle_page.show_result(result, _reward_name)
+	if bool(result.get("bagFull", false)):
+		var full_bag := BagModel.from_state(_state, _content, {})
+		_show_bag_full(full_bag.used_slots(), full_bag.capacity)
 
 
 # ───────── 突破 ─────────

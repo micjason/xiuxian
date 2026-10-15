@@ -122,5 +122,8 @@ func _run_full() -> void:
 	_scene.call("_open_battle", _gate_slug())
 	var page: BattlePage = _scene.get("_battle_page")
 	page._on_start()
+	await _fight(false, 60.0)
+	await _shot("12a_bag_full_fight_result")
+	_scene.call("_show_bag_full", 20, 20)
 	await _wait(0.4)
 	await _shot("12_bag_full_prompt")

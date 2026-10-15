@@ -16,7 +16,6 @@ func _fight_result(win: bool) -> Dictionary:
 			],
 			"ultCasts": [{"t": 3.0, "readyAt": 2.0, "manual": true, "damage": 5000}, {"t": 20.0, "readyAt": 18.0, "manual": false, "damage": 5000}]},
 		"drops": [{"itemSlug": "a", "quantity": 1, "quality": "blue"}, {"itemSlug": "b", "quantity": 2, "quality": "white", "dropped": true}],
-		"freedBeforeFight": [{"itemSlug": "c", "enhanceExp": 12}],
 		"bagFull": false,
 		"reward": {"firstClear": true, "cultivation": 1500},
 	}
@@ -36,21 +35,23 @@ func test_battle_result_view_win_and_loss_texts() -> void:
 	assert_eq(win.title, "挑战成功")
 	assert_string_contains(win.reason, "击败 黑风熊王")
 	assert_eq((win.loot as Array).size(), 2)
-	assert_string_contains(str(win.loot[1].text), "背包已满，没能拿到")
-	assert_string_contains(str(win.notes[0]), "开战前自动分解「物:c」")
+	assert_string_contains(str(win.loot[1].text), "背包已满，没有掉落")
+	assert_string_contains(str(win.notes[0]), "首通奖励")
 	assert_true(bool(win.first_clear))
 	var loss := BattleResultView.build(_fight_result(false), "黑风熊王", _name_of)
 	assert_eq(loss.title, "挑战失败")
 	assert_string_contains(loss.reason, "时间到")
 
 
-func test_bag_gate_blocks_only_when_full_without_a_decomposable_piece() -> void:
+func test_bag_gate_never_blocks_a_challenge_even_when_full() -> void:
 	var full := BagModel.from_state(ProtoMock.state("full"), ProtoMock.content(), {})
 	assert_true(full.is_full())
 	assert_gt(full.auto_decomposable_count(), 0, "满包里有未强化的白/绿装备")
-	assert_true(full.challenge_gate(false).blocked)
-	assert_true(full.challenge_gate(true).will_free)
-	assert_false(full.challenge_gate(true).blocked)
+	for auto in [true, false]:
+		var gate := full.challenge_gate(auto)
+		assert_true(gate.full)
+		assert_false(gate.blocked, "背包满不再拦挑战")
+		assert_string_contains(GateNotice.text(gate), "新掉的装备不会入包")
 	var ready := BagModel.from_state(ProtoMock.state("ready"), ProtoMock.content(), {})
 	assert_false(ready.challenge_gate(false).full)
 
@@ -126,17 +127,18 @@ func test_mock_ack_and_idle_stage() -> void:
 		assert_eq(str(state.wave.chosenStageSlug), slug)
 
 
-func test_mock_challenge_rejects_full_bag_without_auto_decompose() -> void:
+func test_mock_challenge_with_a_full_bag_is_not_refused_and_the_drop_is_not_dropped() -> void:
 	var content := ProtoMock.content()
 	var state := ProtoMock.state("full")
 	var slug := str(state.breakthrough.requiredStage.slug)
-	var denied := ProtoMock.handle("/api/v1/me/stages/%s/challenge" % slug, {}, state, content)
-	assert_eq(int(denied.code), 409)
-	assert_eq(str(denied.error.code), "BAG_FULL")
-	state["autoDecompose"] = true
-	var ok := ProtoMock.handle("/api/v1/me/stages/%s/challenge" % slug, {"ultTaps": []}, state, content)
-	assert_eq(int(ok.code), 200)
-	assert_eq((ok.freedBeforeFight as Array).size(), 1)
+	for auto in [false, true]:
+		state["autoDecompose"] = auto
+		var ok := ProtoMock.handle("/api/v1/me/stages/%s/challenge" % slug, {"ultTaps": []}, state, content)
+		assert_eq(int(ok.code), 200, "满包也能挑战")
+		assert_false(ok.has("freedBeforeFight"))
+		if bool(ok.battle.win):
+			assert_true(bool(ok.bagFull))
+			assert_true(bool(ok.drops[0].get("dropped", false)))
 
 
 func test_top_bar_shows_realm_power_and_cultivation_only() -> void:

@@ -1,7 +1,7 @@
 class_name BattleResultView
 extends RefCounted
 ## 首领战结算页的数据：胜负标题、战后摘要（用时/总伤害/大招次数）、掉落清单、背包相关提示。
-## 输入是 POST /me/stages/:slug/challenge 的返回（battle、drops、freedBeforeFight、bagFull、reward）。
+## 输入是 POST /me/stages/:slug/challenge 的返回（battle、drops、bagFull、reward；背包满不再拦挑战，也没有开战前腾格）。
 ## name_of(slug) -> 物品显示名。数值显示时才取整。
 
 
@@ -27,9 +27,6 @@ static func build(result: Dictionary, boss_name: String, name_of: Callable) -> D
 	lines.append(ult_line)
 	var loot: Array[Dictionary] = []
 	var notes: Array[String] = []
-	for row in result.get("freedBeforeFight", []):
-		if typeof(row) == TYPE_DICTIONARY:
-			notes.append("开战前自动分解「%s」腾出一格，+%d 强化经验" % [str(name_of.call(str((row as Dictionary).get("itemSlug", "")))), int((row as Dictionary).get("enhanceExp", 0))])
 	for drop in result.get("drops", []):
 		if typeof(drop) != TYPE_DICTIONARY:
 			continue
@@ -38,7 +35,7 @@ static func build(result: Dictionary, boss_name: String, name_of: Callable) -> D
 		var quantity := int(row.get("quantity", 1))
 		var text := item_name if quantity <= 1 else "%s ×%d" % [item_name, quantity]
 		if bool(row.get("dropped", false)):
-			text += "（背包已满，没能拿到）"
+			text += "（背包已满，没有掉落）"
 		elif bool(row.get("decomposed", false)):
 			text += "（背包已满，自动分解 +%d 强化经验）" % int(row.get("enhanceExp", 0))
 		elif not (row.get("freed", []) as Array).is_empty():
@@ -49,7 +46,7 @@ static func build(result: Dictionary, boss_name: String, name_of: Callable) -> D
 	if first_clear and float(reward.get("cultivation", 0)) > 0.0:
 		notes.append("首通奖励：修为 +%s" % CultivationFormat.amount(float(reward.get("cultivation", 0))))
 	if bool(result.get("bagFull", false)):
-		notes.append("背包已满，请先分解装备")
+		notes.append("背包已满，部分装备没有掉落，请先分解装备")
 	return {
 		"win": win,
 		"title": title,

@@ -219,13 +219,12 @@ func auto_decomposable_count() -> int:
 	return count
 
 
-## 挑战前的行囊检查：服务器在满格时，开关开且能找到可分解的白/绿装备就腾一格，否则拒绝（BAG_FULL）。
-## 返回 {full, blocked, used, capacity, will_free}。
+## 挑战前的行囊状态。背包满不再拦挑战（服务器不会返回 BAG_FULL）：
+## 满包时新掉的装备不会入包（自动分解开着时白/绿会直接分解成强化经验），首通固定奖励可以超出容量。
+## 返回 {full, blocked(恒为 false，保留给旧调用方), used, capacity, will_free(恒为 false), auto_decompose}。
 func challenge_gate(auto_decompose: bool) -> Dictionary:
 	var used := used_slots()
-	var full := used >= capacity
-	var will_free := full and auto_decompose and auto_decomposable_count() > 0
-	return {"full": full, "blocked": full and not will_free, "used": used, "capacity": capacity, "will_free": will_free}
+	return {"full": used >= capacity, "blocked": false, "used": used, "capacity": capacity, "will_free": false, "auto_decompose": auto_decompose}
 
 
 func category_count(category: String) -> int:

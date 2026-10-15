@@ -179,8 +179,17 @@ func _bagfull() -> void:
 	var page: BattlePage = _scene.get("_battle_page")
 	_out("client_gate", page.get("_gate"))
 	page._on_start()
-	await _shot("real_07_bag_full_prompt")
 	_out("phase_after_start", page.phase)
+	await _shot("real_07_bag_full_fight_not_blocked")
 	var result := await PlayerApi.post_action("/api/v1/me/stages/%s/challenge" % slug, {"ultTaps": []})
 	_out("direct_challenge_code", result.get("code"))
+	_out("direct_challenge_win", (result.get("battle", {}) as Dictionary).get("win"))
+	_out("direct_challenge_bagFull", result.get("bagFull"))
+	_out("direct_challenge_drops", result.get("drops"))
 	_out("direct_challenge_error", (result.get("error", {}) as Dictionary).get("code") if typeof(result.get("error", null)) == TYPE_DICTIONARY else "")
+	var popup := _scene.get("_popup") as GamePopup
+	if bool(result.get("bagFull", false)):
+		_scene.call("_show_bag_full", 20, 20)
+		await _wait(0.4)
+		await _shot("real_08_bag_full_prompt")
+		_out("prompt_visible", popup.visible)

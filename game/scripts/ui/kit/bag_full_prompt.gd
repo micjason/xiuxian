@@ -1,12 +1,12 @@
 class_name BagFullPrompt
 extends RefCounted
-## 背包已满提示（设计稿 10）：挑战首领前背包满、又没有可自动分解的白/绿装备时弹出。
-## 标题「提示」，书包图标带红色感叹号，「背包已满（20/20）」「请先分解装备再挑战」，「确定」。
+## 背包已满提示（设计稿 10 的样式）。负责人决定（2026-10-16）：背包满不再拦挑战；
+## 挑战结果里有装备因满包没掉落（bagFull）时弹出：「背包已满（20/20）」「新掉落的装备没能入包，请先分解装备」。
 ## 另给一个「去背包」按钮直达分解（稿里没有，是为了少点一步，见改动说明）。
 
 
 static func texts(used: int, capacity: int) -> Array[String]:
-	return ["背包已满（%d/%d）" % [used, capacity], "请先分解装备再挑战"]
+	return ["背包已满（%d/%d）" % [used, capacity], "新掉落的装备没能入包，请先分解装备"]
 
 
 static func show_prompt(popup: GamePopup, used: int, capacity: int, on_open_bag: Callable = Callable()) -> void:

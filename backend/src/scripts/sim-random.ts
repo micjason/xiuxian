@@ -98,7 +98,7 @@ async function runBot(db: Json, cfg: { seed: number; schedule: Schedule; variant
   const realms = content.realms as Json[];
   const realmBySlug = new Map<string, Json>(realms.map((r) => [r.slug, r]));
   const weights = content.globals.powerWeights as Record<string, number>;
-  const capacity = content.globals.bagCapacity as number;
+  const capacity = content.globals.bagCapacity as number; // 首领首通奖励允许暂时超出（overflow），所以 overCapacity 只是提示
   const stagesWithBoss = (content.stages as Json[]).filter((s) => (s.bosses?.length ?? 0) > 0);
 
   // 指标
@@ -112,6 +112,7 @@ async function runBot(db: Json, cfg: { seed: number; schedule: Schedule; variant
     bag: { maxUsed: 0, overCapacity: 0, bossBagFull: 0, manualDecomposeCalls: 0 },
     boss: { attempts: 0, wins: 0, losses: 0, byStage: {} as Json },
     breakthroughs: [] as Json[],
+    skills: { booksUsed: 0, refused: {} as Json, learnedAtDay: {} as Json, running: 0 },
     layerReached: {} as Json,
     powerAtLayer: {} as Json,
     offlineReports: [] as Json[],
@@ -296,12 +297,31 @@ async function runBot(db: Json, cfg: { seed: number; schedule: Schedule; variant
     return "loss";
   };
 
+  // 功法：背包里有书且境界够就学，学会的最多同时运转 3 门（设计表 1.2 的"功法加成"来源）
+  const learnAndRunSkills = async () => {
+    const skillDefs = new Map<string, Json>((content.skills as Json[]).map((k) => [k.slug, k]));
+    const curOrder = realmBySlug.get(state.realmSlug as string)?.sortOrder ?? 0;
+    for (const book of (state.items as Json[]).filter((i) => items.get(i.itemSlug)?.kind === "skill_book")) {
+      const sk = skillDefs.get(items.get(book.itemSlug)?.skillSlug as string);
+      if (sk && (sk.requiredRealmOrder ?? 0) > curOrder) continue;
+      const r = await call("POST", `/me/items/${book.id}/use`);
+      if (r.code === 200) { m.skills.booksUsed++; m.skills.learnedAtDay[sk?.slug ?? book.itemSlug] ??= +((clock - T0) / 86400000).toFixed(3); state = (await call("GET", "/me/state")).body; }
+      else { const c = r.body?.error?.code ?? String(r.code); m.skills.refused[c] = (m.skills.refused[c] ?? 0) + 1; }
+    }
+    for (const sk of (state.skills as Json[]).filter((k) => !k.runningSlot)) {
+      if ((state.skills as Json[]).filter((k) => k.runningSlot).length >= 3) break;
+      const r = await call("POST", `/me/skills/${sk.skillSlug}/run`, { slot: "run_1" });
+      if (r.code === 200) { m.skills.running++; state = (await call("GET", "/me/state")).body; }
+    }
+  };
+
   const manage = async () => {
     if (state.offlineReport) {
       const rep = state.offlineReport as Json;
       m.offlineReports.push({ day: +((clock - T0) / 86400000).toFixed(2), seconds: rep.seconds, counted: rep.countedSeconds, gained: rep.gained, base: rep.baseGained, bonus: rep.bonusGained, hitCap: rep.hitCap });
       await call("POST", `/me/offline-reports/${rep.id}/ack`);
     }
+    await learnAndRunSkills();
     if (cfg.variant === "manual" && state.autoDecompose) { await call("POST", "/me/auto-decompose", { enabled: false }); state = (await call("GET", "/me/state")).body; }
     if (cfg.variant === "manual" && bagUsed(state) >= capacity - 4) await manualDecompose();
     await equipBest();

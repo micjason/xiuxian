@@ -53,7 +53,7 @@ func test_item_slot_icon_follows_slot_then_category() -> void:
 	assert_eq(KitStyle.icon_for({"slot_id": "gloves", "category": "equip"}).texture.resource_path, "res://assets/art/items/gear_gloves.png", "有物品图就用物品图")
 	assert_not_null(KitStyle.icon_for({"category": "material"}).texture, "材料有图（物品图或类别图）")
 	assert_eq(KitStyle.icon_for({"category": "other", "kind": "skill_book"}).texture.resource_path, "res://assets/art/items/book_other.png")
-	assert_true(KitStyle.icon_for({"slot_id": "weapon"}).tint, "剪影图标要按品质染色")
+	assert_false(KitStyle.icon_for({"slot_id": "weapon", "category": "equip"}).tint, "彩色物品图不染色（剪影占位图才按品质染色）")
 
 
 func test_grid_pads_with_empty_slots_and_keeps_capacity_cap() -> void:

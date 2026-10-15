@@ -24,8 +24,25 @@ static func compute(safe: Rect2i, screen: Vector2i, canvas_per_pixel: float) -> 
 	)
 
 
+## 开发用：环境变量 XIUXIAN_SAFE_AREA="左,上,右,下"（画布像素）可在桌面上模拟刘海/手势条做截图；
+## 正式包里没有这个环境变量，不起作用。
+static func debug_override() -> Variant:
+	var raw := OS.get_environment("XIUXIAN_SAFE_AREA")
+	if raw.is_empty():
+		return null
+	var parts := raw.split(",")
+	if parts.size() != 4:
+		return null
+	return Vector4(
+		clampf(float(parts[0]), 0.0, MAX_INSET), clampf(float(parts[1]), 0.0, MAX_INSET),
+		clampf(float(parts[2]), 0.0, MAX_INSET), clampf(float(parts[3]), 0.0, MAX_INSET))
+
+
 ## 读取当前设备的安全区。viewport 用来换算画布与窗口像素的比例。
 static func current(viewport: Viewport) -> Vector4:
+	var forced: Variant = debug_override()
+	if forced != null:
+		return forced as Vector4
 	var window_width := float(DisplayServer.window_get_size().x)
 	if window_width <= 0.0:
 		return Vector4.ZERO

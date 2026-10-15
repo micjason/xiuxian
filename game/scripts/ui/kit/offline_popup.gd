@@ -2,7 +2,7 @@ class_name OfflinePopup
 extends Control
 ## 离线收益弹窗（设计稿 08，无广告按钮）：卷轴外框 panel_popup_scroll，顶部「闭关归来」，
 ## 离线时长条、获得修为大字、基础修为 + 功法加成 = 合计。修为在服务器早已入账，
-## 点「领取」只是告诉服务器“已读”（POST /me/offline-reports/:id/ack）并关闭。
+## 点「知道了」只是告诉服务器“已读”（POST /me/offline-reports/:id/ack）并关闭。
 
 signal acknowledged(report_id: String)
 
@@ -10,6 +10,8 @@ const PANEL_WIDTH := 936.0
 
 var report_id := ""
 var _panel: PanelContainer
+var _stack: VBoxContainer
+var _foot: Label
 var _body: VBoxContainer
 var _button: Button
 var _view: Dictionary = {}
@@ -29,10 +31,14 @@ func _init() -> void:
 	center.set_anchors_preset(Control.PRESET_FULL_RECT)
 	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(center)
+	# 卷轴 + 它下面的一行提示（设计稿 08：提示在卷轴外面，不压在下轴上）
+	_stack = UiKit.vbox(UiTokens.SP_2)
+	_stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	center.add_child(_stack)
 	_panel = PanelContainer.new()
 	_panel.custom_minimum_size = Vector2(PANEL_WIDTH, 0)
 	_panel.add_theme_stylebox_override("panel", ArtLib.nine("panel_popup_scroll"))
-	center.add_child(_panel)
+	_stack.add_child(_panel)
 	_body = UiKit.vbox(UiTokens.SP_1)
 	_panel.add_child(_body)
 
@@ -62,12 +68,18 @@ func show_report(view: Dictionary) -> void:
 	total.add_theme_constant_override("outline_size", 10)
 	_body.add_child(total)
 	_body.add_child(_breakdown_card())
-	_button = UiKit.button("领取", MainTheme.VAR_PRIMARY, UiTokens.H_CTA)
+	_button = UiKit.button("知道了", MainTheme.VAR_PRIMARY, UiTokens.H_CTA)
 	_button.name = "ClaimButton"
 	_button.pressed.connect(_on_claim)
 	_body.add_child(_button)
-	var foot := UiKit.label("修为已入账，点「领取」即可关闭", UiTokens.FS_MICRO, UiTokens.TEXT_MUTED, HORIZONTAL_ALIGNMENT_CENTER)
-	_body.add_child(foot)
+	var gap := Control.new()  # 按钮和下轴之间留一点空，不要贴着
+	gap.custom_minimum_size = Vector2(0, UiTokens.SP_2)
+	gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_body.add_child(gap)
+	if _foot == null:
+		_foot = UiKit.label("收益已入账", UiTokens.FS_CAPTION, UiTokens.TEXT_MUTED, HORIZONTAL_ALIGNMENT_CENTER)
+		_foot.name = "FootHint"
+		_stack.add_child(_foot)
 	visible = true
 
 

@@ -148,7 +148,7 @@ func _build_arena() -> void:
 func _build_report_panel() -> Control:
 	var panel := PanelContainer.new()
 	panel.name = "ReportPanel"
-	panel.custom_minimum_size = Vector2(0, 250)
+	panel.custom_minimum_size = Vector2(0, 320)
 	panel.add_theme_stylebox_override("panel", ArtLib.nine("battle_log_panel") if ArtLib.has_ui("battle_log_panel") else ArtLib.nine("panel_inset"))
 	var column := UiKit.vbox(2)
 	panel.add_child(column)
@@ -393,34 +393,50 @@ func _refresh_ult() -> void:
 		_ult_note.text = "冷却完毕自动释放"
 
 
+## 飘字分「车道」：同一边的飘字依次占用不同高度（再左右错开），同时最多 FLOAT_MAX_PER_SIDE 条，
+## 超出时最旧的直接收掉，避免挤成一串（v8 验收意见）。
+const FLOAT_LANES := 4
+const FLOAT_LANE_HEIGHT := 66.0
+const FLOAT_MAX_PER_SIDE := 4
+var _float_count := {"boss": 0, "hero": 0}
+
+
 func _float_damage(event: Dictionary) -> void:
 	var boss_side := str(event.get("side", "")) == "boss"
+	var side := "boss" if boss_side else "hero"
 	var ult := str(event.get("kind", "")) == "ult"
 	var amount := BagModel.shown(float(event.get("damage", 0)))
 	var label := UiKit.label("-%d" % amount, UiTokens.FS_H1 if ult else UiTokens.FS_BODY_L, UiTokens.DANGER if boss_side else (UiTokens.REPORT_CRIT if ult else UiTokens.REPORT_DAMAGE_DEALT), HORIZONTAL_ALIGNMENT_CENTER)
 	label.add_theme_font_override("font", ArtLib.title_font())
 	label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
 	label.add_theme_constant_override("outline_size", 10)
+	label.set_meta("side", side)
 	label.set_anchors_preset(Control.PRESET_CENTER_LEFT if boss_side else Control.PRESET_CENTER_RIGHT)
-	var x := 80.0 if boss_side else -380.0
-	var y := -150.0 + float(randi() % 120)
+	var lane: int = int(_float_count[side]) % FLOAT_LANES
+	_float_count[side] = int(_float_count[side]) + 1
+	var x := (80.0 if boss_side else -380.0) + (36.0 if lane % 2 == 1 else -36.0)
+	var y := -200.0 + float(lane) * FLOAT_LANE_HEIGHT
 	label.offset_left = x
 	label.offset_right = x + 280.0
 	label.offset_top = y
 	label.offset_bottom = y + 80.0
 	_float_layer.add_child(label)
 	var tween := create_tween().set_parallel(true)
-	tween.tween_property(label, "offset_top", y - 90.0, 0.9)
-	tween.tween_property(label, "offset_bottom", y - 10.0, 0.9)
+	tween.tween_property(label, "offset_top", y - 50.0, 0.9)
+	tween.tween_property(label, "offset_bottom", y + 30.0, 0.9)
 	tween.tween_property(label, "modulate:a", 0.0, 0.5).set_delay(0.4)
 	tween.chain().tween_callback(label.queue_free)
-	while _float_layer.get_child_count() > 14:
-		_float_layer.get_child(0).queue_free()
-		break
+	var same_side: Array[Node] = []
+	for child in _float_layer.get_children():
+		if not child.is_queued_for_deletion() and str(child.get_meta("side", "")) == side:
+			same_side.append(child)
+	while same_side.size() > FLOAT_MAX_PER_SIDE:
+		same_side.pop_front().queue_free()
 
 
 func _clear_floats() -> void:
 	UiKit.clear(_float_layer)
+	_float_count = {"boss": 0, "hero": 0}
 
 
 ## 提交失败（网络/服务器拒绝）：回到就绪，让玩家可以重来。

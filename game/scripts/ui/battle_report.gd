@@ -25,7 +25,34 @@ func _ready() -> void:
 	autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	add_theme_font_size_override("normal_font_size", UiTokens.FS_CAPTION)
 	add_theme_font_size_override("bold_font_size", UiTokens.FS_CAPTION)
-	add_theme_constant_override("line_separation", 10)
+	add_theme_constant_override("line_separation", LINE_GAP)
+	var empty := StyleBoxEmpty.new()
+	add_theme_stylebox_override("normal", empty)
+	_snap_box = empty
+	resized.connect(_snap_view_height)
+	_snap_view_height.call_deferred()
+
+
+const LINE_GAP := 10
+var _snap_box: StyleBoxEmpty
+
+
+## 让可视高度正好是整数行：多出来的零头放到底部的内边距里，这样跟随滚动时第一行不会被切掉一半（v8 验收意见）。
+func line_pitch() -> float:
+	var font := get_theme_font("normal_font")
+	if font == null:
+		return 0.0
+	return font.get_height(UiTokens.FS_CAPTION) + float(LINE_GAP)
+
+
+func _snap_view_height() -> void:
+	if _snap_box == null:
+		return
+	var pitch := line_pitch()
+	if pitch <= 1.0 or size.y <= pitch:
+		_snap_box.content_margin_bottom = 0.0
+		return
+	_snap_box.content_margin_bottom = fmod(size.y, pitch)
 
 
 func add_round(number: int) -> void:

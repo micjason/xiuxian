@@ -1,6 +1,7 @@
 class_name GamePopup
 extends Control
 ## 通用弹层：半透明遮罩 + 底部面板（手机上拇指够得着）。点遮罩或右上角 × 关闭。
+## open_popup(title, true) 改成屏幕正中的小弹窗（设计稿 10「提示」：标题居中、没有 ×、不盖标签栏），给只需要一句话 + 按钮的提示用。
 ## 内容放进 body，按钮用 set_actions。同一个弹层可以反复 open/clear，不用每次新建。
 ## 不叫 PopupPanel：避免和 Godot 内置的 PopupPanel 重名。美术接入见 KitStyle（Theme 类型 GamePopup / 样式 panel）。
 
@@ -13,6 +14,12 @@ var actions: HBoxContainer
 var _panel: PanelContainer
 var _scroll: ScrollContainer
 var _close_on_dim := true
+var _centered := false
+var _close_button: Button
+var _sheet_art: StyleBox
+var _center_art: StyleBox
+
+const CENTER_WIDTH := 840.0
 
 
 func _init() -> void:
@@ -36,7 +43,9 @@ func _init() -> void:
 	var art := ArtLib.nine("panel_popup")
 	art.expand_margin_bottom = 80.0  # 底部面板贴着屏幕下沿，把圆角和边线推到屏幕外
 	art.content_margin_bottom = 80.0
-	_panel.add_theme_stylebox_override("panel", KitStyle.themed(self, &"panel", &"GamePopup", art))
+	_sheet_art = KitStyle.themed(self, &"panel", &"GamePopup", art)
+	_center_art = ArtLib.nine("panel_popup")
+	_panel.add_theme_stylebox_override("panel", _sheet_art)
 	add_child(_panel)
 	var column := UiKit.vbox(UiTokens.SP_2)
 	_panel.add_child(column)
@@ -54,6 +63,7 @@ func _init() -> void:
 	close.add_theme_font_size_override("font_size", UiTokens.FS_H1)
 	close.pressed.connect(close_popup)
 	head.add_child(close)
+	_close_button = close
 	_scroll = ScrollContainer.new()
 	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -73,10 +83,10 @@ func _ready() -> void:
 
 func _layout() -> void:
 	var inset := UiSafeArea.current(get_viewport())
-	_panel.offset_left = 0
-	_panel.offset_right = 0
-	_panel.offset_top = -inset.w
-	_panel.offset_bottom = -inset.w
+	if _centered:
+		_apply_center_layout(inset)
+	else:
+		_apply_sheet_layout(inset)
 	# 面板最高占屏幕 90%；内容更多时 body 在面板内滚动。
 	_max_scroll = maxf(240.0, get_viewport_rect().size.y * 0.94 - 300.0)
 
@@ -84,9 +94,46 @@ func _layout() -> void:
 var _max_scroll := 1000.0
 
 
-func open_popup(title: String) -> void:
+func _apply_sheet_layout(inset: Vector4) -> void:
+	_panel.anchor_left = 0.0
+	_panel.anchor_right = 1.0
+	_panel.anchor_top = 1.0
+	_panel.anchor_bottom = 1.0
+	_panel.grow_horizontal = Control.GROW_DIRECTION_END
+	_panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_panel.offset_left = 0
+	_panel.offset_right = 0
+	_panel.offset_top = -inset.w
+	_panel.offset_bottom = -inset.w
+	_panel.add_theme_stylebox_override("panel", _sheet_art)
+
+
+func _apply_center_layout(inset: Vector4) -> void:
+	_panel.anchor_left = 0.5
+	_panel.anchor_right = 0.5
+	_panel.anchor_top = 0.5
+	_panel.anchor_bottom = 0.5
+	_panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_panel.grow_vertical = Control.GROW_DIRECTION_BOTH
+	_panel.offset_left = -CENTER_WIDTH / 2.0
+	_panel.offset_right = CENTER_WIDTH / 2.0
+	_panel.offset_top = (inset.y - inset.w) / 2.0
+	_panel.offset_bottom = (inset.y - inset.w) / 2.0
+	_panel.add_theme_stylebox_override("panel", _center_art)
+
+
+func is_centered() -> bool:
+	return _centered
+
+
+## centered = true：屏幕正中的小弹窗，标题居中，没有 ×（点按钮或遮罩关闭）。
+func open_popup(title: String, centered: bool = false) -> void:
+	_centered = centered
+	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER if centered else HORIZONTAL_ALIGNMENT_LEFT
+	_close_button.visible = not centered
+	_layout()
 	title_label.text = title
-	_scroll.custom_minimum_size.y = 240.0
+	_scroll.custom_minimum_size.y = 0.0 if centered else 240.0
 	visible = true
 	move_to_front()
 	await get_tree().process_frame
@@ -97,7 +144,7 @@ func open_popup(title: String) -> void:
 func fit() -> void:
 	if not is_inside_tree():
 		return
-	_scroll.custom_minimum_size.y = clampf(body.get_combined_minimum_size().y, 240.0, _max_scroll)
+	_scroll.custom_minimum_size.y = clampf(body.get_combined_minimum_size().y, 0.0 if _centered else 240.0, _max_scroll)
 
 
 func close_popup() -> void:

@@ -1,6 +1,6 @@
 class_name OfflineView
 extends RefCounted
-## 离线收益弹窗的数据：把 state.offlineReport 变成界面文字。没有「领取」这一步（修为早已入账），
+## 离线收益弹窗的数据：把 state.offlineReport 变成界面文字。没有“领取”这一步（修为早已入账），
 ## 点按钮只是告诉服务器“已读”。数值用服务器给的小数，显示时取整。
 
 

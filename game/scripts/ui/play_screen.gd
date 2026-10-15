@@ -367,7 +367,7 @@ func _maybe_show_offline() -> void:
 	_offline_popup.show_report(view)
 
 
-## 点「领取」：告诉服务器已读（修为早已入账），成功才关；失败留着可再点。
+## 点「知道了」：告诉服务器已读（修为早已入账），成功才关；失败留着可再点。
 func _on_offline_ack(report_id: String) -> void:
 	var result := await _post("/api/v1/me/offline-reports/%s/ack" % report_id.uri_encode())
 	if int(result.get("code", 0)) != 200:

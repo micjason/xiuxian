@@ -1,6 +1,6 @@
 class_name BagFullPrompt
 extends RefCounted
-## 背包已满提示（设计稿 10 的样式）。负责人决定（2026-10-16）：背包满不再拦挑战；
+## 背包已满提示（设计稿 10 的样式，屏幕正中的小弹窗）。负责人决定（2026-10-16）：背包满不再拦挑战；
 ## 挑战结果里有装备因满包没掉落（bagFull）时弹出：「背包已满（20/20）」「新掉落的装备没能入包」。
 ## 另给一个「去背包」按钮直达分解（稿里没有，是为了少点一步，见改动说明）。
 
@@ -41,4 +41,4 @@ static func show_prompt(popup: GamePopup, used: int, capacity: int, on_open_bag:
 	if on_open_bag.is_valid():
 		buttons.push_front({"text": "去背包", "variation": MainTheme.VAR_SECONDARY, "callback": on_open_bag})
 	popup.set_actions(buttons)
-	popup.open_popup("提示")
+	popup.open_popup("提示", true)

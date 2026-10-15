@@ -210,6 +210,24 @@ func is_full() -> bool:
 	return used_slots() >= capacity
 
 
+## 自动分解能腾出格子的装备：没穿、白/绿、没强化过（与服务器 pickAutoDecomposeCandidate 一致）。
+func auto_decomposable_count() -> int:
+	var count := 0
+	for item in items:
+		if str(item.get("category", "")) == "equip" and not bool(item.get("equipped", false)) and int(item.get("rarity", 0)) <= 1 and int(item.get("enhance", 0)) == 0:
+			count += 1
+	return count
+
+
+## 挑战前的行囊检查：服务器在满格时，开关开且能找到可分解的白/绿装备就腾一格，否则拒绝（BAG_FULL）。
+## 返回 {full, blocked, used, capacity, will_free}。
+func challenge_gate(auto_decompose: bool) -> Dictionary:
+	var used := used_slots()
+	var full := used >= capacity
+	var will_free := full and auto_decompose and auto_decomposable_count() > 0
+	return {"full": full, "blocked": full and not will_free, "used": used, "capacity": capacity, "will_free": will_free}
+
+
 func category_count(category: String) -> int:
 	var count := 0
 	for item in items:
@@ -224,7 +242,7 @@ func visible_items(category: String, sort_id: String = "default") -> Array[Dicti
 	for item in items:
 		if bool(item.get("equipped", false)):
 			continue
-		if str(item.get("category", "")) == category:
+		if category == "all" or str(item.get("category", "")) == category:
 			out.append(item)
 	sort_items(out, sort_id)
 	return out
@@ -276,7 +294,7 @@ static func decompose_block_reason(item: Dictionary) -> String:
 	if str(item.get("category", "")) != "equip":
 		return "只有装备可以分解"
 	if bool(item.get("equipped", false)):
-		return "已穿戴的装备不能分解，请先脱下"
+		return "已穿戴，无法分解"
 	return ""
 
 

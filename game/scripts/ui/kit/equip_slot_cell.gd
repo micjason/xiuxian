@@ -72,6 +72,12 @@ func _init() -> void:
 	pressed.connect(func() -> void: slot_pressed.emit(str(slot.get("id", ""))))
 
 
+## 紧凑模式（背包页一行放 8 格）：缩小最小尺寸，隐藏下面的装备名（名字看详情）。
+func make_compact(width: float = 112.0, height: float = 150.0) -> void:
+	custom_minimum_size = Vector2(width, height)
+	_item_label.visible = false
+
+
 func setup(slot_data: Dictionary, item_data: Dictionary) -> void:
 	slot = slot_data
 	item = item_data

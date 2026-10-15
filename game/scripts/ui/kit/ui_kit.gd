@@ -164,3 +164,54 @@ static func clear(node: Node) -> void:
 	for child in node.get_children():
 		node.remove_child(child)
 		child.queue_free()
+
+
+## 页面标题牌（缎带框 + 金色标题字），居中。
+static func page_title(text: String) -> Control:
+	var holder := HBoxContainer.new()
+	holder.alignment = BoxContainer.ALIGNMENT_CENTER
+	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var panel := PanelContainer.new()
+	panel.add_theme_stylebox_override("panel", ArtLib.nine("ribbon_title"))
+	panel.custom_minimum_size = Vector2(560, 100)
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var title := label(text, UiTokens.FS_H1, UiTokens.GOLD, HORIZONTAL_ALIGNMENT_CENTER)
+	title.name = "Title"
+	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	title.add_theme_font_override("font", ArtLib.title_font())
+	title.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
+	title.add_theme_constant_override("outline_size", 8)
+	panel.add_child(title)
+	holder.add_child(panel)
+	return holder
+
+
+## 两行的大按钮：第一行大字，第二行小字（金色主按钮上的文字用 ON_GOLD）。
+## 文字用 set_meta 里的两个 Label 改：button.get_meta("title") / get_meta("sub")。
+static func cta_button(title_text: String, sub_text: String, variation: StringName = MainTheme.VAR_PRIMARY, height: int = 168) -> Button:
+	var node := Button.new()
+	node.theme_type_variation = variation
+	node.custom_minimum_size = Vector2(0, height)
+	node.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	node.focus_mode = Control.FOCUS_NONE
+	var column := VBoxContainer.new()
+	column.set_anchors_preset(Control.PRESET_FULL_RECT)
+	column.alignment = BoxContainer.ALIGNMENT_CENTER
+	column.add_theme_constant_override("separation", 0)
+	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	node.add_child(column)
+	var color := UiTokens.ON_GOLD if variation == MainTheme.VAR_PRIMARY else UiTokens.TEXT
+	var first := label(title_text, UiTokens.FS_H1, color, HORIZONTAL_ALIGNMENT_CENTER)
+	first.add_theme_font_override("font", ArtLib.title_font())
+	column.add_child(first)
+	var second := label(sub_text, UiTokens.FS_MICRO, color, HORIZONTAL_ALIGNMENT_CENTER)
+	column.add_child(second)
+	node.set_meta("title", first)
+	node.set_meta("sub", second)
+	return node
+
+
+static func set_cta(node: Button, title_text: String, sub_text: String) -> void:
+	(node.get_meta("title") as Label).text = title_text
+	(node.get_meta("sub") as Label).text = sub_text
+	(node.get_meta("sub") as Label).visible = not sub_text.is_empty()

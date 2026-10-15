@@ -8,7 +8,7 @@ extends RefCounted
 const ROUND_HEAD := -1
 
 
-static func build(battle: Dictionary, boss_name: String, player_hp: int = 0, boss_hp: int = 0) -> Array[Dictionary]:
+static func build(battle: Dictionary, boss_name: String, player_hp: int = 0, boss_hp: int = 0, ult_name: String = "") -> Array[Dictionary]:
 	var lines: Array[Dictionary] = []
 	var events: Array = battle.get("log", [])
 	var name := boss_name if not boss_name.is_empty() else "首领"
@@ -26,7 +26,9 @@ static func build(battle: Dictionary, boss_name: String, player_hp: int = 0, bos
 		var damage := int(round(float((event as Dictionary).get("damage", 0))))
 		var left := int(round(float((event as Dictionary).get("targetHpAfter", 0))))
 		var time := float((event as Dictionary).get("t", 0))
-		if side == "player":
+		if side == "player" and str((event as Dictionary).get("kind", "")) == "ult":
+			lines.append({"round": round_no, "kind": BattleReport.Kind.CRIT, "text": "（%.1f秒）释放「%s」，%s 剩余气血 %d" % [time, ult_name if not ult_name.is_empty() else "大招", name, maxi(left, 0)], "amount": damage})
+		elif side == "player":
 			lines.append({"round": round_no, "kind": BattleReport.Kind.DAMAGE_DEALT, "text": "（%.1f秒）你击中 %s，对方剩余气血 %d" % [time, name, maxi(left, 0)], "amount": damage})
 		else:
 			lines.append({"round": round_no, "kind": BattleReport.Kind.DAMAGE_TAKEN, "text": "（%.1f秒）%s 反击，你剩余气血 %d" % [time, name, maxi(left, 0)], "amount": damage})
@@ -44,6 +46,38 @@ static func build(battle: Dictionary, boss_name: String, player_hp: int = 0, bos
 		result_text = "失败：你被 %s 击败" % name
 	lines.append({"round": round_no, "kind": BattleReport.Kind.WIN if won else BattleReport.Kind.LOSE, "text": result_text, "amount": 0})
 	return lines
+
+
+## 战斗中一条事件的短句（实时战报区用）：「你出手，对黑风熊王造成 48 点伤害」之类。
+static func live_line(event: Dictionary, boss_name: String, ult_name: String = "") -> Dictionary:
+	var damage := int(round(float(event.get("damage", 0))))
+	var name := boss_name if not boss_name.is_empty() else "首领"
+	if str(event.get("side", "")) == "boss":
+		return {"kind": BattleReport.Kind.DAMAGE_TAKEN, "text": "%s 拍击，你受到 %d 点伤害" % [name, damage], "amount": 0}
+	if str(event.get("kind", "")) == "ult":
+		return {"kind": BattleReport.Kind.CRIT, "text": "「%s」释放，对%s造成 %d 点伤害" % [ult_name if not ult_name.is_empty() else "大招", name, damage], "amount": 0}
+	return {"kind": BattleReport.Kind.PLAIN, "text": "你出手，对%s造成 %d 点伤害" % [name, damage], "amount": 0}
+
+
+## 战后摘要：我方总伤害、受到总伤害、大招次数、用时。
+static func summary(battle: Dictionary) -> Dictionary:
+	var dealt := 0.0
+	var taken := 0.0
+	var ults := 0
+	var manual := 0
+	for event in battle.get("log", []):
+		if typeof(event) != TYPE_DICTIONARY:
+			continue
+		if str((event as Dictionary).get("side", "")) == "player":
+			dealt += float((event as Dictionary).get("damage", 0))
+			if str((event as Dictionary).get("kind", "")) == "ult":
+				ults += 1
+		else:
+			taken += float((event as Dictionary).get("damage", 0))
+	for cast in battle.get("ultCasts", []):
+		if typeof(cast) == TYPE_DICTIONARY and bool((cast as Dictionary).get("manual", false)):
+			manual += 1
+	return {"dealt": int(round(dealt)), "taken": int(round(taken)), "ults": ults, "manual_ults": manual, "seconds": float(battle.get("durationSeconds", 0)), "win": bool(battle.get("win", false)), "reason": str(battle.get("reason", ""))}
 
 
 ## 渲染到 BattleReport 控件。

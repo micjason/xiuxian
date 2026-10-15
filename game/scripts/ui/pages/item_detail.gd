@@ -78,7 +78,7 @@ static func show_item(popup: GamePopup, item: Dictionary, worn: Dictionary, hand
 		grid.add_child(decompose_button)
 		if not block_reason.is_empty():
 			# 不能分解时直接写出原因（已穿戴的装备不能分解，要先脱下）。
-			popup.body.add_child(UiKit.wrap_label("不能分解：%s。" % block_reason, UiTokens.FS_CAPTION, UiTokens.WARNING))
+			popup.body.add_child(UiKit.wrap_label(block_reason, UiTokens.FS_CAPTION, UiTokens.WARNING))
 		elif not worn.is_empty() and int(item.get("power", 0)) > int(worn.get("power", 0)):
 			popup.body.add_child(UiKit.wrap_label("这件比身上的更强，建议先穿戴再处理旧的。", UiTokens.FS_MICRO, UiTokens.WARNING))
 	elif str(item.get("kind", "")) == "skill_book":

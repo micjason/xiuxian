@@ -16,6 +16,8 @@ const FONT_TITLE := "res://assets/fonts/MaShanZheng-Regular.subset.woff2"
 const NINE := {
 	"panel_card": [32, 32, 28, 24],
 	"panel_popup": [48, 48, 36, 32],
+	# 离线收益卷轴外框（清单 N158，参考图 984×1350）：左右 40 盖住轴头，上下 116 盖住轴头和投影；内容安全区 56 / 100。
+	"panel_popup_scroll": [40, 116, 56, 100],
 	"panel_inset": [24, 24, 20, 16],
 	"ribbon_title": [64, 30, 56, 12],
 	"chip": [30, 24, 28, 8],
@@ -102,6 +104,15 @@ static func icon(name: String) -> Texture2D:
 
 static func bg(name: String) -> Texture2D:
 	return _load(BG_DIR + name + ".webp")
+
+
+## 图标没交付时用 fallback 顶上（占位）。例如页签「洞府」的 tab_cave（N160）还没出图。
+static func icon_or(name: String, fallback: String) -> Texture2D:
+	return icon(name) if has_icon(name) else icon(fallback)
+
+
+static func has_ui(name: String) -> bool:
+	return ResourceLoader.exists(UI_DIR + name + ".png")
 
 
 static func has_icon(name: String) -> bool:

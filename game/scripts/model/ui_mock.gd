@@ -98,7 +98,13 @@ static func recompute(state: Dictionary, content: Dictionary) -> void:
 	for def in content.get("items", []):
 		defs[str(def.slug)] = def
 	var enhance := EnhanceModel.from_content(content)
-	var total := {"attack": 60.0, "defense": 40.0, "hp": 900.0, "speed": 14.0}
+	# 演示数据集（ProtoMock）把当前境界的裸属性放在 _base 里；老数据集用固定值。
+	var base: Dictionary = state.get("_base", {"attack": 60.0, "defense": 40.0, "hp": 900.0, "speed": 14.0})
+	var total := {"attack": float(base.attack), "defense": float(base.defense), "hp": float(base.hp), "speed": float(base.speed)}
+	var weights := WEIGHTS
+	var raw_weights: Variant = (content.get("globals", {}) as Dictionary).get("powerWeights", null) if typeof(content.get("globals", null)) == TYPE_DICTIONARY else null
+	if typeof(raw_weights) == TYPE_DICTIONARY:
+		weights = raw_weights
 	for row in state.get("items", []):
 		if row.get("equippedSlot", null) == null:
 			continue
@@ -107,7 +113,7 @@ static func recompute(state: Dictionary, content: Dictionary) -> void:
 			total[key] = float(total[key]) + float(enhance.stat(float(def.get(key, 0)), int(row.get("enhanceLevel", 0)), BagModel.rarity_of(def)))
 	for key in BagModel.STAT_KEYS:
 		state[key] = total[key]
-	state["power"] = BagModel.power_of(total, WEIGHTS)
+	state["power"] = BagModel.power_of(total, weights)
 
 
 ## 假动作：和真实接口返回同样的外形 {code, state, ...}。

@@ -50,9 +50,9 @@ func test_item_slot_frame_follows_rarity() -> void:
 
 
 func test_item_slot_icon_follows_slot_then_category() -> void:
-	assert_eq(KitStyle.icon_for({"slot_id": "gloves"}).texture, ArtLib.icon("slot_gloves"))
-	assert_eq(KitStyle.icon_for({"category": "material"}).texture, ArtLib.icon("cat_material"))
-	assert_eq(KitStyle.icon_for({"category": "other", "kind": "skill_book"}).texture, ArtLib.icon("cat_book"))
+	assert_eq(KitStyle.icon_for({"slot_id": "gloves", "category": "equip"}).texture.resource_path, "res://assets/art/items/gear_gloves.png", "有物品图就用物品图")
+	assert_not_null(KitStyle.icon_for({"category": "material"}).texture, "材料有图（物品图或类别图）")
+	assert_eq(KitStyle.icon_for({"category": "other", "kind": "skill_book"}).texture.resource_path, "res://assets/art/items/book_other.png")
 	assert_true(KitStyle.icon_for({"slot_id": "weapon"}).tint, "剪影图标要按品质染色")
 
 
@@ -152,29 +152,38 @@ func test_popup_opens_closes_and_runs_action_once() -> void:
 	assert_signal_emitted(popup, "closed")
 
 
-func test_bag_page_builds_tabs_with_counts_and_grid() -> void:
+func _bag_page(scene: String = "ready") -> BagPage:
 	var page := BagPage.new()
 	add_child_autofree(page)
 	page.popup = GamePopup.new()
 	add_child_autofree(page.popup)
-	page.bind(UiMock.state(), UiMock.content(), _flags())
-	assert_eq(page._tabs._buttons.size(), 4)
-	assert_eq((page._tabs._buttons["equip"] as Button).text, "装备 10")
-	assert_eq(page._grid.filled_count(), 10)
-	assert_string_contains(page._capacity_label.text, "18 / 20")
-	assert_eq(page._grid.slot_count(), 20, "初始容量 20 格，空格补满")
-	assert_string_contains((page._exp_chip.find_child("Text", true, false) as Label).text, "380")
+	page.bind(ProtoMock.state(scene), ProtoMock.content(), _flags())
+	return page
+
+
+func test_bag_page_merges_equipment_slots_and_a_5x4_grid() -> void:
+	var page := _bag_page()
+	assert_eq(page._tabs._buttons.size(), 4, "全部/装备/丹药/材料")
+	assert_eq(page._cells.size(), SlotConfig.all().size(), "6 个核心部位 + 2 个预留")
+	assert_eq(page._grid.slot_count(), 20, "5×4 格，空格补满")
+	assert_eq(page._grid.filled_count(), 10, "背包里 10 件（已穿戴的不占格）")
+	assert_string_contains(page._capacity_label.text, "10 / 20")
+	assert_false(page._wear_button.disabled, "背包里有更强的装备可一键穿戴")
 	page._tabs.select("material", true)
-	assert_eq(page._grid.filled_count(), 5)
+	assert_eq(page._grid.filled_count(), 1)
+
+
+func test_bag_page_auto_decompose_row_uses_the_spec_wording() -> void:
+	var page := _bag_page()
+	assert_eq(page._auto_label.text, "自动分解（仅未强化的白、绿装备）")
+	assert_eq(page._auto_text.text, "开")
+	var off := _bag_page("full")
+	assert_eq(off._auto_text.text, "关")
+	assert_string_contains(off._capacity_label.text, "20 / 20")
 
 
 func test_bag_page_batch_mode_selects_only_decomposable_and_confirms() -> void:
-	var page := BagPage.new()
-	add_child_autofree(page)
-	page.popup = GamePopup.new()
-	add_child_autofree(page.popup)
-	var flags := _flags()
-	page.bind(UiMock.state(), UiMock.content(), flags)
+	var page := _bag_page()
 	page._toggle_batch()
 	assert_true(page._batch_bar.visible)
 	watch_signals(page)
@@ -182,7 +191,6 @@ func test_bag_page_batch_mode_selects_only_decomposable_and_confirms() -> void:
 	for item in current:
 		page._grid._on_slot(item)
 	assert_eq(page._grid.selected_ids().size(), current.size())
-	assert_string_contains(page._selected_label.text, "强化经验")
 	assert_false(page._decompose_button.disabled)
 	page._confirm_batch()
 	assert_true(page.popup.visible)
@@ -194,15 +202,9 @@ func test_bag_page_batch_mode_selects_only_decomposable_and_confirms() -> void:
 	assert_eq((params[1] as Array).size(), current.size())
 
 
-func test_character_page_builds_every_configured_slot() -> void:
-	var page := CharacterPage.new()
-	add_child_autofree(page)
-	page.popup = GamePopup.new()
-	add_child_autofree(page.popup)
-	page.bind(UiMock.state(), UiMock.content(), _flags())
-	assert_eq(page._cells.size(), SlotConfig.all().size())
-	assert_eq((page._cells["weapon"] as EquipSlotCell).item.name, "青锋剑·良")
-	assert_true((page._cells["gloves"] as EquipSlotCell).item.is_empty())
+func test_bag_page_equip_slots_open_a_picker_that_requests_equip() -> void:
+	var page := _bag_page()
+	assert_eq(page.equip_cell("weapon").item.slug, "gear_major1_weapon_green")
 	watch_signals(page)
 	page._show_picker("weapon")
 	assert_true(page.popup.visible)
@@ -210,6 +212,15 @@ func test_character_page_builds_every_configured_slot() -> void:
 	row.pressed.emit()
 	assert_signal_emitted(page, "action_requested")
 	assert_eq((get_signal_parameters(page, "action_requested") as Array)[0], "equip")
+
+
+func test_wear_all_requests_every_better_piece() -> void:
+	var page := _bag_page()
+	watch_signals(page)
+	page._on_wear_all()
+	var params: Array = get_signal_parameters(page, "action_requested")
+	assert_eq(params[0], "equip_many")
+	assert_gt((params[1] as Array).size(), 0)
 
 
 func test_stage_page_power_status_uses_text_and_symbol() -> void:
@@ -221,26 +232,31 @@ func test_stage_page_power_status_uses_text_and_symbol() -> void:
 		assert_ne(str(level.symbol), "", "不能只靠颜色表达状态")
 
 
-func test_main_scene_in_mock_mode_builds_the_new_shell() -> void:
+const TABS := ["cultivate", "bag", "skill", "cave"]
+
+
+func test_main_scene_in_mock_mode_builds_the_four_tab_shell() -> void:
 	OS.set_environment("XIUXIAN_UI_MOCK", "1")
 	var scene: Node = load("res://scenes/main.tscn").instantiate()
 	add_child_autofree(scene)
 	await get_tree().process_frame
 	await get_tree().process_frame
 	OS.unset_environment("XIUXIAN_UI_MOCK")
-	for page in ["_home_page", "_stage_page", "_char_page", "_bag_page", "_skill_page", "_tab_bar", "_top_bar", "_backdrop", "_toast"]:
+	for page in ["_home_page", "_stage_page", "_battle_page", "_breakthrough_page", "_bag_page", "_skill_page", "_cave_page", "_tab_bar", "_top_bar", "_backdrop", "_toast"]:
 		assert_not_null(scene.get(page), page)
 	var tab_bar := scene.get("_tab_bar") as TabBarView
-	assert_eq(tab_bar._buttons.size(), 5, "修炼/历练/角色/行囊/功法")
-	assert_gte(TabBarView.HEIGHT, MIN_TOUCH)
-	for id in tab_bar._buttons:
+	assert_eq(tab_bar._buttons.size(), 4, "修炼/背包/功法/洞府")
+	for id in TABS:
+		assert_not_null(tab_bar.button_of(id), id)
 		assert_eq(tab_bar.button_of(id).size_flags_vertical, Control.SIZE_EXPAND_FILL, "页签铺满底栏高度")
-	assert_true(tab_bar.has_dot("character"), "有可强化的装备时角色页签有红点")
-	for page in ["cultivate", "adventure", "character", "bag", "skill"]:
+	assert_gte(TabBarView.HEIGHT, MIN_TOUCH)
+	for page in TABS:
 		scene.call("_show_page", page)
 		await get_tree().process_frame
-		for other in ["cultivate", "adventure", "character", "bag", "skill"]:
-			assert_eq((scene.get("_pages")[other] as Control).visible, other == page, "%s 只显示当前页" % other)
+		assert_true((scene.get("_pages")[page] as Control).visible, page)
+		for other in TABS:
+			if other != page:
+				assert_false((scene.get("_pages")[other] as Control).visible, "%s 只显示当前页" % other)
 	assert_false((scene.get_node("%BagPage") as Control).visible, "旧版节点保持隐藏")
 
 
@@ -355,7 +371,7 @@ func test_decompose_is_disabled_with_a_reason_for_worn_gear() -> void:
 			decompose = _find_button(popup.body, str(text))
 	assert_not_null(decompose)
 	assert_true(decompose.disabled)
-	assert_true(_popup_texts(popup.body).has("不能分解：已穿戴的装备不能分解，请先脱下。"))
+	assert_true(_popup_texts(popup.body).has("已穿戴，无法分解"))
 	var spare := _detail_for("sword_w")
 	for text in _popup_texts(spare.body):
 		if str(text).begins_with("分解 +"):

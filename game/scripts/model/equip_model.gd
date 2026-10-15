@@ -60,3 +60,20 @@ static func candidates_for(bag: BagModel, slot_id: String) -> Array[Dictionary]:
 			out.append(item)
 	BagModel.sort_items(out, "power")
 	return out
+
+
+## 「一键穿戴」：每个核心部位里战力比身上更高的最强候选，返回物品 id 列表（没有更强的部位不动）。
+static func best_upgrades(bag: BagModel) -> Array[String]:
+	var out: Array[String] = []
+	var slots := slots_of(bag)
+	for slot in SlotConfig.core():
+		if not bool(slot.get("supported", false)):
+			continue
+		var worn: Dictionary = slots.get(str(slot.id), {})
+		var candidates := candidates_for(bag, str(slot.id))
+		if candidates.is_empty():
+			continue
+		var best: Dictionary = candidates[0]
+		if int(best.get("power", 0)) > int(worn.get("power", 0)):
+			out.append(str(best.get("id", "")))
+	return out

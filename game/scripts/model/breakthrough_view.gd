@@ -91,3 +91,42 @@ static func success_summary(before: Dictionary, after: Dictionary) -> Dictionary
 		"power_delta": power_after - power_before,
 		"power_gain_percent": 0.0 if power_before <= 0 else (float(power_after - power_before) / float(power_before)) * 100.0,
 	}
+
+
+## 突破后新增的东西（突破前的 state + content）：每秒基础修为、大招倍率、新开放关卡。
+## 每项 {id, title, text}；没有变化的不返回。
+static func unlocks(state: Dictionary, content: Dictionary) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	var breakthrough: Dictionary = state.get("breakthrough", {}) if typeof(state.get("breakthrough", null)) == TYPE_DICTIONARY else {}
+	var preview: Dictionary = breakthrough.get("preview", {}) if typeof(breakthrough.get("preview", null)) == TYPE_DICTIONARY else {}
+	if preview.is_empty():
+		return out
+	var tick_before := 1.0
+	for realm in content.get("realms", []):
+		if typeof(realm) == TYPE_DICTIONARY and str((realm as Dictionary).get("slug", "")) == str(state.get("realmSlug", "")):
+			tick_before = maxf(float((realm as Dictionary).get("tickSeconds", 1.0)), 0.1)
+	var rate: Dictionary = state.get("cultivationRate", {}) if typeof(state.get("cultivationRate", null)) == TYPE_DICTIONARY else {}
+	var gain_before := float(rate.get("gainPerTick", 0)) / tick_before
+	var gain_after := float(preview.get("gainPerTick", 0)) / maxf(float(preview.get("tickSeconds", 1.0)), 0.1)
+	if not is_equal_approx(gain_before, gain_after):
+		out.append({"id": "gain", "title": "每秒修为", "text": "%s → %s" % [_plain(gain_before), _plain(gain_after)]})
+	var ult_before: Dictionary = state.get("ult", {}) if typeof(state.get("ult", null)) == TYPE_DICTIONARY else {}
+	var ult_after: Dictionary = preview.get("ult", {}) if typeof(preview.get("ult", null)) == TYPE_DICTIONARY else {}
+	var mult_before := float(ult_before.get("multBp", 0)) / 10000.0
+	var mult_after := float(ult_after.get("multBp", 0)) / 10000.0
+	if not is_equal_approx(mult_before, mult_after) and mult_after > 0.0:
+		var text := "普攻×%s → ×%s" % [_plain(mult_before), _plain(mult_after)] if mult_before > 0.0 else "无 → 普攻×%s" % _plain(mult_after)
+		out.append({"id": "ult", "title": "大招伤害", "text": text})
+	var stage_names: PackedStringArray = []
+	for stage in preview.get("newStages", []):
+		if typeof(stage) == TYPE_DICTIONARY:
+			stage_names.append(str((stage as Dictionary).get("name", "")))
+	if not stage_names.is_empty():
+		out.append({"id": "stages", "title": "新关卡", "text": "、".join(stage_names)})
+	return out
+
+
+static func _plain(value: float) -> String:
+	if is_equal_approx(value, roundf(value)):
+		return str(int(roundf(value)))
+	return ("%.2f" % value).trim_suffix("0")

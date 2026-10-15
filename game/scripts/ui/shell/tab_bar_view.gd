@@ -1,6 +1,6 @@
 class_name TabBarView
 extends Control
-## 底部五个页签：图标 + 文字 + 红点。选中项有金色底板。点击发 page_selected(页面 id)。
+## 底部页签（本版四个：修炼 / 背包 / 功法 / 洞府）：图标 + 文字 + 红点。选中项有金色底板。点击发 page_selected(页面 id)。
 ## 不叫 TabBar：避免和 Godot 内置的 TabBar 控件重名。图标在 assets/art/icons/tab_*.png（白色剪影，运行时染色）。
 
 signal page_selected(page: String)
@@ -55,7 +55,7 @@ func set_tabs(tabs: Array[Dictionary], selected: String) -> void:
 		button.flat = true
 		for state in ["normal", "hover", "pressed", "disabled", "focus"]:
 			button.add_theme_stylebox_override(state, StyleBoxEmpty.new())
-		button.pressed.connect(select.bind(id, true))
+		button.pressed.connect(_on_pressed.bind(id))
 		row.add_child(button)
 		_buttons[id] = button
 		var bg := TextureRect.new()
@@ -73,7 +73,7 @@ func set_tabs(tabs: Array[Dictionary], selected: String) -> void:
 		column.add_theme_constant_override("separation", 0)
 		column.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		button.add_child(column)
-		var icon := UiKit.icon(str(tab.get("icon", "")), 84, UiTokens.TEXT_MUTED)
+		var icon := UiKit.icon_from(ArtLib.icon_or(str(tab.get("icon", "")), str(tab.get("fallback", "ui_gate"))), 84, UiTokens.TEXT_MUTED)
 		icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		column.add_child(icon)
 		_icons[id] = icon
@@ -91,6 +91,12 @@ func set_tabs(tabs: Array[Dictionary], selected: String) -> void:
 		_dots[id] = dot
 	current = selected
 	_refresh()
+
+
+## 点页签：即使已在这个页签也发信号（修炼页签下的历练/首领战/突破页要靠它回到修炼主页）。
+func _on_pressed(id: String) -> void:
+	select(id, false)
+	page_selected.emit(id)
 
 
 func select(id: String, emit: bool = false) -> void:

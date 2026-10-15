@@ -1,42 +1,66 @@
 class_name HomePage
-extends ScrollContainer
-## 修炼页（首页）：阵法 + 境界、修为进度、突破大按钮、挂机收益、下一步建议。
-## 只负责显示和发信号：突破、跳转页面、选关卡都交给外壳处理。
+extends VBoxContainer
+## 修炼页（首页，按设计稿 01）：莲台人物、右侧「历练」入口、当前一波的进度与击杀/掉落反馈、
+## 修为条 + 「突破」金色大按钮、挂机收益卡片。
+## 只负责显示和发信号：突破流程、历练、跳页都交给外壳处理。
+## 波次进度由服务器每次心跳给出，两次心跳之间按本地经过的秒数推进（只影响显示）。
 
 signal breakthrough_requested
+signal adventure_requested
 signal page_requested(page: String)
-signal stage_requested(slug: String)
 
-var _root: VBoxContainer
+const FEED_SECONDS := 9.0
+const FEED_MAX := 3
+
+var _hero: Control
 var _ring: TextureRect
-var _realm: Label
-var _chance: Label
+var _float_layer: Control
+var _adventure: Button
+var _adventure_caption: Label
+var _adventure_dot: Control
+var _wave_title: Label
+var _wave_text: Label
+var _wave_bar_host: Control
+var _wave_bar: Control
+var _feed_box: VBoxContainer
 var _cult_value: Label
-var _bar_host: VBoxContainer
-var _breakthrough: Button
-var _hint: Label
-var _banner: Label
-var _extras: VBoxContainer
+var _cult_status: Label
+var _cult_bar_host: Control
+var _cta: Button
+var _cta_dot: Control
+var _idle_title: Label
+var _idle_text: Label
 var _spin: Tween
+var _state: Dictionary = {}
+var _elapsed := 0.0
+var _feed: Array[Dictionary] = []
+var _shown_ratio := -1.0
+var _shown_text := ""
 
 
 func _init() -> void:
-	horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	add_theme_constant_override("separation", UiTokens.SP_2)
 	size_flags_vertical = Control.SIZE_EXPAND_FILL
 	size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_root = UiKit.vbox(UiTokens.SP_3)
-	_root.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	add_child(_root)
 	_build_hero()
-	_extras = UiKit.vbox(UiTokens.SP_2)
-	_root.add_child(_extras)
+	_build_wave_card()
+	_build_cultivation_row()
+	_build_cta()
+	_build_idle_card()
+
+
+func _ready() -> void:
+	_spin = create_tween().set_loops()
+	_spin.tween_property(_ring, "rotation", TAU, 90.0).from(0.0)
 
 
 func _build_hero() -> void:
-	var hero := Control.new()
-	hero.custom_minimum_size = Vector2(0, 640)
-	hero.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_root.add_child(hero)
+	_hero = Control.new()
+	_hero.name = "Hero"
+	_hero.custom_minimum_size = Vector2(0, 420)
+	_hero.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_hero.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_hero)
 	var glow := TextureRect.new()
 	glow.texture = ArtLib.ui("glow_soft")
 	glow.set_anchors_preset(Control.PRESET_CENTER)
@@ -47,153 +71,308 @@ func _build_hero() -> void:
 	glow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	glow.modulate = Color(UiTokens.GOLD, 0.28)
 	glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	hero.add_child(glow)
+	_hero.add_child(glow)
 	_ring = TextureRect.new()
 	_ring.texture = ArtLib.ui("formation")
 	_ring.set_anchors_preset(Control.PRESET_CENTER)
-	_ring.offset_left = -300
-	_ring.offset_right = 300
-	_ring.offset_top = -300
-	_ring.offset_bottom = 300
-	_ring.pivot_offset = Vector2(300, 300)
+	_ring.offset_left = -290
+	_ring.offset_right = 290
+	_ring.offset_top = -290
+	_ring.offset_bottom = 290
+	_ring.pivot_offset = Vector2(290, 290)
 	_ring.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_ring.modulate = Color(1, 1, 1, 0.9)
 	_ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	hero.add_child(_ring)
+	_hero.add_child(_ring)
 	var avatar := UiKit.icon("avatar_meditate", 250, UiTokens.GOLD_HOVER)
 	avatar.set_anchors_preset(Control.PRESET_CENTER)
 	avatar.offset_left = -125
 	avatar.offset_right = 125
-	avatar.offset_top = -170
-	avatar.offset_bottom = 80
-	hero.add_child(avatar)
-	_realm = UiKit.label("—", UiTokens.FS_HUGE, UiTokens.TEXT, HORIZONTAL_ALIGNMENT_CENTER)
-	_realm.add_theme_font_override("font", ArtLib.title_font())
-	_realm.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
-	_realm.add_theme_constant_override("outline_size", 14)
-	_realm.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	_realm.offset_top = -190
-	_realm.offset_bottom = -90
-	hero.add_child(_realm)
-	_chance = UiKit.label("", UiTokens.FS_CAPTION, UiTokens.JADE, HORIZONTAL_ALIGNMENT_CENTER)
-	_chance.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	_chance.offset_top = -86
-	_chance.offset_bottom = -20
-	_chance.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
-	_chance.add_theme_constant_override("outline_size", 8)
-	hero.add_child(_chance)
+	avatar.offset_top = -150
+	avatar.offset_bottom = 100
+	_hero.add_child(avatar)
+	_float_layer = Control.new()
+	_float_layer.name = "FloatLayer"
+	_float_layer.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_float_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_hero.add_child(_float_layer)
+	_hero.add_child(_build_adventure_entry())
 
+
+## 右侧「历练」入口：圆形按钮（复用剑图标 tab_adventure）+ 红点 + 标牌 + 关卡副文字。
+func _build_adventure_entry() -> Control:
+	var holder := VBoxContainer.new()
+	holder.name = "AdventureEntry"
+	holder.set_anchors_preset(Control.PRESET_CENTER_RIGHT)
+	holder.offset_left = -190
+	holder.offset_right = 0
+	holder.offset_top = -10
+	holder.offset_bottom = 190
+	holder.add_theme_constant_override("separation", 6)
+	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_adventure = Button.new()
+	_adventure.name = "AdventureButton"
+	_adventure.custom_minimum_size = Vector2(150, 150)
+	_adventure.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_adventure.focus_mode = Control.FOCUS_NONE
+	var disc := KitStyle.box(Color(0.1, 0.27, 0.22, 0.95), UiTokens.GOLD, 5, 999)
+	for state in ["normal", "hover", "disabled", "focus"]:
+		_adventure.add_theme_stylebox_override(state, disc if state != "focus" else StyleBoxEmpty.new())
+	_adventure.add_theme_stylebox_override("pressed", KitStyle.box(Color(0.14, 0.34, 0.28, 0.98), UiTokens.GOLD_HOVER, 5, 999))
+	var sword := UiKit.icon("tab_adventure", 96, UiTokens.GOLD_HOVER)
+	sword.set_anchors_preset(Control.PRESET_CENTER)
+	sword.offset_left = -48
+	sword.offset_right = 48
+	sword.offset_top = -48
+	sword.offset_bottom = 48
+	_adventure.add_child(sword)
+	_adventure_dot = UiKit.reddot()
+	_adventure_dot.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	_adventure_dot.offset_left = -38
+	_adventure_dot.offset_right = -2
+	_adventure_dot.offset_top = 2
+	_adventure_dot.offset_bottom = 38
+	_adventure.add_child(_adventure_dot)
+	_adventure.pressed.connect(func() -> void: adventure_requested.emit())
+	holder.add_child(_adventure)
+	var plate := PanelContainer.new()
+	plate.add_theme_stylebox_override("panel", ArtLib.nine("chip"))
+	plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	plate.add_child(UiKit.label("历练", UiTokens.FS_CAPTION, UiTokens.GOLD_HOVER, HORIZONTAL_ALIGNMENT_CENTER))
+	holder.add_child(plate)
+	_adventure_caption = UiKit.label("", UiTokens.FS_MICRO, UiTokens.TEXT_MUTED, HORIZONTAL_ALIGNMENT_CENTER)
+	_adventure_caption.clip_text = true
+	holder.add_child(_adventure_caption)
+	return holder
+
+
+func _build_wave_card() -> void:
 	var card := UiKit.card()
-	_root.add_child(card.panel)
+	card.panel.name = "WaveCard"
+	add_child(card.panel)
 	var body := card.body as VBoxContainer
+	var head := UiKit.hbox(UiTokens.SP_2)
+	body.add_child(head)
+	_wave_title = UiKit.label("", UiTokens.FS_BODY, UiTokens.GOLD)
+	_wave_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_wave_title.clip_text = true
+	head.add_child(_wave_title)
+	_wave_text = UiKit.label("", UiTokens.FS_CAPTION, UiTokens.TEXT, HORIZONTAL_ALIGNMENT_RIGHT)
+	head.add_child(_wave_text)
+	_wave_bar_host = Control.new()
+	_wave_bar_host.custom_minimum_size = Vector2(0, 44)
+	_wave_bar_host.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	body.add_child(_wave_bar_host)
+	_feed_box = UiKit.vbox(2)
+	_feed_box.name = "Feed"
+	body.add_child(_feed_box)
+
+
+func _build_cultivation_row() -> void:
 	var row := UiKit.hbox(UiTokens.SP_2)
-	body.add_child(row)
-	row.add_child(UiKit.icon("res_cultivation", 52, UiTokens.JADE))
-	_cult_value = UiKit.label("", UiTokens.FS_BODY_L, UiTokens.TEXT)
-	_cult_value.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	add_child(row)
+	_cult_value = UiKit.label("", UiTokens.FS_CAPTION, UiTokens.TEXT)
+	_cult_value.name = "CultivationValue"
 	row.add_child(_cult_value)
-	_bar_host = UiKit.vbox(0)
-	body.add_child(_bar_host)
-	_hint = UiKit.wrap_label("", UiTokens.FS_CAPTION, UiTokens.TEXT_MUTED)
-	_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	body.add_child(_hint)
-	_breakthrough = UiKit.button("突破境界", MainTheme.VAR_PRIMARY, UiTokens.H_CTA + 16)
-	_breakthrough.pressed.connect(func() -> void: breakthrough_requested.emit())
-	body.add_child(_breakthrough)
-	_banner = UiKit.wrap_label("", UiTokens.FS_BODY, UiTokens.GOLD)
-	_banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_banner.visible = false
-	body.add_child(_banner)
+	_cult_bar_host = Control.new()
+	_cult_bar_host.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_cult_bar_host.custom_minimum_size = Vector2(0, 44)
+	_cult_bar_host.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(_cult_bar_host)
+	_cult_status = UiKit.label("", UiTokens.FS_CAPTION, UiTokens.GOLD, HORIZONTAL_ALIGNMENT_RIGHT)
+	_cult_status.custom_minimum_size = Vector2(150, 0)
+	row.add_child(_cult_status)
 
 
-func _ready() -> void:
-	_spin = create_tween().set_loops()
-	_spin.tween_property(_ring, "rotation", TAU, 90.0).from(0.0)
+func _build_cta() -> void:
+	_cta = UiKit.cta_button("突破", "突破至 —", MainTheme.VAR_PRIMARY, 168)
+	_cta.name = "BreakthroughButton"
+	_cta.pressed.connect(func() -> void: breakthrough_requested.emit())
+	_cta_dot = UiKit.reddot()
+	_cta_dot.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	_cta_dot.offset_left = -50
+	_cta_dot.offset_right = -14
+	_cta_dot.offset_top = 10
+	_cta_dot.offset_bottom = 46
+	_cta_dot.visible = false
+	_cta.add_child(_cta_dot)
+	add_child(_cta)
 
 
-## 供外壳读：突破按钮。
+func _build_idle_card() -> void:
+	var card := PanelContainer.new()
+	card.name = "IdleCard"
+	card.add_theme_stylebox_override("panel", ArtLib.nine("panel_card"))
+	add_child(card)
+	var row := UiKit.hbox(UiTokens.SP_2)
+	card.add_child(row)
+	row.add_child(UiKit.icon("res_cultivation", 64, UiTokens.JADE))
+	var text := UiKit.vbox(0)
+	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(text)
+	_idle_title = UiKit.label("挂机修炼中", UiTokens.FS_BODY, UiTokens.TEXT)
+	text.add_child(_idle_title)
+	_idle_text = UiKit.label("", UiTokens.FS_MICRO, UiTokens.TEXT_MUTED)
+	text.add_child(_idle_text)
+
+
+func _process(delta: float) -> void:
+	if not visible or _state.is_empty():
+		return
+	_elapsed += delta
+	_refresh_wave_bar()
+	_expire_feed(delta)
+
+
+## 供外壳读：突破入口按钮。
 func breakthrough_button() -> Button:
-	return _breakthrough
+	return _cta
 
 
-func show_banner(text: String, good: bool) -> void:
-	_banner.text = text
-	_banner.add_theme_color_override("font_color", UiTokens.GOLD if good else UiTokens.DANGER)
-	_banner.visible = not text.is_empty()
+func adventure_button() -> Button:
+	return _adventure
 
 
-func set_busy(value: bool) -> void:
-	_breakthrough.disabled = value or _breakthrough.disabled
-
-
-## 状态变化后重画。realm_name_of(slug) 由外壳提供；suggestions 是 {stage, upgrades, enhanceable}。
-func bind(state: Dictionary, content: Dictionary, next_realm_name: String, suggestions: Dictionary, busy: bool) -> void:
-	var breakthrough: Dictionary = state.get("breakthrough", {})
+## 状态变化后重画。next_realm_name 由外壳提供。
+func bind(state: Dictionary, content: Dictionary, next_realm_name: String) -> void:
+	_state = state
+	_elapsed = 0.0
+	var breakthrough: Dictionary = state.get("breakthrough", {}) if typeof(state.get("breakthrough", null)) == TYPE_DICTIONARY else {}
+	var view := BreakthroughView.build(state, next_realm_name)
 	var cultivation := float(state.get("cultivation", 0))
 	var cost := float(breakthrough.get("cost", 0))
-	var next_slug := str(breakthrough.get("nextSlug", ""))
-	var gain := float((state.get("cultivationRate", {}) as Dictionary).get("gainPerTick", 0))
-	_realm.text = str(state.get("realmName", ""))
-	_chance.text = "" if next_slug.is_empty() else "突破成功率 %d%%" % int(round(float(breakthrough.get("rateBp", 0)) / 100.0))
-	UiKit.clear(_bar_host)
-	var ratio := 0.0
-	if gain <= 0.0:
-		_cult_value.text = "修为 %s" % CultivationFormat.amount(cultivation)
-		_hint.text = "后台还没设置修炼速度，现在得不到修为。"
-		_breakthrough.disabled = true
-		_breakthrough.text = "突破境界"
-	elif next_slug.is_empty():
-		_cult_value.text = "修为 %s" % CultivationFormat.amount(cultivation)
-		_hint.text = "已至当前最高境界"
-		_breakthrough.disabled = true
-		_breakthrough.text = "已圆满"
-		ratio = 1.0
+	if view.has_next:
+		_cult_value.text = "修为 %s / %s" % [OfflineView.grouped(cultivation), OfflineView.grouped(cost)]
+		_cult_status.text = "已满" if view.cultivation_ok else "还差 %s" % OfflineView.grouped(cost - cultivation)
+		UiKit.set_cta(_cta, "突破", "突破至 %s" % next_realm_name)
+		_cta.disabled = false
 	else:
-		var can_break := cultivation >= cost
-		_cult_value.text = "修为 %s / %s" % [CultivationFormat.amount(cultivation), CultivationFormat.amount(cost)]
-		_hint.text = "修为已足，可尝试突破「%s」" % next_realm_name if can_break else "距离「%s」还差 %s" % [next_realm_name, CultivationFormat.amount(cost - cultivation)]
-		_breakthrough.disabled = not can_break or busy
-		_breakthrough.text = "突破境界"
-		ratio = clampf(cultivation / maxf(cost, 1.0), 0.0, 1.0)
-	_bar_host.add_child(UiKit.ratio_bar(ratio, "bar_fill_gold" if ratio >= 1.0 else "bar_fill_jade", 52))
-	_render_extras(state, content, gain, suggestions)
+		_cult_value.text = "修为 %s" % OfflineView.grouped(cultivation)
+		_cult_status.text = "已圆满"
+		UiKit.set_cta(_cta, "已圆满", "当前已是最高境界")
+		_cta.disabled = true
+	UiKit.clear(_cult_bar_host)
+	var bar := UiKit.ratio_bar(view.cultivation_ratio if view.has_next else 1.0, "bar_fill_gold" if view.cultivation_ratio >= 1.0 else "bar_fill_jade", 44)
+	bar.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_cult_bar_host.add_child(bar)
+	_cta_dot.visible = view.can_start
+	_adventure_caption.text = WaveView.stage_caption(state)
+	_adventure_dot.visible = true
+	_shown_ratio = -1.0
+	_refresh_wave_bar()
+	_render_idle(state, content)
 
 
-func _render_extras(state: Dictionary, content: Dictionary, gain: float, suggestions: Dictionary) -> void:
-	UiKit.clear(_extras)
-	var income := UiKit.card("挂机收益")
-	_extras.add_child(income.panel)
-	if gain <= 0:
-		income.body.add_child(UiKit.wrap_label("后台还没设置修炼速度，现在得不到修为。", UiTokens.FS_CAPTION, UiTokens.WARNING))
-	else:
-		var row := UiKit.hbox(UiTokens.SP_2)
-		income.body.add_child(row)
-		row.add_child(UiKit.icon("res_cultivation", 48, UiTokens.JADE))
-		row.add_child(UiKit.label("每秒 %s · 每小时约 %s" % [CultivationFormat.amount(gain), CultivationFormat.amount(gain * 3600.0)], UiTokens.FS_BODY, UiTokens.TEXT))
-	var globals: Dictionary = content.get("globals", {}) if typeof(content.get("globals", {})) == TYPE_DICTIONARY else {}
+func _render_idle(state: Dictionary, content: Dictionary) -> void:
+	var rate: Dictionary = state.get("cultivationRate", {}) if typeof(state.get("cultivationRate", null)) == TYPE_DICTIONARY else {}
+	var gain := float(rate.get("gainPerTick", 0))
+	var bonus := float(rate.get("bonusBp", 0)) / 10000.0
+	var tick := 1.0
+	for realm in content.get("realms", []):
+		if typeof(realm) == TYPE_DICTIONARY and str((realm as Dictionary).get("slug", "")) == str(state.get("realmSlug", "")):
+			tick = maxf(float((realm as Dictionary).get("tickSeconds", 1.0)), 0.1)
+	var globals: Dictionary = content.get("globals", {}) if typeof(content.get("globals", null)) == TYPE_DICTIONARY else {}
 	var cap := float(globals.get("offlineCapSeconds", 0))
-	if cap > 0:
-		income.body.add_child(UiKit.label("离线最多累计 %s 小时" % ("%.1f" % (cap / 3600.0)).trim_suffix(".0"), UiTokens.FS_CAPTION, UiTokens.TEXT_MUTED))
-	var next := UiKit.card("下一步")
-	_extras.add_child(next.panel)
-	var stage: Dictionary = suggestions.get("stage", {})
-	if not stage.is_empty():
-		var recommended := int(stage.get("recommendedPower", 0))
-		var text := "挑战 %s" % str(stage.get("displayName", ""))
-		if recommended > 0:
-			text += "（推荐战力 %d）" % recommended
-		var go_stage := UiKit.button(text, MainTheme.VAR_SECONDARY)
-		go_stage.pressed.connect(func() -> void: stage_requested.emit(str(stage.get("slug", ""))))
-		next.body.add_child(go_stage)
-	var upgrades := int(suggestions.get("upgrades", 0))
-	if upgrades > 0:
-		var go_gear := UiKit.button("行囊里有 %d 件比身上更强的装备，去换装" % upgrades, MainTheme.VAR_SECONDARY)
-		go_gear.pressed.connect(func() -> void: page_requested.emit("character"))
-		next.body.add_child(go_gear)
-	var enhanceable := int(suggestions.get("enhanceable", 0))
-	if enhanceable > 0:
-		var go_enhance := UiKit.button("有 %d 件身上的装备可以强化或突破" % enhanceable, MainTheme.VAR_JADE)
-		go_enhance.pressed.connect(func() -> void: page_requested.emit("character"))
-		next.body.add_child(go_enhance)
-	if stage.is_empty() and upgrades == 0 and enhanceable == 0:
-		next.body.add_child(UiKit.label("暂时没有建议，继续修炼吧。", UiTokens.FS_CAPTION, UiTokens.TEXT_MUTED))
+	if gain <= 0.0:
+		_idle_text.text = "后台还没设置修炼速度，现在得不到修为。"
+		return
+	var per_second := gain * (1.0 + bonus) / tick
+	var text := "每秒修为 +%s" % _plain_number(per_second)
+	if cap > 0.0:
+		text += "    离线最多累计 %s" % OfflineView.duration_text(int(cap))
+	_idle_text.text = text
+
+
+static func _plain_number(value: float) -> String:
+	if is_equal_approx(value, roundf(value)):
+		return str(int(roundf(value)))
+	return ("%.2f" % value).trim_suffix("0")
+
+
+func _refresh_wave_bar() -> void:
+	var online := true
+	var last: Variant = _state.get("lastSettle", null)
+	if typeof(last) == TYPE_DICTIONARY and last.has("online"):
+		online = bool((last as Dictionary).get("online", true)) or int((last as Dictionary).get("seconds", 0)) == 0
+	var shown := WaveView.display(_state, _elapsed if online else 0.0)
+	var wave: Dictionary = _state.get("wave", {}) if typeof(_state.get("wave", null)) == TYPE_DICTIONARY else {}
+	_wave_title.text = str(wave.get("stageName", "")) if bool(shown.available) else "未开启"
+	var text := str(shown.text)
+	if text == _shown_text and absf(float(shown.ratio) - _shown_ratio) < 0.004:
+		return
+	_shown_text = text
+	_shown_ratio = float(shown.ratio)
+	_wave_text.text = text
+	UiKit.clear(_wave_bar_host)
+	_wave_bar = UiKit.ratio_bar(float(shown.ratio), "bar_fill_jade", 44)
+	_wave_bar.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_wave_bar_host.add_child(_wave_bar)
+
+
+## 击杀 / 掉落反馈：卡片里留最近几条，英雄区飘字。lines 来自 WaveView.feedback。
+func show_feedback(lines: Array[Dictionary]) -> void:
+	for line in lines:
+		_feed.append({"text": str(line.get("text", "")), "kind": str(line.get("kind", "")), "quality": str(line.get("quality", "")), "left": FEED_SECONDS})
+		_float_text(line)
+	while _feed.size() > FEED_MAX:
+		_feed.pop_front()
+	_render_feed()
+
+
+func feed_texts() -> Array[String]:
+	var out: Array[String] = []
+	for line in _feed:
+		out.append(str(line.text))
+	return out
+
+
+func _expire_feed(delta: float) -> void:
+	if _feed.is_empty():
+		return
+	var changed := false
+	for line in _feed:
+		line["left"] = float(line.left) - delta
+	while not _feed.is_empty() and float(_feed[0].left) <= 0.0:
+		_feed.pop_front()
+		changed = true
+	if changed:
+		_render_feed()
+
+
+func _render_feed() -> void:
+	UiKit.clear(_feed_box)
+	for line in _feed:
+		var label := UiKit.label(str(line.text), UiTokens.FS_MICRO, _feed_color(str(line.kind), str(line.quality)))
+		label.clip_text = true
+		_feed_box.add_child(label)
+
+
+static func _feed_color(kind: String, quality: String) -> Color:
+	match kind:
+		"kill":
+			return UiTokens.JADE
+		"warn", "death":
+			return UiTokens.WARNING
+		"drop":
+			return UiTokens.rarity_color({"white": 0, "green": 1, "blue": 2, "purple": 3, "orange": 4, "red": 5}.get(quality, 1) as int).lightened(0.15)
+	return UiTokens.TEXT
+
+
+func _float_text(line: Dictionary) -> void:
+	if _float_layer == null or not is_inside_tree():
+		return
+	var label := UiKit.label(str(line.get("text", "")), UiTokens.FS_CAPTION, _feed_color(str(line.get("kind", "")), str(line.get("quality", ""))), HORIZONTAL_ALIGNMENT_CENTER)
+	label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
+	label.add_theme_constant_override("outline_size", 8)
+	label.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	label.offset_left = -420
+	label.offset_right = 420
+	var start_y := 60.0 + float(_float_layer.get_child_count() % 3) * 52.0
+	label.offset_top = start_y
+	label.offset_bottom = start_y + 56.0
+	_float_layer.add_child(label)
+	var tween := create_tween().set_parallel(true)
+	tween.tween_property(label, "offset_top", start_y - 70.0, 2.4)
+	tween.tween_property(label, "offset_bottom", start_y - 14.0, 2.4)
+	tween.tween_property(label, "modulate:a", 0.0, 2.4).set_delay(0.8)
+	tween.chain().tween_callback(label.queue_free)

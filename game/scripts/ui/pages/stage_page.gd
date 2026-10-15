@@ -1,10 +1,13 @@
 class_name StagePage
 extends VBoxContainer
-## 历练页：关卡列表（带战力对比）+ 首领详情（属性、掉落预览）+ 挑战按钮；第二个页签是文字战报。
-## 战报控件复用 BattleReport，内容由 BattleReportBuilder 从服务器返回的 battle.log 生成。
+## 历练页（从修炼页「历练」入口进入）：挂机刷怪地点选择、关卡列表（带战力对比）、首领详情（属性、掉落预览）
+## 和挑战按钮。点「挑战」进入首领战界面（BattlePage）；战报在首领战界面里，不在这一页。
 
 signal stage_selected(slug: String)
 signal challenge_requested(slug: String)
+## slug 为空串 = 恢复“自动（当前境界最高关卡）”。
+signal idle_stage_requested(slug: String)
+signal back_requested
 
 var _state: Dictionary = {}
 var _content: Dictionary = {}
@@ -12,23 +15,26 @@ var _stages: Array[Dictionary] = []
 var selected := ""
 var busy := false
 
-var _tabs: SegTabs
 var _stage_view: ScrollContainer
 var _stage_box: VBoxContainer
-var _report_view: VBoxContainer
-var _report: BattleReport
-var _report_title: Label
-var _report_loot: Label
-var _report_empty: Label
 
 
 func _init() -> void:
 	add_theme_constant_override("separation", UiTokens.SP_2)
 	size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_tabs = SegTabs.new()
-	_tabs.set_tabs([{"id": "stages", "name": "关卡"}, {"id": "report", "name": "战报"}], "stages")
-	_tabs.tab_changed.connect(_on_tab)
-	add_child(_tabs)
+	var top := UiKit.hbox(UiTokens.SP_1)
+	var back := UiKit.button("‹ 返回", MainTheme.VAR_GHOST, UiTokens.H_TOUCH)
+	back.name = "BackButton"
+	back.custom_minimum_size = Vector2(200, UiTokens.H_TOUCH)
+	back.pressed.connect(func() -> void: back_requested.emit())
+	top.add_child(back)
+	var title_box := UiKit.page_title("历练")
+	title_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	top.add_child(title_box)
+	var balance := Control.new()
+	balance.custom_minimum_size = Vector2(200, 0)
+	top.add_child(balance)
+	add_child(top)
 	_stage_view = ScrollContainer.new()
 	_stage_view.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_stage_view.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -36,29 +42,6 @@ func _init() -> void:
 	_stage_box = UiKit.vbox(UiTokens.SP_2)
 	_stage_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_stage_view.add_child(_stage_box)
-	_build_report_view()
-
-
-func _build_report_view() -> void:
-	_report_view = UiKit.vbox(UiTokens.SP_2)
-	_report_view.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_report_view.visible = false
-	add_child(_report_view)
-	var card := UiKit.card()
-	card.panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_report_view.add_child(card.panel)
-	_report_title = UiKit.label("", UiTokens.FS_BODY_L, UiTokens.TEXT)
-	card.body.add_child(_report_title)
-	_report_loot = UiKit.wrap_label("", UiTokens.FS_CAPTION, UiTokens.JADE)
-	card.body.add_child(_report_loot)
-	card.body.add_child(UiKit.divider())
-	_report_empty = UiKit.wrap_label("还没有战斗记录。去「关卡」里挑战一个首领，战报会出现在这里。", UiTokens.FS_CAPTION, UiTokens.TEXT_MUTED)
-	card.body.add_child(_report_empty)
-	_report = BattleReport.new()
-	_report.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_report.custom_minimum_size = Vector2(0, 600)
-	_report.visible = false
-	card.body.add_child(_report)
 
 
 func bind(state: Dictionary, content: Dictionary, stages: Array[Dictionary], selected_slug: String) -> void:
@@ -74,37 +57,6 @@ func set_busy(value: bool) -> void:
 	_render_stages()
 
 
-func _on_tab(tab_id: String) -> void:
-	_stage_view.visible = tab_id == "stages"
-	_report_view.visible = tab_id == "report"
-
-
-func show_report_tab() -> void:
-	_tabs.select("report", true)
-	_on_tab("report")
-
-
-## 战斗结束后调用：生成并显示战报，标题写胜负，下面写掉落。
-func show_result(battle: Dictionary, boss_name: String, loot_text: String) -> void:
-	var lines := BattleReportBuilder.build(battle, boss_name, int(_state.get("hp", 0)), _boss_hp(boss_name))
-	BattleReportBuilder.render(_report, lines)
-	var won := bool(battle.get("win", false))
-	_report_title.text = ("胜利 · %s" if won else "失败 · %s") % boss_name
-	_report_title.add_theme_color_override("font_color", UiTokens.SUCCESS if won else UiTokens.DANGER)
-	_report_loot.text = loot_text
-	_report_empty.visible = false
-	_report.visible = true
-	show_report_tab()
-
-
-func _boss_hp(boss_name: String) -> int:
-	for stage in _stages:
-		for boss in stage.get("bosses", []):
-			if typeof(boss) == TYPE_DICTIONARY and str((boss as Dictionary).get("name", "")) == boss_name:
-				return int((boss as Dictionary).get("hp", 0))
-	return 0
-
-
 func _render_stages() -> void:
 	UiKit.clear(_stage_box)
 	var power := int(_state.get("power", 0))
@@ -118,6 +70,7 @@ func _render_stages() -> void:
 	row.add_child(realm)
 	row.add_child(UiKit.icon("res_power", 48, UiTokens.GOLD))
 	row.add_child(UiKit.label("我的战力 %d" % power, UiTokens.FS_BODY_L, UiTokens.GOLD, HORIZONTAL_ALIGNMENT_RIGHT))
+	_stage_box.add_child(_idle_card())
 	if _stages.is_empty():
 		_stage_box.add_child(UiKit.wrap_label("这个境界还没有可以打的关卡。", UiTokens.FS_BODY, UiTokens.TEXT_MUTED))
 		return
@@ -126,6 +79,34 @@ func _render_stages() -> void:
 	var current := _find(selected)
 	if not current.is_empty():
 		_stage_box.add_child(_boss_card(current, power))
+
+
+## 挂机刷怪地点：服务器给出可选关卡（wave.selectable）和当前选择（wave.chosenStageSlug，null = 自动）。
+func _idle_card() -> Control:
+	var wave: Dictionary = _state.get("wave", {}) if typeof(_state.get("wave", null)) == TYPE_DICTIONARY else {}
+	var card := UiKit.card("挂机刷怪地点")
+	card.panel.name = "IdleStageCard"
+	var chosen := BagModel.plain(wave.get("chosenStageSlug", null))
+	var options: Array = wave.get("selectable", [])
+	if options.is_empty():
+		(card.body as VBoxContainer).add_child(UiKit.wrap_label("这个境界还没有可以刷怪的关卡。", UiTokens.FS_CAPTION, UiTokens.TEXT_MUTED))
+		return card.panel
+	var auto := UiKit.button("自动（最高关卡）" + ("  ✔" if chosen.is_empty() else ""), MainTheme.VAR_CHOICE_SELECTED if chosen.is_empty() else MainTheme.VAR_CHOICE, 96)
+	auto.name = "IdleAuto"
+	auto.pressed.connect(func() -> void: idle_stage_requested.emit(""))
+	card.body.add_child(auto)
+	for option in options:
+		if typeof(option) != TYPE_DICTIONARY:
+			continue
+		var slug := str((option as Dictionary).get("slug", ""))
+		var on := slug == chosen
+		var text := "%s · %s" % [str((option as Dictionary).get("name", slug)), str((option as Dictionary).get("monsterName", ""))]
+		var button := UiKit.button(text + ("  ✔" if on else ""), MainTheme.VAR_CHOICE_SELECTED if on else MainTheme.VAR_CHOICE, 96)
+		button.name = "Idle_%s" % slug
+		button.disabled = busy
+		button.pressed.connect(func() -> void: idle_stage_requested.emit(slug))
+		card.body.add_child(button)
+	return card.panel
 
 
 func _find(slug: String) -> Dictionary:

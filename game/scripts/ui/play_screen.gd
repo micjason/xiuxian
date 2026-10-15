@@ -1,22 +1,34 @@
 extends Control
-## 游戏主界面外壳：背景、顶部栏、底部页签、五个页面（修炼/历练/角色/行囊/功法）、通用弹层、登录层。
+## 游戏主界面外壳：背景、顶部栏（头像/境界/总战力/修为）、底部四个页签（修炼 / 背包 / 功法 / 洞府）、
+## 页面、通用弹层、离线收益弹窗、突破成功弹窗、登录层。
+## 修炼页里有「历练」入口（关卡）→ 首领战界面；「突破」按钮 → 境界突破流程界面；它们不占页签。
 ## 界面全部由代码搭建，美术来自 ArtLib（res://assets/art/）；main.tscn 里的旧节点保留但隐藏
 ## （场景测试按名字检查它们），数据和操作由这里统一处理：真实模式走 PlayerApi，演示模式走 UiMock。
+## 前台心跳：定时拉 /me/state（服务器据此判在线、结算击杀与掉落）；应用切到后台就停，回前台立刻补一次。
 
 const PAGE_CULTIVATE := "cultivate"
 const PAGE_ADVENTURE := "adventure"
+const PAGE_BATTLE := "battle"
+const PAGE_BREAKTHROUGH := "breakthrough"
 const PAGE_BAG := "bag"
 const PAGE_SKILL := "skill"
-const PAGE_CHARACTER := "character"
+const PAGE_CAVE := "cave"
 
 ## 页面 → 背景画。
 const PAGE_BACKGROUNDS := {
 	PAGE_CULTIVATE: "home",
 	PAGE_ADVENTURE: "stage_2",
-	PAGE_CHARACTER: "character",
+	PAGE_BATTLE: "battle",
+	PAGE_BREAKTHROUGH: "breakthrough",
 	PAGE_BAG: "bag",
 	PAGE_SKILL: "skill",
+	PAGE_CAVE: "character",
 }
+## 不在页签里的页面 → 高亮哪个页签（都算「修炼」）。
+const TAB_OF := {PAGE_ADVENTURE: PAGE_CULTIVATE, PAGE_BATTLE: PAGE_CULTIVATE, PAGE_BREAKTHROUGH: PAGE_CULTIVATE}
+## 心跳：服务器 onlineGapSeconds（默认 15 秒）内有请求才算在线，所以间隔要比它短。
+const HEARTBEAT_MARGIN := 3.0
+const HEARTBEAT_DEFAULT := 12.0
 
 ## 运行时主题由 MainTheme.make() 导出（scripts/dev/export_theme.gd），改令牌或美术后需重新导出。
 const APP_THEME: Theme = preload("res://resources/theme/xiuxian_theme.tres")
@@ -38,11 +50,17 @@ var _toast: Toast
 var _page_host: MarginContainer
 var _home_page: HomePage
 var _stage_page: StagePage
-var _char_page: CharacterPage
+var _battle_page: BattlePage
+var _breakthrough_page: BreakthroughPage
 var _bag_page: BagPage
 var _skill_page: SkillPage
+var _cave_page: CavePage
+var _offline_popup: OfflinePopup
+var _success_popup: BreakthroughSuccess
 var _pages: Dictionary = {}
 var _mock_tag: Label
+var _offline_shown_id := ""
+var _heartbeats := 0
 
 
 func _ready() -> void:
@@ -56,14 +74,20 @@ func _ready() -> void:
 	_login.logged_in.connect(_on_logged_in)
 	add_child(_login)
 	_timer = Timer.new()
-	_timer.wait_time = 3.0
+	_timer.wait_time = HEARTBEAT_DEFAULT
 	_timer.timeout.connect(_refresh_state)
 	add_child(_timer)
 	if _mock:
+		var wanted := OS.get_environment("XIUXIAN_MOCK_SCENARIO")
+		if not wanted.is_empty():
+			ProtoMock.scenario = wanted
 		_login.hide()
-		_content = UiMock.content()
-		_state = UiMock.state()
+		_content = ProtoMock.content() if ProtoMock.available() else UiMock.content()
+		_state = ProtoMock.state() if ProtoMock.available() else UiMock.state()
+		_timer.wait_time = heartbeat_seconds(_state)
+		_timer.start()
 		_render()
+		_maybe_show_offline()
 	elif PlayerApi.token().is_empty():
 		_login.show()
 		_set_status("请先登录。")
@@ -71,6 +95,29 @@ func _ready() -> void:
 		_login.hide()
 		_timer.start()
 		_refresh_state()
+
+
+## 应用切到后台：停心跳（服务器会把这段算离线）；回到前台：马上补一次心跳再恢复定时。
+func _notification(what: int) -> void:
+	if _timer == null or _mock:
+		return
+	if what == NOTIFICATION_APPLICATION_PAUSED:
+		_timer.stop()
+	elif what == NOTIFICATION_APPLICATION_RESUMED and not PlayerApi.token().is_empty():
+		_timer.start()
+		_refresh_state()
+
+
+## 心跳间隔：服务器的在线判定窗口减去余量，夹在 1..15 秒（读不到就用默认 12 秒）。
+static func heartbeat_seconds(state: Dictionary) -> float:
+	var wave: Variant = state.get("wave", null)
+	if typeof(wave) != TYPE_DICTIONARY or (wave as Dictionary).get("onlineGapSeconds", null) == null:
+		return HEARTBEAT_DEFAULT
+	return clampf(float((wave as Dictionary).get("onlineGapSeconds", 15)) - HEARTBEAT_MARGIN, 1.0, 15.0)
+
+
+func heartbeat_count() -> int:
+	return _heartbeats
 
 
 ## main.tscn 是旧版界面。节点保留（场景测试检查它们），但全部隐藏，界面由下面的组件接管。
@@ -95,25 +142,30 @@ func _build_shell() -> void:
 	add_child(_page_host)
 	_popup = GamePopup.new()
 	_home_page = HomePage.new()
-	_home_page.breakthrough_requested.connect(_on_breakthrough)
+	_home_page.breakthrough_requested.connect(_open_breakthrough)
+	_home_page.adventure_requested.connect(func() -> void: _show_page(PAGE_ADVENTURE))
 	_home_page.page_requested.connect(_show_page)
-	_home_page.stage_requested.connect(func(slug: String) -> void:
-		_select_stage(slug)
-		_show_page(PAGE_ADVENTURE))
 	_stage_page = StagePage.new()
 	_stage_page.stage_selected.connect(_select_stage)
-	_stage_page.challenge_requested.connect(func(slug: String) -> void:
-		_selected_stage = slug
-		_on_challenge())
-	_char_page = CharacterPage.new()
-	_char_page.popup = _popup
-	_char_page.action_requested.connect(_on_page_action)
+	_stage_page.challenge_requested.connect(_open_battle)
+	_stage_page.idle_stage_requested.connect(_on_idle_stage)
+	_stage_page.back_requested.connect(func() -> void: _show_page(PAGE_CULTIVATE))
+	_battle_page = BattlePage.new()
+	_battle_page.start_blocked.connect(_show_bag_full)
+	_battle_page.submit_requested.connect(_on_battle_submit)
+	_battle_page.back_requested.connect(func() -> void: _show_page(PAGE_ADVENTURE))
+	_battle_page.retry_requested.connect(_open_battle)
+	_breakthrough_page = BreakthroughPage.new()
+	_breakthrough_page.start_requested.connect(_on_breakthrough)
+	_breakthrough_page.goto_stage_requested.connect(func(slug: String) -> void:
+		_select_stage(slug)
+		_show_page(PAGE_ADVENTURE))
 	_bag_page = BagPage.new()
 	_bag_page.popup = _popup
 	_bag_page.action_requested.connect(_on_page_action)
 	_skill_page = SkillPage.new()
-	_skill_page.action_requested.connect(_on_skill)
-	_pages = {PAGE_CULTIVATE: _home_page, PAGE_ADVENTURE: _stage_page, PAGE_CHARACTER: _char_page, PAGE_BAG: _bag_page, PAGE_SKILL: _skill_page}
+	_cave_page = CavePage.new()
+	_pages = {PAGE_CULTIVATE: _home_page, PAGE_ADVENTURE: _stage_page, PAGE_BATTLE: _battle_page, PAGE_BREAKTHROUGH: _breakthrough_page, PAGE_BAG: _bag_page, PAGE_SKILL: _skill_page, PAGE_CAVE: _cave_page}
 	for page in _pages.values():
 		(page as Control).visible = false
 		_page_host.add_child(page)
@@ -123,10 +175,9 @@ func _build_shell() -> void:
 	_tab_bar = TabBarView.new()
 	_tab_bar.set_tabs([
 		{"id": PAGE_CULTIVATE, "name": "修炼", "icon": "tab_cultivate"},
-		{"id": PAGE_ADVENTURE, "name": "历练", "icon": "tab_adventure"},
-		{"id": PAGE_CHARACTER, "name": "角色", "icon": "tab_character"},
-		{"id": PAGE_BAG, "name": "行囊", "icon": "tab_bag"},
+		{"id": PAGE_BAG, "name": "背包", "icon": "tab_bag"},
 		{"id": PAGE_SKILL, "name": "功法", "icon": "tab_skill"},
+		{"id": PAGE_CAVE, "name": "洞府", "icon": "tab_cave", "fallback": "ui_gate"},
 	] as Array[Dictionary], PAGE_CULTIVATE)
 	_tab_bar.page_selected.connect(_show_page)
 	add_child(_tab_bar)
@@ -144,6 +195,12 @@ func _build_shell() -> void:
 		_mock_tag.tooltip_text = "演示数据：不连服务器，操作只在本机内存里生效"
 		add_child(_mock_tag)
 	add_child(_popup)
+	_offline_popup = OfflinePopup.new()
+	_offline_popup.acknowledged.connect(_on_offline_ack)
+	add_child(_offline_popup)
+	_success_popup = BreakthroughSuccess.new()
+	_success_popup.closed.connect(func() -> void: _show_page(PAGE_CULTIVATE))
+	add_child(_success_popup)
 	_apply_layout()
 
 
@@ -170,10 +227,13 @@ func _apply_layout() -> void:
 
 
 func _show_page(page: String) -> void:
+	if _page == PAGE_BATTLE and page != PAGE_BATTLE and _battle_page.is_running():
+		_toast.say("战斗进行中，打完再离开", false)
+		return
 	_page = page
 	for key in _pages:
 		(_pages[key] as Control).visible = key == page
-	_tab_bar.select(page)
+	_tab_bar.select(str(TAB_OF.get(page, page)))
 	_backdrop.show_background(str(PAGE_BACKGROUNDS.get(page, "home")))
 	if page == PAGE_BAG:
 		_bag_page.mark_visible_seen()
@@ -187,7 +247,13 @@ func _on_logged_in() -> void:
 	_refresh_state()
 
 
+## 心跳：拉 /me/state，服务器按“距上次请求不超过在线窗口”判在线并结算击杀、掉落。
 func _refresh_state() -> void:
+	if _mock:
+		_state = ProtoMock.tick(_state, _content, _timer.wait_time) if ProtoMock.available() else _state
+		_heartbeats += 1
+		_render(true)
+		return
 	if PlayerApi.token().is_empty() or _busy:
 		return
 	if _content.is_empty():
@@ -201,99 +267,72 @@ func _refresh_state() -> void:
 	if int(state.get("code", 0)) != 200:
 		_set_status(PlayerApi.error_message(state))
 		return
+	_heartbeats += 1
 	_state = state
-	_render()
+	var wanted := heartbeat_seconds(state)
+	if not is_equal_approx(_timer.wait_time, wanted):
+		_timer.wait_time = wanted
+	_render(true)
+	_maybe_show_offline()
 
 
-func _render() -> void:
+## feedback = true 时（心跳 / 行动返回的新结算）把击杀、掉落反馈给修炼页。
+func _render(feedback: bool = false) -> void:
 	_top_bar.bind(_state)
-	_home_page.bind(_state, _content, _realm_name(str((_state.get("breakthrough", {}) as Dictionary).get("nextSlug", ""))), _suggestions(), _busy)
+	var breakthrough: Dictionary = _state.get("breakthrough", {}) if typeof(_state.get("breakthrough", null)) == TYPE_DICTIONARY else {}
+	var next_name := _realm_name(BagModel.plain(breakthrough.get("nextSlug", null)))
+	_home_page.bind(_state, _content, next_name)
+	if feedback:
+		var last: Variant = _state.get("lastSettle", null)
+		if typeof(last) == TYPE_DICTIONARY:
+			var lines := WaveView.feedback(last as Dictionary, _reward_name)
+			if not lines.is_empty():
+				_home_page.show_feedback(lines)
 	_flags.adopt_if_first_run(_item_ids())
 	_bag_page.bind(_state, _content, _flags)
-	_char_page.bind(_state, _content, _flags)
 	_stage_render()
 	_skill_page.bind(_state, _content)
+	_breakthrough_page.bind(_state, _content, next_name, _realm_after(BagModel.plain(breakthrough.get("nextSlug", null))))
 	_update_dots()
 
 
+## 下一境界之后再下一个境界的名字（突破页第三个节点）；没有返回空串。
+func _realm_after(slug: String) -> String:
+	var rows: Array = _content.get("realms", [])
+	for index in rows.size():
+		if typeof(rows[index]) == TYPE_DICTIONARY and str((rows[index] as Dictionary).get("slug", "")) == slug and index + 1 < rows.size():
+			return str((rows[index + 1] as Dictionary).get("displayName", ""))
+	return ""
+
+
 func _stage_render() -> void:
-	var stages := _stages_for_current_realm()
+	# 历练页只列有首领的关卡（普通关卡的小怪在修炼页自动刷，用「挂机刷怪地点」选）。
+	var stages: Array[Dictionary] = []
+	for stage in _stages_for_current_realm():
+		if not (stage.get("bosses", []) as Array).is_empty():
+			stages.append(stage)
 	var known := false
 	for stage in stages:
 		if str(stage.get("slug", "")) == _selected_stage:
 			known = true
 	if not known:
-		_selected_stage = "" if stages.is_empty() else str(stages[0].get("slug", ""))
+		_selected_stage = "" if stages.is_empty() else str(stages[stages.size() - 1].get("slug", ""))
 	_stage_page.bind(_state, _content, stages, _selected_stage)
 
 
-## 页签红点：能突破、有更强的装备或够强化经验、行囊有新物品、有功法书可学。
+## 页签红点：能突破、背包里有新物品、有更强的装备可换。
 func _update_dots() -> void:
-	var breakthrough: Dictionary = _state.get("breakthrough", {})
-	var gain := float((_state.get("cultivationRate", {}) as Dictionary).get("gainPerTick", 0))
-	var can_break := gain > 0.0 and not str(breakthrough.get("nextSlug", "")).is_empty() and float(_state.get("cultivation", 0)) >= float(breakthrough.get("cost", 0))
-	_tab_bar.set_dot(PAGE_CULTIVATE, can_break)
-	_tab_bar.set_dot(PAGE_CHARACTER, _gear_upgrades() > 0 or _enhanceable_count() > 0)
+	var view := BreakthroughView.build(_state)
+	var gain := float((_state.get("cultivationRate", {}) as Dictionary).get("gainPerTick", 0)) if typeof(_state.get("cultivationRate", null)) == TYPE_DICTIONARY else 0.0
+	_tab_bar.set_dot(PAGE_CULTIVATE, gain > 0.0 and bool(view.can_start))
 	var bag := BagModel.from_state(_state, _content, _flags.seen)
 	var fresh := false
-	var book := false
 	for item in bag.items:
-		if bool(item.get("equipped", false)):
-			continue
-		if bool(item.get("is_new", false)) and _page != PAGE_BAG:
+		if not bool(item.get("equipped", false)) and bool(item.get("is_new", false)) and _page != PAGE_BAG:
 			fresh = true
-		if str(item.get("kind", "")) == "skill_book":
-			book = true
-	_tab_bar.set_dot(PAGE_BAG, fresh)
-	_tab_bar.set_dot(PAGE_SKILL, book)
-
-
-func _suggestions() -> Dictionary:
-	return {"stage": _suggest_stage(), "upgrades": _gear_upgrades(), "enhanceable": _enhanceable_count()}
-
-
-## 推荐关卡：战力够的关卡里推荐战力最高的；一个都不够就推荐最低的。
-func _suggest_stage() -> Dictionary:
-	var power := int(_state.get("power", 0))
-	var best := {}
-	var lowest := {}
-	for stage in _stages_for_current_realm():
-		var recommended := int(stage.get("recommendedPower", 0))
-		if lowest.is_empty() or recommended < int(lowest.get("recommendedPower", 0)):
-			lowest = stage
-		if recommended <= power and (best.is_empty() or recommended > int(best.get("recommendedPower", 0))):
-			best = stage
-	return best if not best.is_empty() else lowest
-
-
-func _gear_upgrades() -> int:
-	var model := BagModel.from_state(_state, _content, {})
-	var slots := EquipModel.slots_of(model)
-	var count := 0
-	for slot in SlotConfig.core():
-		if not bool(slot.get("supported", false)):
-			continue
-		var worn: Dictionary = slots.get(str(slot.id), {})
-		for item in EquipModel.candidates_for(model, str(slot.id)):
-			if int(item.power) > int(worn.get("power", 0)):
-				count += 1
-	return count
-
-
-## 身上的装备里，强化经验够升下一级、或者材料齐了可以突破的有几件。
-func _enhanceable_count() -> int:
-	var model := BagModel.from_state(_state, _content, {})
-	var count := 0
-	for item in model.items:
-		if not bool(item.get("equipped", false)):
-			continue
-		if BagModel.can_enhance(item) and model.enhance_exp >= int(item.get("enhance_cost", 0)):
-			count += 1
-		elif BagModel.can_break(item):
-			var pending: Dictionary = (item.get("break_view", {}) as Dictionary).get("pending", {})
-			if bool(pending.get("ready", false)):
-				count += 1  # 材料齐了，可以突破
-	return count
+	_tab_bar.set_dot(PAGE_BAG, fresh or not EquipModel.best_upgrades(bag).is_empty())
+	_tab_bar.set_dot(PAGE_SKILL, false)
+	_tab_bar.set_dot(PAGE_CAVE, false)
 
 
 func _item_ids() -> Array:
@@ -309,11 +348,84 @@ func _select_stage(slug: String) -> void:
 	_stage_render()
 
 
+# ───────── 离线收益弹窗 ─────────
+
+## state.offlineReport 有内容（服务器给了且没确认过）就弹窗，同一份只弹一次。
+func _maybe_show_offline() -> void:
+	var report: Variant = _state.get("offlineReport", null)
+	if typeof(report) != TYPE_DICTIONARY or (report as Dictionary).is_empty():
+		return
+	var id := str((report as Dictionary).get("id", ""))
+	if id.is_empty() or id == _offline_shown_id or _offline_popup.visible:
+		return
+	var bonus_bp := float((_state.get("cultivationRate", {}) as Dictionary).get("bonusBp", 0)) if typeof(_state.get("cultivationRate", null)) == TYPE_DICTIONARY else 0.0
+	var view := OfflineView.build(report, SkillView.running_name(_state, _content), bonus_bp / 100.0)
+	if view.is_empty():
+		return
+	_offline_shown_id = id
+	_offline_popup.show_report(view)
+
+
+## 点「领取」：告诉服务器已读（修为早已入账），成功才关；失败留着可再点。
+func _on_offline_ack(report_id: String) -> void:
+	var result := await _post("/api/v1/me/offline-reports/%s/ack" % report_id.uri_encode())
+	if int(result.get("code", 0)) != 200:
+		_toast.say(PlayerApi.error_message(result), false)
+		_offline_popup.claim_button().disabled = false
+		return
+	_offline_popup.close_popup()
+	if _state.get("offlineReport", null) != null and str((_state.get("offlineReport", {}) as Dictionary).get("id", "")) == report_id:
+		_state["offlineReport"] = null
+
+
+# ───────── 首领战 ─────────
+
+func _open_battle(slug: String) -> void:
+	if _busy:
+		return
+	_selected_stage = slug
+	var stage := _stage_def(slug)
+	if stage.is_empty():
+		return
+	var bag := BagModel.from_state(_state, _content, {})
+	var gate := bag.challenge_gate(bool(_state.get("autoDecompose", false)))
+	_battle_page.open_stage(_state, _content, stage, gate, str(_state.get("realmName", "")))
+	_show_page(PAGE_BATTLE)
+
+
+func _show_bag_full(used: int, capacity: int) -> void:
+	BagFullPrompt.show_prompt(_popup, used, capacity, func() -> void: _show_page(PAGE_BAG))
+
+
+## 战斗画面打完，把大招点击时间随挑战请求上报；胜负和掉落以服务器返回为准。
+func _on_battle_submit(slug: String, taps: Array) -> void:
+	_busy = true
+	var result := await _post("/api/v1/me/stages/%s/challenge" % slug.uri_encode(), {"ultTaps": taps})
+	_busy = false
+	if int(result.get("code", 0)) != 200:
+		var error: Variant = result.get("error", {})
+		if typeof(error) == TYPE_DICTIONARY and str((error as Dictionary).get("code", "")) == "BAG_FULL":
+			var bag := BagModel.from_state(_state, _content, {})
+			_show_bag_full(bag.used_slots(), bag.capacity)
+		_battle_page.show_submit_error(PlayerApi.error_message(result))
+		return
+	_apply_action_state(result)
+	_battle_page.show_result(result, _reward_name)
+
+
+# ───────── 突破 ─────────
+
+func _open_breakthrough() -> void:
+	_show_page(PAGE_BREAKTHROUGH)
+
+
 func _on_breakthrough() -> void:
 	if _busy:
 		return
 	_busy = true
-	_home_page.breakthrough_button().disabled = true
+	_breakthrough_page.set_busy(true)
+	var before := _state.duplicate(true)
+	var unlocks := BreakthroughView.unlocks(before, _content)
 	var result := await _post("/api/v1/me/breakthrough")
 	_busy = false
 	if int(result.get("code", 0)) != 200:
@@ -321,54 +433,25 @@ func _on_breakthrough() -> void:
 		_toast.say(PlayerApi.error_message(result), false)
 		return
 	var outcome: Dictionary = result.get("result", {})
-	if bool(outcome.get("success", false)):
-		_home_page.show_banner("突破成功", true)
-	else:
-		_home_page.show_banner("突破失败，损失修为 %s" % CultivationFormat.amount(float(outcome.get("lostCultivation", 0))), false)
 	_apply_action_state(result)
+	if bool(outcome.get("success", false)):
+		_success_popup.show_success(BreakthroughView.success_summary(before, _state), unlocks)
+	else:
+		_toast.say("突破失败，损失修为 %s" % CultivationFormat.amount(float(outcome.get("lostCultivation", 0))), false)
 
 
-func _on_challenge() -> void:
-	if _busy or _selected_stage.is_empty():
+## 选择挂机刷怪关卡（slug 为空 = 自动）。
+func _on_idle_stage(slug: String) -> void:
+	if _busy:
 		return
 	_busy = true
-	_stage_page.set_busy(true)
-	var result := await _post("/api/v1/me/stages/%s/challenge" % _selected_stage.uri_encode())
+	var result := await _post("/api/v1/me/idle-stage", {"stageSlug": null if slug.is_empty() else slug})
 	_busy = false
-	_stage_page.set_busy(false)
 	if int(result.get("code", 0)) != 200:
 		_toast.say(PlayerApi.error_message(result), false)
-		_stage_page.show_result({"win": false, "reason": "error", "log": [], "durationSeconds": 0}, "挑战失败", PlayerApi.error_message(result))
 		return
-	var battle: Dictionary = result.get("battle", {})
-	var names: PackedStringArray = []
-	for drop in result.get("drops", []):
-		if typeof(drop) == TYPE_DICTIONARY:
-			var reward := _reward_name(str((drop as Dictionary).get("itemSlug", "")))
-			if bool((drop as Dictionary).get("decomposed", false)):
-				reward += "（已分解 +%d 强化经验）" % int((drop as Dictionary).get("enhanceExp", 0))
-			names.append(reward)
-	var loot := "获得：" + ("、".join(names) if not names.is_empty() else "无")
-	_apply_action_state(result)
-	_stage_page.show_result(battle, _boss_name_of(_selected_stage), loot)
-
-
-func _on_skill(kind: String, slug: String) -> void:
-	if _busy or slug.is_empty():
-		return
-	_busy = true
-	var result: Dictionary
-	if kind == "run":
-		var slot := "heart" if str(_skill_def(slug).get("role", "")) == "heart" else "art_1"
-		result = await _post("/api/v1/me/skills/%s/run" % slug.uri_encode(), {"slot": slot})
-	else:
-		result = await _post("/api/v1/me/skills/%s/stop" % slug.uri_encode())
-	_busy = false
-	if int(result.get("code", 0)) != 200:
-		_skill_page.show_hint(PlayerApi.error_message(result))
-		return
-	_skill_page.show_hint("")
-	_apply_action_state(result)
+	# 真实服务器直接返回状态本体，演示模式返回 {state}。
+	_apply_action_state(result if result.has("state") else {"state": result})
 
 
 func _apply_action_state(result: Dictionary) -> void:
@@ -376,21 +459,16 @@ func _apply_action_state(result: Dictionary) -> void:
 	if typeof(state) == TYPE_DICTIONARY:
 		_state = state
 		_state["code"] = 200
-		_render()
+		_render(true)
 
 
 ## 所有会改变状态的请求都走这里：演示模式用内存里的假数据，正式模式调服务器。
 func _post(path: String, body: Dictionary = {}) -> Dictionary:
 	if _mock:
+		if ProtoMock.available():
+			return ProtoMock.handle(path, body, _state, _content)
 		return UiMock.handle(path, body, _state, _content)
 	return await PlayerApi.post_action(path, body)
-
-
-func _boss_name_of(slug: String) -> String:
-	var bosses: Array = _stage_def(slug).get("bosses", [])
-	if not bosses.is_empty() and typeof(bosses[0]) == TYPE_DICTIONARY:
-		return str((bosses[0] as Dictionary).get("name", "首领"))
-	return "首领"
 
 
 ## 行囊页、角色页发来的操作。服务器没有批量接口，批量分解是逐件调用后合计。
@@ -398,6 +476,8 @@ func _on_page_action(kind: String, ids: Array) -> void:
 	if _busy:
 		return
 	match kind:
+		"equip_many":
+			await _equip_many(ids)
 		"equip":
 			await _item_action(str(ids[0]), "equip")
 		"unequip":
@@ -450,8 +530,6 @@ func _enhance(item_id: String, to_max: bool) -> void:
 	# 回到这件装备的详情，方便连续强化。
 	if _page == PAGE_BAG:
 		_bag_page.show_detail(item_id)
-	elif _page == PAGE_CHARACTER:
-		_char_page.show_detail(item_id)
 
 
 ## 突破：交齐节点材料（服务器从行囊扣），不会失败；材料不够时服务器会写明差多少。
@@ -470,8 +548,21 @@ func _breakthrough(item_id: String) -> void:
 	_apply_action_state(result)
 	if _page == PAGE_BAG:
 		_bag_page.show_detail(item_id)
-	elif _page == PAGE_CHARACTER:
-		_char_page.show_detail(item_id)
+
+
+func _equip_many(ids: Array) -> void:
+	var worn := 0
+	for id in ids:
+		_busy = true
+		var result := await _post("/api/v1/me/items/%s/equip" % str(id).uri_encode())
+		_busy = false
+		if int(result.get("code", 0)) != 200:
+			_toast.say("穿戴到第 %d 件时失败：%s" % [worn + 1, PlayerApi.error_message(result)], false)
+			break
+		worn += 1
+		_apply_action_state(result)
+	if worn > 0:
+		_toast.say("一键穿戴了 %d 件更强的装备" % worn)
 
 
 func _decompose_many(ids: Array) -> void:

@@ -8,6 +8,7 @@ extends RefCounted
 const UI_DIR := "res://assets/art/ui/"
 const ICON_DIR := "res://assets/art/icons/"
 const BG_DIR := "res://assets/art/bg/"
+const ITEM_DIR := "res://assets/art/items/"
 const FONT_BODY := "res://assets/fonts/NotoSansSC-Regular.subset.woff2"
 const FONT_TITLE := "res://assets/fonts/MaShanZheng-Regular.subset.woff2"
 
@@ -52,6 +53,29 @@ const NINE := {
 	"slot_r5": [30, 30, 0, 0],
 }
 
+## 物品图标回退用的 id。大境界 id 和服务端方案内容一致（numeric-scheme.ts 的 MAJORS）；
+## 原型只用前 3 个，后两个先登记，美术以后补图即自动生效。
+const REALM_IDS: Array[String] = ["qi", "foundation", "core", "infant", "spirit"]
+## 装备部位 id，和 SlotConfig.CORE 一致（服务端 GEAR_SLOTS 同名）。
+const GEAR_SLOT_IDS: Array[String] = ["weapon", "helmet", "clothes", "gloves", "shoes", "accessory"]
+## 非装备物品的类别规则：[kind 或 category, 物品 slug 里出现的片段, 回退文件名（不含 .png）]。
+## 片段只在 slug 里找；都不命中时用 <前缀>_other。
+const ITEM_KIND_RULES := [
+	["material", "enh_stone_", "mat_stone"],
+	["material", "grass", "mat_herb"],
+	["material", "herb", "mat_herb"],
+	["material", "bone", "mat_bone"],
+	["skill_book", "_atk_", "book_atk"],
+	["skill_book", "_def_", "book_def"],
+	["skill_book", "_hp_", "book_hp"],
+	["pill", "pill_qi", "pill_qi"],
+	["pill", "pill_body", "pill_body"],
+]
+const ITEM_KIND_OTHER := {"material": "mat_other", "skill_book": "book_other", "pill": "pill_other"}
+## 还没交付、但代码已经按名字取的界面贴图（自动分解开关）。
+const SWITCH_ON := "switch_on"
+const SWITCH_OFF := "switch_off"
+
 static var _cache: Dictionary = {}
 static var _fonts: Dictionary = {}
 
@@ -82,6 +106,11 @@ static func bg(name: String) -> Texture2D:
 
 static func has_icon(name: String) -> bool:
 	return ResourceLoader.exists(ICON_DIR + name + ".png")
+
+
+## 开关贴图（160×80）。没交付时返回 null，调用方画占位。
+static func switch_tex(on: bool) -> Texture2D:
+	return ui(SWITCH_ON if on else SWITCH_OFF)
 
 
 ## 九宫格样式盒。modulate 可以给 hover 等状态提亮。
@@ -183,3 +212,99 @@ static func boss_icon_name(boss_name: String) -> String:
 				return str(entry[entry.size() - 1])
 	const POOL := ["boss_reptile", "boss_werewolf", "boss_lizard", "boss_twin_dragon", "boss_wolf", "boss_tiger", "boss_dragon", "boss_scorpion"]
 	return POOL[absi(boss_name.hash()) % POOL.size()]
+
+
+## ---- 物品图标回退 ----
+## 查找顺序（item 是 BagModel.normalize 出来的字典）：
+##   1. items/<slug>.png                         这个物品自己的图
+##   2. items/gear_<境界>_<部位>.png             装备：同大境界同部位的代表图
+##      items/mat_<类别>.png / book_<类别>.png / pill_<类别>.png   非装备：同类别的代表图
+##   3. items/gear_<部位>.png                    装备：只按部位的通用图（非装备没有这一层）
+##   4. 现有占位：icons/slot_<部位>.png 或 icons/cat_*.png 白色剪影（按品质染色）
+## 前三层是彩色图，不染色；第 4 层是剪影，tint=true。
+
+
+## 装备所属大境界 id；认不出返回空字符串。先看 slug（gear_<境界>_<部位>_<品质>），再看 required_realm_order（每 3 层一个大境界）。
+static func item_realm_id(item: Dictionary) -> String:
+	var parts := str(item.get("slug", "")).split("_")
+	if parts.size() >= 4 and parts[0] == "gear" and REALM_IDS.has(parts[1]):
+		return parts[1]
+	var order := int(item.get("required_realm_order", 0))
+	if order >= 1:
+		var index := floori((order - 1) / 3.0)
+		if index < REALM_IDS.size():
+			return REALM_IDS[index]
+	return ""
+
+
+## 非装备物品的类别回退名（如 mat_stone）；装备或认不出 kind 返回空字符串。
+static func item_kind_fallback(item: Dictionary) -> String:
+	var kind := str(item.get("kind", ""))
+	if kind == "equipment" or not ITEM_KIND_OTHER.has(kind):
+		return ""
+	var slug := str(item.get("slug", ""))
+	for rule in ITEM_KIND_RULES:
+		if rule[0] == kind and slug.contains(str(rule[1])):
+			return str(rule[2])
+	return str(ITEM_KIND_OTHER[kind])
+
+
+## 按优先级排好的候选文件名（不含目录和 .png），不碰文件系统，方便测试。
+static func item_icon_candidates(item: Dictionary) -> Array[String]:
+	var out: Array[String] = []
+	var slug := str(item.get("slug", ""))
+	if not slug.is_empty():
+		out.append(slug)
+	var slot_id := str(item.get("slot_id", ""))
+	if GEAR_SLOT_IDS.has(slot_id):
+		var realm := item_realm_id(item)
+		if not realm.is_empty():
+			out.append("gear_%s_%s" % [realm, slot_id])
+		out.append("gear_%s" % slot_id)
+	else:
+		var fallback := item_kind_fallback(item)
+		if not fallback.is_empty():
+			out.append(fallback)
+	return out
+
+
+## 返回 {texture, tint, source}。source = 命中的文件名，没命中前三层时是 "placeholder"。texture 可能为 null。
+## exists 只给测试用（传入自定义的存在判断）；平时用 ResourceLoader。
+static func item_icon(item: Dictionary, exists: Callable = Callable()) -> Dictionary:
+	for name in item_icon_candidates(item):
+		var path := ITEM_DIR + name + ".png"
+		var found: bool = exists.call(path) if exists.is_valid() else ResourceLoader.exists(path)
+		if found:
+			var tex: Texture2D = null
+			if not exists.is_valid():
+				tex = load(path) as Texture2D
+			return {"texture": tex, "tint": false, "source": name}
+	var slot_id := str(item.get("slot_id", ""))
+	if not slot_id.is_empty() and has_icon(slot_icon_name(slot_id)):
+		return {"texture": icon(slot_icon_name(slot_id)), "tint": true, "source": "placeholder"}
+	var cat := category_icon_name(str(item.get("category", "")), str(item.get("kind", "")))
+	return {"texture": icon(cat), "tint": true, "source": "placeholder"}
+
+
+## 美术需要交付的全部回退图文件名（不含目录和 .png）。原型阶段只含前 3 个大境界。
+## 和 /workspace/art_item_icon_fallback_spec.md 第 7 节一一对应。
+const PROTOTYPE_REALM_COUNT := 3
+
+
+static func fallback_filenames() -> Array[String]:
+	var out: Array[String] = []
+	for realm in REALM_IDS.slice(0, PROTOTYPE_REALM_COUNT):
+		for slot in GEAR_SLOT_IDS:
+			out.append("gear_%s_%s" % [realm, slot])
+	for slot in GEAR_SLOT_IDS:
+		out.append("gear_%s" % slot)
+	var seen := {}
+	for rule in ITEM_KIND_RULES:
+		seen[str(rule[2])] = true
+	for kind in ITEM_KIND_OTHER:
+		seen[str(ITEM_KIND_OTHER[kind])] = true
+	var names: Array = seen.keys()
+	names.sort()
+	for name in names:
+		out.append(str(name))
+	return out

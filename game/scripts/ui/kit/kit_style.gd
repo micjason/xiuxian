@@ -43,16 +43,8 @@ static func locked_slot_box(control: Control) -> StyleBox:
 
 ## 物品图标。返回 {texture, tint}：tint=true 表示是白色剪影，需要按品质染色。texture 可能为 null。
 static func icon_for(item: Dictionary) -> Dictionary:
-	var slug := str(item.get("slug", ""))
-	if not slug.is_empty():
-		var path := "res://assets/art/items/%s.png" % slug
-		if ResourceLoader.exists(path):
-			return {"texture": load(path) as Texture2D, "tint": false}
-	var slot_id := str(item.get("slot_id", ""))
-	if not slot_id.is_empty() and ArtLib.has_icon(ArtLib.slot_icon_name(slot_id)):
-		return {"texture": ArtLib.icon(ArtLib.slot_icon_name(slot_id)), "tint": true}
-	var name := ArtLib.category_icon_name(str(item.get("category", "")), str(item.get("kind", "")))
-	return {"texture": ArtLib.icon(name), "tint": true}
+	var found := ArtLib.item_icon(item)
+	return {"texture": found.get("texture"), "tint": bool(found.get("tint", true))}
 
 
 ## 图标缺失时占位图标上显示的字：装备用部位字，其他用名称首字。

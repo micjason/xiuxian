@@ -7,6 +7,7 @@ import {
   playerItems,
   playerNotices,
   playerSkills,
+  playerOfflineReports,
   playerStageProgress,
   playerStates,
   players,
@@ -189,6 +190,7 @@ export async function resetPlayer(db: Db, username: string, now: Date) {
   await db.delete(playerItems).where(eq(playerItems.playerId, player.id));
   await db.delete(playerSkills).where(eq(playerSkills.playerId, player.id));
   await db.delete(playerStageProgress).where(eq(playerStageProgress.playerId, player.id));
+  await db.delete(playerOfflineReports).where(eq(playerOfflineReports.playerId, player.id));
   await db.delete(noticeDismissals).where(eq(noticeDismissals.playerId, player.id));
   await db.delete(playerNotices).where(eq(playerNotices.playerId, player.id));
   await db.delete(repairApplications).where(eq(repairApplications.playerId, player.id));
@@ -212,6 +214,8 @@ export async function resetPlayer(db: Db, username: string, now: Date) {
       lastSettledAt: now,
       breakthroughFailStreak: 0,
       idleStageSlug: null,
+      waveProgress: 0,
+      waveDeathsInRow: 0,
       lastChallengeAt: null,
     })
     .where(eq(playerStates.playerId, player.id));

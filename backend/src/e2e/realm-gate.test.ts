@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { buildApp } from "../app.js";
-import { contentRealms, contentStages, playerStageProgress, playerStates, players } from "../db/schema.js";
+import { contentRealms, playerStageProgress, playerStates, players } from "../db/schema.js";
 import { applyPrototypeV12 } from "../modules/content/prototype-v12.js";
 import { loadDraftSnapshot } from "../modules/content/snapshot.js";
 import { validateContent } from "../modules/content/validate.js";

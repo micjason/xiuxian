@@ -8,7 +8,7 @@ import {
   playerStates,
   players,
 } from "../../db/schema.js";
-import { cleanUltTaps, simulateBattle, simulateBossFight, type UltConfig, type UltPlan } from "../combat/battle.js";
+import { cleanUltTaps, simulateBossFight, type UltConfig, type UltPlan } from "../combat/battle.js";
 import { computePower, ratePower, resolveBreakthrough, skillLayerFactor, sumReachedRealmStats } from "../combat/stats.js";
 import { ensureSkillBook } from "../content/ops-content.js";
 import { loadCurrentWorld } from "../content/snapshot.js";
@@ -20,9 +20,10 @@ import { settleTicks } from "../progress/settle.js";
 import { AppError } from "../../shared/errors.js";
 import type { Db } from "../operations/record.js";
 import { readGameRules } from "../content/rules.js";
-import { addEnhanceExp, bagUsedSlots, decomposeRow, freeOneSlot, grantItem } from "./bag.js";
+import { addEnhanceExp, freeOneSlot, grantItem } from "./bag.js";
 import { noticesForPlayer, rememberIncome } from "../notices/service.js";
 import { dailyUsed, grantBossRewards, usesRewardModel } from "./boss-rewards.js";
+import { acknowledgeOfflineReport, pendingOfflineReport, recordOfflineReport } from "./offline.js";
 import { EMPTY_WAVES, cycleFor, farmableStages, resolveFarmStage, settleWaves, type WaveSettlement } from "./waves.js";
 
 type World = ContentSnapshot & { version: number };
@@ -375,6 +376,21 @@ async function settleLocked(tx: Tx, playerId: string, world: World, now: Date) {
     })
     .where(eq(playerStates.playerId, playerId))
     .returning();
+  // 离线弹窗：这一段离线 ≥ 弹窗最短时长就记一条（修为已经入账，没有领取步骤）。
+  if (!online && gapSeconds >= rules.offlinePopupMinSeconds && settled.countedSeconds > 0) {
+    await recordOfflineReport(tx, {
+      playerId,
+      startedAt: state.lastSettledAt,
+      endedAt: now,
+      seconds: Math.floor(gapSeconds),
+      countedSeconds: settled.countedSeconds,
+      hitCap: settled.hitCap,
+      gained: settled.gained,
+      baseGained: Math.floor(settled.countedSeconds / Math.max(1, realm.tickSeconds)) * realm.gainPerTick,
+      realmSlug: state.realmSlug,
+    });
+  }
+  const offlineReport = await pendingOfflineReport(tx, playerId);
   const kept = saved ?? { ...state, cultivation, lastSettledAt: settled.lastSettledAt, cultivationRemainderBp: settled.remainderBp, waveProgress, waveDeathsInRow };
   const items = waves.drops.length > 0 || waves.kills > 0 ? (await loadPieces(tx, playerId)).items : pieces.items;
   return {
@@ -386,6 +402,7 @@ async function settleLocked(tx: Tx, playerId: string, world: World, now: Date) {
     stage,
     gapSeconds,
     now,
+    offlineReport,
   };
 }
 
@@ -431,6 +448,21 @@ function stateDto(world: World, playerId: string, settled: Awaited<ReturnType<ty
     skills: settled.pieces.skills,
     stages: settled.pieces.stages,
     wave: waveDto(world, settled),
+    offlineReport: settled.offlineReport
+      ? {
+          id: settled.offlineReport.id,
+          startedAt: settled.offlineReport.startedAt,
+          endedAt: settled.offlineReport.endedAt,
+          seconds: settled.offlineReport.seconds,
+          countedSeconds: settled.offlineReport.countedSeconds,
+          hitCap: settled.offlineReport.hitCap,
+          offlineCapSeconds: readGameRules(world).offlineCapSeconds,
+          gained: settled.offlineReport.gained,
+          baseGained: settled.offlineReport.baseGained,
+          bonusGained: settled.offlineReport.bonusGained,
+          realmName: world.realms.find((row) => row.slug === settled.offlineReport?.realmSlug)?.displayName ?? settled.offlineReport.realmSlug,
+        }
+      : null,
     ult: ultOf(world, settled.state.realmSlug),
     bossDaily: bossDailyDto(world, settled),
     lastSettle: {
@@ -579,6 +611,10 @@ export async function openProgressWorld(db: Db, playerId: string, now: Date, ver
       notices: await noticesForPlayer(tx, playerId, versionCode),
     };
   });
+}
+
+export async function ackOfflineReport(db: Db, playerId: string, reportId: string, now: Date) {
+  return withTransaction(db, async (tx) => acknowledgeOfflineReport(tx, playerId, reportId, now));
 }
 
 export async function readState(db: Db, playerId: string, now: Date) {

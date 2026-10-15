@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { buildApp } from "../app.js";
-import { playerItems, playerStates, players } from "../db/schema.js";
+import { playerStates, players } from "../db/schema.js";
 import { advanceWaves, waveCycle } from "../modules/combat/wave.js";
 import { applyPrototypeV12 } from "../modules/content/prototype-v12.js";
 import { withDb } from "../test/db.js";

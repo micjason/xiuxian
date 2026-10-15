@@ -4,7 +4,7 @@ import type { Db } from "../operations/record.js";
 import { tryBreakthrough } from "../player/service.js";
 import { loadCurrentWorld } from "../content/snapshot.js";
 import { setWaveRandom } from "./waves.js";
-import { advanceRealm, challengeStage, breakthroughItem, decomposeItem, enhanceItem, equipItem, readState, runSkill, setAutoDecompose, setIdleStage, stopSkill, unequipItem, unequipSlot, useItem, withIdempotency } from "./actions.js";
+import { ackOfflineReport, advanceRealm, challengeStage, breakthroughItem, decomposeItem, enhanceItem, equipItem, readState, runSkill, setAutoDecompose, setIdleStage, stopSkill, unequipItem, unequipSlot, useItem, withIdempotency } from "./actions.js";
 
 type RandomInt = (min: number, max: number) => number;
 
@@ -114,6 +114,14 @@ export async function registerLoopRoutes(
     return withIdempotency(deps.db, playerId, idempotencyKey(request.headers["idempotency-key"]), "auto-decompose", deps.now(), (tx, world) =>
       setAutoDecompose(tx, world, playerId, body.enabled === true, deps.now()),
     );
+  });
+
+  app.post("/me/offline-reports/:id/ack", async (request) => {
+    const params = request.params as { id: string };
+    if (!/^[0-9a-f-]{36}$/i.test(params.id)) {
+      throw new AppError("NOT_FOUND", "没有这条离线记录");
+    }
+    return ackOfflineReport(deps.db, request.actor!.actorId, params.id, deps.now());
   });
 
   app.post("/me/idle-stage", async (request) => {

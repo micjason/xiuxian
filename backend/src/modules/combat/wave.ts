@@ -88,8 +88,8 @@ export function advanceWaves(progress: number, elapsedSeconds: number, cycle: Wa
     deaths: events.filter((event) => event.kind === "death").length,
   });
   const upTo = (seconds: number) => cycle.events.filter((event) => event.t <= seconds + EPSILON);
-  let kills = 0;
-  let deaths = 0;
+  let kills: number;
+  let deaths: number;
   if (fullCycles === 0) {
     const fresh = cycle.events.filter((event) => event.t > start + EPSILON && event.t <= rest + EPSILON);
     ({ kills, deaths } = count(fresh));

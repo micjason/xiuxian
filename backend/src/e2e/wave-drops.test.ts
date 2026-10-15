@@ -1,4 +1,5 @@
-import { and, eq } from "drizzle-orm";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { buildApp } from "../app.js";
 import { playerItems, playerStates, players } from "../db/schema.js";
@@ -42,7 +43,7 @@ async function boot(db: TestDb, name: string) {
   let elapsed = 0;
   const state = async (seconds: number) => {
     const merged = { kills: 0, drops: [] as Record<string, unknown>[], bagFull: false };
-    let last: Record<string, any> = {};
+    let last: Record<string, any> = { lastSettle: {} };
     while (elapsed < seconds) {
       elapsed = Math.min(seconds, elapsed + 5);
       last = await jump(elapsed);

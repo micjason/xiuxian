@@ -47,5 +47,5 @@
 ## 验证情况
 
 - 后端 `npm test`：68 个文件 / 252 个测试全部通过。
-- GUT：160 个测试，158 通过，2 个失败都是已知的"无头字体缓存引擎报错"噪音（见 `test_ui_kit.gd`）。
+- GUT：160 个测试，159 通过，1 个失败（`test_main_screen_loop`）是已知的"无头字体缓存引擎报错"噪音（见 `test_ui_kit.gd`）。
 - 未在真机验证任何东西（见 `tools/android/README.md`）。

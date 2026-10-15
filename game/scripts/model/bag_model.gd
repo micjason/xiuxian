@@ -123,6 +123,11 @@ static func rarity_of(def: Dictionary) -> int:
 	return int(QUALITY_INDEX.get(str(def.get("quality", "white")), 0))
 
 
+## 界面显示用：属性是小数，只在显示时四舍五入成整数（服务端给什么小数就用什么小数算）。
+static func shown(value: float) -> int:
+	return int(round(value))
+
+
 static func power_of(stats: Dictionary, weights: Dictionary) -> int:
 	var total := 0.0
 	for key in STAT_KEYS:
@@ -139,9 +144,9 @@ static func normalize(row: Dictionary, def: Dictionary, weights: Dictionary, enh
 	var stats := {}
 	var base_stats := {}
 	for key in STAT_KEYS:
-		var base := int(def.get(key, 0))
+		var base := float(def.get(key, 0))
 		base_stats[key] = base
-		stats[key] = enhance_model.stat(float(base), level, rarity) if (enhance_model != null and is_gear) else base
+		stats[key] = enhance_model.stat(base, level, rarity) if (enhance_model != null and is_gear) else base
 	var server_slot := str(def.get("slot", "")) if def.get("slot", null) != null else ""
 	var equipped_server := plain(row.get("equippedSlot", null))
 	var cap := 0
@@ -253,9 +258,9 @@ static func compare(item: Dictionary, worn: Dictionary) -> Array[Dictionary]:
 	var stats: Dictionary = item.get("stats", {})
 	var other: Dictionary = worn.get("stats", {}) if not worn.is_empty() else {}
 	for key in STAT_KEYS:
-		var value := int(stats.get(key, 0))
-		var base := int(other.get(key, 0))
-		if value == 0 and base == 0:
+		var value := float(stats.get(key, 0))
+		var base := float(other.get(key, 0))
+		if is_zero_approx(value) and is_zero_approx(base):
 			continue
 		out.append({"key": key, "label": str(STAT_NAMES[key]), "value": value, "other": base, "delta": value - base})
 	return out

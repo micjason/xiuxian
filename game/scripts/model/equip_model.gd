@@ -22,13 +22,13 @@ static func worn_in(bag: BagModel, slot_id: String) -> Dictionary:
 
 ## 已穿戴装备提供的属性合计。
 static func stat_totals(slots: Dictionary) -> Dictionary:
-	var totals := {"attack": 0, "defense": 0, "hp": 0, "speed": 0}
+	var totals := {"attack": 0.0, "defense": 0.0, "hp": 0.0, "speed": 0.0}
 	for slot_id in slots:
 		var item: Dictionary = slots[slot_id]
 		if item.is_empty():
 			continue
 		for key in BagModel.STAT_KEYS:
-			totals[key] = int(totals[key]) + int((item.stats as Dictionary).get(key, 0))
+			totals[key] = float(totals[key]) + float((item.stats as Dictionary).get(key, 0))
 	return totals
 
 

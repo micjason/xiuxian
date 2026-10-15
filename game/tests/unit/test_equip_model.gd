@@ -48,11 +48,12 @@ func test_slots_of_contains_all_configured_slots() -> void:
 func test_stat_totals_and_gear_power_add_up() -> void:
 	var slots := EquipModel.slots_of(_bag)
 	var totals := EquipModel.stat_totals(slots)
-	# 青锋剑·良 基础攻击 23、强化 +3（每级 +6%）→ 27；道袍 基础防御 16、强化 +2 → 18；
-	# 踏云靴·精 基础防御 5、速度 5，强化 +5（×1.3）→ 各 6.5 四舍五入为 7；头冠、佩没强化
-	assert_eq(totals["attack"], 27)
-	assert_eq(totals["defense"], 4 + 18 + 7 + 4)
-	assert_eq(totals["speed"], 7)
+	# 青锋剑·良 基础攻击 23、强化 +3（每级 +6%）→ 27.14；道袍 基础防御 16、强化 +2 → 17.92；
+	# 踏云靴·精 基础防御 5、速度 5，强化 +5（×1.3）→ 各 6.5；头冠、佩没强化。合计保留小数，显示时才取整
+	assert_almost_eq(float(totals["attack"]), 27.14, 0.001)
+	assert_almost_eq(float(totals["defense"]), 4 + 17.92 + 6.5 + 4, 0.001)
+	assert_almost_eq(float(totals["speed"]), 6.5, 0.001)
+	assert_eq(BagModel.shown(float(totals["attack"])), 27)
 	var power := 0
 	for slot_id in slots:
 		var item: Dictionary = slots[slot_id]

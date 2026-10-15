@@ -184,11 +184,11 @@ static func _add_attributes(body: VBoxContainer, item: Dictionary, worn: Diction
 		var key := UiKit.label(str(row.label), UiTokens.FS_BODY, UiTokens.TEXT_MUTED)
 		key.custom_minimum_size = Vector2(160, 0)
 		line.add_child(key)
-		var value := UiKit.label(str(row.value), UiTokens.FS_BODY, UiTokens.TEXT)
+		var value := UiKit.label(str(BagModel.shown(float(row.value))), UiTokens.FS_BODY, UiTokens.TEXT)
 		value.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		line.add_child(value)
 		if compare:
-			line.add_child(_delta_label(int(row.delta)))
+			line.add_child(_delta_label(BagModel.shown(float(row.delta))))
 	if str(item.get("category", "")) == "equip":
 		var power_line := UiKit.hbox(UiTokens.SP_2)
 		card.body.add_child(UiKit.divider())

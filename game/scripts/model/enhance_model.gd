@@ -68,11 +68,12 @@ func invested(rarity: int, level: int) -> int:
 
 
 ## 一件装备强化后的属性。rarity < 0 时使用通用的每级属性加成（只在不知道品质的场合）。
-func stat(base: float, level: int, rarity: int = -1) -> int:
+## 返回小数（和服务端 enhancedStat 一样保留 2 位），不在这里取整；界面只在显示时取整（BagModel.shown）。
+func stat(base: float, level: int, rarity: int = -1) -> float:
 	if not is_ready():
-		return int(round(base))
+		return base
 	var growth := float(rules.get("statGrowthBp", 0)) if rarity < 0 else stat_growth_bp(rarity)
-	return int(round(base * (1.0 + float(level) * growth / 10000.0)))
+	return round(base * (1.0 + float(level) * growth / 10000.0) * 100.0) / 100.0
 
 
 func decompose_exp(rarity: int, level: int) -> int:

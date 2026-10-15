@@ -68,8 +68,8 @@ func test_equipment_power_uses_weights_and_non_equipment_has_none() -> void:
 			pendant = item
 		if item.slug == "herb":
 			herb = item
-	# 强化 +4（每级 +6%）后：攻 7、防 9、血 134、速 2 → 7*4.7 + 9*1.6 + 134*0.95 + 2*2.6 = 180
-	assert_eq(pendant.power, 180)
+	# 强化 +4（每级 +6%，保留小数不取整）后战力 = round(各项小数 × 权重)；以前先把基础值截成整数，算出来是 180，比服务端少 3
+	assert_eq(pendant.power, 183)
 	assert_eq(herb.power, 0)
 	assert_eq(herb.qty, 36)
 	assert_eq(pendant.slot_id, "accessory")
@@ -125,8 +125,10 @@ func test_compare_shows_signed_deltas_and_skips_zero_rows() -> void:
 	for row in rows:
 		by_key[row.key] = row
 	# 对比用强化后的实际数值：青锋剑·良 +3 攻 27 血 81；青锋剑·精 未强化 攻 26 血 78
-	assert_eq(by_key["attack"].delta, -1)
-	assert_eq(by_key["hp"].delta, -3)
+	# 差值保留小数，只在显示时取整（BagModel.shown）
+	assert_eq(BagModel.shown(by_key["attack"].delta), -1)
+	assert_almost_eq(float(by_key["attack"].delta), -1.14, 0.001)
+	assert_eq(BagModel.shown(by_key["hp"].delta), -3)
 	assert_false(by_key.has("defense"), "两件都是 0 的属性不显示")
 	var against_empty := BagModel.compare(upgrade, {})
 	assert_eq(against_empty[0].other, 0)
@@ -166,8 +168,10 @@ func test_enhanced_gear_has_scaled_stats_cap_and_next_cost() -> void:
 	assert_eq(enhanced.enhance, 4)
 	assert_eq(enhanced.enhance_cap, 15, "绝品（橙）上限 15")
 	assert_eq(enhanced.enhance_cost, model.enhance.cost(4, 4))
-	assert_eq(int(enhanced.stats["attack"]), model.enhance.stat(6.0, 4))
-	assert_eq(int(enhanced.base_stats["attack"]), 6)
+	assert_almost_eq(float(enhanced.stats["attack"]), model.enhance.stat(6.0, 4), 0.0001)
+	assert_almost_eq(float(enhanced.stats["attack"]), 7.44, 0.0001, "保留 2 位小数，不取整")
+	assert_eq(BagModel.shown(float(enhanced.stats["attack"])), 7)
+	assert_almost_eq(float(enhanced.base_stats["attack"]), 6.0, 0.0001)
 	assert_true(BagModel.can_enhance(enhanced))
 	assert_eq(model.enhance_exp, 380)
 	for item in model.items:
@@ -241,7 +245,7 @@ func test_red_gear_has_its_own_cap_and_can_be_enhanced() -> void:
 	assert_eq(red.enhance, 2)
 	assert_true(BagModel.can_enhance(red))
 	assert_eq(red.enhance_cost, model.enhance.cost(5, 2))
-	assert_eq(int(red.stats["attack"]), model.enhance.stat(40.0, 2, 5))
+	assert_almost_eq(float(red.stats["attack"]), model.enhance.stat(40.0, 2, 5), 0.0001)
 
 
 func test_decompose_reason_explains_worn_gear_and_batch_skips_it() -> void:
@@ -255,3 +259,17 @@ func test_decompose_reason_explains_worn_gear_and_batch_skips_it() -> void:
 	assert_eq(BagModel.decompose_block_reason(_by_slug(model, "sword_w")), "")
 	var spare := _by_slug(model, "sword_w")
 	assert_eq(model.batch_ids([worn.id, spare.id]), [spare.id] as Array[String], "批量分解跳过已穿戴的")
+
+
+func test_decimal_base_stats_are_kept_and_rounded_only_for_display() -> void:
+	# 以前 normalize 用 int() 截断：速度 1.67 变 1、攻击 7.74 变 7，单件战力 36（服务端 41）。
+	var def := {"slug": "acc_qi", "displayName": "饰品", "kind": "equipment", "slot": "accessory", "quality": "white", "attack": 7.74, "speed": 1.67}
+	var weights := {"attack": 4.7, "defense": 1.6, "hp": 0.95, "speed": 2.6}
+	var item := BagModel.normalize({"id": "a", "itemSlug": "acc_qi", "enhanceLevel": 0}, def, weights)
+	assert_almost_eq(float(item.stats["speed"]), 1.67, 0.0001)
+	assert_almost_eq(float(item.stats["attack"]), 7.74, 0.0001)
+	assert_eq(BagModel.shown(float(item.stats["speed"])), 2, "显示四舍五入")
+	assert_eq(BagModel.shown(float(item.stats["attack"])), 8)
+	assert_eq(item.power, 41, "战力按小数算再取整，和服务端一致")
+	assert_eq(BagModel.shown(0.5), 1)
+	assert_eq(BagModel.shown(2.49), 2)

@@ -43,9 +43,10 @@ func test_cost_follows_the_formula() -> void:
 
 
 func test_stat_scales_linearly_by_level() -> void:
-	assert_eq(_rules.stat(20.0, 0), 20)
-	assert_eq(_rules.stat(20.0, 5), 26)
-	assert_eq(_rules.stat(0.0, 9), 0)
+	assert_almost_eq(_rules.stat(20.0, 0), 20.0, 0.001)
+	assert_almost_eq(_rules.stat(20.0, 5), 26.0, 0.001)
+	assert_almost_eq(_rules.stat(0.0, 9), 0.0, 0.001)
+	assert_almost_eq(_rules.stat(14.45, 3), 17.05, 0.001, "保留 2 位小数，不取整")
 
 
 func test_invested_and_decompose_refund() -> void:
@@ -69,7 +70,7 @@ func test_red_quality_uses_its_own_configured_rules() -> void:
 	assert_true(_rules.supports(5))
 	assert_eq(_rules.cap(5), 18)
 	assert_eq(_rules.cost(5, 0), int(round(60.0 * 2.0)))
-	assert_eq(_rules.stat(100.0, 18, 5), 208)
+	assert_almost_eq(_rules.stat(100.0, 18, 5), 208.0, 0.001)
 	assert_eq(_rules.decompose_exp(5, 0), 960)
 	assert_gt(_rules.cap(5), _rules.cap(4), "仙品上限比橙品高")
 
@@ -81,10 +82,10 @@ func test_per_quality_growth_overrides_the_general_values() -> void:
 	orange["statGrowthBp"] = 1000
 	var rules := EnhanceModel.from_content(content)
 	assert_eq(rules.cost(4, 3), int(round(60.0 * pow(2.0, 3) * 1.6)))
-	assert_eq(rules.stat(100.0, 4, 4), 140)
+	assert_almost_eq(rules.stat(100.0, 4, 4), 140.0, 0.001)
 	assert_eq(rules.cost(0, 3), int(round(60.0 * pow(1.25, 3))), "没覆盖的品质仍用通用值")
-	assert_eq(rules.stat(100.0, 4, 0), 124)
-	assert_eq(rules.stat(100.0, 4), 124, "不传品质时用通用每级加成")
+	assert_almost_eq(rules.stat(100.0, 4, 0), 124.0, 0.001)
+	assert_almost_eq(rules.stat(100.0, 4), 124.0, 0.001, "不传品质时用通用每级加成")
 
 
 func test_every_number_follows_the_content_not_the_code() -> void:
@@ -100,7 +101,7 @@ func test_every_number_follows_the_content_not_the_code() -> void:
 	assert_eq(rules.cap(0), 2)
 	assert_eq(rules.cost(0, 0), 10)
 	assert_eq(rules.cost(0, 1), 10)
-	assert_eq(rules.stat(100.0, 2, 0), 150)
+	assert_almost_eq(rules.stat(100.0, 2, 0), 150.0, 0.001)
 	assert_eq(rules.decompose_exp(0, 2), 30 + 10)
 	assert_eq(rules.levels_affordable(0, 0, 1000), 2, "上限按配置")
 

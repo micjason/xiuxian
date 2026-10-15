@@ -106,7 +106,7 @@ static func recompute(state: Dictionary, content: Dictionary) -> void:
 		for key in BagModel.STAT_KEYS:
 			total[key] = float(total[key]) + float(enhance.stat(float(def.get(key, 0)), int(row.get("enhanceLevel", 0)), BagModel.rarity_of(def)))
 	for key in BagModel.STAT_KEYS:
-		state[key] = int(total[key])
+		state[key] = total[key]
 	state["power"] = BagModel.power_of(total, WEIGHTS)
 
 

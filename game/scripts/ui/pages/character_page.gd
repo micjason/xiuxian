@@ -135,10 +135,10 @@ func _build_attributes(slots: Dictionary) -> void:
 		var name := UiKit.label(str(BagModel.STAT_NAMES[key]), UiTokens.FS_BODY, UiTokens.TEXT_MUTED)
 		name.custom_minimum_size = Vector2(180, 0)
 		line.add_child(name)
-		var value := UiKit.label(str(int(_state.get(key, 0))), UiTokens.FS_BODY_L, UiTokens.TEXT)
+		var value := UiKit.label(str(BagModel.shown(float(_state.get(key, 0)))), UiTokens.FS_BODY_L, UiTokens.TEXT)
 		value.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		line.add_child(value)
-		line.add_child(UiKit.label("装备 +%d" % int(totals[key]), UiTokens.FS_CAPTION, UiTokens.JADE, HORIZONTAL_ALIGNMENT_RIGHT))
+		line.add_child(UiKit.label("装备 +%d" % BagModel.shown(float(totals[key])), UiTokens.FS_CAPTION, UiTokens.JADE, HORIZONTAL_ALIGNMENT_RIGHT))
 
 
 func _build_power() -> void:

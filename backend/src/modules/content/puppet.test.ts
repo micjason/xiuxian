@@ -1,8 +1,8 @@
 import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
-import { contentGlobals, contentRealms } from "../../db/schema.js";
-import { withDb } from "../../test/db.js";
-import { createOpsSkill, createOpsWeapon, createSkillCategory, createWeaponCategory, deleteOpsWeapon } from "./ops-content.js";
+import { contentGlobals, contentItems, contentRealms } from "../../db/schema.js";
+import { insertEquipment, withDb } from "../../test/db.js";
+import { createOpsSkill, createSkillCategory } from "./ops-content.js";
 import { duelTrialPuppets } from "./puppet-duel.js";
 import { createTrialPuppet, listTrialPuppets, updateTrialPuppet } from "./puppets.js";
 import { runTrial } from "./trial.js";
@@ -28,12 +28,7 @@ describe("trial puppets", () => {
           speedBase: 100,
         },
       });
-      const weaponCategory = await createWeaponCategory(db, { displayName: "剑" }, null);
-      const sword = await createOpsWeapon(
-        db,
-        { displayName: "木剑", categoryId: weaponCategory.id, slot: "weapon", attack: 25, defense: 0, hp: 0, speed: 0 },
-        null,
-      );
+      const sword = await insertEquipment(db, { displayName: "木剑", slot: "weapon", attack: 25 });
       const skillCategory = await createSkillCategory(db, { displayName: "吐纳" }, null);
       const skill = await createOpsSkill(
         db,
@@ -91,7 +86,7 @@ describe("trial puppets", () => {
       expect(fought.results[0]).toMatchObject({ playerKillSeconds: 45, bossKillSeconds: 7.5 });
       expect(fought.results[2]?.player?.interval).toBe(1.5);
 
-      await deleteOpsWeapon(db, sword.id);
+      await db.delete(contentItems).where(eq(contentItems.slug, sword.id));
       const broken = await runTrial(db, { puppetIds: [mortal.id, armed.id], boss });
       expect(broken.results[0]?.win).toBe(false);
       expect(broken.results[1]).toMatchObject({ error: "有武器或功法已经删除，先改这个人偶", win: null });

@@ -212,6 +212,13 @@ export const contentGlobals = pgTable("content_globals", {
     speedBase?: number;
     recommendedPowerMargin?: number;
   }>(),
+  gearQualityFactors: jsonb("gear_quality_factors").$type<{
+    white: number;
+    green: number;
+    blue: number;
+    purple: number;
+    orange: number;
+  }>(),
   artSlotRules: jsonb("art_slot_rules").$type<{ minRealmOrder: number; slots: number }[]>(),
   idleKillCap: integer("idle_kill_cap"),
   minClientVersionCode: integer("min_client_version_code").notNull().default(0),
@@ -223,6 +230,7 @@ export const contentRealms = pgTable("content_realms", {
   slug: text("slug").primaryKey(),
   displayName: text("display_name").notNull(),
   majorName: text("major_name").notNull().default(""),
+  majorKey: text("major_key"),
   sortOrder: integer("sort_order").notNull(),
   nextRealmSlug: text("next_realm_slug"),
   tickSeconds: integer("tick_seconds").notNull().default(1),

@@ -1,208 +1,138 @@
 <template>
   <div>
     <div class="toolbar">
-      <h2>武器分类</h2>
-      <el-button type="primary" @click="openCategory()">新建分类</el-button>
+      <h2>装备</h2>
+      <el-button type="primary" :disabled="!loaded || savingFactors" @click="saveFactors">保存品质系数</el-button>
     </div>
-    <el-table :data="categories" v-loading="loading">
-      <el-table-column prop="displayName" label="名称" />
-      <el-table-column label="" width="160">
-        <template #default="{ row }">
-          <el-button link type="primary" @click="openCategory(row)">编辑</el-button>
-          <el-button link type="danger" @click="removeCategory(row)">删除</el-button>
-        </template>
-      </el-table-column>
-    </el-table>
+    <p>
+      品质系数是根数据，默认白 1、绿 1.15、蓝 1.3、紫 1.5、橙 1.8。装备属性按「这一阶的装备预算 × 部位占比 × 品质系数」计算，不能手填。
+      保存系数之后，每一件装备的攻击、防御、气血、速度会跟着重算。名字、描述和图标不动。
+    </p>
+    <el-form label-width="120px" class="factors">
+      <el-form-item v-for="quality in qualities" :key="quality.key" :label="quality.name">
+        <el-input-number v-model="factors[quality.key]" :min="0.01" :step="0.05" :controls="false" />
+      </el-form-item>
+    </el-form>
 
-    <div class="toolbar second">
-      <h2>武器</h2>
-      <el-button type="primary" @click="openWeapon()">新建武器</el-button>
-    </div>
-    <el-table :data="weapons">
-      <el-table-column prop="displayName" label="名称" width="180" />
-      <el-table-column label="分类" width="140">
-        <template #default="{ row }">{{ row.categoryMissing ? "分类不存在" : row.categoryName }}</template>
-      </el-table-column>
-      <el-table-column label="部位" width="100">
-        <template #default="{ row }">{{ slotName(row.slot) }}</template>
-      </el-table-column>
-      <el-table-column label="战力" width="100">
-        <template #default="{ row }">{{ row.power ?? "规则未填" }}</template>
-      </el-table-column>
-      <el-table-column label="" width="160">
-        <template #default="{ row }">
-          <el-button link type="primary" @click="openWeapon(row)">编辑</el-button>
-          <el-button link type="danger" @click="removeWeapon(row)">删除</el-button>
-        </template>
-      </el-table-column>
-    </el-table>
+    <p v-if="majors.length === 0">先在境界里填写同一个大境界的名字，保存后会生成这一阶的 25 件装备。</p>
+    <section v-for="major in majors" :key="major.majorKey" class="major">
+      <h3>{{ major.majorName }}</h3>
+      <p>到达编号 {{ major.requiredRealmOrder }} 就能穿。高阶的先放在背包里。</p>
+      <el-table :data="major.pieces">
+        <el-table-column prop="displayName" label="名称" width="220" />
+        <el-table-column prop="slotName" label="部位" width="90" />
+        <el-table-column prop="qualityName" label="品质" width="80" />
+        <el-table-column prop="attack" label="攻击" width="90" />
+        <el-table-column prop="defense" label="防御" width="90" />
+        <el-table-column prop="hp" label="气血" width="90" />
+        <el-table-column prop="speed" label="速度" width="90" />
+        <el-table-column label="战力" width="100">
+          <template #default="{ row }">{{ row.power ?? "规则未填" }}</template>
+        </el-table-column>
+        <el-table-column label="" width="100">
+          <template #default="{ row }">
+            <el-button link type="primary" @click="openPiece(row)">编辑</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+    </section>
 
-    <el-dialog v-model="categoryOpen" :title="categoryCreating ? '新建分类' : '编辑分类'" width="420px">
-      <el-form label-width="80px">
-        <el-form-item label="名称">
-          <el-input v-model="categoryName" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="categoryOpen = false">取消</el-button>
-        <el-button type="primary" @click="saveCategory">保存</el-button>
-      </template>
-    </el-dialog>
-
-    <el-dialog v-model="weaponOpen" :title="weaponCreating ? '新建武器' : '编辑武器'" width="520px">
+    <el-dialog v-model="pieceOpen" title="编辑装备" width="480px">
       <el-form label-width="80px">
         <el-form-item label="名称">
           <el-input v-model="form.displayName" />
         </el-form-item>
-        <el-form-item label="分类">
-          <el-select v-model="form.categoryId" placeholder="选择分类" style="width: 220px">
-            <el-option v-for="category in categories" :key="category.id" :label="category.displayName" :value="category.id" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="部位">
-          <el-select v-model="form.slot" placeholder="选择部位" style="width: 220px">
-            <el-option v-for="slot in slots" :key="slot.id" :label="slot.name" :value="slot.id" />
-          </el-select>
-        </el-form-item>
         <el-form-item label="描述">
           <el-input v-model="form.description" />
         </el-form-item>
-        <el-form-item label="攻击">
-          <el-input-number v-model="form.attack" :min="0" :controls="false" />
-        </el-form-item>
-        <el-form-item label="防御">
-          <el-input-number v-model="form.defense" :min="0" :controls="false" />
-        </el-form-item>
-        <el-form-item label="气血">
-          <el-input-number v-model="form.hp" :min="0" :controls="false" />
-        </el-form-item>
-        <el-form-item label="速度">
-          <el-input-number v-model="form.speed" :min="0" :controls="false" />
+        <el-form-item label="图标">
+          <el-input v-model="form.iconKey" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="weaponOpen = false">取消</el-button>
-        <el-button type="primary" @click="saveWeapon">保存</el-button>
+        <el-button @click="pieceOpen = false">取消</el-button>
+        <el-button type="primary" @click="savePiece">保存</el-button>
       </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ElMessage, ElMessageBox } from "element-plus";
+import { ElMessage } from "element-plus";
 import { onMounted, reactive, ref } from "vue";
 import { api } from "../api";
 
-type Category = { id: string; displayName: string };
-type Weapon = Category & {
+type QualityKey = "white" | "green" | "blue" | "purple" | "orange";
+type Piece = {
+  id: string;
+  displayName: string;
   description: string;
-  categoryId: string;
-  categoryName: string;
-  categoryMissing: boolean;
-  slot: string | null;
-  power: number | null;
+  iconKey: string;
+  slotName: string;
+  qualityName: string;
   attack: number;
   defense: number;
   hp: number;
   speed: number;
+  power: number | null;
+};
+type Major = {
+  majorName: string;
+  majorKey: string;
+  requiredRealmOrder: number;
+  pieces: Piece[];
 };
 
-const slots = [
-  { id: "weapon", name: "武器" },
-  { id: "helmet", name: "头冠" },
-  { id: "clothes", name: "衣服" },
-  { id: "shoes", name: "鞋子" },
-  { id: "accessory", name: "饰品" },
+const qualities: { key: QualityKey; name: string }[] = [
+  { key: "white", name: "白" },
+  { key: "green", name: "绿" },
+  { key: "blue", name: "蓝" },
+  { key: "purple", name: "紫" },
+  { key: "orange", name: "橙" },
 ];
 
-function slotName(slot: string | null): string {
-  return slots.find((item) => item.id === slot)?.name ?? "未选";
-}
-
-const loading = ref(false);
-const categories = ref<Category[]>([]);
-const weapons = ref<Weapon[]>([]);
-const categoryOpen = ref(false);
-const categoryCreating = ref(false);
-const categoryId = ref("");
-const categoryName = ref("");
-const weaponOpen = ref(false);
-const weaponCreating = ref(false);
-const weaponId = ref("");
-const form = reactive({
-  displayName: "",
-  description: "",
-  categoryId: "",
-  slot: "weapon",
-  attack: 0,
-  defense: 0,
-  hp: 0,
-  speed: 0,
-});
+const factors = reactive<Record<QualityKey, number>>({ white: 1, green: 1.15, blue: 1.3, purple: 1.5, orange: 1.8 });
+const majors = ref<Major[]>([]);
+const loaded = ref(false);
+const savingFactors = ref(false);
+const pieceOpen = ref(false);
+const pieceId = ref("");
+const form = reactive({ displayName: "", description: "", iconKey: "" });
 
 async function load(): Promise<void> {
-  loading.value = true;
-  try {
-    categories.value = await api<Category[]>("/admin/draft/weapon-categories");
-    weapons.value = await api<Weapon[]>("/admin/draft/weapons");
-  } catch (cause) {
-    ElMessage.error(cause instanceof Error ? cause.message : "加载失败");
-  } finally {
-    loading.value = false;
+  const page = await api<{ factors: Record<QualityKey, number>; majors: Major[] }>("/admin/draft/gear");
+  for (const quality of qualities) {
+    factors[quality.key] = page.factors[quality.key];
   }
+  majors.value = page.majors;
+  loaded.value = true;
 }
 
-function openCategory(row?: Category): void {
-  categoryCreating.value = !row;
-  categoryId.value = row?.id ?? "";
-  categoryName.value = row?.displayName ?? "";
-  categoryOpen.value = true;
-}
-
-async function saveCategory(): Promise<void> {
-  const body = JSON.stringify({ displayName: categoryName.value });
+async function saveFactors(): Promise<void> {
+  savingFactors.value = true;
   try {
-    if (categoryCreating.value) {
-      await api("/admin/draft/weapon-categories", { method: "POST", body });
-    } else {
-      await api(`/admin/draft/weapon-categories/${categoryId.value}`, { method: "PUT", body });
-    }
-    categoryOpen.value = false;
+    await api("/admin/draft/gear-qualities", { method: "PUT", body: JSON.stringify({ ...factors }) });
+    ElMessage.success("已保存，装备属性已重算");
     await load();
   } catch (cause) {
     ElMessage.error(cause instanceof Error ? cause.message : "保存失败");
+  } finally {
+    savingFactors.value = false;
   }
 }
 
-async function removeCategory(row: Category): Promise<void> {
-  await ElMessageBox.confirm(`删除分类「${row.displayName}」？`, "删除分类");
-  await api(`/admin/draft/weapon-categories/${row.id}`, { method: "DELETE" });
-  await load();
+function openPiece(row: Piece): void {
+  pieceId.value = row.id;
+  form.displayName = row.displayName;
+  form.description = row.description;
+  form.iconKey = row.iconKey;
+  pieceOpen.value = true;
 }
 
-function openWeapon(row?: Weapon): void {
-  weaponCreating.value = !row;
-  weaponId.value = row?.id ?? "";
-  form.displayName = row?.displayName ?? "";
-  form.description = row?.description ?? "";
-  form.categoryId = row?.categoryId ?? "";
-  form.slot = row?.slot ?? "weapon";
-  form.attack = row?.attack ?? 0;
-  form.defense = row?.defense ?? 0;
-  form.hp = row?.hp ?? 0;
-  form.speed = row?.speed ?? 0;
-  weaponOpen.value = true;
-}
-
-async function saveWeapon(): Promise<void> {
-  const body = JSON.stringify({ ...form });
+async function savePiece(): Promise<void> {
   try {
-    if (weaponCreating.value) {
-      await api("/admin/draft/weapons", { method: "POST", body });
-    } else {
-      await api(`/admin/draft/weapons/${weaponId.value}`, { method: "PUT", body });
-    }
-    weaponOpen.value = false;
+    await api(`/admin/draft/gear/${pieceId.value}`, { method: "PUT", body: JSON.stringify({ ...form }) });
+    pieceOpen.value = false;
     ElMessage.success("已保存");
     await load();
   } catch (cause) {
@@ -210,13 +140,11 @@ async function saveWeapon(): Promise<void> {
   }
 }
 
-async function removeWeapon(row: Weapon): Promise<void> {
-  await ElMessageBox.confirm(`删除武器「${row.displayName}」？`, "删除武器");
-  await api(`/admin/draft/weapons/${row.id}`, { method: "DELETE" });
-  await load();
-}
-
-onMounted(load);
+onMounted(() => {
+  void load().catch((cause: unknown) => {
+    ElMessage.error(cause instanceof Error ? cause.message : "加载失败");
+  });
+});
 </script>
 
 <style scoped>
@@ -225,7 +153,12 @@ onMounted(load);
   justify-content: space-between;
   align-items: center;
 }
-.second {
+.factors {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(240px, 360px));
+  max-width: 760px;
+}
+.major {
   margin-top: 28px;
 }
 </style>

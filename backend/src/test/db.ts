@@ -1,8 +1,30 @@
+import { randomBytes } from "node:crypto";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import * as schema from "../db/schema.js";
-import { contentGlobals, contentRealms } from "../db/schema.js";
+import { contentGlobals, contentItems, contentRealms } from "../db/schema.js";
 import type { Db } from "../modules/operations/record.js";
+
+export async function insertEquipment(
+  db: Db,
+  input: { displayName: string; slot?: string; attack?: number; defense?: number; hp?: number; speed?: number },
+) {
+  const slug = `w${randomBytes(8).toString("hex")}`;
+  await db.insert(contentItems).values({
+    slug,
+    displayName: input.displayName,
+    description: "",
+    kind: "equipment",
+    quality: "white",
+    slot: input.slot ?? "weapon",
+    attack: input.attack ?? 0,
+    defense: input.defense ?? 0,
+    hp: input.hp ?? 0,
+    speed: input.speed ?? 0,
+    stackable: false,
+  });
+  return { id: slug };
+}
 
 export async function insertStartingRealm(db: Db) {
   await db.insert(contentRealms).values({

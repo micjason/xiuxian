@@ -4,10 +4,11 @@
       <h2>境界</h2>
       <el-button type="primary" @click="create">新建境界</el-button>
     </div>
-    <p>编号用数字，不能重复，从小到大就是突破顺序。保存后游戏立刻使用。攻击、防御、气血、速度是到达这个境界时增加的量，会和更低境界的加在一起。填 0 就是这个境界不增加。基础出手间隔要填，出手快慢用它和规则页的速度基数一起算。</p>
+    <p>编号用数字，不能重复，从小到大就是突破顺序。保存后游戏立刻使用。攻击、防御、气血、速度是到达这个境界时增加的量，会和更低境界的加在一起。填 0 就是这个境界不增加。基础出手间隔要填，出手快慢用它和规则页的速度基数一起算。大境界填一样的名字，比如三个小境界都填炼气，保存后会生成这一阶的 25 件装备。到达这一阶编号最小的小境界就能穿。</p>
     <el-table :data="rows" v-loading="loading">
       <el-table-column prop="code" label="编号" width="100" />
       <el-table-column prop="displayName" label="名称" width="160" />
+      <el-table-column prop="majorName" label="大境界" width="120" />
       <el-table-column prop="tickSeconds" label="多少秒" width="100" />
       <el-table-column prop="gainPerTick" label="获得修为" width="120" />
       <el-table-column prop="breakthroughCost" label="突破消耗" width="120" />
@@ -32,6 +33,9 @@
         </el-form-item>
         <el-form-item label="名称">
           <el-input v-model="form.displayName" />
+        </el-form-item>
+        <el-form-item label="大境界">
+          <el-input v-model="form.majorName" placeholder="例如炼气" />
         </el-form-item>
         <el-form-item label="多少秒">
           <el-input-number v-model="form.tickSeconds" :min="0" :step="1" />
@@ -74,6 +78,7 @@ import { api } from "../api";
 type Realm = {
   code: number;
   displayName: string;
+  majorName: string;
   tickSeconds: number;
   gainPerTick: number;
   breakthroughCost: number;
@@ -92,6 +97,7 @@ const rows = ref<Realm[]>([]);
 const form = reactive({
   code: 1,
   displayName: "",
+  majorName: "",
   tickSeconds: 0,
   gainPerTick: 0,
   breakthroughCost: 0,
@@ -118,6 +124,7 @@ function create(): void {
   editingCode.value = 0;
   form.code = rows.value.length === 0 ? 1 : Math.max(...rows.value.map((row) => row.code)) + 1;
   form.displayName = "";
+  form.majorName = "";
   form.tickSeconds = 0;
   form.gainPerTick = 0;
   form.breakthroughCost = 0;
@@ -134,6 +141,7 @@ function edit(row: Realm): void {
   editingCode.value = row.code;
   form.code = row.code;
   form.displayName = row.displayName;
+  form.majorName = row.majorName;
   form.tickSeconds = row.tickSeconds;
   form.gainPerTick = row.gainPerTick;
   form.breakthroughCost = row.breakthroughCost;
@@ -149,6 +157,7 @@ async function save(): Promise<void> {
   const body = {
     code: form.code,
     displayName: form.displayName,
+    majorName: form.majorName,
     tickSeconds: form.tickSeconds,
     gainPerTick: form.gainPerTick,
     breakthroughCost: form.breakthroughCost,

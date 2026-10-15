@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { contentGlobals, contentRealms } from "../../db/schema.js";
-import { withDb } from "../../test/db.js";
-import { createOpsItem, createOpsSkill, createOpsWeapon, createSkillCategory, createWeaponCategory } from "../content/ops-content.js";
+import { insertEquipment, withDb } from "../../test/db.js";
+import { createOpsItem, createOpsSkill, createSkillCategory } from "../content/ops-content.js";
 import { loadDraftSnapshot } from "../content/snapshot.js";
 import { combatStats, explainPlayerPower } from "./actions.js";
 
@@ -27,8 +27,7 @@ describe("player power source", () => {
           speedBase: 100,
         },
       });
-      const weaponCategory = await createWeaponCategory(db, { displayName: "剑" }, null);
-      const sword = await createOpsWeapon(db, { displayName: "木剑", categoryId: weaponCategory.id, slot: "weapon", attack: 25, defense: 0, hp: 0, speed: 0 }, null);
+      const sword = await insertEquipment(db, { displayName: "木剑", slot: "weapon", attack: 25 });
       const herb = await createOpsItem(db, { displayName: "灵芝" }, null);
       const skillCategory = await createSkillCategory(db, { displayName: "吐纳" }, null);
       const skill = await createOpsSkill(

@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 import { contentGlobals, contentRealms } from "../../db/schema.js";
+import { DEFAULT_GEAR_QUALITY_FACTORS, syncGear } from "./gear.js";
 import { AppError } from "../../shared/errors.js";
 import type { Db } from "../operations/record.js";
 import type { ContentSnapshot } from "./validate.js";
@@ -192,7 +193,12 @@ export async function saveRules(db: Db, input: RulesInput, adminId: string | nul
       throw new AppError("INVALID_INPUT", "请先新建境界");
     }
     const start = realms.reduce((smallest, row) => (row.sortOrder < smallest.sortOrder ? row : smallest));
-    await db.insert(contentGlobals).values({ ...values, startingRealmSlug: start.slug });
+    await db.insert(contentGlobals).values({
+      ...values,
+      startingRealmSlug: start.slug,
+      gearQualityFactors: { ...DEFAULT_GEAR_QUALITY_FACTORS },
+    });
   }
+  await syncGear(db, adminId);
   return readRules(db);
 }

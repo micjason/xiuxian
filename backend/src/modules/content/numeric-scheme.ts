@@ -1,4 +1,5 @@
 import { bossPower } from "../combat/stats.js";
+import { DEFAULT_GEAR_QUALITY_FACTORS, GEAR_BUDGET_RATIO, GEAR_SLOTS, splitGearBudget } from "./gear.js";
 import { stageRecommendedPower } from "./stage-power.js";
 import type { ContentSnapshot } from "./validate.js";
 
@@ -42,22 +43,14 @@ export const PHASES = [
   { key: "late", name: "后期", difficulty: 1.15 },
 ] as const;
 
-type StatKey = keyof typeof SCHEME_WEIGHTS;
-
-const SLOTS: { key: string; name: string; share: number; stats: readonly StatKey[] }[] = [
-  { key: "weapon", name: "武器", share: 0.3, stats: ["attack"] },
-  { key: "clothes", name: "衣服", share: 0.25, stats: ["defense", "hp"] },
-  { key: "helmet", name: "头冠", share: 0.15, stats: ["defense", "hp"] },
-  { key: "shoes", name: "鞋子", share: 0.15, stats: ["speed", "hp"] },
-  { key: "accessory", name: "饰品", share: 0.15, stats: ["attack", "speed"] },
-];
+const SLOTS = GEAR_SLOTS;
 
 const QUALITIES = [
-  { key: "white", name: "白", factor: 1 },
-  { key: "green", name: "绿", factor: 1.15 },
-  { key: "blue", name: "蓝", factor: 1.3 },
-  { key: "purple", name: "紫", factor: 1.5 },
-  { key: "orange", name: "橙", factor: 1.8 },
+  { key: "white", name: "白", factor: DEFAULT_GEAR_QUALITY_FACTORS.white },
+  { key: "green", name: "绿", factor: DEFAULT_GEAR_QUALITY_FACTORS.green },
+  { key: "blue", name: "蓝", factor: DEFAULT_GEAR_QUALITY_FACTORS.blue },
+  { key: "purple", name: "紫", factor: DEFAULT_GEAR_QUALITY_FACTORS.purple },
+  { key: "orange", name: "橙", factor: DEFAULT_GEAR_QUALITY_FACTORS.orange },
 ] as const;
 
 const RANKS = [
@@ -133,31 +126,21 @@ function deltaAt(index: number): Stats {
 export function gearStats(majorIndex: number, slotKey: string, qualityKey: string): Stats {
   const early = cumulativeAt(majorIndex * 3);
   const midSpeed = cumulativeAt(majorIndex * 3 + 1).speed;
-  const budget = {
-    attack: early.attack * 0.55,
-    defense: early.defense * 0.55,
-    hp: early.hp * 0.55,
-    speed: midSpeed * 0.55,
-  };
-  const budgetPower =
-    budget.attack * SCHEME_WEIGHTS.attack +
-    budget.defense * SCHEME_WEIGHTS.defense +
-    budget.hp * SCHEME_WEIGHTS.hp +
-    budget.speed * SCHEME_WEIGHTS.speed;
-  const slot = SLOTS.find((row) => row.key === slotKey);
-  const quality = QUALITIES.find((row) => row.key === qualityKey);
-  if (!slot || !quality) {
+  const factor = DEFAULT_GEAR_QUALITY_FACTORS[qualityKey as keyof typeof DEFAULT_GEAR_QUALITY_FACTORS];
+  if (factor === undefined || !SLOTS.some((row) => row.key === slotKey)) {
     throw new Error("部位或品质不在方案里");
   }
-  const target = budgetPower * slot.share * quality.factor;
-  const weightSum = slot.stats.reduce((sum, key) => sum + SCHEME_WEIGHTS[key], 0);
-  const each = target / weightSum;
-  return {
-    attack: slot.stats.includes("attack") ? round2(each) : 0,
-    defense: slot.stats.includes("defense") ? round2(each) : 0,
-    hp: slot.stats.includes("hp") ? round2(each) : 0,
-    speed: slot.stats.includes("speed") ? round2(each) : 0,
-  };
+  return splitGearBudget({
+    budget: {
+      attack: early.attack * GEAR_BUDGET_RATIO,
+      defense: early.defense * GEAR_BUDGET_RATIO,
+      hp: early.hp * GEAR_BUDGET_RATIO,
+      speed: midSpeed * GEAR_BUDGET_RATIO,
+    },
+    slotKey,
+    factor,
+    weights: SCHEME_WEIGHTS,
+  });
 }
 
 function panelRaw(index: number): Stats {
@@ -503,10 +486,10 @@ export function schemeBudgetPower(majorIndex: number): number {
   const early = cumulativeAt(majorIndex * 3);
   const midSpeed = cumulativeAt(majorIndex * 3 + 1).speed;
   return (
-    early.attack * 0.55 * SCHEME_WEIGHTS.attack +
-    early.defense * 0.55 * SCHEME_WEIGHTS.defense +
-    early.hp * 0.55 * SCHEME_WEIGHTS.hp +
-    midSpeed * 0.55 * SCHEME_WEIGHTS.speed
+    early.attack * GEAR_BUDGET_RATIO * SCHEME_WEIGHTS.attack +
+    early.defense * GEAR_BUDGET_RATIO * SCHEME_WEIGHTS.defense +
+    early.hp * GEAR_BUDGET_RATIO * SCHEME_WEIGHTS.hp +
+    midSpeed * GEAR_BUDGET_RATIO * SCHEME_WEIGHTS.speed
   );
 }
 

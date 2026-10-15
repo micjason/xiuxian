@@ -7,7 +7,7 @@
         <el-menu-item index="/realms">境界</el-menu-item>
         <el-menu-item index="/stages">关卡</el-menu-item>
         <el-menu-item index="/puppets">人偶</el-menu-item>
-        <el-menu-item index="/weapons">武器</el-menu-item>
+        <el-menu-item index="/weapons">装备</el-menu-item>
         <el-menu-item index="/items">物品</el-menu-item>
         <el-menu-item index="/skills">技能</el-menu-item>
         <el-menu-item index="/buildings">洞府</el-menu-item>

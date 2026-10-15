@@ -8,31 +8,24 @@ import { readRules, readGameRules, rulesForSave, rulesFromInput, saveRules } fro
 import { formulaExamples } from "./formula-examples.js";
 import { buildFormulaPreview } from "./formula-preview.js";
 import { loadDraftSnapshot } from "./snapshot.js";
+import { listGear, removeMajorGear, saveGearQualityFactors, syncGear, updateGearPiece } from "./gear.js";
 import {
   createOpsItem,
   createOpsSkill,
   createOpsStage,
-  createOpsWeapon,
   createSkillCategory,
-  createWeaponCategory,
   deleteOpsItem,
   deleteOpsSkill,
   deleteOpsStage,
-  deleteOpsWeapon,
   deleteSkillCategory,
-  deleteWeaponCategory,
   listOpsItems,
   listOpsSkills,
   listOpsStages,
-  listOpsWeapons,
   listSkillCategories,
-  listWeaponCategories,
   updateOpsItem,
   updateOpsSkill,
   updateOpsStage,
-  updateOpsWeapon,
   updateSkillCategory,
-  updateWeaponCategory,
 } from "./ops-content.js";
 import { publishSnapshot } from "./snapshot.js";
 import { duelTrialPuppets } from "./puppet-duel.js";
@@ -84,6 +77,7 @@ export async function registerDraftRoutes(app: FastifyInstance, deps: { db: Db; 
       .map((row) => ({
         code: row.sortOrder,
         displayName: row.displayName,
+        majorName: row.majorName,
         tickSeconds: row.tickSeconds,
         gainPerTick: row.gainPerTick,
         breakthroughCost: row.breakthroughCost,
@@ -99,6 +93,7 @@ export async function registerDraftRoutes(app: FastifyInstance, deps: { db: Db; 
     const body = request.body as {
       code?: number;
       displayName?: string;
+      majorName?: string;
       tickSeconds?: number;
       gainPerTick?: number;
       breakthroughCost?: number;
@@ -116,6 +111,7 @@ export async function registerDraftRoutes(app: FastifyInstance, deps: { db: Db; 
     await deps.db.insert(contentRealms).values({
       slug: String(code),
       displayName: body.displayName.trim(),
+      majorName: body.majorName?.trim() ?? "",
       sortOrder: code,
       nextRealmSlug: null,
       tickSeconds: body.tickSeconds ?? 0,
@@ -129,6 +125,9 @@ export async function registerDraftRoutes(app: FastifyInstance, deps: { db: Db; 
       updatedAt: deps.now(),
       updatedBy: request.actor?.actorId ?? null,
     });
+    if (body.majorName?.trim()) {
+      await syncGear(deps.db, request.actor?.actorId ?? null);
+    }
     return { ok: true };
   });
 
@@ -137,6 +136,7 @@ export async function registerDraftRoutes(app: FastifyInstance, deps: { db: Db; 
     const body = request.body as {
       code?: number;
       displayName?: string;
+      majorName?: string;
       tickSeconds?: number;
       gainPerTick?: number;
       breakthroughCost?: number;
@@ -166,11 +166,22 @@ export async function registerDraftRoutes(app: FastifyInstance, deps: { db: Db; 
       throw new AppError("INVALID_INPUT", "秒数、修为和突破消耗不能小于 0");
     }
     await assertCodeAvailable(deps.db, nextCode, current.slug);
+    const majorName = body.majorName === undefined ? current.majorName : body.majorName.trim();
+    const previousMajor = current.majorName.trim();
+    const siblings = await deps.db.select().from(contentRealms);
+    const leavingMajor =
+      previousMajor !== "" &&
+      previousMajor !== majorName &&
+      !siblings.some((realm) => realm.slug !== current.slug && realm.majorName.trim() === previousMajor);
+    if (leavingMajor && current.majorKey) {
+      await removeMajorGear(deps.db, current.majorKey);
+    }
     await deps.db
       .update(contentRealms)
       .set({
         slug: String(nextCode),
         displayName: body.displayName.trim(),
+        majorName,
         sortOrder: nextCode,
         nextRealmSlug: null,
         tickSeconds,
@@ -185,6 +196,10 @@ export async function registerDraftRoutes(app: FastifyInstance, deps: { db: Db; 
         updatedBy: request.actor?.actorId ?? null,
       })
       .where(eq(contentRealms.slug, current.slug));
+    const realms = await deps.db.select().from(contentRealms);
+    if (realms.some((realm) => realm.majorName.trim())) {
+      await syncGear(deps.db, request.actor?.actorId ?? null);
+    }
     return { ok: true };
   });
 
@@ -194,7 +209,17 @@ export async function registerDraftRoutes(app: FastifyInstance, deps: { db: Db; 
     if (!current) {
       throw new AppError("NOT_FOUND", "没有这个境界");
     }
+    const siblings = await deps.db.select().from(contentRealms);
+    const majorName = current.majorName.trim();
+    const lastOfMajor = majorName !== "" && !siblings.some((realm) => realm.slug !== current.slug && realm.majorName.trim() === majorName);
+    if (lastOfMajor && current.majorKey) {
+      await removeMajorGear(deps.db, current.majorKey);
+    }
     await deps.db.delete(contentRealms).where(eq(contentRealms.slug, current.slug));
+    const realms = await deps.db.select().from(contentRealms);
+    if (realms.some((realm) => realm.majorName.trim())) {
+      await syncGear(deps.db, request.actor?.actorId ?? null);
+    }
     return { ok: true };
   });
 
@@ -238,24 +263,18 @@ export async function registerDraftRoutes(app: FastifyInstance, deps: { db: Db; 
     updateOpsSkill(deps.db, (request.params as { id: string }).id, request.body as never, request.actor?.actorId ?? null),
   );
   app.delete("/admin/draft/skills/:id", async (request) => deleteOpsSkill(deps.db, (request.params as { id: string }).id));
-  app.get("/admin/draft/weapon-categories", async () => listWeaponCategories(deps.db));
-  app.post("/admin/draft/weapon-categories", async (request) =>
-    createWeaponCategory(deps.db, request.body as never, request.actor?.actorId ?? null),
+  app.get("/admin/draft/gear", async () => listGear(deps.db));
+  app.put("/admin/draft/gear-qualities", async (request) =>
+    saveGearQualityFactors(deps.db, request.body as Record<string, unknown>, request.actor?.actorId ?? null),
   );
-  app.put("/admin/draft/weapon-categories/:id", async (request) =>
-    updateWeaponCategory(deps.db, (request.params as { id: string }).id, request.body as never, request.actor?.actorId ?? null),
+  app.put("/admin/draft/gear/:id", async (request) =>
+    updateGearPiece(
+      deps.db,
+      (request.params as { id: string }).id,
+      request.body as { displayName?: string; description?: string; iconKey?: string },
+      request.actor?.actorId ?? null,
+    ),
   );
-  app.delete("/admin/draft/weapon-categories/:id", async (request) =>
-    deleteWeaponCategory(deps.db, (request.params as { id: string }).id),
-  );
-  app.get("/admin/draft/weapons", async () => listOpsWeapons(deps.db));
-  app.post("/admin/draft/weapons", async (request) =>
-    createOpsWeapon(deps.db, request.body as never, request.actor?.actorId ?? null),
-  );
-  app.put("/admin/draft/weapons/:id", async (request) =>
-    updateOpsWeapon(deps.db, (request.params as { id: string }).id, request.body as never, request.actor?.actorId ?? null),
-  );
-  app.delete("/admin/draft/weapons/:id", async (request) => deleteOpsWeapon(deps.db, (request.params as { id: string }).id));
   app.get("/admin/draft/skill-categories", async () => listSkillCategories(deps.db));
   app.post("/admin/draft/skill-categories", async (request) =>
     createSkillCategory(deps.db, request.body as never, request.actor?.actorId ?? null),

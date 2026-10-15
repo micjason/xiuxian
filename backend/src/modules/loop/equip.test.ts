@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { contentGlobals, contentRealms, playerItems } from "../../db/schema.js";
 import { withTransaction } from "../../db/tx.js";
-import { withDb } from "../../test/db.js";
+import { insertEquipment, withDb } from "../../test/db.js";
 import { registerPlayer } from "../auth/service.js";
-import { createOpsItem, createOpsWeapon, createWeaponCategory } from "../content/ops-content.js";
+import { createOpsItem } from "../content/ops-content.js";
 import { loadCurrentWorld } from "../content/snapshot.js";
 import { equipItem } from "./actions.js";
 
@@ -33,8 +33,7 @@ describe("wear a weapon", () => {
           speedBase: 100,
         },
       });
-      const category = await createWeaponCategory(db, { displayName: "刀" }, null);
-      const knife = await createOpsWeapon(db, { displayName: "刀", categoryId: category.id, slot: "weapon", attack: 10, defense: 0, hp: 0, speed: 0 }, null);
+      const knife = await insertEquipment(db, { displayName: "刀", slot: "weapon", attack: 10 });
       const herb = await createOpsItem(db, { displayName: "灵芝" }, null);
       const now = new Date("2026-10-10T12:00:00.000Z");
       const player = await registerPlayer(db, { username: "wearer", password: "correct-horse", now });

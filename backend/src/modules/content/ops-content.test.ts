@@ -2,8 +2,8 @@ import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { contentRealms } from "../../db/schema.js";
 import { AppError } from "../../shared/errors.js";
-import { withDb } from "../../test/db.js";
-import { createOpsItem, createOpsSkill, createOpsStage, createOpsWeapon, createSkillCategory, createWeaponCategory, deleteOpsItem, deleteOpsSkill, listOpsSkills, listOpsStages, updateSkillCategory } from "./ops-content.js";
+import { insertEquipment, withDb } from "../../test/db.js";
+import { createOpsItem, createOpsSkill, createOpsStage, createSkillCategory, deleteOpsItem, deleteOpsSkill, listOpsSkills, listOpsStages, updateSkillCategory } from "./ops-content.js";
 
 describe("ops content", () => {
   it("keeps several stages on one realm and refuses a missing mount", async () => {
@@ -29,12 +29,7 @@ describe("ops content", () => {
       expect(skills.find((row) => row.id === skill.id)?.categoryId).toBe(category.id);
       expect(skills.find((row) => row.id === skill.id)?.categoryName).toBe("吐纳心法");
       const book = await createOpsItem(db, { displayName: "吐纳书" }, null);
-      const weaponCategory = await createWeaponCategory(db, { displayName: "长剑" }, null);
-      const sword = await createOpsWeapon(
-        db,
-        { displayName: "木剑", categoryId: weaponCategory.id, slot: "weapon", attack: 4, defense: 0, hp: 0, speed: 0 },
-        null,
-      );
+      const sword = await insertEquipment(db, { displayName: "木剑", slot: "weapon", attack: 4 });
       await expect(createOpsStage(db, { displayName: "山门", realmCode: 9 }, null)).rejects.toBeInstanceOf(AppError);
       const first = await createOpsStage(
         db,

@@ -151,7 +151,7 @@ export function equipmentPowerErrors(items: ContentSnapshot["items"]): { slug: s
         if (from === 0 && to === 0) {
           continue;
         }
-        if (from === 0 || to === 0 || to + 1e-9 < from) {
+        if (from === 0 || to === 0) {
           broken = true;
           break;
         }

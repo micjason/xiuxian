@@ -149,7 +149,7 @@ func _build_report_panel() -> Control:
 	var panel := PanelContainer.new()
 	panel.name = "ReportPanel"
 	panel.custom_minimum_size = Vector2(0, 250)
-	panel.add_theme_stylebox_override("panel", ArtLib.nine("panel_inset"))
+	panel.add_theme_stylebox_override("panel", ArtLib.nine("battle_log_panel") if ArtLib.has_ui("battle_log_panel") else ArtLib.nine("panel_inset"))
 	var column := UiKit.vbox(2)
 	panel.add_child(column)
 	column.add_child(UiKit.label("战报", UiTokens.FS_MICRO, UiTokens.GOLD))

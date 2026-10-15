@@ -1,7 +1,38 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="96" fill="#0b1316"/>
-  <circle cx="366" cy="142" r="58" fill="#c9dfbd"/>
-  <path d="M70 386 L197 181 L264 286 L315 220 L442 386 Z" fill="#35544d"/>
-  <path d="M70 386 L197 181 L217 300 L264 286 L315 220 L331 323 L442 386 Z" fill="#6d8d78"/>
-  <path d="M114 386 C195 330 285 331 398 386" fill="none" stroke="#d6c69a" stroke-width="18" stroke-linecap="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512"><defs>
+<radialGradient id="bg" cx="50%" cy="42%" r="75%"><stop offset="0" stop-color="#256B58"/><stop offset=".55" stop-color="#123A30"/><stop offset="1" stop-color="#071B15"/></radialGradient>
+<linearGradient id="gold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFF1B8"/><stop offset=".45" stop-color="#F0C455"/><stop offset="1" stop-color="#A9761F"/></linearGradient>
+<linearGradient id="goldv" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFF4C8"/><stop offset=".5" stop-color="#EDBE4C"/><stop offset="1" stop-color="#B07C22"/></linearGradient>
+<linearGradient id="blade" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#C9A24A"/><stop offset=".45" stop-color="#FFFBEA"/><stop offset=".55" stop-color="#F3E3A8"/><stop offset="1" stop-color="#B8892E"/></linearGradient>
+<radialGradient id="halo" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#FFE08A" stop-opacity=".38"/><stop offset=".6" stop-color="#FFE08A" stop-opacity=".12"/><stop offset="1" stop-color="#FFE08A" stop-opacity="0"/></radialGradient>
+<radialGradient id="yin" cx="40%" cy="35%" r="80%"><stop offset="0" stop-color="#1B4F41"/><stop offset="1" stop-color="#0A241C"/></radialGradient>
+</defs>
+<rect x="0" y="0" width="512" height="512" rx="112" fill="url(#bg)"/>
+<rect x="12" y="12" width="488" height="488" rx="102" fill="none" stroke="#E8C05A" stroke-width="3" opacity=".55"/>
+<rect x="22" y="22" width="468" height="468" rx="92" fill="none" stroke="#E8C05A" stroke-width="1.2" opacity=".3"/>
+<g opacity=".16" fill="none" stroke="#E8C05A" stroke-width="3"><path d="M40 120 Q70 90 100 120 Q130 90 160 120"/><path d="M352 392 Q382 422 412 392 Q442 422 472 392"/></g>
+
+<circle cx="256" cy="256" r="196" fill="url(#halo)"/>
+<circle cx="256" cy="256" r="152" fill="none" stroke="#2A1A05" stroke-width="12" opacity=".55"/>
+<circle cx="256" cy="256" r="152" fill="none" stroke="url(#gold)" stroke-width="7"/>
+<circle cx="256" cy="256" r="140" fill="none" stroke="#E8C05A" stroke-width="1.8" opacity=".6" stroke-dasharray="2 9" stroke-linecap="round"/>
+<circle cx="256" cy="256" r="121" fill="url(#yin)" stroke="#2A1A05" stroke-width="10"/>
+<path d="M256 135 A121 121 0 0 1 256 377 A60.5 60.5 0 0 1 256 256 A60.5 60.5 0 0 0 256 135 Z" fill="url(#goldv)"/>
+<circle cx="256" cy="195.5" r="17" fill="url(#goldv)"/>
+<circle cx="256" cy="316.5" r="17" fill="#0A241C"/>
+<circle cx="256" cy="256" r="121" fill="none" stroke="url(#gold)" stroke-width="4.5"/>
+<!-- sword -->
+<g stroke-linejoin="round" stroke-linecap="round">
+<path d="M256 70 L269 118 L269 306 L243 306 L243 118 Z" fill="url(#blade)" stroke="#2A1A05" stroke-width="7"/>
+<path d="M256 70 L269 118 L269 306 L243 306 L243 118 Z" fill="url(#blade)"/>
+<path d="M256 84 L256 300" stroke="#A9761F" stroke-width="2.4" opacity=".75"/>
+<path d="M200 300 Q256 316 312 300 L318 290 L194 290 Z" fill="url(#goldv)" stroke="#2A1A05" stroke-width="6"/>
+<path d="M200 300 Q256 316 312 300 L318 290 L194 290 Z" fill="url(#goldv)"/>
+<rect x="247" y="308" width="18" height="84" rx="6" fill="#B3221A" stroke="#2A1A05" stroke-width="6"/>
+<rect x="247" y="308" width="18" height="84" rx="6" fill="#C42418"/>
+<path d="M247 322 L265 316 M247 336 L265 330 M247 350 L265 344 M247 364 L265 358 M247 378 L265 372" stroke="#FFB59E" stroke-width="2" opacity=".7"/>
+<circle cx="256" cy="402" r="14" fill="url(#goldv)" stroke="#2A1A05" stroke-width="6"/>
+<circle cx="256" cy="402" r="14" fill="url(#goldv)"/>
+<path d="M256 416 Q248 428 256 440 Q264 428 256 416" fill="#C42418" stroke="#2A1A05" stroke-width="4"/>
+</g>
+
 </svg>

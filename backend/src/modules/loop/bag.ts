@@ -86,11 +86,12 @@ async function insertRow(tx: Tx, playerId: string, itemSlug: string, isStack: bo
 }
 
 /**
- * 发放一件物品，处理行囊容量（设计表 2.6 / 3.7）。只有装备受容量限制；材料、功法书满包也照常入包：
+ * 发放一件物品，处理行囊容量（设计表 2.6 / 3.7）。负责人确认的规则：突破石、功法书这类非装备物品每个堆叠仍占一格
+ * （bagUsedSlots 数的是所有没穿戴的行），但从不因为满包被拒绝——满包时照常入包，可以超出容量；只有装备的新掉落受容量限制：
  * - 有空格：直接入包（可叠加物品并入已有一堆，不占新格）。
- * - 没有空格（只针对装备）：
+ * - 没有空格（只针对装备掉落）：
  *   · 新掉落是白/绿装备、开关开：直接分解成强化经验；
- *   · 新掉落是别的（蓝/紫装备、材料等）、开关开：分解包内一件没强化的白/绿腾出一格再入包；找不到可分解的就不掉；
+ *   · 新掉落是蓝/紫装备、开关开：分解包内一件没强化的白/绿腾出一格再入包；找不到可分解的就不掉；
  *   · 开关关：不掉，reason = BAG_FULL。
  * - options.overflow（首领首通奖励）：不管容量，直接入包。
  */
@@ -122,7 +123,7 @@ export async function grantItem(
         .limit(1);
     }
     const needsSlot = !stackRow;
-    // 满包只影响装备掉落；材料（突破石等）和功法书不占装备格的竞争，直接入包，不会因为背包满而丢。
+    // 满包只拦装备掉落：突破石、功法书每个堆叠仍占一格（计入 bagUsedSlots），但满包时不检查容量，直接入包（可超出容量），不会因为背包满而丢。
     if (needsSlot && !options.overflow && isGear) {
       const used = await bagUsedSlots(tx, playerId);
       if (used >= options.capacity) {

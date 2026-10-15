@@ -38,7 +38,10 @@ export async function registerLoopRoutes(
     const playerId = request.actor!.actorId;
     const params = request.params as { slug: string };
     return withIdempotency(deps.db, playerId, idempotencyKey(request.headers["idempotency-key"]), "challenge", deps.now(), (tx, world) =>
-      challengeStage(tx, world, playerId, params.slug, deps.now(), deps.randomInt),
+      challengeStage(tx, world, playerId, params.slug, deps.now(), deps.randomInt, {
+        ultTaps: (request.body as { ultTaps?: unknown } | undefined)?.ultTaps,
+        ultWaits: (request.body as { ultWaits?: unknown } | undefined)?.ultWaits,
+      }),
     );
   });
 

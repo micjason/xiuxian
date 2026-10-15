@@ -50,7 +50,7 @@ async function boot(db: TestDb, name: string) {
       merged.drops.push(...last.lastSettle.drops);
       merged.bagFull ||= last.lastSettle.bagFull;
     }
-    return { ...last, lastSettle: { ...last.lastSettle, ...merged } };
+    return { ...last, lastSettle: { ...last.lastSettle, ...merged } } as Record<string, any>;
   };
   const bag = async () => (await db.select().from(playerItems).where(eq(playerItems.playerId, player!.id))).filter((row) => !row.equippedSlot);
   const fill = async (slug: string, count: number, enhanceLevel = 0) => {

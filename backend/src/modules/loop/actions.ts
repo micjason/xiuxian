@@ -8,7 +8,7 @@ import {
   playerStates,
   players,
 } from "../../db/schema.js";
-import { simulateBattle } from "../combat/battle.js";
+import { cleanUltTaps, simulateBattle, simulateBossFight, type UltConfig, type UltPlan } from "../combat/battle.js";
 import { computePower, ratePower, resolveBreakthrough, skillLayerFactor, sumReachedRealmStats } from "../combat/stats.js";
 import { ensureSkillBook } from "../content/ops-content.js";
 import { loadCurrentWorld } from "../content/snapshot.js";
@@ -22,6 +22,7 @@ import type { Db } from "../operations/record.js";
 import { readGameRules } from "../content/rules.js";
 import { addEnhanceExp, bagUsedSlots, decomposeRow, freeOneSlot, grantItem } from "./bag.js";
 import { noticesForPlayer, rememberIncome } from "../notices/service.js";
+import { dailyUsed, grantBossRewards, usesRewardModel } from "./boss-rewards.js";
 import { EMPTY_WAVES, cycleFor, farmableStages, resolveFarmStage, settleWaves, type WaveSettlement } from "./waves.js";
 
 type World = ContentSnapshot & { version: number };
@@ -384,6 +385,7 @@ async function settleLocked(tx: Tx, playerId: string, world: World, now: Date) {
     waves,
     stage,
     gapSeconds,
+    now,
   };
 }
 
@@ -429,6 +431,8 @@ function stateDto(world: World, playerId: string, settled: Awaited<ReturnType<ty
     skills: settled.pieces.skills,
     stages: settled.pieces.stages,
     wave: waveDto(world, settled),
+    ult: ultOf(world, settled.state.realmSlug),
+    bossDaily: bossDailyDto(world, settled),
     lastSettle: {
       online: settled.waves.online,
       seconds: Math.floor(settled.gapSeconds),
@@ -440,6 +444,19 @@ function stateDto(world: World, playerId: string, settled: Awaited<ReturnType<ty
       bagFull: settled.waves.bagFull,
     },
   };
+}
+
+/** 每个已首通、配了重复挑战奖励的首领：今天已经领了几次、一共几次。 */
+function bossDailyDto(world: World, settled: Awaited<ReturnType<typeof settleLocked>>) {
+  const rules = readGameRules(world);
+  const now = settled.now;
+  return settled.pieces.stages.flatMap((row) => {
+    const boss = world.stages.find((stage) => stage.slug === row.stageSlug)?.bosses?.[0];
+    if (!row.firstClearedAt || !boss?.repeat) {
+      return [];
+    }
+    return [{ stageSlug: row.stageSlug, used: dailyUsed(row, rules, now), limit: rules.bossDailyRewardCount }];
+  });
 }
 
 /** 普通怪波次的当前状态：在哪个关卡刷、一波多久、进行到哪、可以切到哪些关卡。 */
@@ -627,7 +644,29 @@ export async function advanceRealm(tx: Tx, world: World, playerId: string, now: 
   };
 }
 
-export async function challengeStage(tx: Tx, world: World, playerId: string, stageSlug: string, now: Date, randomInt: RandomInt) {
+/** 当前境界的大招配置（倍率 0 = 没有大招）。 */
+export function ultOf(world: World, realmSlug: string): (UltConfig & { name: string }) | null {
+  const realm = realmOf(world, realmSlug);
+  if (!realm.ultDamageMultBp || realm.ultDamageMultBp <= 0) {
+    return null;
+  }
+  return {
+    name: realm.ultName ?? "",
+    multBp: realm.ultDamageMultBp,
+    cooldownSeconds: realm.ultCooldownSeconds ?? 0,
+    firstCooldownSeconds: realm.ultFirstCooldownSeconds ?? 8,
+    autoCastWindowSeconds: readGameRules(world).ultAutoCastWindowSeconds,
+  };
+}
+
+export type ChallengeOptions = {
+  /** 客户端上报的大招点击时间（从开战算起的秒数）。服务端只用它重新模拟，客户端画面只是预演。 */
+  ultTaps?: unknown;
+  /** 或者：每次释放等待了几秒（0 到自动释放窗口）。 */
+  ultWaits?: unknown;
+};
+
+export async function challengeStage(tx: Tx, world: World, playerId: string, stageSlug: string, now: Date, randomInt: RandomInt, options: ChallengeOptions = {}) {
   const settled = await settleLocked(tx, playerId, world, now);
   const stage = world.stages.find((row) => row.slug === stageSlug);
   if (!stage) {
@@ -681,25 +720,29 @@ export async function challengeStage(tx: Tx, world: World, playerId: string, sta
   if (bossHp <= 0 || bossInterval <= 0) {
     throw new AppError("INVALID_INPUT", "这个首领还没填气血或出手间隔");
   }
-  const battle = simulateBattle(
-    {
-      attack: settled.stats.attack,
-      defense: settled.stats.defense,
-      hp: settled.stats.hp,
-      interval: settled.stats.interval,
-    },
-    {
-      attack: bossAttack,
-      defense: bossDefense,
-      hp: bossHp,
-      interval: bossInterval,
-    },
-    battleConfigOf(world),
-  );
+  const fighter = { attack: settled.stats.attack, defense: settled.stats.defense, hp: settled.stats.hp, interval: settled.stats.interval };
+  const monsterSide = { attack: bossAttack, defense: bossDefense, hp: bossHp, interval: bossInterval };
+  const ult = ultOf(world, settled.state.realmSlug);
+  const plan: UltPlan = options.ultWaits !== undefined && Array.isArray(options.ultWaits) ? { waits: (options.ultWaits as unknown[]).slice(0, 50).map(Number) } : cleanUltTaps(options.ultTaps);
+  const battle = simulateBossFight(fighter, monsterSide, battleConfigOf(world), ult, plan);
   const drops: { itemSlug: string; quantity: number; decomposed?: boolean; enhanceExp?: number; dropped?: boolean; freed?: { itemSlug: string; enhanceExp: number }[] }[] = [];
   let nextPity: Record<string, number> | undefined;
   let bagFullNotice = false;
-  if (battle.win) {
+  let rewardInfo: Awaited<ReturnType<typeof grantBossRewards>> | null = null;
+  if (battle.win && boss && usesRewardModel(boss)) {
+    rewardInfo = await grantBossRewards(tx, world, playerId, {
+      stage,
+      boss,
+      progress,
+      rules,
+      autoDecompose: settled.state.autoDecompose,
+      capacity: bagCapacity,
+      now,
+      randomInt,
+    });
+    drops.push(...rewardInfo.drops);
+    bagFullNotice = rewardInfo.bagFull;
+  } else if (battle.win) {
     const reward = boss?.reward;
     if (reward) {
       const rolled = rollSchemeReward({
@@ -768,6 +811,8 @@ export async function challengeStage(tx: Tx, world: World, playerId: string, sta
         bagFullNotice = true;
       }
     }
+  }
+  if (battle.win) {
     await tx
       .update(playerStageProgress)
       .set({
@@ -789,7 +834,22 @@ export async function challengeStage(tx: Tx, world: World, playerId: string, sta
     .set(nextPity ? { lastChallengeAt: now, dropPity: nextPity } : { lastChallengeAt: now })
     .where(eq(playerStates.playerId, playerId));
   const after = await settleLocked(tx, playerId, world, now);
-  return { battle, drops, freedBeforeFight, bagFull: bagFullNotice, state: stateDto(world, playerId, after) };
+  return {
+    battle,
+    drops,
+    freedBeforeFight,
+    bagFull: bagFullNotice,
+    reward: rewardInfo
+      ? {
+          firstClear: rewardInfo.firstClear,
+          cultivation: rewardInfo.cultivation,
+          rewarded: rewardInfo.rewarded,
+          dailyRewardCount: rewardInfo.dailyRewardCount,
+          dailyRewardLimit: rewardInfo.dailyRewardLimit,
+        }
+      : null,
+    state: stateDto(world, playerId, after),
+  };
 }
 
 export async function equipItem(tx: Tx, world: World, playerId: string, itemId: string, now: Date) {

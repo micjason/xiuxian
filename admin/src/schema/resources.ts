@@ -21,7 +21,7 @@ export const realmSchema: Schema = {
     },
     {
       key: "majorName", label: "大境界", kind: "text", group: "base", required: true,
-      hint: "同一个大境界的小境界填同一个名字，例如三个小境界都填「炼气」。保存后系统会生成这一阶的 25 件装备。",
+      hint: "同一个大境界的小境界填同一个名字，例如三个小境界都填「炼气」。保存后系统会生成这一阶的 30 件装备（6 部位 × 5 品质）。",
       affects: "装备分阶与自动生成（6 部位 × 5 品质）", column: { width: 100 },
     },
     {

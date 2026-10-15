@@ -1,0 +1,1025 @@
+{
+  "_source": "/workspace/prototype_design_numbers.md v1.2 (0.1, 1.1-1.3, 2.1-2.5, 3.1, 6.1). Edit this file to try other numbers.",
+  "globals": {
+    "weights": {
+      "attack": 4.7,
+      "defense": 1.6,
+      "hp": 0.95,
+      "speed": 2.6
+    },
+    "baseInterval": 1.5,
+    "speedBase": 100,
+    "minInterval": 0.5,
+    "defenseConstant": 1,
+    "timeLimitSeconds": 45,
+    "offlineCapSeconds": 28800,
+    "onlineGapSeconds": 15,
+    "waveSize": 3,
+    "waveTransitionSeconds": 2,
+    "reviveSeconds": 3,
+    "statGrowthBp": 600,
+    "qualityFactors": {
+      "white": 1,
+      "green": 1.15,
+      "blue": 1.3,
+      "purple": 1.5
+    },
+    "ult": {
+      "firstCooldownSeconds": 8,
+      "autoCastWindowSeconds": 2
+    },
+    "scheduleOnlineMinutesPerDay": 45,
+    "gearSpeedFactor": 0.3
+  },
+  "majors": [
+    {
+      "id": "qi",
+      "name": "炼气",
+      "ult": {
+        "multBp": 40000,
+        "cooldownSeconds": 20
+      },
+      "skillBonusBp": 500,
+      "bossRewardSkillBp": 1500
+    },
+    {
+      "id": "foundation",
+      "name": "筑基",
+      "ult": {
+        "multBp": 50000,
+        "cooldownSeconds": 18
+      },
+      "skillBonusBp": 1500,
+      "bossRewardSkillBp": 3000
+    },
+    {
+      "id": "core",
+      "name": "金丹",
+      "ult": {
+        "multBp": 60000,
+        "cooldownSeconds": 16
+      },
+      "skillBonusBp": 3000,
+      "bossRewardSkillBp": 3000
+    }
+  ],
+  "layers": [
+    {
+      "id": "lianqi_1",
+      "name": "炼气一层",
+      "major": "qi",
+      "gainPerTick": 1,
+      "costToNext": 60,
+      "stats": {
+        "hp": 300,
+        "attack": 30,
+        "defense": 10,
+        "speed": 20
+      }
+    },
+    {
+      "id": "lianqi_2",
+      "name": "炼气二层",
+      "major": "qi",
+      "gainPerTick": 1,
+      "costToNext": 300,
+      "stats": {
+        "hp": 360,
+        "attack": 36,
+        "defense": 12,
+        "speed": 20
+      }
+    },
+    {
+      "id": "lianqi_3",
+      "name": "炼气三层",
+      "major": "qi",
+      "gainPerTick": 1,
+      "costToNext": 1800,
+      "requiresBoss": "b_lq_bear",
+      "stats": {
+        "hp": 430,
+        "attack": 43,
+        "defense": 14,
+        "speed": 20
+      }
+    },
+    {
+      "id": "zhuji_1",
+      "name": "筑基一层",
+      "major": "foundation",
+      "gainPerTick": 3,
+      "costToNext": 28800,
+      "stats": {
+        "hp": 780,
+        "attack": 78,
+        "defense": 26,
+        "speed": 30
+      }
+    },
+    {
+      "id": "zhuji_2",
+      "name": "筑基二层",
+      "major": "foundation",
+      "gainPerTick": 3,
+      "costToNext": 72000,
+      "stats": {
+        "hp": 940,
+        "attack": 94,
+        "defense": 31,
+        "speed": 30
+      }
+    },
+    {
+      "id": "zhuji_3",
+      "name": "筑基三层",
+      "major": "foundation",
+      "gainPerTick": 3,
+      "costToNext": 144000,
+      "requiresBoss": "b_zj_ghost",
+      "stats": {
+        "hp": 1130,
+        "attack": 113,
+        "defense": 37,
+        "speed": 30
+      }
+    },
+    {
+      "id": "jindan_1",
+      "name": "金丹一层",
+      "major": "core",
+      "gainPerTick": 9,
+      "costToNext": 252000,
+      "stats": {
+        "hp": 2050,
+        "attack": 205,
+        "defense": 68,
+        "speed": 40
+      }
+    },
+    {
+      "id": "jindan_2",
+      "name": "金丹二层",
+      "major": "core",
+      "gainPerTick": 9,
+      "costToNext": 504000,
+      "stats": {
+        "hp": 2460,
+        "attack": 246,
+        "defense": 82,
+        "speed": 40
+      }
+    },
+    {
+      "id": "jindan_3",
+      "name": "金丹三层",
+      "major": "core",
+      "gainPerTick": 9,
+      "costToNext": null,
+      "stats": {
+        "hp": 2950,
+        "attack": 295,
+        "defense": 98,
+        "speed": 40
+      }
+    }
+  ],
+  "stages": [
+    {
+      "id": "lianqi_1",
+      "name": "黑风岭·一",
+      "monster": {
+        "name": "青鬃狼",
+        "hp": 110,
+        "attack": 24,
+        "defense": 14,
+        "interval": 1.5,
+        "killXp": 3
+      }
+    },
+    {
+      "id": "lianqi_2",
+      "name": "黑风岭·二",
+      "monster": {
+        "name": "赤眼狐妖",
+        "hp": 125,
+        "attack": 32,
+        "defense": 15,
+        "interval": 1.25,
+        "killXp": 3
+      }
+    },
+    {
+      "id": "lianqi_3",
+      "name": "黑风岭·三",
+      "monster": {
+        "name": "毒牙蟒",
+        "hp": 190,
+        "attack": 36,
+        "defense": 17,
+        "interval": 1.5,
+        "killXp": 3
+      },
+      "boss": {
+        "id": "b_lq_bear",
+        "name": "黑风熊王",
+        "hp": 1640,
+        "attack": 42,
+        "defense": 20,
+        "interval": 1.5,
+        "recommendedPower": 900,
+        "firstClearCultivation": 1500
+      }
+    },
+    {
+      "id": "zhuji_1",
+      "name": "幽冥古道·一",
+      "monster": {
+        "name": "游魂",
+        "hp": 335,
+        "attack": 100,
+        "defense": 42,
+        "interval": 1.5,
+        "killXp": 10
+      }
+    },
+    {
+      "id": "zhuji_2",
+      "name": "幽冥古道·二",
+      "monster": {
+        "name": "骨傀",
+        "hp": 365,
+        "attack": 110,
+        "defense": 46,
+        "interval": 1.25,
+        "killXp": 10
+      }
+    },
+    {
+      "id": "zhuji_3",
+      "name": "幽冥古道·三",
+      "monster": {
+        "name": "血蝠",
+        "hp": 565,
+        "attack": 125,
+        "defense": 50,
+        "interval": 1.5,
+        "killXp": 10
+      },
+      "boss": {
+        "id": "b_zj_ghost",
+        "name": "噬魂老鬼",
+        "hp": 5760,
+        "attack": 113,
+        "defense": 61,
+        "interval": 1.5,
+        "recommendedPower": 2450,
+        "firstClearCultivation": 0
+      }
+    },
+    {
+      "id": "jindan_1",
+      "name": "赤炎火山·一",
+      "monster": {
+        "name": "炎鳞蜥",
+        "hp": 1310,
+        "attack": 275,
+        "defense": 120,
+        "interval": 1.5,
+        "killXp": 30
+      }
+    },
+    {
+      "id": "jindan_2",
+      "name": "赤炎火山·二",
+      "monster": {
+        "name": "火鸦",
+        "hp": 1430,
+        "attack": 305,
+        "defense": 130,
+        "interval": 1.25,
+        "killXp": 30
+      }
+    },
+    {
+      "id": "jindan_3",
+      "name": "赤炎火山·三",
+      "monster": {
+        "name": "熔岩傀",
+        "hp": 2470,
+        "attack": 265,
+        "defense": 140,
+        "interval": 1.5,
+        "killXp": 30
+      },
+      "boss": {
+        "id": "b_jd_jiao",
+        "name": "赤焰蛟",
+        "hp": 20400,
+        "attack": 309,
+        "defense": 170,
+        "interval": 1.5,
+        "recommendedPower": 6590,
+        "firstClearCultivation": 0
+      }
+    }
+  ],
+  "gearTable": {
+    "_note": "table v1.2 3.1: generator output at gearSpeedFactor 0.3, white +0, 2 decimals (qi / foundation / core)",
+    "weapon": [
+      {
+        "attack": 14.45
+      },
+      {
+        "attack": 35.9
+      },
+      {
+        "attack": 91.39
+      }
+    ],
+    "helmet": [
+      {
+        "hp": 13.85,
+        "defense": 13.85
+      },
+      {
+        "hp": 34.41,
+        "defense": 34.41
+      },
+      {
+        "hp": 87.59,
+        "defense": 87.59
+      }
+    ],
+    "clothes": [
+      {
+        "hp": 21.31,
+        "defense": 21.31
+      },
+      {
+        "hp": 52.94,
+        "defense": 52.94
+      },
+      {
+        "hp": 134.75,
+        "defense": 134.75
+      }
+    ],
+    "gloves": [
+      {
+        "attack": 5.18,
+        "defense": 5.18
+      },
+      {
+        "attack": 12.86,
+        "defense": 12.86
+      },
+      {
+        "attack": 32.73,
+        "defense": 32.73
+      }
+    ],
+    "shoes": [
+      {
+        "hp": 33.47,
+        "speed": 3.44
+      },
+      {
+        "hp": 83.16,
+        "speed": 8.56
+      },
+      {
+        "hp": 211.67,
+        "speed": 21.78
+      }
+    ],
+    "accessory": [
+      {
+        "attack": 7.74,
+        "speed": 1.67
+      },
+      {
+        "attack": 19.24,
+        "speed": 4.16
+      },
+      {
+        "attack": 48.97,
+        "speed": 10.59
+      }
+    ]
+  },
+  "referenceLoadouts": {
+    "_note": "table 2.1 note: the 'reference configuration' per major. [slot, quality, enhance level]",
+    "qi": [
+      [
+        "weapon",
+        "green",
+        3
+      ],
+      [
+        "helmet",
+        "white",
+        1
+      ],
+      [
+        "clothes",
+        "white",
+        1
+      ],
+      [
+        "gloves",
+        "white",
+        1
+      ],
+      [
+        "shoes",
+        "white",
+        1
+      ]
+    ],
+    "foundation": [
+      [
+        "weapon",
+        "green",
+        3
+      ],
+      [
+        "gloves",
+        "green",
+        3
+      ],
+      [
+        "helmet",
+        "white",
+        3
+      ],
+      [
+        "clothes",
+        "white",
+        3
+      ],
+      [
+        "shoes",
+        "white",
+        3
+      ],
+      [
+        "accessory",
+        "white",
+        3
+      ]
+    ],
+    "core": [
+      [
+        "weapon",
+        "blue",
+        3
+      ],
+      [
+        "gloves",
+        "blue",
+        3
+      ],
+      [
+        "accessory",
+        "blue",
+        3
+      ],
+      [
+        "helmet",
+        "green",
+        3
+      ],
+      [
+        "clothes",
+        "green",
+        3
+      ],
+      [
+        "shoes",
+        "green",
+        3
+      ]
+    ]
+  },
+  "tableClaims": {
+    "_note": "numbers copied from the design table, used only for the comparison column",
+    "referenceStats": {
+      "lianqi_1": {
+        "hp": 373,
+        "attack": 55,
+        "defense": 53,
+        "speed": 23.6,
+        "interval": 1.21,
+        "power": 759
+      },
+      "lianqi_2": {
+        "hp": 433,
+        "attack": 61,
+        "defense": 55,
+        "speed": 23.6,
+        "interval": 1.21,
+        "power": 847
+      },
+      "lianqi_3": {
+        "hp": 503,
+        "attack": 68,
+        "defense": 57,
+        "speed": 23.6,
+        "interval": 1.21,
+        "power": 950
+      },
+      "zhuji_1": {
+        "hp": 981,
+        "attack": 167,
+        "defense": 147,
+        "speed": 45.0,
+        "interval": 1.03,
+        "power": 2068
+      },
+      "zhuji_2": {
+        "hp": 1141,
+        "attack": 183,
+        "defense": 152,
+        "speed": 45.0,
+        "interval": 1.03,
+        "power": 2303
+      },
+      "zhuji_3": {
+        "hp": 1331,
+        "attack": 202,
+        "defense": 158,
+        "speed": 45.0,
+        "interval": 1.03,
+        "power": 2582
+      },
+      "jindan_1": {
+        "hp": 2639,
+        "attack": 471,
+        "defense": 420,
+        "speed": 85.8,
+        "interval": 0.81,
+        "power": 5613
+      },
+      "jindan_2": {
+        "hp": 3049,
+        "attack": 512,
+        "defense": 434,
+        "speed": 85.8,
+        "interval": 0.81,
+        "power": 6218
+      },
+      "jindan_3": {
+        "hp": 3539,
+        "attack": 561,
+        "defense": 450,
+        "speed": 85.8,
+        "interval": 0.81,
+        "power": 6939
+      }
+    },
+    "avgKillIntervalSeconds": {
+      "qi": 4.71,
+      "foundation": 4.11,
+      "core": 4.43
+    },
+    "boss": {
+      "b_lq_bear": {
+        "manual": "胜，29.1 秒，剩血 32%",
+        "auto": "胜，32.0 秒，剩血 25%",
+        "noGear": "败（总战力 685，首领剩血 64%）",
+        "manualSeconds": 29.1,
+        "manualRemainPct": 32,
+        "autoSeconds": 32.0,
+        "autoRemainPct": 25,
+        "noneSeconds": 38.8,
+        "noneRemainPct": 11,
+        "noGearBossRemainPct": 64,
+        "noGearPower": 685,
+        "power": 950,
+        "recommended": 900
+      },
+      "b_zj_ghost": {
+        "manual": "胜，29.0 秒，剩血 33%",
+        "auto": "胜，30.0 秒，剩血 33%",
+        "noGear": "败（总战力 1742，首领剩血 71%）",
+        "manualSeconds": 29.0,
+        "manualRemainPct": 33,
+        "autoSeconds": 30.0,
+        "autoRemainPct": 33,
+        "noneSeconds": 39.3,
+        "noneRemainPct": 8,
+        "noGearBossRemainPct": 71,
+        "noGearPower": 1742,
+        "power": 2582,
+        "recommended": 2450
+      },
+      "b_jd_jiao": {
+        "manual": "胜，29.1 秒，剩血 32%",
+        "auto": "胜，29.1 秒，剩血 32%",
+        "noGear": "败（总战力 4450，首领剩血 78%）",
+        "manualSeconds": 29.1,
+        "manualRemainPct": 32,
+        "autoSeconds": 29.1,
+        "autoRemainPct": 32,
+        "noneSeconds": 38.7,
+        "noneRemainPct": 11,
+        "noGearBossRemainPct": 78,
+        "noGearPower": 4450,
+        "power": 6939,
+        "recommended": 6590
+      }
+    },
+    "targets": {
+      "bossWinSeconds": [
+        25,
+        35
+      ],
+      "reachFoundationMinutes": 10,
+      "guideReachFoundationSeconds": 440,
+      "daysAllNineLayers": {
+        "A": 2.22,
+        "B": 4.13,
+        "range": [
+          2,
+          3
+        ],
+        "targetA": 2.2
+      },
+      "perLayerDays": {
+        "A_foundation": 0.86,
+        "B_foundation": 1.6,
+        "A_core": 0.8,
+        "B_core": 1.5
+      },
+      "perMajorDays": {
+        "qi": {
+          "A": 0.03,
+          "B": 0.06
+        },
+        "foundation": {
+          "A": 1.14,
+          "B": 2.13
+        },
+        "core": {
+          "A": 1.04,
+          "B": 1.94
+        }
+      }
+    }
+  },
+  "guideScript": {
+    "_note": "table v1.2 6.1 timeline (seconds). The sim breaks through as soon as it is allowed.",
+    "firstBattleAt": 15,
+    "events": [
+      {
+        "t": 75,
+        "do": "equip",
+        "slot": "weapon",
+        "quality": "green",
+        "tier": 0,
+        "level": 0
+      },
+      {
+        "t": 120,
+        "do": "equip",
+        "slot": "helmet",
+        "quality": "white",
+        "tier": 0,
+        "level": 0
+      },
+      {
+        "t": 120,
+        "do": "equip",
+        "slot": "clothes",
+        "quality": "white",
+        "tier": 0,
+        "level": 0
+      },
+      {
+        "t": 165,
+        "do": "skill",
+        "bonusBp": 500
+      },
+      {
+        "t": 200,
+        "do": "equip",
+        "slot": "gloves",
+        "quality": "white",
+        "tier": 0,
+        "level": 0
+      },
+      {
+        "t": 200,
+        "do": "equip",
+        "slot": "weapon",
+        "quality": "green",
+        "tier": 0,
+        "level": 3
+      },
+      {
+        "t": 270,
+        "do": "equip",
+        "slot": "clothes",
+        "quality": "green",
+        "tier": 0,
+        "level": 0
+      },
+      {
+        "t": 320,
+        "do": "equip",
+        "slot": "shoes",
+        "quality": "white",
+        "tier": 0,
+        "level": 0
+      },
+      {
+        "t": 350,
+        "do": "boss",
+        "boss": "b_lq_bear"
+      },
+      {
+        "t": 510,
+        "do": "equip",
+        "slot": "weapon",
+        "quality": "green",
+        "tier": 1,
+        "level": 0
+      }
+    ],
+    "bossReward": {
+      "b_lq_bear": {
+        "skillBp": 1500,
+        "equip": {
+          "slot": "accessory",
+          "quality": "blue",
+          "tier": 0,
+          "level": 0
+        }
+      }
+    },
+    "claims": {
+      "rows": [
+        {
+          "t": 0,
+          "cult": 0,
+          "power": 494
+        },
+        {
+          "t": 15,
+          "cult": 0,
+          "power": 494
+        },
+        {
+          "t": 23,
+          "cult": 8,
+          "power": 494
+        },
+        {
+          "t": 60,
+          "cult": 0,
+          "power": 582
+        },
+        {
+          "t": 75,
+          "cult": 21,
+          "power": 661
+        },
+        {
+          "t": 120,
+          "cult": 90,
+          "power": 750
+        },
+        {
+          "t": 165,
+          "cult": 159,
+          "power": 750
+        },
+        {
+          "t": 200,
+          "cult": 213,
+          "power": 797
+        },
+        {
+          "t": 250,
+          "cult": 2,
+          "power": 899
+        },
+        {
+          "t": 270,
+          "cult": 32,
+          "power": 908
+        },
+        {
+          "t": 320,
+          "cult": 111,
+          "power": 948
+        },
+        {
+          "t": 380,
+          "cult": 1689,
+          "power": 1001
+        },
+        {
+          "t": 440,
+          "cult": 0,
+          "power": 1544
+        },
+        {
+          "t": 460,
+          "cult": 109,
+          "power": 1544
+        },
+        {
+          "t": 510,
+          "cult": 362,
+          "power": 1645
+        },
+        {
+          "t": 560,
+          "cult": 634,
+          "power": 1645
+        },
+        {
+          "t": 600,
+          "cult": 842,
+          "power": 1645
+        }
+      ],
+      "arrivals": {
+        "炼气二层": 60,
+        "炼气三层": 250,
+        "筑基一层": 440
+      }
+    }
+  },
+  "reportMode": "v12",
+  "gearTableDecimals": true,
+  "gearTableSinglePower": {
+    "weapon": [
+      68,
+      169,
+      430
+    ],
+    "helmet": [
+      35,
+      88,
+      223
+    ],
+    "clothes": [
+      54,
+      135,
+      344
+    ],
+    "gloves": [
+      33,
+      81,
+      206
+    ],
+    "shoes": [
+      41,
+      101,
+      258
+    ],
+    "accessory": [
+      41,
+      101,
+      258
+    ]
+  },
+  "stageClaims": {
+    "lianqi_1": {
+      "killSeconds": 3.6,
+      "avgKill": 4.31,
+      "minHpPct": 88,
+      "hits": 3,
+      "unarmedHits": 6,
+      "unarmedDies": false
+    },
+    "lianqi_2": {
+      "killSeconds": 3.6,
+      "avgKill": 4.31,
+      "minHpPct": 84,
+      "hits": 3,
+      "unarmedHits": 5,
+      "unarmedDies": false
+    },
+    "lianqi_3": {
+      "killSeconds": 4.9,
+      "avgKill": 5.52,
+      "minHpPct": 75,
+      "hits": 4,
+      "unarmedHits": 7,
+      "unarmedDies": false
+    },
+    "zhuji_1": {
+      "killSeconds": 3.1,
+      "avgKill": 3.77,
+      "minHpPct": 75,
+      "hits": 3,
+      "unarmedHits": 7,
+      "unarmedDies": true
+    },
+    "zhuji_2": {
+      "killSeconds": 3.1,
+      "avgKill": 3.77,
+      "minHpPct": 76,
+      "hits": 3,
+      "unarmedHits": 6,
+      "unarmedDies": true
+    },
+    "zhuji_3": {
+      "killSeconds": 4.1,
+      "avgKill": 4.8,
+      "minHpPct": 75,
+      "hits": 4,
+      "unarmedHits": 8,
+      "unarmedDies": true
+    },
+    "jindan_1": {
+      "killSeconds": 3.2,
+      "avgKill": 3.9,
+      "minHpPct": 75,
+      "hits": 4,
+      "unarmedHits": 11,
+      "unarmedDies": true
+    },
+    "jindan_2": {
+      "killSeconds": 3.2,
+      "avgKill": 3.9,
+      "minHpPct": 75,
+      "hits": 4,
+      "unarmedHits": 9,
+      "unarmedDies": true
+    },
+    "jindan_3": {
+      "killSeconds": 4.8,
+      "avgKill": 5.51,
+      "minHpPct": 75,
+      "hits": 6,
+      "unarmedHits": 13,
+      "unarmedDies": true
+    }
+  },
+  "layerClaims": {
+    "lianqi_1": {
+      "onlineRate": 1.75,
+      "onlineMinutes": 0.6,
+      "offline8h": 30240
+    },
+    "lianqi_2": {
+      "onlineRate": 1.75,
+      "onlineMinutes": 2.9,
+      "offline8h": 30240
+    },
+    "lianqi_3": {
+      "onlineRate": 1.59,
+      "onlineMinutes": 18.8,
+      "offline8h": 30240
+    },
+    "zhuji_1": {
+      "onlineRate": 6.1,
+      "onlineMinutes": 78.7,
+      "offline8h": 99360
+    },
+    "zhuji_2": {
+      "onlineRate": 6.1,
+      "onlineMinutes": 196.6,
+      "offline8h": 99360
+    },
+    "zhuji_3": {
+      "onlineRate": 5.53,
+      "onlineMinutes": 433.9,
+      "offline8h": 99360
+    },
+    "jindan_1": {
+      "onlineRate": 19.4,
+      "onlineMinutes": 216.5,
+      "offline8h": 336960
+    },
+    "jindan_2": {
+      "onlineRate": 19.4,
+      "onlineMinutes": 433.0,
+      "offline8h": 336960
+    }
+  },
+  "killsPerHourClaims": {
+    "qi": 764,
+    "foundation": 875,
+    "core": 812
+  },
+  "ultClaims": {
+    "qi": {
+      "normal": 52.6,
+      "ult": 210.6
+    },
+    "foundation": {
+      "normal": 155.0,
+      "ult": 775.1
+    },
+    "core": {
+      "normal": 430.1,
+      "ult": 2580.4
+    }
+  }
+}

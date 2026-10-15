@@ -211,7 +211,7 @@ func _apply_layout() -> void:
 	_tab_bar.apply_safe_area(inset)
 	_page_host.offset_left = float(UiTokens.PAGE_MARGIN) + inset.x
 	_page_host.offset_right = -(float(UiTokens.PAGE_MARGIN) + inset.z)
-	_page_host.offset_top = inset.y + float(TopBar.HEIGHT) + float(UiTokens.SP_1)
+	_page_host.offset_top = inset.y + _top_bar.content_height() + float(UiTokens.SP_1)
 	_page_host.offset_bottom = -(float(TabBarView.HEIGHT) + inset.w + float(UiTokens.SP_2))
 	_toast.set_anchors_preset(Control.PRESET_TOP_WIDE)
 	_toast.offset_left = float(UiTokens.PAGE_MARGIN) + inset.x
@@ -279,6 +279,7 @@ func _refresh_state() -> void:
 ## feedback = true 时（心跳 / 行动返回的新结算）把击杀、掉落反馈给修炼页。
 func _render(feedback: bool = false) -> void:
 	_top_bar.bind(_state)
+	_apply_layout()
 	var breakthrough: Dictionary = _state.get("breakthrough", {}) if typeof(_state.get("breakthrough", null)) == TYPE_DICTIONARY else {}
 	var next_name := _realm_name(BagModel.plain(breakthrough.get("nextSlug", null)))
 	_home_page.bind(_state, _content, next_name)

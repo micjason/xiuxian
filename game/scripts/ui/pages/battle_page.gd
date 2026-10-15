@@ -41,6 +41,7 @@ var _ult_note: Label
 var _speed_buttons: Dictionary = {}
 var _start_button: Button
 var _result_panel: PanelContainer
+var _controls: Control
 var _result_body: VBoxContainer
 var _report_lines := 0
 var _last_time_text := ""
@@ -55,8 +56,10 @@ func _init() -> void:
 	add_child(_subtitle)
 	add_child(_build_hp_row())
 	_build_arena()
+	add_child(_result_panel)
 	add_child(_build_report_panel())
-	add_child(_build_controls())
+	_controls = _build_controls()
+	add_child(_controls)
 
 
 func _build_hp_row() -> Control:
@@ -138,12 +141,7 @@ func _build_arena() -> void:
 	_result_panel.name = "ResultPanel"
 	_result_panel.visible = false
 	_result_panel.add_theme_stylebox_override("panel", ArtLib.nine("panel_popup"))
-	_result_panel.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_result_panel.offset_left = 20
-	_result_panel.offset_right = -20
-	_result_panel.offset_top = 6
-	_result_panel.offset_bottom = -6
-	_arena.add_child(_result_panel)
+	_result_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_result_body = UiKit.vbox(UiTokens.SP_1)
 	_result_panel.add_child(_result_body)
 
@@ -232,6 +230,8 @@ func open_stage(state: Dictionary, content: Dictionary, stage: Dictionary, gate:
 	_report.clear()
 	_clear_floats()
 	_result_panel.visible = false
+	_arena.visible = true
+	_controls.visible = true
 	_start_button.visible = true
 	_start_button.disabled = fight == null
 	_find_title().text = "%s  首领战" % str(stage.get("displayName", ""))
@@ -483,6 +483,8 @@ func show_result(result: Dictionary, name_of: Callable) -> void:
 	buttons.add_child(again)
 	_result_body.add_child(buttons)
 	_result_panel.visible = true
+	_arena.visible = false
+	_controls.visible = false
 	_ult.enabled = false
 
 

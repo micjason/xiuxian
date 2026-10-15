@@ -134,11 +134,17 @@ func _build_cultivation_row() -> Control:
 	return capsule
 
 
+## 实际需要的高度：内容比常量高时以内容为准，免得页面压到顶部栏。
+func content_height() -> float:
+	var margin := get_node("Margin") as MarginContainer
+	return maxf(float(HEIGHT), margin.get_combined_minimum_size().y)
+
+
 func apply_safe_area(inset: Vector4) -> void:
 	offset_top = 0.0
 	offset_left = inset.x
 	offset_right = -inset.z
-	offset_bottom = float(HEIGHT) + inset.y
+	offset_bottom = content_height() + inset.y
 	(get_node("Margin") as MarginContainer).add_theme_constant_override("margin_top", UiTokens.SP_2 + int(inset.y))
 
 

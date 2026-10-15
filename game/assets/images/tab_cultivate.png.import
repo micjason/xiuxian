@@ -3,15 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://b817b7cpdwwgv"
-path="res://.godot/imported/tab_cultivate.png-d76419ed7d0295e3f56a07f9c1ffdf7c.ctex"
-metadata={
-"vram_texture": false
-}
+valid=false
 
 [deps]
 
 source_file="res://assets/images/tab_cultivate.png"
-dest_files=["res://.godot/imported/tab_cultivate.png-d76419ed7d0295e3f56a07f9c1ffdf7c.ctex"]
 
 [params]
 

@@ -3,15 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://y6spes2lxtj2"
-path="res://.godot/imported/tab_cave.png-fd4baa124942c4aaf53b15596a1c49a2.ctex"
-metadata={
-"vram_texture": false
-}
+valid=false
 
 [deps]
 
 source_file="res://assets/images/tab_cave.png"
-dest_files=["res://.godot/imported/tab_cave.png-fd4baa124942c4aaf53b15596a1c49a2.ctex"]
 
 [params]
 

@@ -3,15 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://sps68ekaufjb"
-path="res://.godot/imported/slot_icon_weapon.png-6badaa955cbcf4bae29c618b7506b640.ctex"
-metadata={
-"vram_texture": false
-}
+valid=false
 
 [deps]
 
 source_file="res://assets/images/slot_icon_weapon.png"
-dest_files=["res://.godot/imported/slot_icon_weapon.png-6badaa955cbcf4bae29c618b7506b640.ctex"]
 
 [params]
 

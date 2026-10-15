@@ -3,15 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://crv5tdri61hyf"
-path="res://.godot/imported/tab_skill.png-e4cc7fe0b2816c041b5f6ae3829e12df.ctex"
-metadata={
-"vram_texture": false
-}
+valid=false
 
 [deps]
 
 source_file="res://assets/images/tab_skill.png"
-dest_files=["res://.godot/imported/tab_skill.png-e4cc7fe0b2816c041b5f6ae3829e12df.ctex"]
 
 [params]
 

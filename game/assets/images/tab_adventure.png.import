@@ -3,15 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bsn6j8jijxbih"
-path="res://.godot/imported/tab_adventure.png-184569d70ecfeba830c1fa668d7eaabd.ctex"
-metadata={
-"vram_texture": false
-}
+valid=false
 
 [deps]
 
 source_file="res://assets/images/tab_adventure.png"
-dest_files=["res://.godot/imported/tab_adventure.png-184569d70ecfeba830c1fa668d7eaabd.ctex"]
 
 [params]
 

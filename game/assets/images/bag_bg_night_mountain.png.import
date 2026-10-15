@@ -3,15 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://0io1fh5jgsid"
-path="res://.godot/imported/bag_bg_night_mountain.png-51106a36238a3ea9f75fad82df7db142.ctex"
-metadata={
-"vram_texture": false
-}
+valid=false
 
 [deps]
 
 source_file="res://assets/images/bag_bg_night_mountain.png"
-dest_files=["res://.godot/imported/bag_bg_night_mountain.png-51106a36238a3ea9f75fad82df7db142.ctex"]
 
 [params]
 

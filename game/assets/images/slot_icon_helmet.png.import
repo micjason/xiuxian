@@ -3,15 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://doigeq4lnm66e"
-path="res://.godot/imported/slot_icon_helmet.png-9acf0eda9ea35b02f6aec48e7cb32824.ctex"
-metadata={
-"vram_texture": false
-}
+valid=false
 
 [deps]
 
 source_file="res://assets/images/slot_icon_helmet.png"
-dest_files=["res://.godot/imported/slot_icon_helmet.png-9acf0eda9ea35b02f6aec48e7cb32824.ctex"]
 
 [params]
 

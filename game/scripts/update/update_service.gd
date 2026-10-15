@@ -11,7 +11,7 @@ signal failed(message: String)
 const SIGNATURE_URL := "https://cdn.jsdelivr.net/gh/micjason/xiuxian-releases@latest/update.sig"
 
 func _api_base() -> String:
-	return str(ProjectSettings.get_setting("xiuxian/network/api_base_url", "http://127.0.0.1:8080")).trim_suffix("/")
+	return ServerAddress.current()
 const PUBLIC_KEY_PATH := "res://assets/security/update_public.pem"
 const DOWNLOAD_DIRECTORY := "user://updates"
 const DOWNLOAD_TEMP_PATH := DOWNLOAD_DIRECTORY + "/xiuxian.apk.part"

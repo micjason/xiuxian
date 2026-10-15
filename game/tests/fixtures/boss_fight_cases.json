@@ -1,0 +1,1698 @@
+[
+ {
+  "name": "炼气参考配置·全程自动",
+  "player": {
+   "attack": 63.4,
+   "defense": 23.7,
+   "hp": 547.3,
+   "interval": 1.5
+  },
+  "boss": {
+   "attack": 34,
+   "defense": 19,
+   "hp": 1500,
+   "interval": 1.6
+  },
+  "ult": {
+   "multBp": 40000,
+   "cooldownSeconds": 20,
+   "firstCooldownSeconds": 8,
+   "autoCastWindowSeconds": 2
+  },
+  "taps": [],
+  "config": {
+   "timeLimitSeconds": 45,
+   "defenseConstant": 1
+  },
+  "expect": {
+   "win": true,
+   "reason": "win",
+   "durationSeconds": 34.5,
+   "casts": [
+    {
+     "t": 10,
+     "readyAt": 8,
+     "manual": false,
+     "damage": 195
+    },
+    {
+     "t": 32,
+     "readyAt": 30,
+     "manual": false,
+     "damage": 195
+    }
+   ],
+   "eventCount": 46,
+   "lastEvent": {
+    "t": 34.5,
+    "side": "player",
+    "damage": 48.78106796116504,
+    "targetHpAfter": 0
+   }
+  }
+ },
+ {
+  "name": "炼气参考配置·冷却好立刻点",
+  "player": {
+   "attack": 63.4,
+   "defense": 23.7,
+   "hp": 547.3,
+   "interval": 1.5
+  },
+  "boss": {
+   "attack": 34,
+   "defense": 19,
+   "hp": 1500,
+   "interval": 1.6
+  },
+  "ult": {
+   "multBp": 40000,
+   "cooldownSeconds": 20,
+   "firstCooldownSeconds": 8,
+   "autoCastWindowSeconds": 2
+  },
+  "taps": [
+   8.25,
+   28.5,
+   48
+  ],
+  "config": {
+   "timeLimitSeconds": 45,
+   "defenseConstant": 1
+  },
+  "expect": {
+   "win": true,
+   "reason": "win",
+   "durationSeconds": 34.5,
+   "casts": [
+    {
+     "t": 8.25,
+     "readyAt": 8,
+     "manual": true,
+     "damage": 195
+    },
+    {
+     "t": 28.5,
+     "readyAt": 28.25,
+     "manual": true,
+     "damage": 195
+    }
+   ],
+   "eventCount": 46,
+   "lastEvent": {
+    "t": 34.5,
+    "side": "player",
+    "damage": 48.78106796116504,
+    "targetHpAfter": 0
+   }
+  }
+ },
+ {
+  "name": "点太早无效 + 窗口内手动",
+  "player": {
+   "attack": 63.4,
+   "defense": 23.7,
+   "hp": 547.3,
+   "interval": 1.5
+  },
+  "boss": {
+   "attack": 34,
+   "defense": 19,
+   "hp": 1500,
+   "interval": 1.6
+  },
+  "ult": {
+   "multBp": 40000,
+   "cooldownSeconds": 20,
+   "firstCooldownSeconds": 8,
+   "autoCastWindowSeconds": 2
+  },
+  "taps": [
+   1,
+   2.5,
+   7.99,
+   9.5,
+   29.25
+  ],
+  "config": {
+   "timeLimitSeconds": 45,
+   "defenseConstant": 1
+  },
+  "expect": {
+   "win": true,
+   "reason": "win",
+   "durationSeconds": 34.5,
+   "casts": [
+    {
+     "t": 9.5,
+     "readyAt": 8,
+     "manual": true,
+     "damage": 195
+    },
+    {
+     "t": 31.5,
+     "readyAt": 29.5,
+     "manual": false,
+     "damage": 195
+    }
+   ],
+   "eventCount": 46,
+   "lastEvent": {
+    "t": 34.5,
+    "side": "player",
+    "damage": 48.78106796116504,
+    "targetHpAfter": 0
+   }
+  }
+ },
+ {
+  "name": "打不过：被首领击败",
+  "player": {
+   "attack": 20,
+   "defense": 5,
+   "hp": 120,
+   "interval": 1.2
+  },
+  "boss": {
+   "attack": 60,
+   "defense": 10,
+   "hp": 5000,
+   "interval": 1
+  },
+  "ult": {
+   "multBp": 40000,
+   "cooldownSeconds": 20,
+   "firstCooldownSeconds": 8,
+   "autoCastWindowSeconds": 2
+  },
+  "taps": [
+   8.5
+  ],
+  "config": {
+   "timeLimitSeconds": 45,
+   "defenseConstant": 1
+  },
+  "expect": {
+   "win": false,
+   "reason": "defeated",
+   "durationSeconds": 3,
+   "casts": [],
+   "eventCount": 5,
+   "lastEvent": {
+    "t": 3,
+    "side": "boss",
+    "damage": 55.38461538461539,
+    "targetHpAfter": 0
+   }
+  }
+ },
+ {
+  "name": "超时",
+  "player": {
+   "attack": 5,
+   "defense": 40,
+   "hp": 9000,
+   "interval": 2
+  },
+  "boss": {
+   "attack": 3,
+   "defense": 30,
+   "hp": 100000,
+   "interval": 2
+  },
+  "ult": {
+   "multBp": 40000,
+   "cooldownSeconds": 20,
+   "firstCooldownSeconds": 8,
+   "autoCastWindowSeconds": 2
+  },
+  "taps": [],
+  "config": {
+   "timeLimitSeconds": 45,
+   "defenseConstant": 1
+  },
+  "expect": {
+   "win": false,
+   "reason": "timeout",
+   "durationSeconds": 45,
+   "casts": [
+    {
+     "t": 10,
+     "readyAt": 8,
+     "manual": false,
+     "damage": 2
+    },
+    {
+     "t": 32,
+     "readyAt": 30,
+     "manual": false,
+     "damage": 2
+    }
+   ],
+   "eventCount": 46,
+   "lastEvent": {
+    "t": 44,
+    "side": "boss",
+    "damage": 0.20930232558139536,
+    "targetHpAfter": 8995.395348837195
+   }
+  }
+ },
+ {
+  "name": "没有大招",
+  "player": {
+   "attack": 63.4,
+   "defense": 23.7,
+   "hp": 547.3,
+   "interval": 1.5
+  },
+  "boss": {
+   "attack": 34,
+   "defense": 19,
+   "hp": 1500,
+   "interval": 1.6
+  },
+  "ult": null,
+  "taps": [
+   8.5
+  ],
+  "config": {
+   "timeLimitSeconds": 45,
+   "defenseConstant": 1
+  },
+  "expect": {
+   "win": false,
+   "reason": "defeated",
+   "durationSeconds": 44.80000000000002,
+   "casts": [],
+   "eventCount": 57,
+   "lastEvent": {
+    "t": 44.80000000000002,
+    "side": "boss",
+    "damage": 20.034662045060657,
+    "targetHpAfter": 0
+   }
+  }
+ },
+ {
+  "name": "筑基·大招倍率 5、冷却 18",
+  "player": {
+   "attack": 146.2,
+   "defense": 53.1,
+   "hp": 1209.9,
+   "interval": 1.4
+  },
+  "boss": {
+   "attack": 80,
+   "defense": 40,
+   "hp": 4200,
+   "interval": 1.5
+  },
+  "ult": {
+   "multBp": 50000,
+   "cooldownSeconds": 18,
+   "firstCooldownSeconds": 8,
+   "autoCastWindowSeconds": 2
+  },
+  "taps": [
+   8.4,
+   26.6
+  ],
+  "config": {
+   "timeLimitSeconds": 45,
+   "defenseConstant": 1
+  },
+  "expect": {
+   "win": true,
+   "reason": "win",
+   "durationSeconds": 37.79999999999998,
+   "casts": [
+    {
+     "t": 8.4,
+     "readyAt": 8,
+     "manual": true,
+     "damage": 573
+    },
+    {
+     "t": 26.6,
+     "readyAt": 26.4,
+     "manual": true,
+     "damage": 573
+    }
+   ],
+   "eventCount": 54,
+   "lastEvent": {
+    "t": 37.79999999999998,
+    "side": "player",
+    "damage": 114.79291084854992,
+    "targetHpAfter": 0
+   }
+  }
+ },
+ {
+  "name": "扫描 hp 900·自动",
+  "player": {
+   "attack": 63.4,
+   "defense": 23.7,
+   "hp": 547.3,
+   "interval": 1.5
+  },
+  "boss": {
+   "attack": 34,
+   "defense": 19,
+   "hp": 900,
+   "interval": 1.6
+  },
+  "ult": {
+   "multBp": 40000,
+   "cooldownSeconds": 20,
+   "firstCooldownSeconds": 8,
+   "autoCastWindowSeconds": 2
+  },
+  "taps": [],
+  "config": {
+   "timeLimitSeconds": 45,
+   "defenseConstant": 1
+  },
+  "expect": {
+   "win": true,
+   "reason": "win",
+   "durationSeconds": 22.5,
+   "casts": [
+    {
+     "t": 10,
+     "readyAt": 8,
+     "manual": false,
+     "damage": 195
+    }
+   ],
+   "eventCount": 30,
+   "lastEvent": {
+    "t": 22.5,
+    "side": "player",
+    "damage": 48.78106796116504,
+    "targetHpAfter": 0
+   }
+  }
+ },
+ {
+  "name": "扫描 hp 900·立刻点",
+  "player": {
+   "attack": 63.4,
+   "defense": 23.7,
+   "hp": 547.3,
+   "interval": 1.5
+  },
+  "boss": {
+   "attack": 34,
+   "defense": 19,
+   "hp": 900,
+   "interval": 1.6
+  },
+  "ult": {
+   "multBp": 40000,
+   "cooldownSeconds": 20,
+   "firstCooldownSeconds": 8,
+   "autoCastWindowSeconds": 2
+  },
+  "taps": [
+   8.05,
+   28.1,
+   48.15
+  ],
+  "config": {
+   "timeLimitSeconds": 45,
+   "defenseConstant": 1
+  },
+  "expect": {
+   "win": true,
+   "reason": "win",
+   "durationSeconds": 22.5,
+   "casts": [
+    {
+     "t": 8.05,
+     "readyAt": 8,
+     "manual": true,
+     "damage": 195
+    }
+   ],
+   "eventCount": 30,
+   "lastEvent": {
+    "t": 22.5,
+    "side": "player",
+    "damage": 48.78106796116504,
+    "targetHpAfter": 0
+   }
+  }
+ },
+ {
+  "name": "扫描 hp 950·自动",
+  "player": {
+   "attack": 63.4,
+   "defense": 23.7,
+   "hp": 547.3,
+   "interval": 1.5
+  },
+  "boss": {
+   "attack": 34,
+   "defense": 19,
+   "hp": 950,
+   "interval": 1.6
+  },
+  "ult": {
+   "multBp": 40000,
+   "cooldownSeconds": 20,
+   "firstCooldownSeconds": 8,
+   "autoCastWindowSeconds": 2
+  },
+  "taps": [],
+  "config": {
+   "timeLimitSeconds": 45,
+   "defenseConstant": 1
+  },
+  "expect": {
+   "win": true,
+   "reason": "win",
+   "durationSeconds": 24,
+   "casts": [
+    {
+     "t": 10,
+     "readyAt": 8,
+     "manual": false,
+     "damage": 195
+    }
+   ],
+   "eventCount": 31,
+   "lastEvent": {
+    "t": 24,
+    "side": "player",
+    "damage": 48.78106796116504,
+    "targetHpAfter": 0
+   }
+  }
+ },
+ {
+  "name": "扫描 hp 950·立刻点",
+  "player": {
+   "attack": 63.4,
+   "defense": 23.7,
+   "hp": 547.3,
+   "interval": 1.5
+  },
+  "boss": {
+   "attack": 34,
+   "defense": 19,
+   "hp": 950,
+   "interval": 1.6
+  },
+  "ult": {
+   "multBp": 40000,
+   "cooldownSeconds": 20,
+   "firstCooldownSeconds": 8,
+   "autoCastWindowSeconds": 2
+  },
+  "taps": [
+   8.05,
+   28.1,
+   48.15
+  ],
+  "config": {
+   "timeLimitSeconds": 45,
+   "defenseConstant": 1
+  },
+  "expect": {
+   "win": true,
+   "reason": "win",
+   "durationSeconds": 24,
+   "casts": [
+    {
+     "t": 8.05,
+     "readyAt": 8,
+     "manual": true,
+     "damage": 195
+    }
+   ],
+   "eventCount": 31,
+   "lastEvent": {
+    "t": 24,
+    "side": "player",
+    "damage": 48.78106796116504,
+    "targetHpAfter": 0
+   }
+  }
+ },
+ {
+  "name": "扫描 hp 1000·自动",
+  "player": {
+   "attack": 63.4,
+   "defense": 23.7,
+   "hp": 547.3,
+   "interval": 1.5
+  },
+  "boss": {
+   "attack": 34,
+   "defense": 19,
+   "hp": 1000,
+   "interval": 1.6
+  },
+  "ult": {
+   "multBp": 40000,
+   "cooldownSeconds": 20,
+   "firstCooldownSeconds": 8,
+   "autoCastWindowSeconds": 2
+  },
+  "taps": [],
+  "config": {
+   "timeLimitSeconds": 45,
+   "defenseConstant": 1
+  },
+  "expect": {
+   "win": true,
+   "reason": "win",
+   "durationSeconds": 25.5,
+   "casts": [
+    {
+     "t": 10,
+     "readyAt": 8,
+     "manual": false,
+     "damage": 195
+    }
+   ],
+   "eventCount": 33,
+   "lastEvent": {
+    "t": 25.5,
+    "side": "player",
+    "damage": 48.78106796116504,
+    "targetHpAfter": 0
+   }
+  }
+ },
+ {
+  "name": "扫描 hp 1000·立刻点",
+  "player": {
+   "attack": 63.4,
+   "defense": 23.7,
+   "hp": 547.3,
+   "interval": 1.5
+  },
+  "boss": {
+   "attack": 34,
+   "defense": 19,
+   "hp": 1000,
+   "interval": 1.6
+  },
+  "ult": {
+   "multBp": 40000,
+   "cooldownSeconds": 20,
+   "firstCooldownSeconds": 8,
+   "autoCastWindowSeconds": 2
+  },
+  "taps": [
+   8.05,
+   28.1,
+   48.15
+  ],
+  "config": {
+   "timeLimitSeconds": 45,
+   "defenseConstant": 1
+  },
+  "expect": {
+   "win": true,
+   "reason": "win",
+   "durationSeconds": 25.5,
+   "casts": [
+    {
+     "t": 8.05,
+     "readyAt": 8,
+     "manual": true,
+     "damage": 195
+    }
+   ],
+   "eventCount": 33,
+   "lastEvent": {
+    "t": 25.5,
+    "side": "player",
+    "damage": 48.78106796116504,
+    "targetHpAfter": 0
+   }
+  }
+ },
+ {
+  "name": "扫描 hp 1050·自动",
+  "player": {
+   "attack": 63.4,
+   "defense": 23.7,
+   "hp": 547.3,
+   "interval": 1.5
+  },
+  "boss": {
+   "attack": 34,
+   "defense": 19,
+   "hp": 1050,
+   "interval": 1.6
+  },
+  "ult": {
+   "multBp": 40000,
+   "cooldownSeconds": 20,
+   "firstCooldownSeconds": 8,
+   "autoCastWindowSeconds": 2
+  },
+  "taps": [],
+  "config": {
+   "timeLimitSeconds": 45,
+   "defenseConstant": 1
+  },
+  "expect": {
+   "win": true,
+   "reason": "win",
+   "durationSeconds": 27,
+   "casts": [
+    {
+     "t": 10,
+     "readyAt": 8,
+     "manual": false,
+     "damage": 195
+    }
+   ],
+   "eventCount": 35,
+   "lastEvent": {
+    "t": 27,
+    "side": "player",
+    "damage": 48.78106796116504,
+    "targetHpAfter": 0
+   }
+  }
+ },
+ {
+  "name": "扫描 hp 1050·立刻点",
+  "player": {
+   "attack": 63.4,
+   "defense": 23.7,
+   "hp": 547.3,
+   "interval": 1.5
+  },
+  "boss": {
+   "attack": 34,
+   "defense": 19,
+   "hp": 1050,
+   "interval": 1.6
+  },
+  "ult": {
+   "multBp": 40000,
+   "cooldownSeconds": 20,
+   "firstCooldownSeconds": 8,
+   "autoCastWindowSeconds": 2
+  },
+  "taps": [
+   8.05,
+   28.1,
+   48.15
+  ],
+  "config": {
+   "timeLimitSeconds": 45,
+   "defenseConstant": 1
+  },
+  "expect": {
+   "win": true,
+   "reason": "win",
+   "durationSeconds": 27,
+   "casts": [
+    {
+     "t": 8.05,
+     "readyAt": 8,
+     "manual": true,
+     "damage": 195
+    }
+   ],
+   "eventCount": 35,
+   "lastEvent": {
+    "t": 27,
+    "side": "player",
+    "damage": 48.78106796116504,
+    "targetHpAfter": 0
+   }
+  }
+ },
+ {
+  "name": "扫描 hp 1100·自动",
+  "player": {
+   "attack": 63.4,
+   "defense": 23.7,
+   "hp": 547.3,
+   "interval": 1.5
+  },
+  "boss": {
+   "attack": 34,
+   "defense": 19,
+   "hp": 1100,
+   "interval": 1.6
+  },
+  "ult": {
+   "multBp": 40000,
+   "cooldownSeconds": 20,
+   "firstCooldownSeconds": 8,
+   "autoCastWindowSeconds": 2
+  },
+  "taps": [],
+  "config": {
+   "timeLimitSeconds": 45,
+   "defenseConstant": 1
+  },
+  "expect": {
+   "win": true,
+   "reason": "win",
+   "durationSeconds": 28.5,
+   "casts": [
+    {
+     "t": 10,
+     "readyAt": 8,
+     "manual": false,
+     "damage": 195
+    }
+   ],
+   "eventCount": 37,
+   "lastEvent": {
+    "t": 28.5,
+    "side": "player",
+    "damage": 48.78106796116504,
+    "targetHpAfter": 0
+   }
+  }
+ },
+ {
+  "name": "扫描 hp 1100·立刻点",
+  "player": {
+   "attack": 63.4,
+   "defense": 23.7,
+   "hp": 547.3,
+   "interval": 1.5
+  },
+  "boss": {
+   "attack": 34,
+   "defense": 19,
+   "hp": 1100,
+   "interval": 1.6
+  },
+  "ult": {
+   "multBp": 40000,
+   "cooldownSeconds": 20,
+   "firstCooldownSeconds": 8,
+   "autoCastWindowSeconds": 2
+  },
+  "taps": [
+   8.05,
+   28.1,
+   48.15
+  ],
+  "config": {
+   "timeLimitSeconds": 45,
+   "defenseConstant": 1
+  },
+  "expect": {
+   "win": true,
+   "reason": "win",
+   "durationSeconds": 28.1,
+   "casts": [
+    {
+     "t": 8.05,
+     "readyAt": 8,
+     "manual": true,
+     "damage": 195
+    },
+    {
+     "t": 28.1,
+     "readyAt": 28.05,
+     "manual": true,
+     "damage": 195
+    }
+   ],
+   "eventCount": 37,
+   "lastEvent": {
+    "t": 28.1,
+    "side": "player",
+    "damage": 195,
+    "targetHpAfter": 0,
+    "kind": "ult"
+   }
+  }
+ },
+ {
+  "name": "扫描 hp 1150·自动",
+  "player": {
+   "attack": 63.4,
+   "defense": 23.7,
+   "hp": 547.3,
+   "interval": 1.5
+  },
+  "boss": {
+   "attack": 34,
+   "defense": 19,
+   "hp": 1150,
+   "interval": 1.6
+  },
+  "ult": {
+   "multBp": 40000,
+   "cooldownSeconds": 20,
+   "firstCooldownSeconds": 8,
+   "autoCastWindowSeconds": 2
+  },
+  "taps": [],
+  "config": {
+   "timeLimitSeconds": 45,
+   "defenseConstant": 1
+  },
+  "expect": {
+   "win": true,
+   "reason": "win",
+   "durationSeconds": 30,
+   "casts": [
+    {
+     "t": 10,
+     "readyAt": 8,
+     "manual": false,
+     "damage": 195
+    }
+   ],
+   "eventCount": 39,
+   "lastEvent": {
+    "t": 30,
+    "side": "player",
+    "damage": 48.78106796116504,
+    "targetHpAfter": 0
+   }
+  }
+ },
+ {
+  "name": "扫描 hp 1150·立刻点",
+  "player": {
+   "attack": 63.4,
+   "defense": 23.7,
+   "hp": 547.3,
+   "interval": 1.5
+  },
+  "boss": {
+   "attack": 34,
+   "defense": 19,
+   "hp": 1150,
+   "interval": 1.6
+  },
+  "ult": {
+   "multBp": 40000,
+   "cooldownSeconds": 20,
+   "firstCooldownSeconds": 8,
+   "autoCastWindowSeconds": 2
+  },
+  "taps": [
+   8.05,
+   28.1,
+   48.15
+  ],
+  "config": {
+   "timeLimitSeconds": 45,
+   "defenseConstant": 1
+  },
+  "expect": {
+   "win": true,
+   "reason": "win",
+   "durationSeconds": 28.1,
+   "casts": [
+    {
+     "t": 8.05,
+     "readyAt": 8,
+     "manual": true,
+     "damage": 195
+    },
+    {
+     "t": 28.1,
+     "readyAt": 28.05,
+     "manual": true,
+     "damage": 195
+    }
+   ],
+   "eventCount": 37,
+   "lastEvent": {
+    "t": 28.1,
+    "side": "player",
+    "damage": 195,
+    "targetHpAfter": 0,
+    "kind": "ult"
+   }
+  }
+ },
+ {
+  "name": "扫描 hp 1200·自动",
+  "player": {
+   "attack": 63.4,
+   "defense": 23.7,
+   "hp": 547.3,
+   "interval": 1.5
+  },
+  "boss": {
+   "attack": 34,
+   "defense": 19,
+   "hp": 1200,
+   "interval": 1.6
+  },
+  "ult": {
+   "multBp": 40000,
+   "cooldownSeconds": 20,
+   "firstCooldownSeconds": 8,
+   "autoCastWindowSeconds": 2
+  },
+  "taps": [],
+  "config": {
+   "timeLimitSeconds": 45,
+   "defenseConstant": 1
+  },
+  "expect": {
+   "win": true,
+   "reason": "win",
+   "durationSeconds": 31.5,
+   "casts": [
+    {
+     "t": 10,
+     "readyAt": 8,
+     "manual": false,
+     "damage": 195
+    }
+   ],
+   "eventCount": 41,
+   "lastEvent": {
+    "t": 31.5,
+    "side": "player",
+    "damage": 48.78106796116504,
+    "targetHpAfter": 0
+   }
+  }
+ },
+ {
+  "name": "扫描 hp 1200·立刻点",
+  "player": {
+   "attack": 63.4,
+   "defense": 23.7,
+   "hp": 547.3,
+   "interval": 1.5
+  },
+  "boss": {
+   "attack": 34,
+   "defense": 19,
+   "hp": 1200,
+   "interval": 1.6
+  },
+  "ult": {
+   "multBp": 40000,
+   "cooldownSeconds": 20,
+   "firstCooldownSeconds": 8,
+   "autoCastWindowSeconds": 2
+  },
+  "taps": [
+   8.05,
+   28.1,
+   48.15
+  ],
+  "config": {
+   "timeLimitSeconds": 45,
+   "defenseConstant": 1
+  },
+  "expect": {
+   "win": true,
+   "reason": "win",
+   "durationSeconds": 28.1,
+   "casts": [
+    {
+     "t": 8.05,
+     "readyAt": 8,
+     "manual": true,
+     "damage": 195
+    },
+    {
+     "t": 28.1,
+     "readyAt": 28.05,
+     "manual": true,
+     "damage": 195
+    }
+   ],
+   "eventCount": 37,
+   "lastEvent": {
+    "t": 28.1,
+    "side": "player",
+    "damage": 195,
+    "targetHpAfter": 0,
+    "kind": "ult"
+   }
+  }
+ },
+ {
+  "name": "扫描 hp 1250·自动",
+  "player": {
+   "attack": 63.4,
+   "defense": 23.7,
+   "hp": 547.3,
+   "interval": 1.5
+  },
+  "boss": {
+   "attack": 34,
+   "defense": 19,
+   "hp": 1250,
+   "interval": 1.6
+  },
+  "ult": {
+   "multBp": 40000,
+   "cooldownSeconds": 20,
+   "firstCooldownSeconds": 8,
+   "autoCastWindowSeconds": 2
+  },
+  "taps": [],
+  "config": {
+   "timeLimitSeconds": 45,
+   "defenseConstant": 1
+  },
+  "expect": {
+   "win": true,
+   "reason": "win",
+   "durationSeconds": 32,
+   "casts": [
+    {
+     "t": 10,
+     "readyAt": 8,
+     "manual": false,
+     "damage": 195
+    },
+    {
+     "t": 32,
+     "readyAt": 30,
+     "manual": false,
+     "damage": 195
+    }
+   ],
+   "eventCount": 42,
+   "lastEvent": {
+    "t": 32,
+    "side": "player",
+    "damage": 195,
+    "targetHpAfter": 0,
+    "kind": "ult"
+   }
+  }
+ },
+ {
+  "name": "扫描 hp 1250·立刻点",
+  "player": {
+   "attack": 63.4,
+   "defense": 23.7,
+   "hp": 547.3,
+   "interval": 1.5
+  },
+  "boss": {
+   "attack": 34,
+   "defense": 19,
+   "hp": 1250,
+   "interval": 1.6
+  },
+  "ult": {
+   "multBp": 40000,
+   "cooldownSeconds": 20,
+   "firstCooldownSeconds": 8,
+   "autoCastWindowSeconds": 2
+  },
+  "taps": [
+   8.05,
+   28.1,
+   48.15
+  ],
+  "config": {
+   "timeLimitSeconds": 45,
+   "defenseConstant": 1
+  },
+  "expect": {
+   "win": true,
+   "reason": "win",
+   "durationSeconds": 28.1,
+   "casts": [
+    {
+     "t": 8.05,
+     "readyAt": 8,
+     "manual": true,
+     "damage": 195
+    },
+    {
+     "t": 28.1,
+     "readyAt": 28.05,
+     "manual": true,
+     "damage": 195
+    }
+   ],
+   "eventCount": 37,
+   "lastEvent": {
+    "t": 28.1,
+    "side": "player",
+    "damage": 195,
+    "targetHpAfter": 0,
+    "kind": "ult"
+   }
+  }
+ },
+ {
+  "name": "扫描 hp 1300·自动",
+  "player": {
+   "attack": 63.4,
+   "defense": 23.7,
+   "hp": 547.3,
+   "interval": 1.5
+  },
+  "boss": {
+   "attack": 34,
+   "defense": 19,
+   "hp": 1300,
+   "interval": 1.6
+  },
+  "ult": {
+   "multBp": 40000,
+   "cooldownSeconds": 20,
+   "firstCooldownSeconds": 8,
+   "autoCastWindowSeconds": 2
+  },
+  "taps": [],
+  "config": {
+   "timeLimitSeconds": 45,
+   "defenseConstant": 1
+  },
+  "expect": {
+   "win": true,
+   "reason": "win",
+   "durationSeconds": 32,
+   "casts": [
+    {
+     "t": 10,
+     "readyAt": 8,
+     "manual": false,
+     "damage": 195
+    },
+    {
+     "t": 32,
+     "readyAt": 30,
+     "manual": false,
+     "damage": 195
+    }
+   ],
+   "eventCount": 42,
+   "lastEvent": {
+    "t": 32,
+    "side": "player",
+    "damage": 195,
+    "targetHpAfter": 0,
+    "kind": "ult"
+   }
+  }
+ },
+ {
+  "name": "扫描 hp 1300·立刻点",
+  "player": {
+   "attack": 63.4,
+   "defense": 23.7,
+   "hp": 547.3,
+   "interval": 1.5
+  },
+  "boss": {
+   "attack": 34,
+   "defense": 19,
+   "hp": 1300,
+   "interval": 1.6
+  },
+  "ult": {
+   "multBp": 40000,
+   "cooldownSeconds": 20,
+   "firstCooldownSeconds": 8,
+   "autoCastWindowSeconds": 2
+  },
+  "taps": [
+   8.05,
+   28.1,
+   48.15
+  ],
+  "config": {
+   "timeLimitSeconds": 45,
+   "defenseConstant": 1
+  },
+  "expect": {
+   "win": true,
+   "reason": "win",
+   "durationSeconds": 28.5,
+   "casts": [
+    {
+     "t": 8.05,
+     "readyAt": 8,
+     "manual": true,
+     "damage": 195
+    },
+    {
+     "t": 28.1,
+     "readyAt": 28.05,
+     "manual": true,
+     "damage": 195
+    }
+   ],
+   "eventCount": 38,
+   "lastEvent": {
+    "t": 28.5,
+    "side": "player",
+    "damage": 48.78106796116504,
+    "targetHpAfter": 0
+   }
+  }
+ },
+ {
+  "name": "扫描 hp 1350·自动",
+  "player": {
+   "attack": 63.4,
+   "defense": 23.7,
+   "hp": 547.3,
+   "interval": 1.5
+  },
+  "boss": {
+   "attack": 34,
+   "defense": 19,
+   "hp": 1350,
+   "interval": 1.6
+  },
+  "ult": {
+   "multBp": 40000,
+   "cooldownSeconds": 20,
+   "firstCooldownSeconds": 8,
+   "autoCastWindowSeconds": 2
+  },
+  "taps": [],
+  "config": {
+   "timeLimitSeconds": 45,
+   "defenseConstant": 1
+  },
+  "expect": {
+   "win": true,
+   "reason": "win",
+   "durationSeconds": 32,
+   "casts": [
+    {
+     "t": 10,
+     "readyAt": 8,
+     "manual": false,
+     "damage": 195
+    },
+    {
+     "t": 32,
+     "readyAt": 30,
+     "manual": false,
+     "damage": 195
+    }
+   ],
+   "eventCount": 42,
+   "lastEvent": {
+    "t": 32,
+    "side": "player",
+    "damage": 195,
+    "targetHpAfter": 0,
+    "kind": "ult"
+   }
+  }
+ },
+ {
+  "name": "扫描 hp 1350·立刻点",
+  "player": {
+   "attack": 63.4,
+   "defense": 23.7,
+   "hp": 547.3,
+   "interval": 1.5
+  },
+  "boss": {
+   "attack": 34,
+   "defense": 19,
+   "hp": 1350,
+   "interval": 1.6
+  },
+  "ult": {
+   "multBp": 40000,
+   "cooldownSeconds": 20,
+   "firstCooldownSeconds": 8,
+   "autoCastWindowSeconds": 2
+  },
+  "taps": [
+   8.05,
+   28.1,
+   48.15
+  ],
+  "config": {
+   "timeLimitSeconds": 45,
+   "defenseConstant": 1
+  },
+  "expect": {
+   "win": true,
+   "reason": "win",
+   "durationSeconds": 30,
+   "casts": [
+    {
+     "t": 8.05,
+     "readyAt": 8,
+     "manual": true,
+     "damage": 195
+    },
+    {
+     "t": 28.1,
+     "readyAt": 28.05,
+     "manual": true,
+     "damage": 195
+    }
+   ],
+   "eventCount": 40,
+   "lastEvent": {
+    "t": 30,
+    "side": "player",
+    "damage": 48.78106796116504,
+    "targetHpAfter": 0
+   }
+  }
+ },
+ {
+  "name": "扫描 hp 1400·自动",
+  "player": {
+   "attack": 63.4,
+   "defense": 23.7,
+   "hp": 547.3,
+   "interval": 1.5
+  },
+  "boss": {
+   "attack": 34,
+   "defense": 19,
+   "hp": 1400,
+   "interval": 1.6
+  },
+  "ult": {
+   "multBp": 40000,
+   "cooldownSeconds": 20,
+   "firstCooldownSeconds": 8,
+   "autoCastWindowSeconds": 2
+  },
+  "taps": [],
+  "config": {
+   "timeLimitSeconds": 45,
+   "defenseConstant": 1
+  },
+  "expect": {
+   "win": true,
+   "reason": "win",
+   "durationSeconds": 32,
+   "casts": [
+    {
+     "t": 10,
+     "readyAt": 8,
+     "manual": false,
+     "damage": 195
+    },
+    {
+     "t": 32,
+     "readyAt": 30,
+     "manual": false,
+     "damage": 195
+    }
+   ],
+   "eventCount": 42,
+   "lastEvent": {
+    "t": 32,
+    "side": "player",
+    "damage": 195,
+    "targetHpAfter": 0,
+    "kind": "ult"
+   }
+  }
+ },
+ {
+  "name": "扫描 hp 1400·立刻点",
+  "player": {
+   "attack": 63.4,
+   "defense": 23.7,
+   "hp": 547.3,
+   "interval": 1.5
+  },
+  "boss": {
+   "attack": 34,
+   "defense": 19,
+   "hp": 1400,
+   "interval": 1.6
+  },
+  "ult": {
+   "multBp": 40000,
+   "cooldownSeconds": 20,
+   "firstCooldownSeconds": 8,
+   "autoCastWindowSeconds": 2
+  },
+  "taps": [
+   8.05,
+   28.1,
+   48.15
+  ],
+  "config": {
+   "timeLimitSeconds": 45,
+   "defenseConstant": 1
+  },
+  "expect": {
+   "win": true,
+   "reason": "win",
+   "durationSeconds": 31.5,
+   "casts": [
+    {
+     "t": 8.05,
+     "readyAt": 8,
+     "manual": true,
+     "damage": 195
+    },
+    {
+     "t": 28.1,
+     "readyAt": 28.05,
+     "manual": true,
+     "damage": 195
+    }
+   ],
+   "eventCount": 42,
+   "lastEvent": {
+    "t": 31.5,
+    "side": "player",
+    "damage": 48.78106796116504,
+    "targetHpAfter": 0
+   }
+  }
+ },
+ {
+  "name": "扫描 hp 1450·自动",
+  "player": {
+   "attack": 63.4,
+   "defense": 23.7,
+   "hp": 547.3,
+   "interval": 1.5
+  },
+  "boss": {
+   "attack": 34,
+   "defense": 19,
+   "hp": 1450,
+   "interval": 1.6
+  },
+  "ult": {
+   "multBp": 40000,
+   "cooldownSeconds": 20,
+   "firstCooldownSeconds": 8,
+   "autoCastWindowSeconds": 2
+  },
+  "taps": [],
+  "config": {
+   "timeLimitSeconds": 45,
+   "defenseConstant": 1
+  },
+  "expect": {
+   "win": true,
+   "reason": "win",
+   "durationSeconds": 33,
+   "casts": [
+    {
+     "t": 10,
+     "readyAt": 8,
+     "manual": false,
+     "damage": 195
+    },
+    {
+     "t": 32,
+     "readyAt": 30,
+     "manual": false,
+     "damage": 195
+    }
+   ],
+   "eventCount": 44,
+   "lastEvent": {
+    "t": 33,
+    "side": "player",
+    "damage": 48.78106796116504,
+    "targetHpAfter": 0
+   }
+  }
+ },
+ {
+  "name": "扫描 hp 1450·立刻点",
+  "player": {
+   "attack": 63.4,
+   "defense": 23.7,
+   "hp": 547.3,
+   "interval": 1.5
+  },
+  "boss": {
+   "attack": 34,
+   "defense": 19,
+   "hp": 1450,
+   "interval": 1.6
+  },
+  "ult": {
+   "multBp": 40000,
+   "cooldownSeconds": 20,
+   "firstCooldownSeconds": 8,
+   "autoCastWindowSeconds": 2
+  },
+  "taps": [
+   8.05,
+   28.1,
+   48.15
+  ],
+  "config": {
+   "timeLimitSeconds": 45,
+   "defenseConstant": 1
+  },
+  "expect": {
+   "win": true,
+   "reason": "win",
+   "durationSeconds": 33,
+   "casts": [
+    {
+     "t": 8.05,
+     "readyAt": 8,
+     "manual": true,
+     "damage": 195
+    },
+    {
+     "t": 28.1,
+     "readyAt": 28.05,
+     "manual": true,
+     "damage": 195
+    }
+   ],
+   "eventCount": 44,
+   "lastEvent": {
+    "t": 33,
+    "side": "player",
+    "damage": 48.78106796116504,
+    "targetHpAfter": 0
+   }
+  }
+ },
+ {
+  "name": "扫描 hp 1500·自动",
+  "player": {
+   "attack": 63.4,
+   "defense": 23.7,
+   "hp": 547.3,
+   "interval": 1.5
+  },
+  "boss": {
+   "attack": 34,
+   "defense": 19,
+   "hp": 1500,
+   "interval": 1.6
+  },
+  "ult": {
+   "multBp": 40000,
+   "cooldownSeconds": 20,
+   "firstCooldownSeconds": 8,
+   "autoCastWindowSeconds": 2
+  },
+  "taps": [],
+  "config": {
+   "timeLimitSeconds": 45,
+   "defenseConstant": 1
+  },
+  "expect": {
+   "win": true,
+   "reason": "win",
+   "durationSeconds": 34.5,
+   "casts": [
+    {
+     "t": 10,
+     "readyAt": 8,
+     "manual": false,
+     "damage": 195
+    },
+    {
+     "t": 32,
+     "readyAt": 30,
+     "manual": false,
+     "damage": 195
+    }
+   ],
+   "eventCount": 46,
+   "lastEvent": {
+    "t": 34.5,
+    "side": "player",
+    "damage": 48.78106796116504,
+    "targetHpAfter": 0
+   }
+  }
+ },
+ {
+  "name": "扫描 hp 1500·立刻点",
+  "player": {
+   "attack": 63.4,
+   "defense": 23.7,
+   "hp": 547.3,
+   "interval": 1.5
+  },
+  "boss": {
+   "attack": 34,
+   "defense": 19,
+   "hp": 1500,
+   "interval": 1.6
+  },
+  "ult": {
+   "multBp": 40000,
+   "cooldownSeconds": 20,
+   "firstCooldownSeconds": 8,
+   "autoCastWindowSeconds": 2
+  },
+  "taps": [
+   8.05,
+   28.1,
+   48.15
+  ],
+  "config": {
+   "timeLimitSeconds": 45,
+   "defenseConstant": 1
+  },
+  "expect": {
+   "win": true,
+   "reason": "win",
+   "durationSeconds": 34.5,
+   "casts": [
+    {
+     "t": 8.05,
+     "readyAt": 8,
+     "manual": true,
+     "damage": 195
+    },
+    {
+     "t": 28.1,
+     "readyAt": 28.05,
+     "manual": true,
+     "damage": 195
+    }
+   ],
+   "eventCount": 46,
+   "lastEvent": {
+    "t": 34.5,
+    "side": "player",
+    "damage": 48.78106796116504,
+    "targetHpAfter": 0
+   }
+  }
+ }
+]

@@ -3,15 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bqeqkqtavdy50"
-path="res://.godot/imported/slot_icon_jade.png-c56a4dc95e43d8fabeea27a1ac51f2c9.ctex"
-metadata={
-"vram_texture": false
-}
+valid=false
 
 [deps]
 
 source_file="res://assets/images/slot_icon_jade.png"
-dest_files=["res://.godot/imported/slot_icon_jade.png-c56a4dc95e43d8fabeea27a1ac51f2c9.ctex"]
 
 [params]
 

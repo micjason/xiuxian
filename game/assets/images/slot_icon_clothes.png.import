@@ -3,15 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bnq6lrp6abb84"
-path="res://.godot/imported/slot_icon_clothes.png-168aba75e2d0bd0acffa5af991de9c36.ctex"
-metadata={
-"vram_texture": false
-}
+valid=false
 
 [deps]
 
 source_file="res://assets/images/slot_icon_clothes.png"
-dest_files=["res://.godot/imported/slot_icon_clothes.png-168aba75e2d0bd0acffa5af991de9c36.ctex"]
 
 [params]
 

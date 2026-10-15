@@ -6,6 +6,7 @@ signal logged_in
 var _username: LineEdit
 var _password: LineEdit
 var _error: Label
+var _server: LineEdit
 var _card: PanelContainer
 
 
@@ -43,6 +44,12 @@ func _ready() -> void:
 	_password.secret = true
 	box.add_child(_username)
 	box.add_child(_password)
+	_server = _field("服务器地址，例如 http://192.168.1.20:8080")
+	_server.name = "ServerField"
+	_server.text = ServerAddress.current()
+	_server.tooltip_text = "手机和服务器在同一个网络时，填服务器电脑的局域网地址。登录或注册时会保存。"
+	box.add_child(UiKit.label("服务器地址", UiTokens.FS_MICRO, UiTokens.TEXT_MUTED))
+	box.add_child(_server)
 	var login := _button("登录", true)
 	login.pressed.connect(_on_login)
 	box.add_child(login)
@@ -58,7 +65,7 @@ func _ready() -> void:
 
 
 func _fit_card() -> void:
-	MainTheme.place_centered(_card, size, Vector2(860, 760))
+	MainTheme.place_centered(_card, size, Vector2(860, 940))
 
 
 func _field(placeholder: String) -> LineEdit:
@@ -91,6 +98,11 @@ func _submit(is_register: bool) -> void:
 	if name.is_empty() or password.is_empty():
 		_error.text = "请填写用户名和密码"
 		return
+	var address := ServerAddress.save(_server.text)
+	if address.is_empty():
+		_error.text = "服务器地址不对，请填 http://主机:端口"
+		return
+	_server.text = address
 	var result: Dictionary = {}
 	if is_register:
 		result = await PlayerApi.register(name, password)

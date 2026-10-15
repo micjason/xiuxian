@@ -10,6 +10,7 @@ import { buildFormulaPreview } from "./formula-preview.js";
 import { loadDraftSnapshot } from "./snapshot.js";
 import { readEnhanceView, saveEnhanceRules } from "./enhance.js";
 import { listGear, removeMajorGear, saveGearQualityFactors, syncGear, updateGearPiece } from "./gear.js";
+import { SCHEME_TIME_LIMIT_SECONDS } from "./numeric-scheme.js";
 import {
   createOpsItem,
   createOpsSkill,
@@ -234,7 +235,7 @@ export async function registerDraftRoutes(app: FastifyInstance, deps: { db: Db; 
       rulesForSave(request.body as Parameters<typeof rulesFromInput>[0], {
         offlineCapSeconds: 28800,
         bagCapacity: 20,
-        combat: { challengeCooldownSeconds: 0, timeLimitSeconds: 20, recommendedPowerMargin: 1.05 },
+        combat: { challengeCooldownSeconds: 0, timeLimitSeconds: SCHEME_TIME_LIMIT_SECONDS, recommendedPowerMargin: 1.05 },
       }),
     );
     return buildFormulaPreview(rules);

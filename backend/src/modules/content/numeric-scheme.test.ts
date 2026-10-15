@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { hitDamage, simulateBattle } from "../combat/battle.js";
 import { ratePower } from "../combat/stats.js";
-import { buildScheme, bossOf, gearSlug, intervalOf, schemeBudgetPower, schemeWorld, standardPanel, SCHEME_WEIGHTS } from "./numeric-scheme.js";
+import { buildScheme, bossOf, gearSlug, intervalOf, schemeBudgetPower, schemeWorld, standardPanel, SCHEME_TIME_LIMIT_SECONDS, SCHEME_WEIGHTS } from "./numeric-scheme.js";
 import { equipmentPowerErrors, validateContent } from "./validate.js";
 import { stagePowerErrors } from "./stage-power.js";
 
@@ -41,7 +41,7 @@ describe("numeric scheme", () => {
       const result = simulateBattle(
         { ...panel, interval: intervalOf(panel.speed) },
         { attack: boss.attack, defense: boss.defense, hp: boss.hp, interval: boss.interval },
-        { timeLimitSeconds: 20, defenseConstant: 1 },
+        { timeLimitSeconds: SCHEME_TIME_LIMIT_SECONDS, defenseConstant: 1 },
       );
       expect(result.win).toBe(true);
       expect(result.durationSeconds).toBeLessThanOrEqual(12);
@@ -71,8 +71,8 @@ describe("numeric scheme", () => {
     const weaker = scale(0.95);
     const stronger = scale(1.05);
     expect(ratePower(stronger, SCHEME_WEIGHTS)).toBeGreaterThan(ratePower(panel, SCHEME_WEIGHTS) * 1.05 - 1);
-    expect(simulateBattle(stronger, weaker, { timeLimitSeconds: 20, defenseConstant: 1 }).win).toBe(true);
-    expect(simulateBattle(weaker, stronger, { timeLimitSeconds: 20, defenseConstant: 1 }).win).toBe(false);
+    expect(simulateBattle(stronger, weaker, { timeLimitSeconds: SCHEME_TIME_LIMIT_SECONDS, defenseConstant: 1 }).win).toBe(true);
+    expect(simulateBattle(weaker, stronger, { timeLimitSeconds: SCHEME_TIME_LIMIT_SECONDS, defenseConstant: 1 }).win).toBe(false);
     expect(hitDamage(panel.attack * 2, panel.defense * 2, 1)).toBeCloseTo(hitDamage(panel.attack, panel.defense, 1) * 2);
   });
 });

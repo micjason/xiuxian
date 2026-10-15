@@ -9,7 +9,7 @@ export const SCHEME_SPEED_BASE = 100;
 export const SCHEME_MIN_INTERVAL = 0.5;
 export const SCHEME_BASE_INTERVAL = 1.5;
 export const SCHEME_DEFENSE_CONSTANT = 1;
-export const SCHEME_TIME_LIMIT_SECONDS = 20;
+export const SCHEME_TIME_LIMIT_SECONDS = 45;
 export const SCHEME_MARGIN = 1.05;
 
 const CUMULATIVE: [number, number, number, number][] = [

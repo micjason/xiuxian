@@ -99,7 +99,7 @@ let stages = [
 ];
 let rules = {
   defenseConstant: 1, speedBase: 100, minInterval: 0.5, attackWeight: 4.7, defenseWeight: 1.6, hpWeight: 0.95, speedWeight: 2.6,
-  challengeCooldownSeconds: 0, timeLimitSeconds: 20, recommendedPowerMargin: 1.05, bagCapacity: 100, offlineCapSeconds: 28800, idleKillCap: 200, minClientVersionCode: 20,
+  challengeCooldownSeconds: 0, timeLimitSeconds: 45, recommendedPowerMargin: 1.05, bagCapacity: 100, offlineCapSeconds: 28800, idleKillCap: 200, minClientVersionCode: 20,
 };
 let puppets = [
   { id: "pp1", displayName: "炼气中期·青锋良", kind: "configured", kindName: "按配置", realmCode: 3, realmName: "炼气中期", realmMissing: false, weapons: [{ id: "炼气武器绿", displayName: "青锋·良" }], skills: [{ id: "k1", displayName: "养气诀" }], attack: 63, defense: 49, hp: 428, speed: 14, interval: 1.32, power: 1024, powerDetail: null, tendency: "均衡", tendencyNote: null, problem: null },
@@ -296,7 +296,7 @@ async function api(req, res, url) {
   if (p === "/admin/draft/rules") { if (m === "PUT") { rules = { ...rules, ...body }; return json(res, {}); } return json(res, rules); }
   if (p === "/admin/draft/formula-preview") return json(res, preview(body));
   if (p === "/admin/draft/trial") return json(res, { results: (body.puppetIds ?? []).map((id) => { const pp = puppets.find((x) => x.id === id); return { puppetId: id, displayName: pp?.displayName ?? id, kindName: pp?.kindName ?? "", error: null, win: true, reason: "win", durationSeconds: 14.5, timeLimitSeconds: 20, player: { power: pp?.power ?? 0, attack: pp?.attack ?? 0, defense: pp?.defense ?? 0, hp: pp?.hp ?? 0, speed: pp?.speed ?? 0, interval: pp?.interval ?? 1.5 }, playerHit: 31.2, playerHits: 5, playerKillSeconds: 7.5, bossHit: 18.4, bossHits: 6, bossKillSeconds: 9 }; }) });
-  if (p === "/admin/draft/puppets/duels") return json(res, { timeLimitSeconds: 20, fights: puppets.flatMap((a) => puppets.filter((d) => d.id !== a.id).map((d) => ({ attackerId: a.id, attackerName: a.displayName, defenderId: d.id, defenderName: d.displayName, wins: 1, losses: 0 }))) });
+  if (p === "/admin/draft/puppets/duels") return json(res, { timeLimitSeconds: 45, fights: puppets.flatMap((a) => puppets.filter((d) => d.id !== a.id).map((d) => ({ attackerId: a.id, attackerName: a.displayName, defenderId: d.id, defenderName: d.displayName, wins: 1, losses: 0 }))) });
   if (p === "/admin/draft/diff") {
     const from = url.searchParams.get("from") ?? "current";
     const to = url.searchParams.get("to") ?? "draft";

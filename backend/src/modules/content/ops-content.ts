@@ -5,7 +5,7 @@ import { contentDropEntries, contentDropTables, contentItems, contentRealms, con
 import { AppError } from "../../shared/errors.js";
 import type { Db } from "../operations/record.js";
 import { loadDraftSnapshot } from "./snapshot.js";
-import { stageRecommendedPower } from "./stage-power.js";
+import { stageAutoPower, stageRecommendedPower } from "./stage-power.js";
 import type { ContentSnapshot } from "./validate.js";
 
 type BossInput = {
@@ -201,22 +201,38 @@ async function readBosses(db: Db, bosses: BossInput[] | undefined, current: Stag
   });
 }
 
-function stagePowerOf(world: ContentSnapshot, slug: string): { recommendedPower: number | null; powerProblem: string | null } {
+type StagePowerView = { recommendedPower: number; effectivePower: number | null; autoPower: number | null; powerProblem: string | null };
+
+/** recommendedPower = 后台手填的值（0 = 没填，按首领自动算）；autoPower = 按首领数值算出的参考值；effectivePower = 玩家实际看到的。 */
+function stagePowerOf(world: ContentSnapshot, slug: string): StagePowerView {
   const stage = world.stages.find((candidate) => candidate.slug === slug);
   if (!stage) {
     throw new AppError("INTERNAL");
   }
+  const manual = Math.max(0, Math.round(Number(stage.recommendedPower ?? 0)));
   if ((stage.bosses ?? []).length === 0) {
-    return { recommendedPower: null, powerProblem: null };
+    return { recommendedPower: manual, effectivePower: manual > 0 ? manual : null, autoPower: null, powerProblem: null };
   }
   try {
-    return { recommendedPower: stageRecommendedPower(world, stage), powerProblem: null };
+    const auto = stageAutoPower(world, stage);
+    return { recommendedPower: manual, effectivePower: manual > 0 ? manual : auto, autoPower: auto, powerProblem: null };
   } catch (cause) {
     if (cause instanceof AppError) {
-      return { recommendedPower: null, powerProblem: cause.message };
+      return { recommendedPower: manual, effectivePower: manual > 0 ? manual : null, autoPower: null, powerProblem: manual > 0 ? null : cause.message };
     }
     throw cause;
   }
+}
+
+function readRecommendedPower(value: unknown): number | undefined {
+  if (value === undefined || value === null || value === "") {
+    return undefined;
+  }
+  const number = Number(value);
+  if (!Number.isInteger(number) || number < 0 || number > 10_000_000) {
+    throw new AppError("INVALID_INPUT", "推荐战力要填 0 到 1000 万的整数（0 表示按首领数值自动算）");
+  }
+  return number;
 }
 
 function stageView(
@@ -224,7 +240,7 @@ function stageView(
   realms: { slug: string; displayName: string; sortOrder: number }[],
   items: { slug: string; displayName: string }[],
   skills: { slug: string; displayName: string }[],
-  power: { recommendedPower: number | null; powerProblem: string | null },
+  power: StagePowerView,
 ) {
   const realm = realms.find((candidate) => candidate.sortOrder === row.requiredRealmOrder);
   const nameOf = (slug: string) => items.find((candidate) => candidate.slug === slug)?.displayName || skills.find((candidate) => candidate.slug === slug)?.displayName || "名称缺失";
@@ -279,7 +295,7 @@ export async function listOpsStages(db: Db) {
 
 export async function createOpsStage(
   db: Db,
-  input: { displayName?: string; realmCode?: number; bosses?: BossInput[]; monsters?: MonsterInput[]; monsterDrop?: MonsterDropInput },
+  input: { displayName?: string; realmCode?: number; recommendedPower?: number; bosses?: BossInput[]; monsters?: MonsterInput[]; monsterDrop?: MonsterDropInput },
   adminId: string | null,
 ) {
   const displayName = textOf(input.displayName);
@@ -312,6 +328,7 @@ export async function createOpsStage(
     sortOrder: 0,
     nextStageSlug: null,
     requiredRealmOrder: realmCode,
+    recommendedPower: readRecommendedPower(input.recommendedPower) ?? 0,
     bossName: first?.name ?? "",
     bossAttack: first?.attack ?? 0,
     bossDefense: first?.defense ?? 0,
@@ -332,7 +349,7 @@ export async function createOpsStage(
 export async function updateOpsStage(
   db: Db,
   id: string,
-  input: { displayName?: string; realmCode?: number; bosses?: BossInput[]; monsters?: MonsterInput[]; monsterDrop?: MonsterDropInput },
+  input: { displayName?: string; realmCode?: number; recommendedPower?: number; bosses?: BossInput[]; monsters?: MonsterInput[]; monsterDrop?: MonsterDropInput },
   adminId: string | null,
 ) {
   const [current] = await db.select().from(contentStages).where(eq(contentStages.slug, id)).limit(1);
@@ -360,6 +377,7 @@ export async function updateOpsStage(
     .set({
       displayName,
       requiredRealmOrder: realmCode,
+      ...(readRecommendedPower(input.recommendedPower) === undefined ? {} : { recommendedPower: readRecommendedPower(input.recommendedPower) }),
       nextStageSlug: null,
       sortOrder: 0,
       bossName: first?.name ?? "",

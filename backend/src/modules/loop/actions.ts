@@ -757,17 +757,8 @@ export async function challengeStage(tx: Tx, world: World, playerId: string, sta
   if (cooldown > 0 && settled.state.lastChallengeAt && now.getTime() - settled.state.lastChallengeAt.getTime() < cooldown * 1000) {
     throw new AppError("CHALLENGE_COOLDOWN", `挑战冷却中，要间隔 ${cooldown} 秒`);
   }
+  // 行囊满不再拒绝挑战：装备掉落满包时不掉落（客户端提示），首通固定奖励允许超出容量。
   const bagCapacity = rules.bagCapacity + settled.state.bagBonus;
-  const used = settled.pieces.items.filter((row) => !row.equippedSlot).length;
-  const freedBeforeFight: { itemSlug: string; enhanceExp: number }[] = [];
-  if (used >= bagCapacity) {
-    // 设计表 3.7：挑战前先按自动分解规则腾格（开关开、包里有没强化的白/绿），仍满才拒绝。
-    const freed = settled.state.autoDecompose ? await freeOneSlot(tx, world, playerId) : null;
-    if (!freed) {
-      throw new AppError("BAG_FULL");
-    }
-    freedBeforeFight.push(freed);
-  }
   if (stage.bosses && stage.bosses.length === 0) {
     throw new AppError("INVALID_INPUT", "这个关卡还没有首领");
   }
@@ -896,7 +887,6 @@ export async function challengeStage(tx: Tx, world: World, playerId: string, sta
   return {
     battle,
     drops,
-    freedBeforeFight,
     bagFull: bagFullNotice,
     reward: rewardInfo
       ? {

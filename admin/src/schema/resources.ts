@@ -144,6 +144,7 @@ export const stageSchema: Schema = {
   fields: [
     { key: "displayName", label: "关卡名称", kind: "text", required: true, hint: "关卡名，玩家在历练页看到。", column: { minWidth: 160 } },
     { key: "realmCode", label: "所需境界", kind: "select", required: true, hint: "到达这个境界才能挑战。选项来自「境界」页。", options: [], affects: "关卡解锁" },
+    { key: "recommendedPower", label: "推荐战力", kind: "int", min: 0, max: 10000000, default: 0, unit: "战力", hint: "玩家在关卡页和战斗页看到的“推荐战力”，由你手填，服务器不会改它。设计表 2.3 的值是参考配置总战力 × 0.95：黑风岭·三 900、幽冥古道·三 2450、赤炎火山·三 6590。填 0 表示没有手填，按首领自身数值 × 「推荐战力倍数」自动算。", affects: "关卡页提示、战斗页提示" },
   ],
 };
 

@@ -105,6 +105,7 @@ async function runBot(db: Json, cfg: { seed: number; schedule: Schedule; variant
   const m: Json = {
     onlineSeconds: 0,
     drops: { total: 0, byRealm: {} as Json, byQuality: {} as Json, dropped: 0, decomposed: 0, freedEvents: 0, bagFullHeartbeats: 0 },
+    waves: { byRealm: {} as Json, byStage: {} as Json },
     violations: [] as string[],
     deviations: { enhanceCost: [] as Json[], decompose: [] as Json[], statGain: [] as Json[] },
     enhance: { calls: 0, levelsGained: 0, expSpent: 0, blockedAtNode: 0, nodeBreaks: 0, byQuality: {} as Json },
@@ -152,6 +153,14 @@ async function runBot(db: Json, cfg: { seed: number; schedule: Schedule; variant
       const key = realm?.majorKey ?? "?";
       m.drops.byRealm[key] ??= { drops: 0, onlineSeconds: 0 };
       m.drops.byRealm[key].onlineSeconds += last.seconds ?? 0;
+      // 每次结算的击杀数 / 死亡数（用来核对“击杀数对不对、掉率对不对”）
+      m.waves.byRealm[key] ??= { kills: 0, deaths: 0, seconds: 0, drops: 0, settlements: 0, killCultivation: 0 };
+      const w = m.waves.byRealm[key];
+      w.kills += last.kills ?? 0; w.deaths += last.deaths ?? 0; w.seconds += last.seconds ?? 0; w.drops += (last.drops as Json[]).length; w.settlements++; w.killCultivation += last.killCultivation ?? 0;
+      const stageKey = (state.wave as Json)?.stageSlug ?? "?";
+      m.waves.byStage[stageKey] ??= { kills: 0, deaths: 0, seconds: 0, drops: 0 };
+      const ws = m.waves.byStage[stageKey];
+      ws.kills += last.kills ?? 0; ws.deaths += last.deaths ?? 0; ws.seconds += last.seconds ?? 0; ws.drops += (last.drops as Json[]).length;
       m.onlineSeconds += last.seconds ?? 0;
       for (const d of last.drops as Json[]) {
         m.drops.total++;

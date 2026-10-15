@@ -62,28 +62,59 @@ describe("boss first-clear fixed rewards", () => {
     });
   });
 
-  it("first-clear rewards may temporarily exceed the bag capacity (20 → more than 20), but a full bag with nothing to decompose still refuses the challenge", async () => {
+  it("a full bag never refuses a boss challenge; first-clear rewards may exceed capacity, later equipment drops are simply not dropped", async () => {
     await withDb(async (db) => {
       const { app, challenge, bag, weakBear, playerId } = await boot(db, "boss_b");
       await weakBear();
       for (let index = 0; index < 20; index += 1) {
-        await db.insert(playerItems).values({ playerId, itemSlug: "gear_major1_weapon_white", isStack: false, quantity: 1, acquiredAt: new Date(start.getTime() - 1000 * (index + 1)), source: "test" });
+        await db.insert(playerItems).values({ playerId, itemSlug: "gear_major1_weapon_blue", isStack: false, quantity: 1, source: "test", acquiredAt: new Date(start.getTime() - 1000 * (index + 1)) });
       }
-      const response = await challenge("lianqi_3");
-      expect(response.statusCode).toBe(200);
-      expect(response.json().freedBeforeFight).toHaveLength(1); // 先分解一件白装腾出一格
-      expect((await bag()).length).toBeGreaterThan(20);
+      // 20/20 且没有可自动分解的白/绿：以前会被拒绝，现在照常打
+      const first = await challenge("lianqi_3");
+      expect(first.statusCode).toBe(200);
+      expect(first.json().battle.win).toBe(true);
+      expect(first.json().freedBeforeFight).toBeUndefined();
+      const afterFirst = await bag();
+      expect(afterFirst.length).toBeGreaterThan(20); // 首通固定奖励允许超出容量
+      expect(first.json().drops.some((row: { dropped?: boolean }) => row.dropped)).toBe(false);
+      // 重复挑战（关掉自动分解，否则新掉的白装会直接分解成强化经验）：奖励里的装备在满包时不掉落，并标记 bagFull 让客户端提示
+      await db.update(playerStates).set({ autoDecompose: false }).where(eq(playerStates.playerId, playerId));
+      const again = await challenge("lianqi_3");
+      expect(again.statusCode).toBe(200);
+      const body = again.json();
+      const gearBefore = afterFirst.filter((row) => row.itemSlug.startsWith("gear_")).length;
+      const gearAfter = (await bag()).filter((row) => row.itemSlug.startsWith("gear_")).length;
+      expect(gearAfter).toBe(gearBefore);
+      expect(body.drops.filter((row: { itemSlug: string }) => row.itemSlug.startsWith("gear_")).every((row: { dropped?: boolean }) => row.dropped === true)).toBe(true);
+      expect(body.drops.some((row: { itemSlug: string; dropped?: boolean }) => row.itemSlug.startsWith("gear_") && row.dropped)).toBe(true);
+      expect(body.bagFull).toBe(true);
       await app.close();
     });
     await withDb(async (db) => {
       const { app, challenge, weakBear, playerId } = await boot(db, "boss_c");
       await weakBear();
       for (let index = 0; index < 20; index += 1) {
+        await db.insert(playerItems).values({ playerId, itemSlug: "gear_major1_weapon_white", isStack: false, quantity: 1, source: "test", acquiredAt: new Date(start.getTime() - 1000 * (index + 1)) });
+      }
+      // 自动分解开着也不再在挑战前腾格，也不拒绝
+      const response = await challenge("lianqi_3");
+      expect(response.statusCode).toBe(200);
+      expect(response.json().freedBeforeFight).toBeUndefined();
+      await app.close();
+    });
+  });
+
+  it("materials (breakthrough stones) still land in a full bag", async () => {
+    await withDb(async (db) => {
+      const { app, challenge, bag, weakBear, playerId } = await boot(db, "boss_m");
+      await weakBear();
+      for (let index = 0; index < 20; index += 1) {
         await db.insert(playerItems).values({ playerId, itemSlug: "gear_major1_weapon_blue", isStack: false, quantity: 1, source: "test" });
       }
-      const refused = await challenge("lianqi_3");
-      expect(refused.statusCode).toBe(409);
-      expect(refused.json().error.code).toBe("BAG_FULL");
+      const response = await challenge("lianqi_3");
+      expect(response.statusCode).toBe(200);
+      const stones = (await bag()).filter((row) => row.itemSlug === "enh_stone_low");
+      expect(stones.reduce((sum, row) => sum + row.quantity, 0)).toBeGreaterThanOrEqual(3);
       await app.close();
     });
   });

@@ -1,6 +1,6 @@
 <template>
   <div>
-    <PageHeader title="关卡与 Boss" desc="一个境界下可以有多个关卡。首领属性、掉落、试打都在同一个抽屉里完成；推荐战力由服务器按第一个首领自动算出，不能手填。" />
+    <PageHeader title="关卡与 Boss" desc="一个境界下可以有多个关卡。首领属性、掉落、试打都在同一个抽屉里完成；推荐战力由你手填（填 0 = 按首领数值自动算），服务器不会改它。" />
     <ConfigListPage
       :schema="stageSchema"
       :rows="rows"
@@ -28,11 +28,12 @@
         <el-tag v-if="row.realmMissing" type="danger" effect="light" size="small">境界 {{ row.realmCode }} 不存在</el-tag>
         <span v-else>{{ row.realmCode }} {{ row.realmName }}</span>
       </template>
-      <template #cell-recommendedPower="{ row }">
+      <template #cell-effectivePower="{ row }">
         <el-tooltip v-if="row.powerProblem" :content="String(row.powerProblem)" placement="top">
           <el-tag type="warning" effect="light" size="small">算不出</el-tag>
         </el-tooltip>
-        <span v-else>{{ row.recommendedPower }}</span>
+        <span v-else-if="row.effectivePower == null" class="muted">无首领</span>
+        <span v-else>{{ row.effectivePower }}<el-tag v-if="!row.recommendedPower" size="small" effect="plain" type="info" class="auto-tag">自动</el-tag></span>
       </template>
       <template #form="{ form, showAllErrors, mode }">
         <div class="stage-form">
@@ -47,6 +48,7 @@
               :hidden-keys="hidden"
               @active="(field) => (active = field)"
             />
+            <p v-if="(form as Record<string, unknown>).autoPower != null" class="muted auto-hint">按首领数值自动算出的参考值：{{ (form as Record<string, unknown>).autoPower }}（推荐战力填 0 时玩家看到的就是它）。</p>
             <section class="monsters">
               <header class="mhead">
                 <h3>普通怪与掉落</h3>
@@ -107,7 +109,7 @@ import type { FieldDef } from "../../schema/types";
 
 type MonsterRow = { name: string; attack: number; defense: number; hp: number; interval: number; killCultivation: number };
 type DropForm = { chancePercent: number; weights: { white: number; green: number; blue: number; purple: number } };
-type StageForm = { displayName: string; realmCode: number | undefined; bosses: BossRow[]; monsters: MonsterRow[]; monsterDrop: DropForm | null };
+type StageForm = { displayName: string; realmCode: number | undefined; recommendedPower: number; bosses: BossRow[]; monsters: MonsterRow[]; monsterDrop: DropForm | null };
 type ApiBoss = {
   name: string;
   attack: number;
@@ -124,7 +126,9 @@ type ApiStage = {
   realmCode: number;
   realmName: string;
   realmMissing: boolean;
-  recommendedPower: number | null;
+  recommendedPower: number;
+  effectivePower: number | null;
+  autoPower: number | null;
   powerProblem: string | null;
   bosses: ApiBoss[];
   monsters: MonsterRow[];
@@ -142,7 +146,7 @@ const active = ref<FieldDef | null>(null);
 const trialOpen = ref(false);
 const trialBoss = ref<BossRow | null>(null);
 
-const hidden = ['id', 'dropCount', 'realmName', 'realmMissing', 'recommendedPower', 'powerProblem', 'bossText', 'bosses', 'monsters', 'monsterDrop'];
+const hidden = ['id', 'dropCount', 'realmName', 'realmMissing', 'effectivePower', 'autoPower', 'powerProblem', 'bossText', 'bosses', 'monsters', 'monsterDrop'];
 
 function addMonster(form: StageForm): void {
   form.monsters.push({ name: '', attack: 0, defense: 0, hp: 100, interval: 1.5, killCultivation: 1 });
@@ -161,7 +165,7 @@ const columns = [
   { key: "realmName", label: "所需境界", width: 150 },
   { key: "bossText", label: "首领", minWidth: 200 },
   { key: "dropCount", label: "掉落数", width: 90, sortable: true },
-  { key: "recommendedPower", label: "推荐战力", width: 110, sortable: true },
+  { key: "effectivePower", label: "推荐战力", width: 120, sortable: true },
 ];
 
 async function reload(): Promise<void> {
@@ -206,11 +210,11 @@ async function reload(): Promise<void> {
 }
 
 function newRow(): Record<string, unknown> {
-  return { displayName: "", realmCode: realms.value[0]?.code, bosses: [] as BossRow[], monsters: [] as MonsterRow[], monsterDrop: null };
+  return { displayName: "", realmCode: realms.value[0]?.code, recommendedPower: 0, bosses: [] as BossRow[], monsters: [] as MonsterRow[], monsterDrop: null };
 }
 
 async function save(values: Record<string, unknown>, mode: "create" | "edit", editingId: string): Promise<void> {
-  const body = JSON.stringify({ displayName: values.displayName, realmCode: values.realmCode, bosses: values.bosses, monsters: values.monsters, monsterDrop: (values.monsters as MonsterRow[]).length > 0 ? values.monsterDrop : null });
+  const body = JSON.stringify({ displayName: values.displayName, realmCode: values.realmCode, recommendedPower: values.recommendedPower ?? 0, bosses: values.bosses, monsters: values.monsters, monsterDrop: (values.monsters as MonsterRow[]).length > 0 ? values.monsterDrop : null });
   if (mode === "create") {
     await api("/admin/draft/stages", { method: "POST", body });
   } else {
@@ -238,6 +242,12 @@ onMounted(reload);
 }
 .main {
   min-width: 0;
+}
+.auto-hint {
+  margin: 0 0 var(--xx-space-3);
+}
+.auto-tag {
+  margin-left: 6px;
 }
 .monsters {
   margin-bottom: var(--xx-space-4);

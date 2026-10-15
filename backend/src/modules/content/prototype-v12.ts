@@ -146,17 +146,17 @@ export async function applyPrototypeV12(db: Db): Promise<{ stageSlugs: string[];
         stone(gearPieceSlug(tier(0), "accessory", "blue"), 1),
         stone("enh_stone_low", 3),
       ],
-      repeat: { gear: true, extras: [{ itemSlug: "enh_stone_low", chanceBp: 3500, minQty: 1, maxQty: 2 }] },
+      repeat: { gear: true, extras: [{ itemSlug: "enh_stone_low", chanceBp: 5250, minQty: 1, maxQty: 2 }] },
     },
     b_zj_ghost: {
       name: "噬魂老鬼", hp: 5760, attack: 113, defense: 61, interval: 1.5, drops: [],
       firstClear: [stone(PROTOTYPE_SKILLS[2].slug, 1), stone(gearPieceSlug(tier(1), "weapon", "purple"), 1), stone("enh_stone_low", 5), stone("enh_stone_mid", 1)],
-      repeat: { gear: true, extras: [{ itemSlug: "enh_stone_low", chanceBp: 3500, minQty: 1, maxQty: 2 }, { itemSlug: "enh_stone_mid", chanceBp: 1500, minQty: 1, maxQty: 1 }] },
+      repeat: { gear: true, extras: [{ itemSlug: "enh_stone_low", chanceBp: 5250, minQty: 1, maxQty: 2 }, { itemSlug: "enh_stone_mid", chanceBp: 2250, minQty: 1, maxQty: 1 }] },
     },
     b_jd_jiao: {
       name: "赤焰蛟", hp: 20400, attack: 309, defense: 170, interval: 1.5, drops: [],
       firstClear: [stone(gearPieceSlug(tier(2), "accessory", "purple"), 1), stone("enh_stone_mid", 3)],
-      repeat: { gear: true, extras: [{ itemSlug: "enh_stone_low", chanceBp: 3500, minQty: 1, maxQty: 2 }, { itemSlug: "enh_stone_mid", chanceBp: 1500, minQty: 1, maxQty: 1 }] },
+      repeat: { gear: true, extras: [{ itemSlug: "enh_stone_low", chanceBp: 5250, minQty: 1, maxQty: 2 }, { itemSlug: "enh_stone_mid", chanceBp: 2250, minQty: 1, maxQty: 1 }] },
     },
   };
   for (const [index, stage] of PROTOTYPE_STAGES.entries()) {

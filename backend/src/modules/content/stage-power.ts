@@ -23,8 +23,18 @@ function priceStage(world: ContentSnapshot, stage: Stage): { realmOrder: number;
   return { realmOrder: realm.sortOrder, power: Math.round(raw * rules.recommendedPowerMargin) };
 }
 
-export function stageRecommendedPower(world: ContentSnapshot, stage: Stage): number {
+/** 按首领自身数值算出的推荐战力（战力 × 推荐战力倍数）。后台“推荐战力”填 0 时用它；也在表单里当参考值显示。 */
+export function stageAutoPower(world: ContentSnapshot, stage: Stage): number {
   return priceStage(world, stage).power;
+}
+
+/**
+ * 玩家看到的推荐战力：以后台为每个关卡手填的值为准（设计表 2.3：参考配置总战力 × 0.95）。
+ * 填 0 表示“没有手填，按首领数值自动算”。服务器不会再用自动值覆盖手填值。
+ */
+export function stageRecommendedPower(world: ContentSnapshot, stage: Stage): number {
+  const manual = Math.round(Number(stage.recommendedPower ?? 0));
+  return manual > 0 ? manual : stageAutoPower(world, stage);
 }
 
 export function stagePowerErrors(world: ContentSnapshot): { slug: string; message: string }[] {
@@ -35,7 +45,7 @@ export function stagePowerErrors(world: ContentSnapshot): { slug: string; messag
       continue;
     }
     try {
-      priced.push({ stage, ...priceStage(world, stage) });
+      priced.push({ stage, realmOrder: stage.requiredRealmOrder ?? 0, power: stageRecommendedPower(world, stage) });
     } catch (cause) {
       if (!(cause instanceof AppError)) {
         throw cause;

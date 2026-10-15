@@ -4,6 +4,7 @@ import { withDb } from "../../test/db.js";
 import { contentItems } from "../../db/schema.js";
 import { loadDraftSnapshot } from "./snapshot.js";
 import { validateContent } from "./validate.js";
+import { stageRecommendedPower } from "./stage-power.js";
 import { PROTOTYPE_LAYERS, PROTOTYPE_MAJORS, PROTOTYPE_STAGES, applyPrototypeV12 } from "./prototype-v12.js";
 
 const sim = JSON.parse(readFileSync(new URL("../../../../tools/sim/prototype-v1.2.config.json", import.meta.url), "utf8")) as {
@@ -44,6 +45,15 @@ describe("prototype v1.2 content", () => {
           }
         });
       }
+    });
+  });
+
+  it("ships the hand-filled recommended power of table 2.3 (900 / 2450 / 6590), not the boss-derived value", async () => {
+    await withDb(async (db) => {
+      await applyPrototypeV12(db);
+      const world = await loadDraftSnapshot(db);
+      const power = (slug: string) => stageRecommendedPower(world, world.stages.find((row) => row.slug === slug)!);
+      expect([power("lianqi_3"), power("zhuji_3"), power("jindan_3")]).toEqual([900, 2450, 6590]);
     });
   });
 });

@@ -108,4 +108,24 @@ describe("stage recommended power", () => {
     const errors = stagePowerErrors({ ...current, globals: { ...current.globals, combat: undefined } });
     expect(errors[0]?.message.startsWith("请先在后台填写：")).toBe(true);
   });
+
+  it("uses the hand-filled power instead of the boss-derived value, and 0 means auto", () => {
+    const current = world();
+    current.stages[0]!.recommendedPower = 900;
+    expect(stageRecommendedPower(current, current.stages[0]!)).toBe(900);
+    expect(stageRecommendedPower(current, current.stages[1]!)).toBe(1247);
+  });
+
+  it("does not need a realm base interval when the power is hand-filled", () => {
+    const current = world({ realms: [realm("qi", "炼气", 1, undefined), realm("zhuji", "筑基", 2, 1.5)] });
+    current.stages[0]!.recommendedPower = 900;
+    expect(stagePowerErrors(current)).toEqual([]);
+  });
+
+  it("checks that hand-filled power still rises with the realm", () => {
+    const current = world();
+    current.stages[0]!.recommendedPower = 2000;
+    current.stages[1]!.recommendedPower = 1500;
+    expect(stagePowerErrors(current)).toEqual([{ slug: "stage_b", message: "推荐战力 1500 不高于低一个境界的关卡「后山」的 2000" }]);
+  });
 });

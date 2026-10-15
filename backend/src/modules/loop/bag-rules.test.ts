@@ -160,26 +160,28 @@ describe("challenge with a full bag", () => {
     return { ...base, world: (await loadCurrentWorld(db))! };
   }
 
-  it("switch on: frees one slot by decomposing a white piece and fights", async () => {
+  it("full bag never refuses the challenge and the bag is left alone before the fight (switch on)", async () => {
     await withDb(async (db) => {
       const { player, world } = await seedStage(db);
       await fill(db, player.playerId, [{ itemSlug: "white_a" }, { itemSlug: "blue_a" }, { itemSlug: "purple_a" }]);
       const result = await withTransaction(db, (tx) => challengeStage(tx, world, player.playerId, "s1", now, () => 0));
       expect(result.battle.win).toBe(true);
-      expect(result.freedBeforeFight).toEqual([{ itemSlug: "white_a", enhanceExp: 30 }]);
-      expect(await bagOf(db, player.playerId)).toEqual(["blue_a", "purple_a"]);
+      expect(result).not.toHaveProperty("freedBeforeFight");
+      expect((await bagOf(db, player.playerId)).sort()).toEqual(["blue_a", "purple_a", "white_a"]);
     });
   });
 
-  it("switch on but nothing to decompose, or switch off: refuses with BAG_FULL", async () => {
+  it("full bag with nothing to decompose, or the switch off: still fights (no BAG_FULL refusal)", async () => {
     await withDb(async (db) => {
       const { player, world } = await seedStage(db);
       await fill(db, player.playerId, [{ itemSlug: "blue_a" }, { itemSlug: "blue_a" }, { itemSlug: "purple_a" }]);
-      await expect(withTransaction(db, (tx) => challengeStage(tx, world, player.playerId, "s1", now, () => 0))).rejects.toMatchObject({ code: "BAG_FULL" });
+      const first = await withTransaction(db, (tx) => challengeStage(tx, world, player.playerId, "s1", now, () => 0));
+      expect(first.battle.win).toBe(true);
       await db.delete(playerItems).where(eq(playerItems.itemSlug, "purple_a"));
       await fill(db, player.playerId, [{ itemSlug: "white_a" }]);
       await db.update(playerStates).set({ autoDecompose: false }).where(eq(playerStates.playerId, player.playerId));
-      await expect(withTransaction(db, (tx) => challengeStage(tx, world, player.playerId, "s1", now, () => 0))).rejects.toMatchObject({ code: "BAG_FULL" });
+      const second = await withTransaction(db, (tx) => challengeStage(tx, world, player.playerId, "s1", now, () => 0));
+      expect(second.battle.win).toBe(true);
     });
   });
 });

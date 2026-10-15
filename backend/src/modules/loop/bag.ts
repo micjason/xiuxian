@@ -86,9 +86,9 @@ async function insertRow(tx: Tx, playerId: string, itemSlug: string, isStack: bo
 }
 
 /**
- * 发放一件物品，处理行囊容量（设计表 2.6 / 3.7）：
+ * 发放一件物品，处理行囊容量（设计表 2.6 / 3.7）。只有装备受容量限制；材料、功法书满包也照常入包：
  * - 有空格：直接入包（可叠加物品并入已有一堆，不占新格）。
- * - 没有空格：
+ * - 没有空格（只针对装备）：
  *   · 新掉落是白/绿装备、开关开：直接分解成强化经验；
  *   · 新掉落是别的（蓝/紫装备、材料等）、开关开：分解包内一件没强化的白/绿腾出一格再入包；找不到可分解的就不掉；
  *   · 开关关：不掉，reason = BAG_FULL。
@@ -122,7 +122,8 @@ export async function grantItem(
         .limit(1);
     }
     const needsSlot = !stackRow;
-    if (needsSlot && !options.overflow) {
+    // 满包只影响装备掉落；材料（突破石等）和功法书不占装备格的竞争，直接入包，不会因为背包满而丢。
+    if (needsSlot && !options.overflow && isGear) {
       const used = await bagUsedSlots(tx, playerId);
       if (used >= options.capacity) {
         const newIsAutoQuality = isGear && AUTO_DECOMPOSE_QUALITIES.has(definition.quality ?? "white");

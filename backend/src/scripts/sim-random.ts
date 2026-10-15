@@ -49,10 +49,15 @@ async function main() {
   const seeds = Number(process.argv[3] ?? 3);
   const db = getDb();
   await applyPrototypeV12(db);
+  // 敏感度实验用：SIM_STONE_SCALE=2 把首领重复挑战的突破石概率再乘 2（上限 10000bp）；SIM_SCHEDULES=B、SIM_VARIANTS=auto 只跑一部分；SIM_EXTRA_DAYS 到金丹三层后多玩几天（默认 1）。
+  const stoneScale = Number(process.env.SIM_STONE_SCALE ?? 1);
+  if (stoneScale !== 1) await scaleRepeatStoneChance(stoneScale);
+  const schedules = (process.env.SIM_SCHEDULES ?? "A,B").split(",") as Schedule[];
+  const variants = (process.env.SIM_VARIANTS ?? "auto,manual").split(",") as Variant[];
   const results: Json[] = [];
   for (let seed = 1; seed <= seeds; seed++) {
-    for (const schedule of ["A", "B"] as Schedule[]) {
-      for (const variant of ["auto", "manual"] as Variant[]) {
+    for (const schedule of schedules) {
+      for (const variant of variants) {
         const started = Date.now();
         const r: Awaited<ReturnType<typeof runBot>> & { wallSeconds?: number } = await runBot(db, { seed, schedule, variant, days });
         r.wallSeconds = (Date.now() - started) / 1000;
@@ -63,6 +68,18 @@ async function main() {
   }
   console.log(JSON.stringify(results));
   await getSql().end();
+}
+
+async function scaleRepeatStoneChance(scale: number) {
+  const sql = getSql();
+  const rows = await sql`select slug, bosses from content_stages where jsonb_array_length(bosses) > 0`;
+  for (const row of rows) {
+    const bosses = (row.bosses as Json[]).map((b) => {
+      const extras = (b.repeat?.extras as Json[] | undefined)?.map((e) => String(e.itemSlug).startsWith("enh_stone") ? { ...e, chanceBp: Math.min(10000, Math.round(e.chanceBp * scale)) } : e);
+      return extras ? { ...b, repeat: { ...b.repeat, extras } } : b;
+    });
+    await sql`update content_stages set bosses = ${JSON.stringify(bosses)}::jsonb where slug = ${row.slug}`;
+  }
 }
 
 async function runBot(db: Json, cfg: { seed: number; schedule: Schedule; variant: Variant; days: number }) {
@@ -392,7 +409,7 @@ async function runBot(db: Json, cfg: { seed: number; schedule: Schedule; variant
       if (state.realmSlug === "jindan_3" && (state.cultivation as number) >= 0) { finalRealm = "jindan_3"; if (m.boss.byStage.jindan_3?.wins >= 1 || day >= cfg.days) break outer; }
     }
     finalRealm = state.realmSlug as string;
-    if (state.realmSlug === "jindan_3" && day >= 1 + Math.floor(m.layerReached["jindan_3"] ?? 0)) break;
+    if (state.realmSlug === "jindan_3" && day >= Number(process.env.SIM_EXTRA_DAYS ?? 1) + Math.floor(m.layerReached["jindan_3"] ?? 0)) break;
   }
   // 战力 vs 参考配置
   const finalItems = (state.items as Json[]).filter((i) => i.equippedSlot);

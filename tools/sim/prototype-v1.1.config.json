@@ -1,0 +1,106 @@
+{
+  "_source": "/workspace/prototype_design_numbers.md v1.1 (sections 0.1, 1.1, 2.1-2.5, 2.7, 3.1-3.2, 6.1). Edit this file to try other numbers.",
+  "globals": {
+    "weights": { "attack": 4.7, "defense": 1.6, "hp": 0.95, "speed": 2.6 },
+    "baseInterval": 1.5,
+    "speedBase": 100,
+    "minInterval": 0.5,
+    "defenseConstant": 1,
+    "timeLimitSeconds": 45,
+    "offlineCapSeconds": 28800,
+    "onlineGapSeconds": 15,
+    "waveSize": 3,
+    "waveTransitionSeconds": 2,
+    "reviveSeconds": 3,
+    "statGrowthBp": 600,
+    "qualityFactors": { "white": 1, "green": 1.15, "blue": 1.3, "purple": 1.5 },
+    "ult": { "firstCooldownSeconds": 8, "autoCastWindowSeconds": 2 },
+    "scheduleOnlineMinutesPerDay": 45
+  },
+  "majors": [
+    { "id": "qi", "name": "炼气", "ult": { "multBp": 40000, "cooldownSeconds": 20 }, "skillBonusBp": 500, "bossRewardSkillBp": 1500 },
+    { "id": "foundation", "name": "筑基", "ult": { "multBp": 50000, "cooldownSeconds": 18 }, "skillBonusBp": 1500, "bossRewardSkillBp": 3000 },
+    { "id": "core", "name": "金丹", "ult": { "multBp": 60000, "cooldownSeconds": 16 }, "skillBonusBp": 3000, "bossRewardSkillBp": 3000 }
+  ],
+  "layers": [
+    { "id": "lianqi_1", "name": "炼气一层", "major": "qi", "gainPerTick": 1, "costToNext": 60, "stats": { "hp": 300, "attack": 30, "defense": 10, "speed": 20 } },
+    { "id": "lianqi_2", "name": "炼气二层", "major": "qi", "gainPerTick": 1, "costToNext": 300, "stats": { "hp": 360, "attack": 36, "defense": 12, "speed": 20 } },
+    { "id": "lianqi_3", "name": "炼气三层", "major": "qi", "gainPerTick": 1, "costToNext": 1800, "requiresBoss": "b_lq_bear", "stats": { "hp": 430, "attack": 43, "defense": 14, "speed": 20 } },
+    { "id": "zhuji_1", "name": "筑基一层", "major": "foundation", "gainPerTick": 3, "costToNext": 21600, "stats": { "hp": 780, "attack": 78, "defense": 26, "speed": 30 } },
+    { "id": "zhuji_2", "name": "筑基二层", "major": "foundation", "gainPerTick": 3, "costToNext": 54000, "stats": { "hp": 940, "attack": 94, "defense": 31, "speed": 30 } },
+    { "id": "zhuji_3", "name": "筑基三层", "major": "foundation", "gainPerTick": 3, "costToNext": 108000, "requiresBoss": "b_zj_ghost", "stats": { "hp": 1130, "attack": 113, "defense": 37, "speed": 30 } },
+    { "id": "jindan_1", "name": "金丹一层", "major": "core", "gainPerTick": 9, "costToNext": 194400, "stats": { "hp": 2050, "attack": 205, "defense": 68, "speed": 40 } },
+    { "id": "jindan_2", "name": "金丹二层", "major": "core", "gainPerTick": 9, "costToNext": 388800, "stats": { "hp": 2460, "attack": 246, "defense": 82, "speed": 40 } },
+    { "id": "jindan_3", "name": "金丹三层", "major": "core", "gainPerTick": 9, "costToNext": null, "stats": { "hp": 2950, "attack": 295, "defense": 98, "speed": 40 } }
+  ],
+  "stages": [
+    { "id": "lianqi_1", "name": "黑风岭·一", "monster": { "name": "青鬃狼", "hp": 120, "attack": 25, "defense": 12, "interval": 1.5, "killXp": 3 } },
+    { "id": "lianqi_2", "name": "黑风岭·二", "monster": { "name": "赤眼狐妖", "hp": 120, "attack": 27, "defense": 14, "interval": 1.25, "killXp": 3 } },
+    { "id": "lianqi_3", "name": "黑风岭·三", "monster": { "name": "毒牙蟒", "hp": 180, "attack": 27, "defense": 16, "interval": 1.5, "killXp": 3 }, "boss": { "id": "b_lq_bear", "name": "黑风熊王", "hp": 1500, "attack": 34, "defense": 19, "interval": 1.5, "recommendedPower": 870, "firstClearCultivation": 1500 } },
+    { "id": "zhuji_1", "name": "幽冥古道·一", "monster": { "name": "游魂", "hp": 350, "attack": 78, "defense": 36, "interval": 1.5, "killXp": 10 } },
+    { "id": "zhuji_2", "name": "幽冥古道·二", "monster": { "name": "骨傀", "hp": 350, "attack": 83, "defense": 40, "interval": 1.25, "killXp": 10 } },
+    { "id": "zhuji_3", "name": "幽冥古道·三", "monster": { "name": "血蝠", "hp": 520, "attack": 84, "defense": 45, "interval": 1.5, "killXp": 10 }, "boss": { "id": "b_zj_ghost", "name": "噬魂老鬼", "hp": 4880, "attack": 97, "defense": 54, "interval": 1.5, "recommendedPower": 2410, "firstClearCultivation": 0 } },
+    { "id": "jindan_1", "name": "赤炎火山·一", "monster": { "name": "炎鳞蜥", "hp": 990, "attack": 235, "defense": 105, "interval": 1.5, "killXp": 30 } },
+    { "id": "jindan_2", "name": "赤炎火山·二", "monster": { "name": "火鸦", "hp": 980, "attack": 250, "defense": 115, "interval": 1.25, "killXp": 30 } },
+    { "id": "jindan_3", "name": "赤炎火山·三", "monster": { "name": "熔岩傀", "hp": 1450, "attack": 250, "defense": 125, "interval": 1.5, "killXp": 30 }, "boss": { "id": "b_jd_jiao", "name": "赤焰蛟", "hp": 15500, "attack": 270, "defense": 150, "interval": 1.5, "recommendedPower": 6510, "firstClearCultivation": 0 } }
+  ],
+  "gearTable": {
+    "_note": "table 3.1, white +0 base stats per tier (qi / foundation / core). Keys are the code's slot ids.",
+    "weapon": [{ "attack": 10 }, { "attack": 26 }, { "attack": 68 }],
+    "helmet": [{ "hp": 60 }, { "hp": 156 }, { "hp": 408 }],
+    "clothes": [{ "hp": 50, "defense": 4 }, { "hp": 130, "defense": 10 }, { "hp": 340, "defense": 27 }],
+    "gloves": [{ "attack": 6 }, { "attack": 16 }, { "attack": 41 }],
+    "shoes": [{ "defense": 5, "speed": 4 }, { "defense": 13, "speed": 8 }, { "defense": 34, "speed": 12 }],
+    "accessory": [{ "hp": 30, "attack": 4 }, { "hp": 78, "attack": 10 }, { "hp": 204, "attack": 27 }]
+  },
+  "referenceLoadouts": {
+    "_note": "table 2.1 note: the 'reference configuration' per major. [slot, quality, enhance level]",
+    "qi": [["weapon", "green", 3], ["helmet", "white", 1], ["clothes", "white", 1], ["gloves", "white", 1], ["shoes", "white", 1]],
+    "foundation": [["weapon", "green", 3], ["gloves", "green", 3], ["helmet", "white", 3], ["clothes", "white", 3], ["shoes", "white", 3], ["accessory", "white", 3]],
+    "core": [["weapon", "blue", 3], ["gloves", "blue", 3], ["accessory", "blue", 3], ["helmet", "green", 3], ["clothes", "green", 3], ["shoes", "green", 3]]
+  },
+  "tableClaims": {
+    "_note": "numbers copied from the design table, used only for the comparison column",
+    "referenceStats": {
+      "lianqi_1": { "hp": 417, "attack": 50, "defense": 19, "speed": 24, "interval": 1.21, "power": 724 },
+      "lianqi_2": { "hp": 477, "attack": 56, "defense": 21, "speed": 24, "interval": 1.21, "power": 812 },
+      "lianqi_3": { "hp": 547, "attack": 63, "defense": 23, "speed": 24, "interval": 1.21, "power": 915 },
+      "zhuji_1": { "hp": 1209, "attack": 146, "defense": 53, "speed": 39, "interval": 1.08, "power": 2021 },
+      "zhuji_2": { "hp": 1369, "attack": 162, "defense": 58, "speed": 39, "interval": 1.08, "power": 2256 },
+      "zhuji_3": { "hp": 1559, "attack": 181, "defense": 64, "speed": 39, "interval": 1.08, "power": 2536 },
+      "jindan_1": { "hp": 3377, "attack": 413, "defense": 151, "speed": 54, "interval": 0.97, "power": 5531 },
+      "jindan_2": { "hp": 3787, "attack": 454, "defense": 165, "speed": 54, "interval": 0.97, "power": 6136 },
+      "jindan_3": { "hp": 4277, "attack": 503, "defense": 181, "speed": 54, "interval": 0.97, "power": 6857 }
+    },
+    "avgKillIntervalSeconds": { "qi": 4.67, "foundation": 4.23, "core": 4.23 },
+    "boss": {
+      "b_lq_bear": { "manual": "胜 28s 剩血 33%", "auto": "胜 32s 剩血 22%", "noGear": "败 剩血 50%", "manualSeconds": 28, "manualRemainPct": 33, "autoSeconds": 32, "autoRemainPct": 22 },
+      "b_zj_ghost": { "manual": "胜 28s 剩血 33%", "auto": "胜 30s 剩血 29%", "noGear": "败 剩血 58%", "manualSeconds": 28, "manualRemainPct": 33, "autoSeconds": 30, "autoRemainPct": 29 },
+      "b_jd_jiao": { "manual": "胜 28s 剩血 32%", "auto": "胜 28s 剩血 32%", "noGear": "败 剩血 67%", "manualSeconds": 28, "manualRemainPct": 32, "autoSeconds": 28, "autoRemainPct": 32 }
+    },
+    "targets": {
+      "bossWinSeconds": [25, 35],
+      "reachFoundationMinutes": 10,
+      "guideReachFoundationSeconds": 414,
+      "daysAllNineLayers": { "A": 1.7, "B": 3.1, "range": [2, 3] },
+      "perLayerDays": { "A_foundation": 0.86, "B_foundation": 1.6, "A_core": 0.8, "B_core": 1.5 }
+    }
+  },
+  "guideScript": {
+    "_note": "table 6.1 timeline (seconds from start). The sim breaks through as soon as it is allowed; the script only controls loadout, skills and when the boss is challenged.",
+    "firstBattleAt": 20,
+    "events": [
+      { "t": 75, "do": "equip", "slot": "weapon", "quality": "green", "tier": 0, "level": 0 },
+      { "t": 120, "do": "equip", "slot": "helmet", "quality": "white", "tier": 0, "level": 0 },
+      { "t": 120, "do": "equip", "slot": "clothes", "quality": "white", "tier": 0, "level": 0 },
+      { "t": 165, "do": "skill", "bonusBp": 500 },
+      { "t": 200, "do": "equip", "slot": "gloves", "quality": "white", "tier": 0, "level": 0 },
+      { "t": 200, "do": "equip", "slot": "weapon", "quality": "green", "tier": 0, "level": 3 },
+      { "t": 270, "do": "equip", "slot": "clothes", "quality": "green", "tier": 0, "level": 0 },
+      { "t": 320, "do": "equip", "slot": "shoes", "quality": "white", "tier": 0, "level": 0 },
+      { "t": 389, "do": "boss", "boss": "b_lq_bear" },
+      { "t": 510, "do": "equip", "slot": "weapon", "quality": "green", "tier": 1, "level": 0 }
+    ],
+    "bossReward": { "b_lq_bear": { "skillBp": 1500, "equip": { "slot": "accessory", "quality": "blue", "tier": 0, "level": 0 } } }
+  }
+}

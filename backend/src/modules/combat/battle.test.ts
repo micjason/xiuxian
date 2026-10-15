@@ -130,6 +130,19 @@ describe("simulateBossFight (ultimate with tap timestamps)", () => {
     expect(atEight.map((event) => event.kind ?? "hit")).toEqual(["hit", "ult"]);
   });
 
+  it("waits mode: each cast waits 0–2 s after ready; missing or out-of-range entries clamp / fall back to auto", () => {
+    const run = (waits: number[]) => simulateBossFight(player, boss, config, ult, { waits }).ultCasts;
+    expect(run([0, 1]).slice(0, 2).map((cast) => [cast.t, cast.manual])).toEqual([
+      [8, true],
+      [29, true],
+    ]);
+    expect(run([99]).map((cast) => cast.t)[0]).toBe(10); // 超过窗口按 2 秒自动
+    expect(run([-5])[0]!.t).toBe(8);
+    expect(run([])[0]).toMatchObject({ t: 10, manual: false });
+    // 等待 0.5 秒的结果 = 在 ready + 0.5 处点击
+    expect(run([0.5, 0.5])).toEqual(casts([8.5, 29]).slice(0, 2).concat(run([0.5, 0.5]).slice(2)));
+  });
+
   it("is deterministic for the same taps and the server re-simulation ignores junk taps", () => {
     const a = simulateBossFight(player, boss, config, ult, [8.2]);
     expect(simulateBossFight(player, boss, config, ult, [8.2])).toEqual(a);

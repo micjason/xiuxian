@@ -9,7 +9,7 @@ describe("migration 0018", () => {
     const text = readFileSync(new URL("../../drizzle/0018_cultivation_remainder.sql", import.meta.url), "utf8");
     expect(text).toContain('ADD COLUMN "cultivation_remainder_bp" integer DEFAULT 0 NOT NULL');
     const journal = JSON.parse(readFileSync(new URL("../../drizzle/meta/_journal.json", import.meta.url), "utf8")) as { entries: { idx: number; tag: string }[] };
-    expect(journal.entries.at(-1)).toMatchObject({ idx: 18, tag: "0018_cultivation_remainder" });
+    expect(journal.entries[18]).toMatchObject({ idx: 18, tag: "0018_cultivation_remainder" });
     await withDb(async (db) => {
       const columns = (await db.execute(
         sql`select data_type, is_nullable, column_default from information_schema.columns where table_name = 'player_states' and column_name = 'cultivation_remainder_bp'`,

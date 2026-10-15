@@ -35,7 +35,7 @@ describe("stage list recommended power", () => {
       });
       const after = await listOpsStages(db);
       expect(after.find((row) => row.id === armed.id)).toMatchObject({ recommendedPower: 1048, powerProblem: null });
-      expect(after.find((row) => row.id === empty.id)).toMatchObject({ recommendedPower: null, powerProblem: "这个关卡还没有首领" });
+      expect(after.find((row) => row.id === empty.id)).toMatchObject({ recommendedPower: null, powerProblem: null });
     });
   });
 });

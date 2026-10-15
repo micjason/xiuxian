@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { eq } from "drizzle-orm";
-import { contentRealms } from "../../db/schema.js";
+import { contentRealms, contentStages } from "../../db/schema.js";
 import type { Db } from "../operations/record.js";
 import { AppError } from "../../shared/errors.js";
 import { saveDraftDropTable } from "./draft-service.js";
@@ -72,6 +72,71 @@ async function assertCodeAvailable(db: Db, code: number, currentSlug?: string) {
   }
 }
 
+
+type RealmExtras = {
+  requiredStageId?: string | null;
+  ultName?: string;
+  ultMultiplier?: number | string | null;
+  ultCooldownSeconds?: number | string | null;
+  ultFirstCooldownSeconds?: number | string | null;
+};
+
+/**
+ * 境界表单里“大境界突破要先通关的首领关”和“大招”三项（名称、伤害倍数、冷却）。
+ * 伤害倍数在表单里按“几倍”填（4 = 普攻的 4 倍），入库是万分比 40000。
+ */
+async function realmExtras(db: Db, body: RealmExtras, current?: typeof contentRealms.$inferSelect) {
+  const out: Partial<typeof contentRealms.$inferInsert> = {};
+  if (body.requiredStageId !== undefined) {
+    const slug = typeof body.requiredStageId === "string" ? body.requiredStageId.trim() : "";
+    if (slug) {
+      const [stage] = await db.select().from(contentStages).where(eq(contentStages.slug, slug)).limit(1);
+      if (!stage) {
+        throw new AppError("INVALID_INPUT", "所需通关关卡不存在");
+      }
+      const bosses = stage.bosses ?? [];
+      if (bosses.length === 0 && stage.bossHp <= 0) {
+        throw new AppError("INVALID_INPUT", "这个关卡没有首领，不能作为突破门槛");
+      }
+      const order = current?.sortOrder;
+      if (order !== undefined && stage.requiredRealmOrder > order) {
+        throw new AppError("INVALID_INPUT", "所需通关关卡的境界要求比这个境界还高，永远打不到");
+      }
+    }
+    out.requiredStageSlug = slug || null;
+  }
+  if (body.ultName !== undefined) {
+    out.ultName = String(body.ultName ?? "").trim();
+  }
+  if (body.ultMultiplier !== undefined) {
+    const raw = body.ultMultiplier === null || body.ultMultiplier === "" ? 0 : Number(body.ultMultiplier);
+    if (!Number.isFinite(raw) || raw < 0 || raw > 100) {
+      throw new AppError("INVALID_INPUT", "大招伤害倍数要在 0 到 100 之间（0 表示没有大招）");
+    }
+    out.ultDamageMultBp = Math.round(raw * 10000);
+  }
+  for (const [key, column, label, min] of [
+    ["ultCooldownSeconds", "ultCooldownSeconds", "大招冷却", 1],
+    ["ultFirstCooldownSeconds", "ultFirstCooldownSeconds", "大招开战首次冷却", 0],
+  ] as const) {
+    const value = body[key];
+    if (value === undefined) {
+      continue;
+    }
+    const number = value === null || value === "" ? 0 : Number(value);
+    if (!Number.isFinite(number) || number < min || number > 600) {
+      throw new AppError("INVALID_INPUT", `${label}要在 ${min} 到 600 秒之间`);
+    }
+    out[column] = number;
+  }
+  const mult = out.ultDamageMultBp ?? current?.ultDamageMultBp ?? 0;
+  const cooldown = out.ultCooldownSeconds ?? current?.ultCooldownSeconds ?? 0;
+  if (mult > 0 && !(cooldown >= 1)) {
+    throw new AppError("INVALID_INPUT", "有大招的境界要填大招冷却（至少 1 秒）");
+  }
+  return out;
+}
+
 export async function registerDraftRoutes(app: FastifyInstance, deps: { db: Db; now: () => Date }): Promise<void> {
   app.get("/admin/draft/realms", async () => {
     const rows = await deps.db.select().from(contentRealms);
@@ -89,6 +154,11 @@ export async function registerDraftRoutes(app: FastifyInstance, deps: { db: Db; 
         hp: row.baseHp,
         speed: row.baseSpeed,
         interval: row.baseInterval,
+        requiredStageId: row.requiredStageSlug ?? "",
+        ultName: row.ultName,
+        ultMultiplier: row.ultDamageMultBp / 10000,
+        ultCooldownSeconds: row.ultCooldownSeconds,
+        ultFirstCooldownSeconds: row.ultFirstCooldownSeconds,
       }));
   });
 
@@ -105,13 +175,15 @@ export async function registerDraftRoutes(app: FastifyInstance, deps: { db: Db; 
       hp?: number;
       speed?: number;
       interval?: number;
-    };
+    } & RealmExtras;
     const code = realmCode(body.code);
     if (!body.displayName?.trim()) {
       throw new AppError("INVALID_INPUT", "请填写境界名称");
     }
     await assertCodeAvailable(deps.db, code);
+    const extras = await realmExtras(deps.db, body, { sortOrder: code } as typeof contentRealms.$inferSelect);
     await deps.db.insert(contentRealms).values({
+      ...extras,
       slug: String(code),
       displayName: body.displayName.trim(),
       majorName: body.majorName?.trim() ?? "",
@@ -148,7 +220,7 @@ export async function registerDraftRoutes(app: FastifyInstance, deps: { db: Db; 
       hp?: number;
       speed?: number;
       interval?: number;
-    };
+    } & RealmExtras;
     const nextCode = realmCode(body.code ?? currentCode);
     const [current] = await deps.db.select().from(contentRealms).where(eq(contentRealms.sortOrder, currentCode)).limit(1);
     if (!current) {
@@ -169,6 +241,7 @@ export async function registerDraftRoutes(app: FastifyInstance, deps: { db: Db; 
       throw new AppError("INVALID_INPUT", "秒数、修为和突破消耗不能小于 0");
     }
     await assertCodeAvailable(deps.db, nextCode, current.slug);
+    const extras = await realmExtras(deps.db, body, { ...current, sortOrder: nextCode });
     const majorName = body.majorName === undefined ? current.majorName : body.majorName.trim();
     const previousMajor = current.majorName.trim();
     const siblings = await deps.db.select().from(contentRealms);
@@ -182,7 +255,9 @@ export async function registerDraftRoutes(app: FastifyInstance, deps: { db: Db; 
     await deps.db
       .update(contentRealms)
       .set({
-        slug: String(nextCode),
+        ...extras,
+        // 编号没变就保持原来的编号（slug）：玩家进度、关卡门槛都按它引用，改名字不能改它。
+        slug: nextCode === current.sortOrder ? current.slug : String(nextCode),
         displayName: body.displayName.trim(),
         majorName,
         sortOrder: nextCode,

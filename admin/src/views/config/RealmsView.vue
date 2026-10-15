@@ -18,6 +18,7 @@
       danger-delete
       :new-row="newRow"
       :hidden-keys="['majorKey']"
+      :options-map="{ requiredStageId: stageOptions }"
       :save-fn="save"
       :remove-fn="remove"
       :delete-hint="deleteHint"
@@ -37,7 +38,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import { api } from "../../api";
 import ConfigListPage from "../../components/ConfigListPage.vue";
 import PageHeader from "../../components/PageHeader.vue";
@@ -57,7 +58,23 @@ type Realm = {
   hp: number;
   speed: number;
   interval: number | null;
+  requiredStageId: string;
+  ultName: string;
+  ultMultiplier: number;
+  ultCooldownSeconds: number;
+  ultFirstCooldownSeconds: number;
 };
+
+type ApiStage = { id: string; displayName: string; realmCode: number; bosses: { name: string }[] };
+const stageOptions = ref<{ label: string; value: string }[]>([{ label: "不需要", value: "" }]);
+async function loadStages() {
+  const stages = await api<ApiStage[]>("/admin/draft/stages");
+  stageOptions.value = [
+    { label: "不需要", value: "" },
+    ...stages.filter((stage) => stage.bosses.length > 0).map((stage) => ({ label: `${stage.displayName}（首领：${stage.bosses[0]?.name ?? ""}）`, value: stage.id })),
+  ];
+}
+loadStages().catch(() => undefined);
 
 const { rows, loading, error, reload } = useList(async () => {
   const list = await api<Realm[]>("/admin/draft/realms");

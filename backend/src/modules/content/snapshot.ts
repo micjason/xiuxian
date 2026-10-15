@@ -61,6 +61,8 @@ export async function loadDraftSnapshot(db: Db | Tx): Promise<ContentSnapshot> {
       baseHp: row.baseHp,
       baseSpeed: row.baseSpeed,
       baseInterval: row.baseInterval ?? undefined,
+      majorKey: row.majorKey ?? undefined,
+      majorName: row.majorName || undefined,
       ultName: row.ultName,
       ultDamageMultBp: row.ultDamageMultBp,
       ultCooldownSeconds: row.ultCooldownSeconds,

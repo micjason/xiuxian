@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { eq } from "drizzle-orm";
+import type { BossRepeatReward, BossRewardEntry, MonsterDropConfig, QualityWeights, StageMonster } from "./combat-types.js";
 import { contentDropEntries, contentDropTables, contentItems, contentRealms, contentSkillCategories, contentSkills, contentStages, playerItems, type StageBoss } from "../../db/schema.js";
 import { AppError } from "../../shared/errors.js";
 import type { Db } from "../operations/record.js";
@@ -14,7 +15,14 @@ type BossInput = {
   hp?: number;
   interval?: number;
   drops?: { itemId?: string; chancePercent?: number }[];
+  /** 首通固定奖励：物品（可填功法编号，会变成功法书）或修为。不传 = 保持原样。 */
+  firstClear?: ({ kind?: string; itemId?: string; quantity?: number; amount?: number })[] | null;
+  /** 首通之后每天前几次胜利的奖励。不传 = 保持原样。 */
+  repeat?: { gear?: boolean; extras?: { itemId?: string; chancePercent?: number; minQty?: number; maxQty?: number }[] } | null;
 };
+
+type MonsterInput = { name?: string; attack?: number; defense?: number; hp?: number; interval?: number; killCultivation?: number };
+type MonsterDropInput = { chancePercent?: number; weights?: Partial<Record<"white" | "green" | "blue" | "purple", number>> } | null;
 
 function newId(prefix: string): string {
   return `${prefix}${randomBytes(8).toString("hex")}`;
@@ -40,7 +48,100 @@ async function realmByCode(db: Db, code: number) {
   return realm ?? null;
 }
 
-async function readBosses(db: Db, bosses: BossInput[] | undefined): Promise<StageBoss[]> {
+function readMonsters(monsters: MonsterInput[] | undefined): StageMonster[] | undefined {
+  if (monsters === undefined) {
+    return undefined;
+  }
+  return monsters.map((monster) => {
+    const name = textOf(monster.name);
+    if (!name) {
+      throw new AppError("INVALID_INPUT", "请填写怪物名称");
+    }
+    const hp = numberOf(monster.hp, "怪物气血");
+    const interval = numberOf(monster.interval, "怪物出手间隔");
+    if (hp <= 0 || interval <= 0) {
+      throw new AppError("INVALID_INPUT", "怪物气血和出手间隔必须大于 0");
+    }
+    const killCultivation = numberOf(monster.killCultivation ?? 0, "击杀修为");
+    if (!Number.isInteger(killCultivation)) {
+      throw new AppError("INVALID_INPUT", "击杀修为要填整数");
+    }
+    return { name, attack: numberOf(monster.attack, "怪物攻击"), defense: numberOf(monster.defense, "怪物防御"), hp, interval, killCultivation };
+  });
+}
+
+function readMonsterDrop(input: MonsterDropInput | undefined): MonsterDropConfig | null | undefined {
+  if (input === undefined) {
+    return undefined;
+  }
+  if (input === null) {
+    return null;
+  }
+  const percent = numberOf(input.chancePercent ?? 0, "怪物掉率");
+  if (percent > 100) {
+    throw new AppError("INVALID_INPUT", "怪物掉率不能超过 100%");
+  }
+  const weights: QualityWeights = {};
+  for (const key of ["white", "green", "blue", "purple"] as const) {
+    weights[key] = numberOf(input.weights?.[key] ?? 0, "品质权重");
+  }
+  if (percent > 0 && Object.values(weights).every((value) => value === 0)) {
+    throw new AppError("INVALID_INPUT", "品质权重至少有一档大于 0");
+  }
+  return { chanceBp: Math.round(percent * 100), qualityWeights: weights };
+}
+
+function readFirstClear(entries: BossInput["firstClear"], known: Set<string>): BossRewardEntry[] | undefined {
+  if (entries === undefined) {
+    return undefined;
+  }
+  return (entries ?? []).map((entry) => {
+    if (entry.kind === "cultivation") {
+      const amount = numberOf(entry.amount, "首通修为");
+      if (!Number.isInteger(amount) || amount < 1) {
+        throw new AppError("INVALID_INPUT", "首通修为要填不小于 1 的整数");
+      }
+      return { kind: "cultivation" as const, amount };
+    }
+    const itemSlug = textOf(entry.itemId);
+    if (!itemSlug || !known.has(itemSlug)) {
+      throw new AppError("INVALID_INPUT", "首通奖励里选的物品或功法不存在");
+    }
+    const quantity = numberOf(entry.quantity ?? 1, "首通奖励数量");
+    if (!Number.isInteger(quantity) || quantity < 1) {
+      throw new AppError("INVALID_INPUT", "首通奖励数量要填不小于 1 的整数");
+    }
+    return { kind: "item" as const, itemSlug, quantity };
+  });
+}
+
+function readRepeat(input: BossInput["repeat"], known: Set<string>): BossRepeatReward | null | undefined {
+  if (input === undefined) {
+    return undefined;
+  }
+  if (input === null) {
+    return null;
+  }
+  const extras = (input.extras ?? []).map((extra) => {
+    const itemSlug = textOf(extra.itemId);
+    if (!itemSlug || !known.has(itemSlug)) {
+      throw new AppError("INVALID_INPUT", "重复挑战奖励里选的物品不存在");
+    }
+    const percent = numberOf(extra.chancePercent, "重复挑战奖励掉率");
+    if (percent > 100) {
+      throw new AppError("INVALID_INPUT", "掉率不能超过 100%");
+    }
+    const minQty = numberOf(extra.minQty ?? 1, "最少数量");
+    const maxQty = numberOf(extra.maxQty ?? minQty, "最多数量");
+    if (!Number.isInteger(minQty) || !Number.isInteger(maxQty) || minQty < 1 || maxQty < minQty) {
+      throw new AppError("INVALID_INPUT", "数量区间不正确");
+    }
+    return { itemSlug, chanceBp: Math.round(percent * 100), minQty, maxQty };
+  });
+  return { gear: input.gear === true, extras };
+}
+
+async function readBosses(db: Db, bosses: BossInput[] | undefined, current: StageBoss[] = []): Promise<StageBoss[]> {
   if (!bosses || bosses.length === 0) {
     return [];
   }
@@ -81,7 +182,22 @@ async function readBosses(db: Db, bosses: BossInput[] | undefined): Promise<Stag
       }
       return { itemSlug, chanceBp: Math.round(percent * 100) };
     });
-    return { name, attack, defense, hp, interval, drops };
+    // 没有传的字段保持原样（按同名首领对应），避免后台只改数值时把奖励配置清掉。
+    const previous = current.find((row) => row.name === name) ?? (current.length === bosses.length ? current[bosses.indexOf(boss)] : undefined);
+    const firstClear = readFirstClear(boss.firstClear, known) ?? previous?.firstClear;
+    const repeat = readRepeat(boss.repeat, known);
+    const kept = repeat === undefined ? previous?.repeat : (repeat ?? undefined);
+    const out: StageBoss = { name, attack, defense, hp, interval, drops };
+    if (previous?.reward) {
+      out.reward = previous.reward;
+    }
+    if (firstClear && firstClear.length > 0) {
+      out.firstClear = firstClear;
+    }
+    if (kept) {
+      out.repeat = kept;
+    }
+    return out;
   });
 }
 
@@ -89,6 +205,9 @@ function stagePowerOf(world: ContentSnapshot, slug: string): { recommendedPower:
   const stage = world.stages.find((candidate) => candidate.slug === slug);
   if (!stage) {
     throw new AppError("INTERNAL");
+  }
+  if ((stage.bosses ?? []).length === 0) {
+    return { recommendedPower: null, powerProblem: null };
   }
   try {
     return { recommendedPower: stageRecommendedPower(world, stage), powerProblem: null };
@@ -108,6 +227,7 @@ function stageView(
   power: { recommendedPower: number | null; powerProblem: string | null },
 ) {
   const realm = realms.find((candidate) => candidate.sortOrder === row.requiredRealmOrder);
+  const nameOf = (slug: string) => items.find((candidate) => candidate.slug === slug)?.displayName || skills.find((candidate) => candidate.slug === slug)?.displayName || "名称缺失";
   const bosses = (row.bosses ?? []).map((boss) => ({
     name: boss.name,
     attack: boss.attack,
@@ -119,6 +239,17 @@ function stageView(
       const skill = skills.find((candidate) => candidate.slug === drop.itemSlug);
       return { itemId: drop.itemSlug, displayName: item?.displayName || skill?.displayName || "名称缺失", chancePercent: drop.chanceBp / 100 };
     }),
+    firstClear: (boss.firstClear ?? []).map((entry) =>
+      entry.kind === "cultivation"
+        ? { kind: "cultivation", amount: entry.amount }
+        : { kind: "item", itemId: entry.itemSlug, quantity: entry.quantity, displayName: nameOf(entry.itemSlug) },
+    ),
+    repeat: boss.repeat
+      ? {
+          gear: boss.repeat.gear,
+          extras: boss.repeat.extras.map((extra) => ({ itemId: extra.itemSlug, displayName: nameOf(extra.itemSlug), chancePercent: extra.chanceBp / 100, minQty: extra.minQty, maxQty: extra.maxQty })),
+        }
+      : null,
   }));
   return {
     id: row.slug,
@@ -127,6 +258,8 @@ function stageView(
     realmName: realm?.displayName ?? "",
     realmMissing: realm == null,
     bosses,
+    monsters: row.monsters ?? [],
+    monsterDrop: row.monsterDrop ? { chancePercent: row.monsterDrop.chanceBp / 100, weights: row.monsterDrop.qualityWeights } : null,
     ...power,
   };
 }
@@ -146,7 +279,7 @@ export async function listOpsStages(db: Db) {
 
 export async function createOpsStage(
   db: Db,
-  input: { displayName?: string; realmCode?: number; bosses?: BossInput[] },
+  input: { displayName?: string; realmCode?: number; bosses?: BossInput[]; monsters?: MonsterInput[]; monsterDrop?: MonsterDropInput },
   adminId: string | null,
 ) {
   const displayName = textOf(input.displayName);
@@ -162,6 +295,8 @@ export async function createOpsStage(
     throw new AppError("INVALID_INPUT", "没有这个境界");
   }
   const bosses = await readBosses(db, input.bosses);
+  const monsters = readMonsters(input.monsters) ?? [];
+  const monsterDrop = readMonsterDrop(input.monsterDrop) ?? null;
   const slug = newId("s");
   const now = new Date();
   const dropSlug = (suffix: string) => `${slug}_${suffix}`;
@@ -183,6 +318,8 @@ export async function createOpsStage(
     bossHp: first?.hp ?? 0,
     bossInterval: first?.interval ?? 0,
     bosses,
+    monsters,
+    monsterDrop,
     bossDropTableSlug: dropSlug("boss"),
     idleDropTableSlug: dropSlug("idle"),
     firstClearDropTableSlug: dropSlug("first"),
@@ -195,7 +332,7 @@ export async function createOpsStage(
 export async function updateOpsStage(
   db: Db,
   id: string,
-  input: { displayName?: string; realmCode?: number; bosses?: BossInput[] },
+  input: { displayName?: string; realmCode?: number; bosses?: BossInput[]; monsters?: MonsterInput[]; monsterDrop?: MonsterDropInput },
   adminId: string | null,
 ) {
   const [current] = await db.select().from(contentStages).where(eq(contentStages.slug, id)).limit(1);
@@ -214,7 +351,9 @@ export async function updateOpsStage(
   if (!realm) {
     throw new AppError("INVALID_INPUT", "没有这个境界");
   }
-  const bosses = await readBosses(db, input.bosses);
+  const bosses = await readBosses(db, input.bosses, current.bosses ?? []);
+  const monsters = readMonsters(input.monsters);
+  const monsterDrop = readMonsterDrop(input.monsterDrop);
   const first = bosses[0];
   await db
     .update(contentStages)
@@ -229,6 +368,8 @@ export async function updateOpsStage(
       bossHp: first?.hp ?? 0,
       bossInterval: first?.interval ?? 0,
       bosses,
+      ...(monsters === undefined ? {} : { monsters }),
+      ...(monsterDrop === undefined ? {} : { monsterDrop }),
       updatedAt: new Date(),
       updatedBy: adminId,
     })
@@ -240,6 +381,10 @@ export async function deleteOpsStage(db: Db, id: string) {
   const [current] = await db.select().from(contentStages).where(eq(contentStages.slug, id)).limit(1);
   if (!current) {
     throw new AppError("NOT_FOUND", "没有这个关卡");
+  }
+  const gated = await db.select().from(contentRealms).where(eq(contentRealms.requiredStageSlug, id));
+  if (gated.length > 0) {
+    throw new AppError("INVALID_INPUT", `境界「${gated[0]?.displayName}」把这个关卡设为突破门槛，请先改掉再删除`);
   }
   const dropSlugs = [current.bossDropTableSlug, current.idleDropTableSlug, current.firstClearDropTableSlug];
   await db.delete(contentStages).where(eq(contentStages.slug, id));

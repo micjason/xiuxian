@@ -46,6 +46,8 @@ export type ContentSnapshot = {
     baseHp?: number;
     baseSpeed?: number;
     baseInterval?: number;
+    majorKey?: string;
+    majorName?: string;
     ultName?: string;
     ultDamageMultBp?: number;
     ultCooldownSeconds?: number;
@@ -181,6 +183,11 @@ export function equipmentPowerErrors(items: ContentSnapshot["items"]): { slug: s
   return errors;
 }
 
+/** 关卡有首领：配了首领列表，或者老写法里填了首领气血/名称。 */
+export function hasBoss(stage: { bosses?: unknown[]; bossHp: number; bossName?: string }): boolean {
+  return (stage.bosses ?? []).length > 0 || stage.bossHp > 0 || Boolean(stage.bossName);
+}
+
 export function validateContent(
   draft: ContentSnapshot,
   knownSlugs: { realms: string[]; stages: string[]; items: string[]; skills: string[]; dropTables: string[] } = {
@@ -253,6 +260,21 @@ export function validateContent(
     if (realm.requiredStageSlug && !stageSlugs.has(realm.requiredStageSlug)) {
       push("realm", realm.slug, "requiredStageSlug", "要求的关卡不存在");
     }
+    const gate = realm.requiredStageSlug ? draft.stages.find((row) => row.slug === realm.requiredStageSlug) : undefined;
+    if (gate) {
+      if (!hasBoss(gate)) {
+        push("realm", realm.slug, "requiredStageSlug", "要求通关的关卡没有首领，永远通不了");
+      }
+      if (realm.sortOrder != null && gate.requiredRealmOrder != null && gate.requiredRealmOrder > realm.sortOrder) {
+        push("realm", realm.slug, "requiredStageSlug", "要求通关的关卡境界要求比本境界还高，永远打不到");
+      }
+    }
+    if ((realm.ultDamageMultBp ?? 0) < 0) {
+      push("realm", realm.slug, "ultDamageMultBp", "大招倍数不能为负");
+    }
+    if ((realm.ultDamageMultBp ?? 0) > 0 && !((realm.ultCooldownSeconds ?? 0) >= 1)) {
+      push("realm", realm.slug, "ultCooldownSeconds", "有大招的境界要填大招冷却（至少 1 秒）");
+    }
     if (realm.recommendedPower > 0 && realm.baseRateBp < 3000) {
       warn("realm", realm.slug, "baseRateBp", "推荐战力下成功率低于 30%");
     }
@@ -265,11 +287,52 @@ export function validateContent(
         push("stage", stage.slug, field, "掉落表不存在");
       }
     }
-    if (stage.bossHp <= 0) {
-      push("stage", stage.slug, "bossHp", "Boss 气血必须大于 0");
+    if (hasBoss(stage)) {
+      if (stage.bossHp <= 0) {
+        push("stage", stage.slug, "bossHp", "Boss 气血必须大于 0");
+      }
+      if (stage.bossInterval <= 0) {
+        push("stage", stage.slug, "bossInterval", "Boss 出手间隔必须大于 0");
+      }
     }
-    if (stage.bossInterval <= 0) {
-      push("stage", stage.slug, "bossInterval", "Boss 出手间隔必须大于 0");
+    for (const monster of stage.monsters ?? []) {
+      if (!(monster.hp > 0) || !(monster.interval > 0) || monster.attack < 0 || monster.defense < 0) {
+        push("stage", stage.slug, "monsters", `怪物「${monster.name}」的气血、出手间隔必须大于 0，攻击防御不能为负`);
+      }
+      if (!Number.isInteger(monster.killCultivation) || monster.killCultivation < 0) {
+        push("stage", stage.slug, "monsters", `怪物「${monster.name}」的击杀修为要是不小于 0 的整数`);
+      }
+    }
+    if (stage.monsterDrop) {
+      if (!Number.isInteger(stage.monsterDrop.chanceBp) || stage.monsterDrop.chanceBp < 0 || stage.monsterDrop.chanceBp > 10000) {
+        push("stage", stage.slug, "monsterDrop", "怪物掉落概率必须在 0 到 10000（万分比）");
+      }
+      const weights = Object.values(stage.monsterDrop.qualityWeights ?? {}).map(Number);
+      if (weights.some((value) => !Number.isFinite(value) || value < 0) || (stage.monsterDrop.chanceBp > 0 && weights.reduce((sum, value) => sum + value, 0) <= 0)) {
+        push("stage", stage.slug, "monsterDrop", "品质权重不能为负，且至少有一档大于 0");
+      }
+    }
+    for (const boss of stage.bosses ?? []) {
+      for (const entry of boss.firstClear ?? []) {
+        if (entry.kind === "item") {
+          if (!itemSlugs.has(entry.itemSlug) && !skillSlugs.has(entry.itemSlug)) {
+            push("stage", stage.slug, "bosses", `首通奖励里的物品 ${entry.itemSlug} 不存在`);
+          }
+          if (!Number.isInteger(entry.quantity) || entry.quantity < 1) {
+            push("stage", stage.slug, "bosses", "首通奖励的数量要是不小于 1 的整数");
+          }
+        } else if (!Number.isInteger(entry.amount) || entry.amount < 1) {
+          push("stage", stage.slug, "bosses", "首通修为奖励要是不小于 1 的整数");
+        }
+      }
+      for (const extra of boss.repeat?.extras ?? []) {
+        if (!itemSlugs.has(extra.itemSlug)) {
+          push("stage", stage.slug, "bosses", `重复挑战奖励里的物品 ${extra.itemSlug} 不存在`);
+        }
+        if (extra.chanceBp < 0 || extra.chanceBp > 10000 || extra.minQty < 1 || extra.maxQty < extra.minQty) {
+          push("stage", stage.slug, "bosses", "重复挑战奖励的概率或数量区间不正确");
+        }
+      }
     }
   }
 

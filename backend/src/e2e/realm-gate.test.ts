@@ -1,0 +1,122 @@
+import { eq } from "drizzle-orm";
+import { describe, expect, it } from "vitest";
+import { buildApp } from "../app.js";
+import { contentRealms, contentStages, playerStageProgress, playerStates, players } from "../db/schema.js";
+import { applyPrototypeV12 } from "../modules/content/prototype-v12.js";
+import { loadDraftSnapshot } from "../modules/content/snapshot.js";
+import { validateContent } from "../modules/content/validate.js";
+import { testAdmin } from "../test/admin.js";
+import { withDb } from "../test/db.js";
+
+const start = new Date("2026-10-08T03:00:00.000Z");
+
+async function boot(db: Parameters<Parameters<typeof withDb>[0]>[0]) {
+  await applyPrototypeV12(db);
+  await testAdmin(db, "gate_admin");
+  let clock = start;
+  const app = await buildApp(db, () => clock, { randomInt: () => 0 });
+  const login = await app.inject({ method: "POST", url: "/admin/auth/login", payload: { username: "gate_admin", password: "admin-secret" } });
+  const admin = { authorization: `Bearer ${login.json().token as string}` };
+  return { app, admin, setClock: (next: Date) => (clock = next) };
+}
+
+describe("realm table: major-breakthrough boss gate + ultimate fields (admin API)", () => {
+  it("GET /admin/draft/realms returns requiredStageId and the ultimate fields; POST defaults tickSeconds to 1", async () => {
+    await withDb(async (db) => {
+      const { app, admin } = await boot(db);
+      const list = (await app.inject({ method: "GET", url: "/admin/draft/realms", headers: admin })).json();
+      expect(list).toHaveLength(9);
+      expect(list[2]).toMatchObject({ code: 3, displayName: "炼气三层", requiredStageId: "lianqi_3", ultName: "剑诀·破军", ultMultiplier: 4, ultCooldownSeconds: 20, ultFirstCooldownSeconds: 8 });
+      expect(list[8]).toMatchObject({ code: 9, requiredStageId: "", ultMultiplier: 6, ultCooldownSeconds: 16 });
+      const created = await app.inject({ method: "POST", url: "/admin/draft/realms", headers: admin, payload: { code: 10, displayName: "元婴一层", majorName: "元婴", gainPerTick: 27, interval: 1.5 } });
+      expect(created.statusCode).toBe(200);
+      const [row] = await db.select().from(contentRealms).where(eq(contentRealms.slug, "10"));
+      expect(row).toMatchObject({ tickSeconds: 1, requiredStageSlug: null, ultDamageMultBp: 0 });
+      await app.close();
+    });
+  });
+
+  it("saves requiredStageId + ultimate on a realm (multiplier in 倍, stored as basis points), keeps the slug, and clears the gate with an empty value", async () => {
+    await withDb(async (db) => {
+      const { app, admin } = await boot(db);
+      const put = (code: number, payload: Record<string, unknown>) =>
+        app.inject({ method: "PUT", url: `/admin/draft/realms/${code}`, headers: admin, payload: { displayName: "炼气二层", majorName: "炼气", interval: 1.5, ...payload } });
+      const bossless = await put(2, { requiredStageId: "lianqi_2" });
+      expect(bossless.statusCode).toBe(400);
+      expect(bossless.json().error.message).toContain("没有首领");
+      const unknown = await put(2, { requiredStageId: "nope" });
+      expect(unknown.statusCode).toBe(400);
+      const tooHigh = await put(1, { requiredStageId: "lianqi_3" });
+      expect(tooHigh.statusCode).toBe(400);
+      expect(tooHigh.json().error.message).toContain("永远打不到");
+      const noCooldown = await put(2, { ultMultiplier: 5, ultCooldownSeconds: 0 });
+      expect(noCooldown.statusCode).toBe(400);
+      const good = await put(3, { displayName: "炼气三层", requiredStageId: "lianqi_3", ultName: "新大招", ultMultiplier: 4.5, ultCooldownSeconds: 12.5, ultFirstCooldownSeconds: 6 });
+      expect(good.statusCode).toBe(200);
+      const [row] = await db.select().from(contentRealms).where(eq(contentRealms.slug, "lianqi_3"));
+      expect(row).toMatchObject({ requiredStageSlug: "lianqi_3", ultName: "新大招", ultDamageMultBp: 45000, ultCooldownSeconds: 12.5, ultFirstCooldownSeconds: 6, displayName: "炼气三层" });
+      const cleared = await put(3, { displayName: "炼气三层", requiredStageId: "" });
+      expect(cleared.statusCode).toBe(200);
+      const [after] = await db.select().from(contentRealms).where(eq(contentRealms.slug, "lianqi_3"));
+      expect(after?.requiredStageSlug).toBeNull();
+      expect(after?.ultName).toBe("新大招"); // 没传的字段保持原样
+      await app.close();
+    });
+  });
+
+  it("validateContent: a gate stage must have a boss and be reachable; bossless stages are fine", async () => {
+    await withDb(async (db) => {
+      await applyPrototypeV12(db);
+      expect(validateContent(await loadDraftSnapshot(db)).errors).toEqual([]); // 9 个关卡里 6 个没有首领，照样合法
+      await db.update(contentRealms).set({ requiredStageSlug: "lianqi_1" }).where(eq(contentRealms.slug, "lianqi_3"));
+      let errors = validateContent(await loadDraftSnapshot(db)).errors;
+      expect(errors.some((row) => row.field === "requiredStageSlug" && row.message.includes("没有首领"))).toBe(true);
+      await db.update(contentRealms).set({ requiredStageSlug: "zhuji_3" }).where(eq(contentRealms.slug, "lianqi_3"));
+      errors = validateContent(await loadDraftSnapshot(db)).errors;
+      expect(errors.some((row) => row.message.includes("永远打不到"))).toBe(true);
+      await db.update(contentRealms).set({ requiredStageSlug: "lianqi_3", ultDamageMultBp: 40000, ultCooldownSeconds: 0 }).where(eq(contentRealms.slug, "lianqi_3"));
+      errors = validateContent(await loadDraftSnapshot(db)).errors;
+      expect(errors.some((row) => row.field === "ultCooldownSeconds")).toBe(true);
+    });
+  });
+
+  it("deleting a stage that a realm uses as its gate is refused", async () => {
+    await withDb(async (db) => {
+      const { app, admin } = await boot(db);
+      const response = await app.inject({ method: "DELETE", url: "/admin/draft/stages/lianqi_3", headers: admin });
+      expect(response.statusCode).toBe(400);
+      expect(response.json().error.message).toContain("突破门槛");
+      await app.close();
+    });
+  });
+
+  it("the major breakthrough is blocked until the gate boss is cleared; minor layers are not gated", async () => {
+    await withDb(async (db) => {
+      const { app, setClock } = await boot(db);
+      const registered = await app.inject({ method: "POST", url: "/api/v1/auth/register", payload: { username: "gate_player", password: "correct-horse" } });
+      const headers = { authorization: `Bearer ${registered.json().token as string}` };
+      const [player] = await db.select().from(players).where(eq(players.usernameLower, "gate_player"));
+      let n = 0;
+      const post = (url: string, payload: Record<string, unknown> = {}) => app.inject({ method: "POST", url: `/api/v1${url}`, headers: { ...headers, "idempotency-key": `gate-key-${(n += 1)}-padding` }, payload });
+      // 炼气一层 → 二层 → 三层：不需要通关
+      await db.update(playerStates).set({ cultivation: 100000 }).where(eq(playerStates.playerId, player!.id));
+      expect((await post("/me/breakthrough")).json().result.success).toBe(true);
+      expect((await post("/me/breakthrough")).json().result.success).toBe(true);
+      const state = (await app.inject({ method: "GET", url: "/api/v1/me/state", headers })).json();
+      expect(state.realmSlug).toBe("lianqi_3");
+      expect(state.breakthrough.requiredStage).toMatchObject({ slug: "lianqi_3", name: "黑风岭·三", cleared: false });
+      // 大境界突破：没通关黑风熊王就被拒绝
+      const blocked = await post("/me/breakthrough");
+      expect(blocked.statusCode).toBeGreaterThanOrEqual(400);
+      expect(blocked.json().error.code).toBe("STAGE_REQUIRED");
+      // 通关之后（直接记一条首通记录）可以突破，进入筑基一层
+      await db.insert(playerStageProgress).values({ playerId: player!.id, stageSlug: "lianqi_3", unlockedAt: start, firstClearedAt: start, clearCount: 1 }).onConflictDoNothing();
+      setClock(new Date(start.getTime() + 1000));
+      const passed = await post("/me/breakthrough");
+      expect(passed.json().result.success).toBe(true);
+      expect(passed.json().state.realmSlug).toBe("zhuji_1");
+      expect(passed.json().state.breakthrough.requiredStage).toBeNull();
+      await app.close();
+    });
+  });
+});

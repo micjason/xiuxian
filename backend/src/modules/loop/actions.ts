@@ -352,6 +352,20 @@ async function settleLocked(tx: Tx, playerId: string, world: World, now: Date) {
   };
 }
 
+/** 大境界突破要先通关的首领关（没有门槛就是 null），客户端用它显示“先去挑战 XX”。 */
+function gateOf(world: World, realm: { requiredStageSlug: string | null }, progress: { stageSlug: string; firstClearedAt: Date | null }[]) {
+  if (!realm.requiredStageSlug) {
+    return null;
+  }
+  const stage = world.stages.find((row) => row.slug === realm.requiredStageSlug);
+  return {
+    slug: realm.requiredStageSlug,
+    name: stage?.displayName ?? realm.requiredStageSlug,
+    bossName: stage?.bosses?.[0]?.name ?? stage?.bossName ?? "",
+    cleared: progress.some((row) => row.stageSlug === realm.requiredStageSlug && row.firstClearedAt != null),
+  };
+}
+
 function stateDto(world: World, playerId: string, settled: Awaited<ReturnType<typeof settleLocked>>) {
   const realm = realmOf(world, settled.state.realmSlug);
   const next = realm.nextRealmSlug ? world.realms.find((row) => row.slug === realm.nextRealmSlug) : undefined;
@@ -369,7 +383,7 @@ function stateDto(world: World, playerId: string, settled: Awaited<ReturnType<ty
     hp: settled.stats.hp,
     speed: settled.stats.speed,
     cultivationRate: { bonusBp: settled.stats.bonusBp, gainPerTick: realm.gainPerTick },
-    breakthrough: { rateBp, cost: realm.breakthroughCost, nextSlug: realm.nextRealmSlug },
+    breakthrough: { rateBp, cost: realm.breakthroughCost, nextSlug: realm.nextRealmSlug, requiredStage: gateOf(world, realm, settled.pieces.stages) },
     challengeCooldownSeconds: readGameRules(world).challengeCooldownSeconds,
     autoDecompose: settled.state.autoDecompose,
     enhanceExp: settled.state.enhanceExp,
@@ -513,6 +527,8 @@ export async function advanceRealm(tx: Tx, world: World, playerId: string, now: 
       cultivation: result.cultivation,
       realmSlug: result.success ? realm.nextRealmSlug : settled.state.realmSlug,
       breakthroughFailStreak: result.failStreak,
+      // 突破成功：挂机关卡自动切到新境界对应的关卡（默认选择），当前波次重新开始。
+      ...(result.success ? { idleStageSlug: null, waveProgress: 0, waveDeathsInRow: 0 } : {}),
     })
     .where(eq(playerStates.playerId, playerId));
   const after = await settleLocked(tx, playerId, world, now);

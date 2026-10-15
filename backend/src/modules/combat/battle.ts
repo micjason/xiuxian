@@ -93,9 +93,14 @@ export function cleanUltTaps(taps: unknown): number[] {
  * - 冷却好之后的 autoCastWindowSeconds 内，第一个点击时间落在窗口里就在那一刻释放（手动）；没有就在窗口结束时自动释放；
  * - 冷却好之前的点击无效；点得再早也只能等到冷却好，所以不可能比“刚好冷却好就点”更快；
  * - 大招 = 额外一次伤害（不替代普攻）；同一时刻先结算玩家普攻、再大招、最后首领出手。
+ * 也可以只报每次释放等待的秒数（{ waits }，0 到自动释放窗口）。
  * 不带大招（ult 为空或倍率 0）时和 simulateBattle 逐项一致。
  */
-export function simulateBossFight(player: BattleSide, boss: BattleSide, config: BattleConfig, ult: UltConfig | null, taps: number[] = []): BossFightResult {
+export type UltPlan = number[] | { waits: number[] };
+
+export function simulateBossFight(player: BattleSide, boss: BattleSide, config: BattleConfig, ult: UltConfig | null, plan: UltPlan = []): BossFightResult {
+  const taps = Array.isArray(plan) ? plan : [];
+  const waits = Array.isArray(plan) ? null : plan.waits;
   if (!ult || ult.multBp <= 0) {
     return { ...simulateBattle(player, boss, config), ultCasts: [] };
   }
@@ -113,6 +118,14 @@ export function simulateBossFight(player: BattleSide, boss: BattleSide, config: 
   let ultNext = Number.POSITIVE_INFINITY;
   let ultManual = false;
   const schedule = () => {
+    if (waits) {
+      // 按“每次释放等待了几秒”重算（0..窗口）；没报的次数按自动释放。
+      const wanted = Number(waits[ultCasts.length]);
+      const wait = Number.isFinite(wanted) ? Math.min(Math.max(wanted, 0), ult.autoCastWindowSeconds) : ult.autoCastWindowSeconds;
+      ultNext = ultReady + wait;
+      ultManual = wait < ult.autoCastWindowSeconds;
+      return;
+    }
     while (tapIndex < taps.length && (taps[tapIndex] as number) < ultReady) {
       tapIndex += 1;
     }

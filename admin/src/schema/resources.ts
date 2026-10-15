@@ -8,6 +8,8 @@ export const realmSchema: Schema = {
     { key: "cultivate", title: "修炼与突破", desc: "挂机修为的产出与突破门槛。" },
     { key: "stats", title: "到达该境界增加的属性", desc: "会和更低境界的加在一起。" },
     { key: "combat", title: "战斗", desc: "出手快慢的基础值。" },
+    { key: "gate", title: "大境界突破门槛", desc: "跨大境界（例如炼气 → 筑基）要先通关一个首领关；小境界之间不用填。填在大境界的最后一层。" },
+    { key: "ult", title: "手动大招", desc: "首领战里玩家可以点的大招。同一个大境界的几层填一样的。倍数填 0 表示没有大招。" },
   ],
   fields: [
     {
@@ -57,6 +59,28 @@ export const realmSchema: Schema = {
       key: "interval", label: "基础出手间隔", kind: "number", group: "combat", min: 0.1, step: 0.1, precision: 2, unit: "秒",
       hint: "没有速度加成时多少秒出手一次。必须填，空着玩家无法战斗。第一版统一填 1.5。",
       affects: "出手间隔（与速度基数一起算）", example: "1.5", column: { width: 110 },
+    },
+    {
+      key: "requiredStageId", label: "突破前要先通关", kind: "select", group: "gate", options: [], default: "",
+      hint: "从本境界突破到下一境界之前，玩家必须首通这个关卡的首领。留空 = 不需要。只能选有首领、且境界要求不高于本境界的关卡（选项来自「关卡」页）。",
+      affects: "大境界突破（未通关时突破按钮提示去挑战首领）", example: "炼气三层选「黑风岭·三」",
+    },
+    {
+      key: "ultName", label: "大招名称", kind: "text", group: "ult", default: "",
+      hint: "按钮上显示的名字，例如「剑诀·破军」。", affects: "首领战大招按钮",
+    },
+    {
+      key: "ultMultiplier", label: "大招伤害倍数", kind: "number", group: "ult", min: 0, max: 100, step: 0.5, precision: 2, unit: "倍", default: 0,
+      hint: "大招伤害 = 一次普攻伤害 × 这个倍数（取整），是额外多打一下，不替代普攻。炼气 4、筑基 5、金丹 6。0 = 没有大招。",
+      affects: "首领战胜负（服务端按点击时间重新模拟）", example: "4",
+    },
+    {
+      key: "ultCooldownSeconds", label: "大招冷却", kind: "number", group: "ult", min: 0, max: 600, step: 1, precision: 1, unit: "秒", default: 0,
+      hint: "释放之后多少秒再次冷却完成。炼气 20、筑基 18、金丹 16。有大招时必须至少 1 秒。", affects: "首领战大招次数",
+    },
+    {
+      key: "ultFirstCooldownSeconds", label: "开战首次冷却", kind: "number", group: "ult", min: 0, max: 600, step: 1, precision: 1, unit: "秒", default: 8,
+      hint: "进入首领战后第一次冷却完成的时间，原型统一 8 秒。", affects: "首领战大招次数",
     },
   ],
 };
@@ -231,7 +255,7 @@ const extraLabels: Record<string, string> = {
   baseInterval: "基础出手间隔", powerWeights: "战力权重", combat: "战斗参数", requiredRealmOrder: "所需境界编号", quality: "品质", slot: "部位",
   kind: "类型", stackable: "可叠加", enabled: "启用", bosses: "首领与掉落", entries: "掉落条目", recommendedPower: "推荐战力", rank: "品阶",
   role: "功法类型", cultivateBonusBp: "修炼加成（万分比）", prerequisiteSkillSlugs: "前置功法", minRateBp: "最低成功率", baseRateBp: "基础成功率",
-  maxRateBp: "最高成功率", failLossBp: "失败损失", pityStepBp: "保底步长", powerFactorBp: "战力系数", requiredStageSlug: "所需通关关卡",
+  maxRateBp: "最高成功率", failLossBp: "失败损失", pityStepBp: "保底步长", powerFactorBp: "战力系数", requiredStageSlug: "所需通关关卡", requiredStageId: "突破前要先通关", ultName: "大招名称", ultMultiplier: "大招伤害倍数", ultCooldownSeconds: "大招冷却", ultFirstCooldownSeconds: "开战首次冷却",
   skillSlug: "对应功法", bossName: "首领名称", bossAttack: "首领攻击", bossDefense: "首领防御", bossHp: "首领气血", bossInterval: "首领出手间隔",
   tickSeconds: "修炼间隔", gainPerTick: "每次获得修为", breakthroughCost: "突破消耗修为", starterItems: "新手物品", startingRealmSlug: "初始境界",
   artSlotRules: "功法栏位规则", idleKillCap: "挂机击杀上限", minClientVersionCode: "最低客户端版本号", bagCapacity: "行囊容量",

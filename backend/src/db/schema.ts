@@ -409,7 +409,7 @@ export const playerStates = pgTable("player_states", {
   lastChallengeAt: timestamp("last_challenge_at", { withTimezone: true }),
   stateVersion: integer("state_version").notNull().default(0),
   dropPity: jsonb("drop_pity").$type<Record<string, number>>().notNull().default({}),
-  autoDecompose: boolean("auto_decompose").notNull().default(false),
+  autoDecompose: boolean("auto_decompose").notNull().default(true),
   enhanceExp: bigint("enhance_exp", { mode: "number" }).notNull().default(0),
   bagBonus: integer("bag_bonus").notNull().default(0),
   /** 结算时不足 1 点修为的部分，单位万分之一点，0..9999。见 progress/settle.ts。 */

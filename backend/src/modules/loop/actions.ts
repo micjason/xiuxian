@@ -20,6 +20,7 @@ import { settleTicks } from "../progress/settle.js";
 import { AppError } from "../../shared/errors.js";
 import type { Db } from "../operations/record.js";
 import { readGameRules } from "../content/rules.js";
+import { addEnhanceExp, bagUsedSlots, decomposeRow, freeOneSlot, grantItem } from "./bag.js";
 import { noticesForPlayer, rememberIncome } from "../notices/service.js";
 
 type World = ContentSnapshot & { version: number };
@@ -415,94 +416,11 @@ export async function withIdempotency<T>(
   });
 }
 
-async function addEnhanceExp(tx: Tx, playerId: string, amount: number) {
-  await tx
-    .update(playerStates)
-    .set({ enhanceExp: sql`${playerStates.enhanceExp} + ${amount}` })
-    .where(eq(playerStates.playerId, playerId));
-}
-
 async function addCultivation(tx: Tx, playerId: string, amount: number) {
   await tx
     .update(playerStates)
     .set({ cultivation: sql`${playerStates.cultivation} + ${amount}` })
     .where(eq(playerStates.playerId, playerId));
-}
-
-function wornGear(world: World, items: { itemSlug: string; equippedSlot: string | null }[], slot: string) {
-  const worn = items.find((row) => row.equippedSlot === slot);
-  if (!worn) {
-    return null;
-  }
-  return world.items.find((row) => row.slug === worn.itemSlug) ?? null;
-}
-
-async function grant(
-  tx: Tx,
-  world: World,
-  playerId: string,
-  itemSlug: string,
-  quantity: number,
-  source: string,
-  now: Date,
-  options?: {
-    autoDecompose: boolean;
-    worn: { itemSlug: string; equippedSlot: string | null }[];
-    weights: { attack: number; defense: number; hp: number; speed: number };
-  },
-): Promise<{ decomposed: boolean; enhanceExp: number }> {
-  const definition = world.items.find((row) => row.slug === itemSlug);
-  if (!definition || quantity <= 0) {
-    return { decomposed: false, enhanceExp: 0 };
-  }
-  if (options?.autoDecompose && definition.kind === "equipment" && definition.slot) {
-    const worn = wornGear(world, options.worn, definition.slot);
-    if (worn) {
-      const stats = (item: { attack?: number; defense?: number; hp?: number; speed?: number }) => ({
-        attack: item.attack ?? 0,
-        defense: item.defense ?? 0,
-        hp: item.hp ?? 0,
-        speed: item.speed ?? 0,
-      });
-      if (ratePower(stats(definition), options.weights) < ratePower(stats(worn), options.weights)) {
-        const gained = decomposeEnhanceExp(readEnhanceRules(world), definition.quality, 0) * quantity;
-        await addEnhanceExp(tx, playerId, gained);
-        return { decomposed: true, enhanceExp: gained };
-      }
-    }
-  }
-  const stackable = definition.kind !== "equipment";
-  if (stackable) {
-    const [row] = await tx
-      .select()
-      .from(playerItems)
-      .where(and(eq(playerItems.playerId, playerId), eq(playerItems.itemSlug, itemSlug), eq(playerItems.isStack, true)))
-      .limit(1);
-    if (row) {
-      await tx.update(playerItems).set({ quantity: row.quantity + quantity }).where(eq(playerItems.id, row.id));
-      return { decomposed: false, enhanceExp: 0 };
-    }
-    await tx.insert(playerItems).values({
-      playerId,
-      itemSlug,
-      isStack: true,
-      quantity,
-      source,
-      acquiredAt: now,
-    });
-    return { decomposed: false, enhanceExp: 0 };
-  }
-  for (let index = 0; index < quantity; index += 1) {
-    await tx.insert(playerItems).values({
-      playerId,
-      itemSlug,
-      isStack: false,
-      quantity: 1,
-      source,
-      acquiredAt: now,
-    });
-  }
-  return { decomposed: false, enhanceExp: 0 };
 }
 
 export async function initializeProgress(tx: Tx, playerId: string, now: Date) {
@@ -515,7 +433,7 @@ export async function initializeProgress(tx: Tx, playerId: string, now: Date) {
     await tx.insert(playerStageProgress).values({ playerId, stageSlug: first.slug, unlockedAt: now }).onConflictDoNothing();
   }
   for (const starter of world.globals.starterItems ?? []) {
-    await grant(tx, world, playerId, starter.itemSlug, starter.quantity, "starter", now);
+    await grantItem(tx, world, playerId, starter.itemSlug, starter.quantity, "starter", now, { autoDecompose: false, capacity: Number.MAX_SAFE_INTEGER, overflow: true });
   }
 }
 
@@ -636,8 +554,14 @@ export async function challengeStage(tx: Tx, world: World, playerId: string, sta
   }
   const bagCapacity = rules.bagCapacity + settled.state.bagBonus;
   const used = settled.pieces.items.filter((row) => !row.equippedSlot).length;
+  const freedBeforeFight: { itemSlug: string; enhanceExp: number }[] = [];
   if (used >= bagCapacity) {
-    throw new AppError("BAG_FULL");
+    // 设计表 3.7：挑战前先按自动分解规则腾格（开关开、包里有没强化的白/绿），仍满才拒绝。
+    const freed = settled.state.autoDecompose ? await freeOneSlot(tx, world, playerId) : null;
+    if (!freed) {
+      throw new AppError("BAG_FULL");
+    }
+    freedBeforeFight.push(freed);
   }
   if (stage.bosses && stage.bosses.length === 0) {
     throw new AppError("INVALID_INPUT", "这个关卡还没有首领");
@@ -665,8 +589,9 @@ export async function challengeStage(tx: Tx, world: World, playerId: string, sta
     },
     battleConfigOf(world),
   );
-  const drops: { itemSlug: string; quantity: number; decomposed?: boolean; enhanceExp?: number }[] = [];
+  const drops: { itemSlug: string; quantity: number; decomposed?: boolean; enhanceExp?: number; dropped?: boolean; freed?: { itemSlug: string; enhanceExp: number }[] }[] = [];
   let nextPity: Record<string, number> | undefined;
+  let bagFullNotice = false;
   if (battle.win) {
     const reward = boss?.reward;
     if (reward) {
@@ -717,14 +642,23 @@ export async function challengeStage(tx: Tx, world: World, playerId: string, sta
       if (!world.items.some((item) => item.slug === drop.itemSlug)) {
         throw new AppError("INVALID_INPUT", "有一件掉落已经不在后台");
       }
-      const granted = await grant(tx, world, playerId, drop.itemSlug, drop.quantity, `drop:${stage.slug}`, now, {
+      const granted = await grantItem(tx, world, playerId, drop.itemSlug, drop.quantity, `drop:${stage.slug}`, now, {
         autoDecompose: settled.state.autoDecompose,
-        worn: settled.pieces.items,
-        weights: rules.powerWeights,
+        capacity: bagCapacity,
+        // 首领首通奖励允许暂时超出行囊容量（设计表 2.6）。
+        overflow: !progress.firstClearedAt,
       });
-      if (granted.decomposed) {
+      if (granted.decomposed > 0) {
         drop.decomposed = true;
         drop.enhanceExp = granted.enhanceExp;
+      }
+      if (granted.freed.length > 0) {
+        drop.freed = granted.freed;
+        drop.enhanceExp = (drop.enhanceExp ?? 0) + granted.freed.reduce((sum, row) => sum + row.enhanceExp, 0);
+      }
+      if (granted.dropped > 0) {
+        drop.dropped = true;
+        bagFullNotice = true;
       }
     }
     await tx
@@ -748,7 +682,7 @@ export async function challengeStage(tx: Tx, world: World, playerId: string, sta
     .set(nextPity ? { lastChallengeAt: now, dropPity: nextPity } : { lastChallengeAt: now })
     .where(eq(playerStates.playerId, playerId));
   const after = await settleLocked(tx, playerId, world, now);
-  return { battle, drops, state: stateDto(world, playerId, after) };
+  return { battle, drops, freedBeforeFight, bagFull: bagFullNotice, state: stateDto(world, playerId, after) };
 }
 
 export async function equipItem(tx: Tx, world: World, playerId: string, itemId: string, now: Date) {

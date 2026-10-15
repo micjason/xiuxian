@@ -134,6 +134,13 @@
       "when": 1792600000000,
       "tag": "0018_cultivation_remainder",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1792700000000,
+      "tag": "0019_auto_decompose_default_on",
+      "breakpoints": true
     }
   ]
 }

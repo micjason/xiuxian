@@ -39,7 +39,7 @@ export async function insertStartingRealm(db: Db) {
   await db.insert(contentGlobals).values({
     id: 1,
     startingRealmSlug: "mortal",
-    offlineCapSeconds: 36000,
+    offlineCapSeconds: 28800,
     bagCapacity: 20,
     powerWeights: { attack: 4.7, defense: 1.6, hp: 0.95, speed: 2.6 },
     combat: {

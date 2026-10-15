@@ -424,7 +424,7 @@ export function schemeWorld(content: SchemeContent = buildScheme()): ContentSnap
       enhance: STARTING_ENHANCE_RULES,
       startingRealmSlug: content.startingRealmSlug,
       starterItems: [],
-      offlineCapSeconds: 36000,
+      offlineCapSeconds: 28800,
       bagCapacity: 20,
       powerWeights: SCHEME_WEIGHTS,
       combat: {

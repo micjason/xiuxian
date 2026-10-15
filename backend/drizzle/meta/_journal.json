@@ -127,6 +127,13 @@
       "when": 1792500000000,
       "tag": "0017_enhance_red_and_breakthrough",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1792600000000,
+      "tag": "0018_cultivation_remainder",
+      "breakpoints": true
     }
   ]
 }

@@ -411,6 +411,8 @@ export const playerStates = pgTable("player_states", {
   autoDecompose: boolean("auto_decompose").notNull().default(false),
   enhanceExp: bigint("enhance_exp", { mode: "number" }).notNull().default(0),
   bagBonus: integer("bag_bonus").notNull().default(0),
+  /** 结算时不足 1 点修为的部分，单位万分之一点，0..9999。见 progress/settle.ts。 */
+  cultivationRemainderBp: integer("cultivation_remainder_bp").notNull().default(0),
 });
 
 export const playerItems = pgTable(

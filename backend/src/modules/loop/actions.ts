@@ -330,17 +330,24 @@ async function settleLocked(tx: Tx, playerId: string, world: World, now: Date) {
     gainPerTick: realmOf(world, state.realmSlug).gainPerTick,
     bonusBp: stats.bonusBp,
     offlineCapSeconds: readGameRules(world).offlineCapSeconds,
+    remainderBp: state.cultivationRemainderBp,
   });
   const [saved] = await tx
     .update(playerStates)
     .set({
       cultivation: settled.cultivation,
       lastSettledAt: settled.lastSettledAt,
+      cultivationRemainderBp: settled.remainderBp,
       stateVersion: state.stateVersion + 1,
     })
     .where(eq(playerStates.playerId, playerId))
     .returning();
-  return { state: saved ?? { ...state, cultivation: settled.cultivation, lastSettledAt: settled.lastSettledAt }, pieces, stats, settled };
+  return {
+    state: saved ?? { ...state, cultivation: settled.cultivation, lastSettledAt: settled.lastSettledAt, cultivationRemainderBp: settled.remainderBp },
+    pieces,
+    stats,
+    settled,
+  };
 }
 
 function stateDto(world: World, playerId: string, settled: Awaited<ReturnType<typeof settleLocked>>) {

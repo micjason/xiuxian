@@ -165,10 +165,11 @@ export async function syncFromSnapshot(db: Db, playerId: string, now: Date) {
       gainPerTick: realm.gainPerTick,
       bonusBp: 0,
       offlineCapSeconds: snapshot.globals.offlineCapSeconds,
+      remainderBp: state.cultivationRemainderBp,
     });
     await tx
       .update(playerStates)
-      .set({ cultivation: settled.cultivation, lastSettledAt: settled.lastSettledAt })
+      .set({ cultivation: settled.cultivation, lastSettledAt: settled.lastSettledAt, cultivationRemainderBp: settled.remainderBp })
       .where(eq(playerStates.playerId, playerId));
     return { cultivation: settled.cultivation, contentVersion: current.version, countedSeconds: settled.countedSeconds };
   });
@@ -243,6 +244,7 @@ export async function resetPlayer(db: Db, username: string, now: Date) {
     .update(playerStates)
     .set({
       cultivation: 0,
+      cultivationRemainderBp: 0,
       spiritStones: 0,
       realmSlug: start.slug,
       lastSettledAt: now,

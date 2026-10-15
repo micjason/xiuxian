@@ -232,7 +232,7 @@ export async function registerDraftRoutes(app: FastifyInstance, deps: { db: Db; 
   app.post("/admin/draft/formula-preview", async (request) => {
     const rules = rulesFromInput(
       rulesForSave(request.body as Parameters<typeof rulesFromInput>[0], {
-        offlineCapSeconds: 36000,
+        offlineCapSeconds: 28800,
         bagCapacity: 20,
         combat: { challengeCooldownSeconds: 0, timeLimitSeconds: 20, recommendedPowerMargin: 1.05 },
       }),

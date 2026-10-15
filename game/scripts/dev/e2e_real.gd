@@ -189,6 +189,7 @@ func _bagfull() -> void:
 	_out("direct_challenge_code", result.get("code"))
 	_out("direct_challenge_win", (result.get("battle", {}) as Dictionary).get("win"))
 	_out("direct_challenge_bagFull", result.get("bagFull"))
+	_out("direct_challenge_reward", result.get("reward"))
 	_out("direct_challenge_drops", result.get("drops"))
 	_out("direct_challenge_error", (result.get("error", {}) as Dictionary).get("code") if typeof(result.get("error", null)) == TYPE_DICTIONARY else "")
 	var popup := _scene.get("_popup") as GamePopup

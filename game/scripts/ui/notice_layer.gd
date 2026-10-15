@@ -17,12 +17,11 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	visible = false
 	var dim := ColorRect.new()
-	dim.color = Color(0.02, 0.03, 0.03, 0.72)
+	dim.color = UiTokens.SCRIM
 	dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	MainTheme.fill_parent(dim)
 	add_child(dim)
 	_card = PanelContainer.new()
-	_card.add_theme_stylebox_override("panel", MainTheme.hero_panel())
 	add_child(_card)
 	resized.connect(show_current)
 	var box := VBoxContainer.new()
@@ -31,16 +30,15 @@ func _ready() -> void:
 	_title = Label.new()
 	_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_title.add_theme_font_override("font", MainTheme.title_font())
-	_title.add_theme_font_size_override("font_size", MainTheme.SIZE_HERO)
-	_title.add_theme_color_override("font_color", MainTheme.GOLD)
+	_title.add_theme_font_size_override("font_size", UiTokens.FS_HERO)
+	_title.add_theme_color_override("font_color", UiTokens.GOLD)
 	box.add_child(_title)
 	_body = RichTextLabel.new()
 	_body.bbcode_enabled = false
 	_body.fit_content = true
 	_body.scroll_active = true
 	_body.custom_minimum_size = Vector2(0, 180)
-	_body.add_theme_font_size_override("normal_font_size", MainTheme.SIZE_BODY)
-	_body.add_theme_color_override("default_color", MainTheme.IVORY)
+	_body.add_theme_font_size_override("normal_font_size", UiTokens.FS_BODY_L)
 	box.add_child(_body)
 	_primary = _button(true)
 	_secondary = _button(false)
@@ -99,22 +97,8 @@ func _reward_text(payload: Dictionary) -> String:
 
 func _button(primary: bool) -> Button:
 	var button := Button.new()
-	button.custom_minimum_size = Vector2(0, MainTheme.H_CTA)
-	button.add_theme_font_size_override("font_size", MainTheme.SIZE_HERO)
-	if primary:
-		button.add_theme_color_override("font_color", MainTheme.INK)
-		button.add_theme_color_override("font_hover_color", MainTheme.INK)
-		button.add_theme_color_override("font_pressed_color", MainTheme.INK)
-		button.add_theme_stylebox_override("normal", MainTheme.progress_fill(true))
-		button.add_theme_stylebox_override("hover", MainTheme.progress_fill(true))
-		button.add_theme_stylebox_override("pressed", MainTheme.progress_fill(true))
-	else:
-		button.add_theme_color_override("font_color", MainTheme.IVORY)
-		button.add_theme_color_override("font_hover_color", MainTheme.IVORY)
-		button.add_theme_color_override("font_pressed_color", MainTheme.IVORY)
-		button.add_theme_stylebox_override("normal", MainTheme.secondary_button())
-		button.add_theme_stylebox_override("hover", MainTheme.secondary_button())
-		button.add_theme_stylebox_override("pressed", MainTheme.secondary_button())
+	button.custom_minimum_size = Vector2(0, UiTokens.H_CTA)
+	button.theme_type_variation = MainTheme.VAR_PRIMARY if primary else MainTheme.VAR_SECONDARY
 	return button
 
 

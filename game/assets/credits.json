@@ -1,0 +1,38 @@
+{
+  "intro": "本游戏使用了以下第三方素材。完整来源、作者和授权见仓库里的 ASSETS_LICENSES.md。",
+  "groups": [
+    {
+      "title": "图标",
+      "note": "占位 · 上线前建议替换；不替换必须保留下面的署名",
+      "lines": [
+        "Icons by Lorc, Delapouite and DarkZaitzev, from game-icons.net, licensed under CC BY 3.0.",
+        "https://game-icons.net/ · https://creativecommons.org/licenses/by/3.0/",
+        "已修改：去掉底板，缩放为 160px 白色剪影，运行时染色。"
+      ]
+    },
+    {
+      "title": "背景画（公有领域）",
+      "note": "占位 · 正式版建议换成原创插画",
+      "lines": [
+        "王希孟《千里江山图》· 范宽《谿山行旅图》· 郭熙《早春图》· 仇英《玉洞仙源图》",
+        "图像来自维基共享资源（Wikimedia Commons），已裁切并调色。"
+      ]
+    },
+    {
+      "title": "字体（SIL OFL 1.1）",
+      "note": "",
+      "lines": [
+        "Ma Shan Zheng · The Ma Shan Zheng Project Authors · Google Fonts",
+        "Noto Sans SC · Google / Adobe",
+        "均为子集化版本，许可文本随包附带。"
+      ]
+    },
+    {
+      "title": "界面框体与特效",
+      "note": "",
+      "lines": [
+        "按钮、面板、物品格、进度条、云雾、阵法、标题字均为程序绘制，无第三方素材。"
+      ]
+    }
+  ]
+}

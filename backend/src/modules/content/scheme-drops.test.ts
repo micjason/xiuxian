@@ -31,7 +31,7 @@ describe("scheme drops", () => {
     const rolled = rollSchemeReward({
       major: "qi",
       nextMajor: "foundation",
-      stageIndex: 4,
+      stageIndex: 5,
       firstClear: false,
       pity: { "qi:orange": 799 },
       randomInt: scripted([0, 0, 9000]),

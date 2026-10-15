@@ -19,6 +19,16 @@ export function clearSession(): void {
   sessionStorage.removeItem(nameKey);
 }
 
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public status: number,
+    public details?: unknown,
+  ) {
+    super(message);
+  }
+}
+
 export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
   if (init.body) {
@@ -37,8 +47,8 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
     throw new Error("需要重新登录");
   }
   if (!response.ok) {
-    const body = (await response.json().catch(() => ({}))) as { reason?: string; error?: { message?: string } };
-    throw new Error(body.error?.message ?? body.reason ?? "请求失败");
+    const body = (await response.json().catch(() => ({}))) as { reason?: string; error?: { message?: string; details?: unknown } };
+    throw new ApiError(body.error?.message ?? body.reason ?? "请求失败", response.status, body.error?.details);
   }
   if (response.status === 204) {
     return undefined as T;

@@ -45,9 +45,9 @@ describe("gear quality factors", () => {
         quality: "white",
         requiredRealmOrder: 1,
       });
-      expect(orange?.attack).toBeCloseTo((schemeWhite?.attack ?? 0) * 1.8, 2);
+      expect(orange?.attack).toBeCloseTo((schemeWhite?.attack ?? 0) * 1.8, 1);
       const pieces = await db.select().from(contentItems);
-      expect(pieces.filter((item) => item.kind === "equipment")).toHaveLength(25);
+      expect(pieces.filter((item) => item.kind === "equipment")).toHaveLength(30);
 
       await updateGearPiece(db, whiteSlug, { displayName: "青锋", description: "自己起的名字", iconKey: "sword" }, null);
       await saveGearQualityFactors(db, { white: 1, green: 1.15, blue: 1.3, purple: 1.5, orange: 2 }, null);

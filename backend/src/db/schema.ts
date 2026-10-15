@@ -219,6 +219,25 @@ export const contentGlobals = pgTable("content_globals", {
     purple: number;
     orange: number;
   }>(),
+  enhance: jsonb("enhance").$type<{
+    expBase: number;
+    expGrowth: number;
+    statGrowthBp: number;
+    refundBp: number;
+    qualities: Partial<
+      Record<
+        "white" | "green" | "blue" | "purple" | "orange" | "red",
+        {
+          cap: number;
+          costMult: number;
+          decomposeExp: number;
+          expGrowth?: number;
+          statGrowthBp?: number;
+          breakthroughs: { level: number; materials: { itemSlug: string; count: number }[] }[];
+        }
+      >
+    >;
+  }>(),
   artSlotRules: jsonb("art_slot_rules").$type<{ minRealmOrder: number; slots: number }[]>(),
   idleKillCap: integer("idle_kill_cap"),
   minClientVersionCode: integer("min_client_version_code").notNull().default(0),
@@ -390,6 +409,8 @@ export const playerStates = pgTable("player_states", {
   stateVersion: integer("state_version").notNull().default(0),
   dropPity: jsonb("drop_pity").$type<Record<string, number>>().notNull().default({}),
   autoDecompose: boolean("auto_decompose").notNull().default(false),
+  enhanceExp: bigint("enhance_exp", { mode: "number" }).notNull().default(0),
+  bagBonus: integer("bag_bonus").notNull().default(0),
 });
 
 export const playerItems = pgTable(
@@ -403,6 +424,9 @@ export const playerItems = pgTable(
     isStack: boolean("is_stack").notNull().default(false),
     quantity: bigint("quantity", { mode: "number" }).notNull().default(1),
     equippedSlot: text("equipped_slot"),
+    enhanceLevel: integer("enhance_level").notNull().default(0),
+    /** 已经突破过的最高节点等级（0 表示一个节点都没突破过） */
+    breakLevel: integer("break_level").notNull().default(0),
     acquiredAt: timestamp("acquired_at", { withTimezone: true }).notNull().defaultNow(),
     source: text("source").notNull().default("drop"),
   },

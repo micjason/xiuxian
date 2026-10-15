@@ -1,3 +1,4 @@
+import { STARTING_BREAK_MATERIALS, STARTING_ENHANCE_RULES } from "../modules/content/enhance.js";
 import { describe, expect, it } from "vitest";
 import {
   contentDropTables,
@@ -18,6 +19,7 @@ async function seedWorld(db: Parameters<Parameters<typeof withDb>[0]>[0]) {
     id: 1,
     offlineCapSeconds: 28800,
     bagCapacity: 20,
+    enhance: STARTING_ENHANCE_RULES,
     powerWeights: { attack: 1, defense: 0.8, hp: 0.04, speed: 1.5 },
     combat: {
       minInterval: 0.7,
@@ -68,6 +70,9 @@ async function seedWorld(db: Parameters<Parameters<typeof withDb>[0]>[0]) {
     role: "heart",
     cultivateBonusBp: 1500,
   });
+  await db.insert(contentItems).values(
+    STARTING_BREAK_MATERIALS.map((row) => ({ slug: row.slug, displayName: row.displayName, kind: "material", quality: row.quality, stackable: true })),
+  );
   await db.insert(contentItems).values([
     {
       slug: "wood_sword",
@@ -175,6 +180,23 @@ describe("core loop", () => {
       });
       expect(equipped.statusCode).toBe(200);
       expect(equipped.json().state.power).toBeGreaterThan(beforePower);
+
+      // 已穿戴的装备不能分解：HTTP 409 + 明确的错误码
+      const refused = await app.inject({
+        method: "POST",
+        url: `/api/v1/me/items/${sword?.id}/decompose`,
+        headers: { ...headers, "idempotency-key": "decompose-worn" },
+      });
+      expect(refused.statusCode).toBe(409);
+      expect(refused.json().error).toMatchObject({ code: "EQUIPPED_CANNOT_DECOMPOSE", message: expect.stringContaining("先脱下") });
+      // 突破接口已注册；没到节点时明确拒绝
+      const notOnNode = await app.inject({
+        method: "POST",
+        url: `/api/v1/me/items/${sword?.id}/breakthrough`,
+        headers: { ...headers, "idempotency-key": "break-no-node" },
+      });
+      expect(notOnNode.statusCode).toBe(400);
+      expect(notOnNode.json().error.message).toContain("不在突破节点");
 
       const learned = await app.inject({
         method: "POST",

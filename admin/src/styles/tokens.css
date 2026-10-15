@@ -1,0 +1,189 @@
+/*
+ * 设计令牌（Design Tokens）——后台唯一的颜色、字体、间距、圆角、阴影来源。
+ * 约定：业务样式只引用 --xx-* ；下面的"Element Plus 映射"一节把它们接到组件库变量上。
+ * 取值依据见 docs/ui/ui_design_spec.md（若仓库内尚无，则见交付的 ui_design_spec）。
+ * 深色模式：给 <html> 加 class="dark"（见 layouts/AdminLayout.vue 的切换按钮）。
+ */
+:root {
+  /* ---- 品牌：墨 · 青黛 · 金 · 朱砂 ---- */
+  --xx-ink-900: #1b2421; /* 侧栏底色、深墨 */
+  --xx-ink-800: #232f2b;
+  --xx-jade-700: #245647; /* 主色按下 */
+  --xx-jade-600: #2e6b5b; /* 主色（青黛松绿） */
+  --xx-jade-500: #3a7f6d; /* 主色悬停 */
+  --xx-jade-100: #e4efea; /* 主色浅底 */
+  --xx-gold-500: #b8903a; /* 点缀金：仅用于装饰线、徽标、非文字强调 */
+  --xx-gold-300: #dbbd70; /* 深色底上的金 */
+  --xx-cinnabar-600: #a8312b; /* 朱砂：危险/删除 */
+
+  /* ---- 语义色 ---- */
+  --xx-success: #2d7449;
+  --xx-warning: #8f5c0c;
+  --xx-danger: #a8312b;
+  --xx-info: #2f6a8e;
+  --xx-success-bg: #e6f2ea;
+  --xx-warning-bg: #f8eed9;
+  --xx-danger-bg: #f8e4e2;
+  --xx-info-bg: #e3eef5;
+
+  /* ---- 中性色（宣纸/墨） ---- */
+  --xx-bg-page: #f3f1ea; /* 页面底：宣纸 */
+  --xx-bg-surface: #fffefb; /* 卡片/表格/弹窗 */
+  --xx-bg-subtle: #f7f5ee; /* 表头、说明条 */
+  --xx-bg-hover: #eef3ef;
+  --xx-border: #ddd8cb;
+  --xx-border-strong: #c4bdab;
+  --xx-text-primary: #1e2623;
+  --xx-text-regular: #3b4642;
+  --xx-text-secondary: #5f6964;
+  --xx-text-placeholder: #6e7873;
+
+  /* ---- 侧栏（始终深墨底） ---- */
+  --xx-side-bg: var(--xx-ink-900);
+  --xx-side-text: #e9e5d8;
+  --xx-side-muted: #b9c2bd;
+  --xx-side-hover: rgba(255, 255, 255, 0.07);
+  --xx-side-active-bg: rgba(219, 189, 112, 0.14);
+  --xx-side-active-text: var(--xx-gold-300);
+
+  /* ---- 装备稀有度 凡/良/精/珍/绝/仙。同色相；浅色底取深一档、深色底取亮一档（深色值与游戏端 UiTokens 相同） ---- */
+  --xx-rarity-1: #66716c; /* 凡品·白（在白底上用灰，保证文字对比度） */
+  --xx-rarity-2: #2f7d53; /* 良品·绿 */
+  --xx-rarity-3: #2f6fb0; /* 精品·蓝 */
+  --xx-rarity-4: #7a4bb5; /* 珍品·紫 */
+  --xx-rarity-5: #a85a0f; /* 绝品·橙 */
+  --xx-rarity-6: #b8352a; /* 仙品·红 */
+
+  /* ---- 图表（色盲友好：蓝/橙对比，另用实线/虚线区分） ---- */
+  --xx-chart-1: #2f6a8e;
+  --xx-chart-2: #c45c26;
+  --xx-chart-3: #2f7a4f;
+  --xx-chart-grid: #e4dfd2;
+
+  /* ---- 字体 ---- */
+  --xx-font-sans: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei UI", "Microsoft YaHei", "Noto Sans CJK SC", "Source Han Sans SC", "Noto Sans SC", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --xx-font-serif: "Songti SC", "Noto Serif CJK SC", "Source Han Serif SC", "Noto Serif SC", "STSong", "SimSun", serif;
+  --xx-font-mono: ui-monospace, "SF Mono", Menlo, Consolas, "Noto Sans Mono CJK SC", monospace;
+  --xx-fs-xs: 12px; /* 辅助说明、表单提示（桌面端下限） */
+  --xx-fs-sm: 13px; /* 表格次要信息 */
+  --xx-fs-base: 14px; /* 正文、表格、表单 */
+  --xx-fs-md: 16px; /* 区块标题 h3 */
+  --xx-fs-lg: 20px; /* 页面标题 h2 */
+  --xx-fs-xl: 28px; /* 登录/大数字 */
+  --xx-lh-base: 1.6;
+
+  /* ---- 间距（4px 基线） ---- */
+  --xx-space-1: 4px;
+  --xx-space-2: 8px;
+  --xx-space-3: 12px;
+  --xx-space-4: 16px;
+  --xx-space-5: 24px;
+  --xx-space-6: 32px;
+  --xx-space-7: 48px;
+
+  /* ---- 圆角与阴影 ---- */
+  --xx-radius-sm: 4px;
+  --xx-radius-md: 8px;
+  --xx-radius-lg: 12px;
+  --xx-shadow-card: 0 1px 2px rgba(30, 38, 35, 0.05), 0 4px 14px rgba(30, 38, 35, 0.05);
+  --xx-shadow-pop: 0 10px 32px rgba(30, 38, 35, 0.16);
+
+  /* ---- 布局 ---- */
+  --xx-side-width: 220px;
+  --xx-header-height: 56px;
+  --xx-content-max: 1280px;
+}
+
+html.dark {
+  --xx-jade-700: #5aa38c;
+  --xx-jade-600: #6fb59e;
+  --xx-jade-500: #86c4af;
+  --xx-jade-100: #1d2e29;
+  --xx-gold-500: #dbbd70;
+  --xx-cinnabar-600: #e0675b;
+
+  --xx-success: #63b985;
+  --xx-warning: #e0a948;
+  --xx-danger: #e0675b;
+  --xx-info: #6fb0d6;
+  --xx-success-bg: #1a2c22;
+  --xx-warning-bg: #33281a;
+  --xx-danger-bg: #351f1d;
+  --xx-info-bg: #1a2a34;
+
+  --xx-bg-page: #0f1513;
+  --xx-bg-surface: #172120;
+  --xx-bg-subtle: #1c2927;
+  --xx-bg-hover: #213230;
+  --xx-border: #2b3a37;
+  --xx-border-strong: #3a4c48;
+  --xx-text-primary: #e8e6dc;
+  --xx-text-regular: #cfd1c8;
+  --xx-text-secondary: #9aa7a1;
+  --xx-text-placeholder: #808d87;
+
+  --xx-side-bg: #0b100f;
+
+  --xx-rarity-1: #bcc4bf;
+  --xx-rarity-2: #66c48a;
+  --xx-rarity-3: #62a7ea;
+  --xx-rarity-4: #b890f2;
+  --xx-rarity-5: #f2a24c;
+  --xx-rarity-6: #f26b5c;
+
+  --xx-chart-1: #6fb0d6;
+  --xx-chart-2: #e8935a;
+  --xx-chart-3: #63b985;
+  --xx-chart-grid: #2b3a37;
+  --xx-shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --xx-shadow-pop: 0 10px 32px rgba(0, 0, 0, 0.5);
+}
+
+/* ================= Element Plus 映射 ================= */
+:root,
+html.dark {
+  --el-font-family: var(--xx-font-sans);
+  --el-font-size-base: var(--xx-fs-base);
+  --el-border-radius-base: var(--xx-radius-sm);
+  --el-border-radius-small: var(--xx-radius-sm);
+
+  --el-color-primary: var(--xx-jade-600);
+  --el-color-primary-light-3: color-mix(in srgb, var(--xx-jade-600) 70%, var(--xx-bg-surface));
+  --el-color-primary-light-5: color-mix(in srgb, var(--xx-jade-600) 50%, var(--xx-bg-surface));
+  --el-color-primary-light-7: color-mix(in srgb, var(--xx-jade-600) 30%, var(--xx-bg-surface));
+  --el-color-primary-light-8: color-mix(in srgb, var(--xx-jade-600) 20%, var(--xx-bg-surface));
+  --el-color-primary-light-9: var(--xx-jade-100);
+  --el-color-primary-dark-2: var(--xx-jade-700);
+
+  --el-color-success: var(--xx-success);
+  --el-color-warning: var(--xx-warning);
+  --el-color-danger: var(--xx-danger);
+  --el-color-info: var(--xx-text-secondary);
+  --el-color-success-light-9: var(--xx-success-bg);
+  --el-color-warning-light-9: var(--xx-warning-bg);
+  --el-color-danger-light-9: var(--xx-danger-bg);
+  --el-color-info-light-9: var(--xx-bg-subtle);
+
+  --el-bg-color: var(--xx-bg-surface);
+  --el-bg-color-page: var(--xx-bg-page);
+  --el-bg-color-overlay: var(--xx-bg-surface);
+  --el-text-color-primary: var(--xx-text-primary);
+  --el-text-color-regular: var(--xx-text-regular);
+  --el-text-color-secondary: var(--xx-text-secondary);
+  --el-text-color-placeholder: var(--xx-text-placeholder);
+  --el-border-color: var(--xx-border);
+  --el-border-color-light: var(--xx-border);
+  --el-border-color-lighter: var(--xx-border);
+  --el-border-color-dark: var(--xx-border-strong);
+  --el-fill-color: var(--xx-bg-hover);
+  --el-fill-color-light: var(--xx-bg-subtle);
+  --el-fill-color-lighter: var(--xx-bg-subtle);
+  --el-fill-color-blank: var(--xx-bg-surface);
+  --el-box-shadow: var(--xx-shadow-pop);
+  --el-box-shadow-light: var(--xx-shadow-card);
+
+  --el-table-header-bg-color: var(--xx-bg-subtle);
+  --el-table-header-text-color: var(--xx-text-secondary);
+  --el-table-row-hover-bg-color: var(--xx-bg-hover);
+  --el-table-border-color: var(--xx-border);
+}

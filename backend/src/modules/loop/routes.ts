@@ -3,7 +3,7 @@ import { AppError } from "../../shared/errors.js";
 import type { Db } from "../operations/record.js";
 import { tryBreakthrough } from "../player/service.js";
 import { loadCurrentWorld } from "../content/snapshot.js";
-import { advanceRealm, challengeStage, decomposeItem, equipItem, readState, runSkill, setAutoDecompose, stopSkill, unequipItem, unequipSlot, useItem, withIdempotency } from "./actions.js";
+import { advanceRealm, challengeStage, breakthroughItem, decomposeItem, enhanceItem, equipItem, readState, runSkill, setAutoDecompose, stopSkill, unequipItem, unequipSlot, useItem, withIdempotency } from "./actions.js";
 
 type RandomInt = (min: number, max: number) => number;
 
@@ -77,6 +77,26 @@ export async function registerLoopRoutes(
     const params = request.params as { itemId: string };
     return withIdempotency(deps.db, playerId, idempotencyKey(request.headers["idempotency-key"]), "decompose", deps.now(), (tx, world) =>
       decomposeItem(tx, world, playerId, params.itemId, deps.now()),
+    );
+  });
+
+  app.post("/me/items/:itemId/enhance", async (request) => {
+    const playerId = request.actor!.actorId;
+    const params = request.params as { itemId: string };
+    const body = (request.body ?? {}) as { toMax?: unknown };
+    if (body.toMax !== undefined && typeof body.toMax !== "boolean") {
+      throw new AppError("INVALID_INPUT", "toMax 要填 true 或 false");
+    }
+    return withIdempotency(deps.db, playerId, idempotencyKey(request.headers["idempotency-key"]), "enhance", deps.now(), (tx, world) =>
+      enhanceItem(tx, world, playerId, params.itemId, deps.now(), { toMax: body.toMax === true }),
+    );
+  });
+
+  app.post("/me/items/:itemId/breakthrough", async (request) => {
+    const playerId = request.actor!.actorId;
+    const params = request.params as { itemId: string };
+    return withIdempotency(deps.db, playerId, idempotencyKey(request.headers["idempotency-key"]), "breakthrough", deps.now(), (tx, world) =>
+      breakthroughItem(tx, world, playerId, params.itemId, deps.now()),
     );
   });
 

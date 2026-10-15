@@ -1,0 +1,235 @@
+/*
+ * 全局基础样式：只放"所有页面共用"的版式规则；页面特有样式仍写在各页 <style scoped> 里。
+ * 页面骨架约定（各 View 保持原有结构，不改逻辑）：
+ *   .toolbar            页面标题行：左标题 h2，右主操作按钮
+ *   p.page-lead         页面开头的说明文字（说明条样式）
+ *   .xx-card            白底卡片区块
+ *   .xx-field-card      字段说明卡（中文名/单位/范围/默认值/提示）
+ *   .xx-tag-rarity      装备稀有度标签，配合 data-rarity="1..6"
+ */
+html,
+body {
+  margin: 0;
+  background: var(--xx-bg-page);
+  color: var(--xx-text-regular);
+  font-family: var(--xx-font-sans);
+  font-size: var(--xx-fs-base);
+  line-height: var(--xx-lh-base);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  color: var(--xx-text-primary);
+  font-weight: 600;
+  line-height: 1.35;
+}
+h2 {
+  margin: 0 0 var(--xx-space-3);
+  font-size: var(--xx-fs-lg);
+  letter-spacing: 0.02em;
+}
+h3 {
+  margin: var(--xx-space-5) 0 var(--xx-space-2);
+  font-size: var(--xx-fs-md);
+}
+h4 {
+  margin: var(--xx-space-3) 0 var(--xx-space-1);
+  font-size: var(--xx-fs-base);
+}
+p {
+  margin: 0 0 var(--xx-space-3);
+}
+strong {
+  color: var(--xx-text-primary);
+}
+
+/* 页面标题行 */
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--xx-space-3);
+  margin-bottom: var(--xx-space-3);
+}
+.toolbar h2 {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--xx-space-2);
+}
+.toolbar h2::before {
+  content: "";
+  width: 4px;
+  height: 1em;
+  border-radius: 2px;
+  background: var(--xx-gold-500);
+}
+.toolbar > div {
+  display: flex;
+  align-items: center;
+  gap: var(--xx-space-2);
+}
+
+/* 没有 .toolbar 的页面，标题同样加金色竖线 */
+.app-main .content > div > h2:first-child {
+  display: flex;
+  align-items: center;
+  gap: var(--xx-space-2);
+}
+.app-main .content > div > h2:first-child::before {
+  content: "";
+  width: 4px;
+  height: 1em;
+  border-radius: 2px;
+  background: var(--xx-gold-500);
+}
+
+/* 说明条 */
+p.page-lead {
+  padding: var(--xx-space-3) var(--xx-space-4);
+  border-left: 3px solid var(--xx-gold-500);
+  border-radius: 0 var(--xx-radius-md) var(--xx-radius-md) 0;
+  background: var(--xx-bg-subtle);
+  color: var(--xx-text-regular);
+  font-size: var(--xx-fs-base);
+}
+
+/* 卡片 */
+.xx-card {
+  padding: var(--xx-space-4) var(--xx-space-5);
+  border: 1px solid var(--xx-border);
+  border-radius: var(--xx-radius-lg);
+  background: var(--xx-bg-surface);
+  box-shadow: var(--xx-shadow-card);
+}
+
+/* 字段说明卡：名称 + 单位 + 范围 + 默认值 + 一句话提示 */
+.xx-field-card {
+  display: grid;
+  gap: var(--xx-space-1);
+  padding: var(--xx-space-3) var(--xx-space-4);
+  border: 1px solid var(--xx-border);
+  border-radius: var(--xx-radius-md);
+  background: var(--xx-bg-surface);
+}
+.xx-field-card__name {
+  color: var(--xx-text-primary);
+  font-weight: 600;
+}
+.xx-field-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--xx-space-1) var(--xx-space-3);
+  color: var(--xx-text-secondary);
+  font-size: var(--xx-fs-xs);
+}
+.xx-field-card__hint {
+  color: var(--xx-text-regular);
+  font-size: var(--xx-fs-sm);
+}
+
+/* 稀有度标签 */
+.xx-tag-rarity {
+  display: inline-block;
+  padding: 0 var(--xx-space-2);
+  border: 1px solid currentcolor;
+  border-radius: var(--xx-radius-sm);
+  font-size: var(--xx-fs-xs);
+  line-height: 20px;
+  font-weight: 600;
+}
+.xx-tag-rarity[data-rarity="1"] { color: var(--xx-rarity-1); }
+.xx-tag-rarity[data-rarity="2"] { color: var(--xx-rarity-2); }
+.xx-tag-rarity[data-rarity="3"] { color: var(--xx-rarity-3); }
+.xx-tag-rarity[data-rarity="4"] { color: var(--xx-rarity-4); }
+.xx-tag-rarity[data-rarity="5"] { color: var(--xx-rarity-5); }
+.xx-tag-rarity[data-rarity="6"] { color: var(--xx-rarity-6); }
+
+/* ---- Element Plus 细节统一 ---- */
+.el-button {
+  font-weight: 500;
+}
+.el-button--primary:not(.is-link):not(.is-plain) {
+  --el-button-text-color: #fff;
+  --el-button-hover-bg-color: var(--xx-jade-500);
+  --el-button-active-bg-color: var(--xx-jade-700);
+}
+html.dark .el-button--primary:not(.is-link):not(.is-plain) {
+  --el-button-text-color: #0f1513;
+}
+.el-button.is-link {
+  padding: 0 var(--xx-space-1);
+}
+
+.el-card {
+  border-radius: var(--xx-radius-lg);
+  box-shadow: var(--xx-shadow-card);
+}
+
+.el-table {
+  --el-table-text-color: var(--xx-text-regular);
+  border: 1px solid var(--xx-border);
+  border-radius: var(--xx-radius-md);
+  font-size: var(--xx-fs-base);
+  overflow: hidden;
+}
+.el-table th.el-table__cell {
+  font-weight: 600;
+  font-size: var(--xx-fs-sm);
+  letter-spacing: 0.04em;
+}
+.el-table .el-table__cell {
+  padding: 10px 0;
+}
+
+.el-dialog {
+  border-radius: var(--xx-radius-lg);
+  box-shadow: var(--xx-shadow-pop);
+}
+.el-dialog__header {
+  padding-bottom: var(--xx-space-3);
+  border-bottom: 1px solid var(--xx-border);
+  margin-right: 0;
+}
+.el-dialog__body {
+  padding-top: var(--xx-space-4);
+}
+.el-dialog__title {
+  color: var(--xx-text-primary);
+  font-weight: 600;
+}
+.el-dialog__footer {
+  padding-top: var(--xx-space-3);
+  border-top: 1px solid var(--xx-border);
+}
+
+.el-form-item__label {
+  color: var(--xx-text-regular);
+}
+.el-input-number {
+  width: 180px;
+}
+.el-message-box {
+  border-radius: var(--xx-radius-lg);
+}
+
+:focus-visible {
+  outline: 2px solid var(--xx-jade-600);
+  outline-offset: 2px;
+}
+
+/* 滚动条 */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--xx-border-strong) transparent;
+}
+
+/* 等宽列：哈希、JSON 摘要等机器可读内容 */
+.el-table .mono .cell {
+  font-family: var(--xx-font-mono);
+  font-size: var(--xx-fs-xs);
+  color: var(--xx-text-secondary);
+}

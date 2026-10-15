@@ -28,6 +28,7 @@ await db.insert(contentRealms).values(scheme.realms);
 await db.insert(contentSkills).values(scheme.skills.map((skill) => ({ ...skill, prerequisiteSkillSlugs: [] })));
 await db.insert(contentItems).values(scheme.items);
 await db.insert(contentDropTables).values(scheme.dropTables);
+await db.insert(contentDropEntries).values(scheme.dropEntries);
 await db.insert(contentStages).values(scheme.stages);
 await db.update(contentGlobals).set({ startingRealmSlug: scheme.startingRealmSlug }).where(eq(contentGlobals.id, globals.id));
 

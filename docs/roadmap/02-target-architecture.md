@@ -179,7 +179,7 @@ roll = 服务器安全随机整数 [0, 10000)
 
 ### 2.8 装备
 
-- 五个部位：`weapon` 武器、`helmet` 头盔、`clothes` 衣服、`shoes` 鞋子、`accessory` 玉佩（与客户端 `EquipSlot` 一致）。
+- 六个部位：`weapon` 武器、`helmet` 头盔、`clothes` 衣服、`gloves` 护手、`shoes` 鞋子、`accessory` 玉佩（2026-10-15 新增 `gloves`，见 `docs/changes/2026-10-15/`）。
 - 五个品质：`white`、`blue`、`purple`、`gold`、`red`（与客户端 `QualityId` 一致）。
 - 字段：部位、品质、攻击、防御、气血、速度、`requiredRealmOrder`（穿戴所需境界）、`setSlug`（可空，套装预留）。
 - 装备不可堆叠：每件装备是一条独立的玩家物品记录；其他物品按数量堆叠。

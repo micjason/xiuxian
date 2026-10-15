@@ -12,30 +12,31 @@ var _card: PanelContainer
 func _ready() -> void:
 	MainTheme.fill_parent(self)
 	mouse_filter = Control.MOUSE_FILTER_STOP
-	var backdrop := ColorRect.new()
-	backdrop.color = MainTheme.INK
-	backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	MainTheme.fill_parent(backdrop)
+	var backdrop := Backdrop.new()
 	add_child(backdrop)
+	backdrop.show_background("login")
+	var logo := TextureRect.new()
+	logo.name = "Logo"
+	logo.texture = ArtLib.ui("logo_title")
+	logo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	logo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	logo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	logo.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	logo.offset_top = 150.0
+	logo.offset_bottom = 560.0
+	add_child(logo)
 	_card = PanelContainer.new()
-	_card.add_theme_stylebox_override("panel", MainTheme.hero_panel())
+	_card.add_theme_stylebox_override("panel", ArtLib.nine("panel_popup"))
 	add_child(_card)
 	resized.connect(_fit_card)
 	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 28)
+	box.add_theme_constant_override("separation", UiTokens.SP_3)
 	_card.add_child(box)
-	var title := Label.new()
-	title.text = "修仙"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_override("font", MainTheme.title_font())
-	title.add_theme_font_size_override("font_size", MainTheme.SIZE_DISPLAY)
-	title.add_theme_color_override("font_color", MainTheme.IVORY)
-	box.add_child(title)
 	var subtitle := Label.new()
 	subtitle.text = "登录后，修为记在你的账号上"
+	subtitle.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	subtitle.add_theme_font_size_override("font_size", MainTheme.SIZE_CAPTION)
-	subtitle.add_theme_color_override("font_color", MainTheme.MUTED)
+	subtitle.theme_type_variation = MainTheme.VAR_SUBTLE
 	box.add_child(subtitle)
 	_username = _field("用户名")
 	_password = _field("密码")
@@ -51,47 +52,27 @@ func _ready() -> void:
 	_error = Label.new()
 	_error.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_error.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_error.add_theme_font_size_override("font_size", MainTheme.SIZE_CAPTION)
-	_error.add_theme_color_override("font_color", MainTheme.GOLD)
+	_error.theme_type_variation = MainTheme.VAR_DANGER_LABEL
 	box.add_child(_error)
 	_fit_card()
 
 
 func _fit_card() -> void:
-	MainTheme.place_centered(_card, size, Vector2(760, 860))
+	MainTheme.place_centered(_card, size, Vector2(860, 760))
 
 
 func _field(placeholder: String) -> LineEdit:
 	var edit := LineEdit.new()
 	edit.placeholder_text = placeholder
-	edit.custom_minimum_size = Vector2(0, MainTheme.H_CTA)
-	edit.add_theme_font_size_override("font_size", MainTheme.SIZE_UI)
-	edit.add_theme_color_override("font_color", MainTheme.IVORY)
-	edit.add_theme_color_override("font_placeholder_color", MainTheme.IVORY)
-	edit.add_theme_stylebox_override("normal", MainTheme.input_normal())
-	edit.add_theme_stylebox_override("focus", MainTheme.input_focus())
+	edit.custom_minimum_size = Vector2(0, UiTokens.H_CTA)
 	return edit
 
 
 func _button(text: String, primary: bool) -> Button:
 	var button := Button.new()
 	button.text = text
-	button.custom_minimum_size = Vector2(0, MainTheme.H_CTA)
-	button.add_theme_font_size_override("font_size", MainTheme.SIZE_HERO)
-	if primary:
-		button.add_theme_color_override("font_color", MainTheme.INK)
-		button.add_theme_color_override("font_hover_color", MainTheme.INK)
-		button.add_theme_color_override("font_pressed_color", MainTheme.INK)
-		button.add_theme_stylebox_override("normal", MainTheme.progress_fill(true))
-		button.add_theme_stylebox_override("hover", MainTheme.progress_fill(true))
-		button.add_theme_stylebox_override("pressed", MainTheme.progress_fill(true))
-	else:
-		button.add_theme_color_override("font_color", MainTheme.IVORY)
-		button.add_theme_color_override("font_hover_color", MainTheme.IVORY)
-		button.add_theme_color_override("font_pressed_color", MainTheme.IVORY)
-		button.add_theme_stylebox_override("normal", MainTheme.secondary_button())
-		button.add_theme_stylebox_override("hover", MainTheme.secondary_button())
-		button.add_theme_stylebox_override("pressed", MainTheme.secondary_button())
+	button.custom_minimum_size = Vector2(0, UiTokens.H_CTA)
+	button.theme_type_variation = MainTheme.VAR_PRIMARY if primary else MainTheme.VAR_SECONDARY
 	return button
 
 

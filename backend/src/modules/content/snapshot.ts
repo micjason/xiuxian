@@ -33,6 +33,7 @@ export async function loadDraftSnapshot(db: Db | Tx): Promise<ContentSnapshot> {
       bagCapacity: globals?.bagCapacity ?? undefined,
       powerWeights: globals?.powerWeights ?? undefined,
       combat: globals?.combat ?? undefined,
+      enhance: globals?.enhance ?? undefined,
       artSlotRules: globals?.artSlotRules ?? undefined,
       idleKillCap: globals?.idleKillCap ?? undefined,
       minClientVersionCode: globals?.minClientVersionCode ?? undefined,

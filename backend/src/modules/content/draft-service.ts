@@ -14,7 +14,7 @@ import type { Db } from "../operations/record.js";
 
 const SLUG = /^[a-z][a-z0-9_]{1,47}$/;
 const ITEM_KINDS = new Set(["equipment", "skill_book", "pill", "material"]);
-const SLOTS = new Set(["weapon", "helmet", "clothes", "shoes", "accessory"]);
+const SLOTS = new Set(["weapon", "helmet", "clothes", "gloves", "shoes", "accessory"]);
 
 function requireSlug(slug: string | undefined, label: string): string {
   if (!slug || !SLUG.test(slug)) {

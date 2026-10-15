@@ -113,6 +113,20 @@
       "when": 1792300000000,
       "tag": "0015_gear_quality_factors",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1792400000000,
+      "tag": "0016_enhance_and_hands",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1792500000000,
+      "tag": "0017_enhance_red_and_breakthrough",
+      "breakpoints": true
     }
   ]
 }

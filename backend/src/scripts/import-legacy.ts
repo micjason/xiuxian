@@ -1,3 +1,4 @@
+import { STARTING_BREAK_MATERIALS, STARTING_ENHANCE_RULES } from "../modules/content/enhance.js";
 import { readFileSync } from "node:fs";
 import { eq } from "drizzle-orm";
 import {
@@ -102,6 +103,7 @@ export async function importLegacyContent(db: Db, idlePath: string, adventurePat
     id: 1,
     startingRealmSlug: "mortal",
     offlineCapSeconds: idle.offline_cap_seconds,
+    enhance: STARTING_ENHANCE_RULES,
   });
   for (const realm of idle.realms) {
     const next = realm.next_id ? byOrder.get(realm.order + 1) : undefined;
@@ -140,6 +142,17 @@ export async function importLegacyContent(db: Db, idlePath: string, adventurePat
       speed: item.speed ?? 0,
       skillSlug: item.skill_id || null,
       stackable: item.stackable ?? item.kind !== "equipment",
+    });
+  }
+  for (const material of STARTING_BREAK_MATERIALS) {
+    // 强化规则里的起始突破节点要用这三种材料；旧数据里没有，所以一起建好。
+    await db.insert(contentItems).values({
+      slug: material.slug,
+      displayName: material.displayName,
+      description: material.description,
+      kind: "material",
+      quality: material.quality,
+      stackable: true,
     });
   }
   for (const skill of adventure.skills ?? []) {

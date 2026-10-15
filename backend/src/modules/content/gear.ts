@@ -9,9 +9,10 @@ export const GEAR_BUDGET_RATIO = 0.55;
 type GearStat = "attack" | "defense" | "hp" | "speed";
 
 export const GEAR_SLOTS: { key: string; name: string; share: number; stats: readonly GearStat[] }[] = [
-  { key: "weapon", name: "武器", share: 0.3, stats: ["attack"] },
-  { key: "clothes", name: "衣服", share: 0.25, stats: ["defense", "hp"] },
-  { key: "helmet", name: "头冠", share: 0.15, stats: ["defense", "hp"] },
+  { key: "weapon", name: "武器", share: 0.25, stats: ["attack"] },
+  { key: "clothes", name: "衣服", share: 0.2, stats: ["defense", "hp"] },
+  { key: "helmet", name: "头冠", share: 0.13, stats: ["defense", "hp"] },
+  { key: "gloves", name: "护手", share: 0.12, stats: ["attack", "defense"] },
   { key: "shoes", name: "鞋子", share: 0.15, stats: ["speed", "hp"] },
   { key: "accessory", name: "饰品", share: 0.15, stats: ["attack", "speed"] },
 ];

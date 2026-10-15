@@ -22,7 +22,7 @@ describe("numeric scheme", () => {
     const weapon = scheme.items.find((item) => item.slug === gearSlug("qi", "weapon", "white"));
     expect(weapon).toBeDefined();
     const power = ratePower(weapon ?? { attack: 0, defense: 0, hp: 0, speed: 0 }, SCHEME_WEIGHTS);
-    expect(Math.abs(power - Math.round(schemeBudgetPower(0) * 0.3))).toBeLessThanOrEqual(1);
+    expect(Math.abs(power - Math.round(schemeBudgetPower(0) * 0.25))).toBeLessThanOrEqual(1);
     expect(ratePower(weapon ?? { attack: 0, defense: 0, hp: 0, speed: 0 }, SCHEME_WEIGHTS)).toBe(power);
   });
 

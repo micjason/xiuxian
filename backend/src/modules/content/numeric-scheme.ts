@@ -1,3 +1,4 @@
+import { STARTING_BREAK_MATERIALS, STARTING_ENHANCE_RULES } from "./enhance.js";
 import { bossPower } from "../combat/stats.js";
 import { DEFAULT_GEAR_QUALITY_FACTORS, GEAR_BUDGET_RATIO, GEAR_SLOTS, splitGearBudget } from "./gear.js";
 import { stageRecommendedPower } from "./stage-power.js";
@@ -153,11 +154,12 @@ function panelRaw(index: number): Stats {
   const weapon = gearStats(majorIndex, "weapon", "white");
   const clothes = gearStats(majorIndex, "clothes", "white");
   const helmet = gearStats(majorIndex, "helmet", "white");
+  const gloves = gearStats(majorIndex, "gloves", "white");
   const shoes = gearStats(majorIndex, "shoes", "white");
   const accessory = gearStats(majorIndex, "accessory", "white");
   return {
-    attack: base.attack * 1.18 + weapon.attack + accessory.attack,
-    defense: base.defense * 1.18 + clothes.defense + helmet.defense,
+    attack: base.attack * 1.18 + weapon.attack + gloves.attack + accessory.attack,
+    defense: base.defense * 1.18 + clothes.defense + helmet.defense + gloves.defense,
     hp: base.hp * 1.18 + clothes.hp + helmet.hp + shoes.hp,
     speed: base.speed + shoes.speed + accessory.speed,
   };
@@ -247,6 +249,7 @@ export type SchemeContent = {
     requiredRealmOrder: number;
   }[];
   dropTables: { slug: string; displayName: string }[];
+  dropEntries: { dropTableSlug: string; itemSlug: string; chanceBp: number; minQty: number; maxQty: number }[];
   stages: {
     slug: string;
     displayName: string;
@@ -348,6 +351,23 @@ export function buildScheme(): SchemeContent {
       }
     }
   }
+  for (const material of STARTING_BREAK_MATERIALS) {
+    items.push({
+      slug: material.slug,
+      displayName: material.displayName,
+      description: material.description,
+      kind: "material",
+      quality: material.quality,
+      slot: null,
+      attack: 0,
+      defense: 0,
+      hp: 0,
+      speed: 0,
+      requiredRealmOrder: 0,
+      skillSlug: null,
+      stackable: true,
+    });
+  }
   const stages = realms.map((realm, index) => {
     const boss = bossOf(index);
     const next = realms[index + 1];
@@ -379,6 +399,12 @@ export function buildScheme(): SchemeContent {
       { slug: "scheme_idle", displayName: "方案挂机掉落" },
       { slug: "scheme_first", displayName: "方案首通掉落" },
     ],
+    // 起始值：每次挑战首领成功后，有机会掉落突破石。全部可在后台「掉落表」里改。
+    dropEntries: [
+      { dropTableSlug: "scheme_boss", itemSlug: "enh_stone_low", chanceBp: 3500, minQty: 1, maxQty: 2 },
+      { dropTableSlug: "scheme_boss", itemSlug: "enh_stone_mid", chanceBp: 1500, minQty: 1, maxQty: 1 },
+      { dropTableSlug: "scheme_boss", itemSlug: "enh_stone_high", chanceBp: 500, minQty: 1, maxQty: 1 },
+    ],
     stages,
   };
   const world = schemeWorld(content);
@@ -395,6 +421,7 @@ export function buildScheme(): SchemeContent {
 export function schemeWorld(content: SchemeContent = buildScheme()): ContentSnapshot {
   return {
     globals: {
+      enhance: STARTING_ENHANCE_RULES,
       startingRealmSlug: content.startingRealmSlug,
       starterItems: [],
       offlineCapSeconds: 36000,
@@ -450,7 +477,12 @@ export function schemeWorld(content: SchemeContent = buildScheme()): ContentSnap
       recommendedPower: stage.recommendedPower,
       enabled: true,
     })),
-    dropTables: content.dropTables.map((table) => ({ slug: table.slug, entries: [] })),
+    dropTables: content.dropTables.map((table) => ({
+      slug: table.slug,
+      entries: content.dropEntries
+        .filter((entry) => entry.dropTableSlug === table.slug)
+        .map((entry) => ({ itemSlug: entry.itemSlug, chanceBp: entry.chanceBp, minQty: entry.minQty, maxQty: entry.maxQty })),
+    })),
     items: content.items.map((item) => ({
       slug: item.slug,
       displayName: item.displayName,

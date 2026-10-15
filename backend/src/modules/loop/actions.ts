@@ -13,7 +13,8 @@ import { computePower, ratePower, resolveBreakthrough, skillLayerFactor, sumReac
 import { ensureSkillBook } from "../content/ops-content.js";
 import { loadCurrentWorld } from "../content/snapshot.js";
 import { rollDropTable } from "../content/roll-drops.js";
-import { bookOverflowCultivation, decomposeCultivation, rollSchemeReward } from "../content/scheme-drops.js";
+import { bookOverflowCultivation, rollSchemeReward } from "../content/scheme-drops.js";
+import { decomposeEnhanceExp, enhanceCap, enhanceCost, enhancedStat, pendingBreakNode, qualityRule, readEnhanceRules } from "../content/enhance.js";
 import type { ContentSnapshot } from "../content/validate.js";
 import { settleTicks } from "../progress/settle.js";
 import { AppError } from "../../shared/errors.js";
@@ -47,11 +48,11 @@ async function loadPieces(tx: Tx, playerId: string) {
   return { items, skills, stages };
 }
 
-function statsOf(world: World, realmSlug: string, items: { itemSlug: string; equippedSlot: string | null }[], skills: { skillSlug: string; runningSlot: string | null; level: number }[]) {
+function statsOf(world: World, realmSlug: string, items: { itemSlug: string; equippedSlot: string | null; enhanceLevel: number }[], skills: { skillSlug: string; runningSlot: string | null; level: number }[]) {
   return combatStats(
     world,
     realmSlug,
-    items.filter((item) => item.equippedSlot).map((item) => item.itemSlug),
+    items.filter((item) => item.equippedSlot).map((item) => ({ slug: item.itemSlug, enhanceLevel: item.enhanceLevel })),
     skills.filter((skill) => skill.runningSlot).map((skill) => ({ slug: skill.skillSlug, level: skill.level })),
   );
 }
@@ -68,7 +69,26 @@ function skillLayers(skillSlugs: (string | { slug: string; level: number })[]) {
   });
 }
 
-export function combatStats(world: ContentSnapshot, realmSlug: string, itemSlugs: string[], skillSlugs: (string | { slug: string; level: number })[]) {
+/** 装备按强化等级放大后的四项属性；0 级不读强化规则。 */
+function enhancedGear(
+  world: ContentSnapshot,
+  definition: { attack?: number; defense?: number; hp?: number; speed?: number; quality?: string } | undefined,
+  level: number,
+) {
+  const base = { attack: definition?.attack ?? 0, defense: definition?.defense ?? 0, hp: definition?.hp ?? 0, speed: definition?.speed ?? 0 };
+  if (!definition || level <= 0) {
+    return base;
+  }
+  const rules = readEnhanceRules(world);
+  return {
+    attack: enhancedStat(base.attack, level, rules, definition.quality),
+    defense: enhancedStat(base.defense, level, rules, definition.quality),
+    hp: enhancedStat(base.hp, level, rules, definition.quality),
+    speed: enhancedStat(base.speed, level, rules, definition.quality),
+  };
+}
+
+export function combatStats(world: ContentSnapshot, realmSlug: string, itemSlugs: (string | { slug: string; enhanceLevel: number })[], skillSlugs: (string | { slug: string; level: number })[]) {
   const realm = world.realms.find((row) => row.slug === realmSlug);
   if (!realm) {
     throw new AppError("NOT_FOUND", `境界编号 ${realmSlug} 不存在，请删掉这个测试账号后重新注册`);
@@ -93,12 +113,15 @@ export function combatStats(world: ContentSnapshot, realmSlug: string, itemSlugs
   let gearHp = 0;
   let gearSpeed = 0;
   let bonusBp = 0;
-  for (const itemSlug of itemSlugs) {
+  for (const entry of itemSlugs) {
+    const itemSlug = typeof entry === "string" ? entry : entry.slug;
+    const level = typeof entry === "string" ? 0 : entry.enhanceLevel;
     const definition = world.items.find((row) => row.slug === itemSlug);
-    gearAttack += definition?.attack ?? 0;
-    gearDefense += definition?.defense ?? 0;
-    gearHp += definition?.hp ?? 0;
-    gearSpeed += definition?.speed ?? 0;
+    const grown = enhancedGear(world, definition, level);
+    gearAttack += grown.attack;
+    gearDefense += grown.defense;
+    gearHp += grown.hp;
+    gearSpeed += grown.speed;
   }
   let attackPercent = 0;
   let defensePercent = 0;
@@ -166,7 +189,7 @@ function statOf(value: number | null | undefined): number {
 export function explainPlayerPower(
   world: ContentSnapshot,
   realmSlug: string,
-  items: { itemSlug: string; equippedSlot: string | null; quantity: number }[],
+  items: { itemSlug: string; equippedSlot: string | null; quantity: number; enhanceLevel?: number }[],
   skills: { skillSlug: string; runningSlot: string | null; level: number }[],
 ): PowerBreakdown {
   const empty = { attack: 0, defense: 0, hp: 0, speed: 0, weights: null, lines: [] as PowerSourceLine[], steps: [] as string[] };
@@ -192,15 +215,17 @@ export function explainPlayerPower(
     const name = definition?.displayName || (definition ? "名称缺失" : "已删除");
     const quantity = item.quantity > 1 ? ` × ${item.quantity}` : "";
     const equipped = Boolean(item.equippedSlot);
+    const level = item.enhanceLevel ?? 0;
+    const grown = equipped ? enhancedGear(world, definition, level) : { attack: 0, defense: 0, hp: 0, speed: 0 };
     lines.push({
       group: "武器",
-      name: `${name}${quantity}`,
-      attack: equipped ? statOf(definition?.attack) : 0,
-      defense: equipped ? statOf(definition?.defense) : 0,
-      hp: equipped ? statOf(definition?.hp) : 0,
-      speed: equipped ? statOf(definition?.speed) : 0,
+      name: `${name}${level > 0 ? ` +${level}` : ""}${quantity}`,
+      attack: grown.attack,
+      defense: grown.defense,
+      hp: grown.hp,
+      speed: grown.speed,
       counted: equipped,
-      note: !definition ? "后台里已经没有这件" : equipped ? "已穿上" : "在背包，不算战力",
+      note: !definition ? "后台里已经没有这件" : equipped ? (level > 0 ? `已穿上，强化 +${level}` : "已穿上") : "在背包，不算战力",
     });
   }
   const reached = sumReachedRealmStats(
@@ -338,6 +363,9 @@ function stateDto(world: World, playerId: string, settled: Awaited<ReturnType<ty
     breakthrough: { rateBp, cost: realm.breakthroughCost, nextSlug: realm.nextRealmSlug },
     challengeCooldownSeconds: readGameRules(world).challengeCooldownSeconds,
     autoDecompose: settled.state.autoDecompose,
+    enhanceExp: settled.state.enhanceExp,
+    bagBonus: settled.state.bagBonus,
+    bagCapacity: readGameRules(world).bagCapacity + settled.state.bagBonus,
     items: settled.pieces.items,
     skills: settled.pieces.skills,
     stages: settled.pieces.stages,
@@ -379,6 +407,13 @@ export async function withIdempotency<T>(
   });
 }
 
+async function addEnhanceExp(tx: Tx, playerId: string, amount: number) {
+  await tx
+    .update(playerStates)
+    .set({ enhanceExp: sql`${playerStates.enhanceExp} + ${amount}` })
+    .where(eq(playerStates.playerId, playerId));
+}
+
 async function addCultivation(tx: Tx, playerId: string, amount: number) {
   await tx
     .update(playerStates)
@@ -405,13 +440,12 @@ async function grant(
   options?: {
     autoDecompose: boolean;
     worn: { itemSlug: string; equippedSlot: string | null }[];
-    gainPerTick: number;
     weights: { attack: number; defense: number; hp: number; speed: number };
   },
-): Promise<{ decomposed: boolean; cultivation: number }> {
+): Promise<{ decomposed: boolean; enhanceExp: number }> {
   const definition = world.items.find((row) => row.slug === itemSlug);
   if (!definition || quantity <= 0) {
-    return { decomposed: false, cultivation: 0 };
+    return { decomposed: false, enhanceExp: 0 };
   }
   if (options?.autoDecompose && definition.kind === "equipment" && definition.slot) {
     const worn = wornGear(world, options.worn, definition.slot);
@@ -423,9 +457,9 @@ async function grant(
         speed: item.speed ?? 0,
       });
       if (ratePower(stats(definition), options.weights) < ratePower(stats(worn), options.weights)) {
-        const cultivation = decomposeCultivation(definition.quality ?? "", options.gainPerTick);
-        await addCultivation(tx, playerId, cultivation * quantity);
-        return { decomposed: true, cultivation: cultivation * quantity };
+        const gained = decomposeEnhanceExp(readEnhanceRules(world), definition.quality, 0) * quantity;
+        await addEnhanceExp(tx, playerId, gained);
+        return { decomposed: true, enhanceExp: gained };
       }
     }
   }
@@ -438,7 +472,7 @@ async function grant(
       .limit(1);
     if (row) {
       await tx.update(playerItems).set({ quantity: row.quantity + quantity }).where(eq(playerItems.id, row.id));
-      return { decomposed: false, cultivation: 0 };
+      return { decomposed: false, enhanceExp: 0 };
     }
     await tx.insert(playerItems).values({
       playerId,
@@ -448,7 +482,7 @@ async function grant(
       source,
       acquiredAt: now,
     });
-    return { decomposed: false, cultivation: 0 };
+    return { decomposed: false, enhanceExp: 0 };
   }
   for (let index = 0; index < quantity; index += 1) {
     await tx.insert(playerItems).values({
@@ -460,7 +494,7 @@ async function grant(
       acquiredAt: now,
     });
   }
-  return { decomposed: false, cultivation: 0 };
+  return { decomposed: false, enhanceExp: 0 };
 }
 
 export async function initializeProgress(tx: Tx, playerId: string, now: Date) {
@@ -552,7 +586,7 @@ export async function challengeStage(tx: Tx, world: World, playerId: string, sta
   if (cooldown > 0 && settled.state.lastChallengeAt && now.getTime() - settled.state.lastChallengeAt.getTime() < cooldown * 1000) {
     throw new AppError("CHALLENGE_COOLDOWN", `挑战冷却中，要间隔 ${cooldown} 秒`);
   }
-  const bagCapacity = rules.bagCapacity;
+  const bagCapacity = rules.bagCapacity + settled.state.bagBonus;
   const used = settled.pieces.items.filter((row) => !row.equippedSlot).length;
   if (used >= bagCapacity) {
     throw new AppError("BAG_FULL");
@@ -583,7 +617,7 @@ export async function challengeStage(tx: Tx, world: World, playerId: string, sta
     },
     battleConfigOf(world),
   );
-  const drops: { itemSlug: string; quantity: number; decomposed?: boolean; cultivation?: number }[] = [];
+  const drops: { itemSlug: string; quantity: number; decomposed?: boolean; enhanceExp?: number }[] = [];
   let nextPity: Record<string, number> | undefined;
   if (battle.win) {
     const reward = boss?.reward;
@@ -600,6 +634,9 @@ export async function challengeStage(tx: Tx, world: World, playerId: string, sta
       for (const row of rolled.grants) {
         drops.push({ itemSlug: row.slug, quantity: 1 });
       }
+      // 方案首领的装备/功法书仍按方案掉落；后台掉落表里配置的材料（例如突破石）也一并掷骰。
+      const rewardTable = world.dropTables.find((row) => row.slug === stage.bossDropTableSlug);
+      drops.push(...rollDropTable(rewardTable?.entries ?? [], randomInt));
     } else {
       drops.push(
         ...rollDropTable(
@@ -635,12 +672,11 @@ export async function challengeStage(tx: Tx, world: World, playerId: string, sta
       const granted = await grant(tx, world, playerId, drop.itemSlug, drop.quantity, `drop:${stage.slug}`, now, {
         autoDecompose: settled.state.autoDecompose,
         worn: settled.pieces.items,
-        gainPerTick: realm.gainPerTick,
         weights: rules.powerWeights,
       });
       if (granted.decomposed) {
         drop.decomposed = true;
-        drop.cultivation = granted.cultivation;
+        drop.enhanceExp = granted.enhanceExp;
       }
     }
     await tx
@@ -782,32 +818,131 @@ export async function decomposeItem(tx: Tx, world: World, playerId: string, item
     throw new AppError("NOT_FOUND");
   }
   if (item.equippedSlot) {
-    throw new AppError("INVALID_INPUT", "先脱下来再分解");
+    throw new AppError("EQUIPPED_CANNOT_DECOMPOSE", `已穿戴的装备不能分解，请先脱下「${world.items.find((row) => row.slug === item.itemSlug)?.displayName ?? "这件装备"}」`);
   }
   const definition = world.items.find((row) => row.slug === item.itemSlug);
   if (!definition || definition.kind !== "equipment" || !definition.slot) {
     throw new AppError("NOT_EQUIPMENT", "这不是装备，不能分解");
   }
-  const worn = wornGear(world, settled.pieces.items, definition.slot);
-  if (!worn) {
-    throw new AppError("INVALID_INPUT", "身上这个部位还是空的");
-  }
-  const rules = readGameRules(world);
-  const stats = (row: { attack?: number; defense?: number; hp?: number; speed?: number }) => ({
-    attack: row.attack ?? 0,
-    defense: row.defense ?? 0,
-    hp: row.hp ?? 0,
-    speed: row.speed ?? 0,
-  });
-  if (ratePower(stats(definition), rules.powerWeights) >= ratePower(stats(worn), rules.powerWeights)) {
-    throw new AppError("INVALID_INPUT", "这件不比身上的差");
-  }
-  const realm = realmOf(world, settled.state.realmSlug);
-  const gained = decomposeCultivation(definition.quality ?? "", realm.gainPerTick) * item.quantity;
+  const gained = decomposeEnhanceExp(readEnhanceRules(world), definition.quality, item.enhanceLevel) * item.quantity;
   await tx.delete(playerItems).where(eq(playerItems.id, item.id));
-  await addCultivation(tx, playerId, gained);
+  await addEnhanceExp(tx, playerId, gained);
   const after = await settleLocked(tx, playerId, world, now);
-  return { state: stateDto(world, playerId, after), convertedCultivation: gained };
+  return { state: stateDto(world, playerId, after), gainedEnhanceExp: gained };
+}
+
+function materialLabel(world: World, itemSlug: string): string {
+  return world.items.find((row) => row.slug === itemSlug)?.displayName ?? itemSlug;
+}
+
+function breakRequirementText(world: World, node: { level: number; materials: { itemSlug: string; count: number }[] }): string {
+  return node.materials.map((row) => `${materialLabel(world, row.itemSlug)}×${row.count}`).join("、");
+}
+
+/**
+ * 用强化经验给一件装备升级；一次升一级，toMax 为真时尽量升到上限、经验用完或遇到突破节点为止。
+ * 强化不会失败。装备强化到突破节点后必须先突破（breakthroughItem）才能继续。
+ */
+export async function enhanceItem(tx: Tx, world: World, playerId: string, itemId: string, now: Date, options?: { toMax?: boolean }) {
+  const settled = await settleLocked(tx, playerId, world, now);
+  const item = settled.pieces.items.find((row) => row.id === itemId);
+  if (!item) {
+    throw new AppError("NOT_FOUND");
+  }
+  const definition = world.items.find((row) => row.slug === item.itemSlug);
+  if (!definition || definition.kind !== "equipment" || !definition.slot) {
+    throw new AppError("NOT_EQUIPMENT", "这不是装备，不能强化");
+  }
+  const rules = readEnhanceRules(world);
+  const cap = enhanceCap(rules, definition.quality);
+  if (item.enhanceLevel >= cap) {
+    throw new AppError("INVALID_INPUT", `已强化到上限 +${cap}`);
+  }
+  let level = item.enhanceLevel;
+  let pool = settled.state.enhanceExp;
+  let spent = 0;
+  let blockedBy: { level: number; materials: { itemSlug: string; count: number }[] } | null;
+  do {
+    blockedBy = pendingBreakNode(rules, definition.quality, level, item.breakLevel);
+    if (blockedBy) {
+      break;
+    }
+    const cost = enhanceCost(rules, definition.quality, level);
+    if (pool < cost) {
+      break;
+    }
+    pool -= cost;
+    spent += cost;
+    level += 1;
+  } while (options?.toMax && level < cap);
+  if (level < cap && !blockedBy) {
+    blockedBy = pendingBreakNode(rules, definition.quality, level, item.breakLevel);
+  }
+  if (level === item.enhanceLevel) {
+    if (blockedBy) {
+      throw new AppError("BREAKTHROUGH_REQUIRED", `已到突破节点 +${blockedBy.level}，需要先突破：${breakRequirementText(world, blockedBy)}`, { node: blockedBy });
+    }
+    throw new AppError("INVALID_INPUT", `强化经验不足，下一级需要 ${enhanceCost(rules, definition.quality, level)}`);
+  }
+  await tx.update(playerItems).set({ enhanceLevel: level }).where(eq(playerItems.id, item.id));
+  await tx.update(playerStates).set({ enhanceExp: pool }).where(eq(playerStates.playerId, playerId));
+  const after = await settleLocked(tx, playerId, world, now);
+  return {
+    state: stateDto(world, playerId, after),
+    enhanced: { itemId: item.id, fromLevel: item.enhanceLevel, toLevel: level, spentExp: spent, blockedByBreakthrough: blockedBy ? blockedBy.level : null },
+  };
+}
+
+/**
+ * 突破：装备强化到突破节点（等级正好等于节点等级且没突破过）后，交齐配置里的材料（从行囊里扣）才能继续强化。
+ * 不会失败；材料不够时什么都不扣，直接报错并写明差多少。
+ */
+export async function breakthroughItem(tx: Tx, world: World, playerId: string, itemId: string, now: Date) {
+  const settled = await settleLocked(tx, playerId, world, now);
+  const item = settled.pieces.items.find((row) => row.id === itemId);
+  if (!item) {
+    throw new AppError("NOT_FOUND");
+  }
+  const definition = world.items.find((row) => row.slug === item.itemSlug);
+  if (!definition || definition.kind !== "equipment" || !definition.slot) {
+    throw new AppError("NOT_EQUIPMENT", "这不是装备，不能突破");
+  }
+  const rules = readEnhanceRules(world);
+  qualityRule(rules, definition.quality);
+  const node = pendingBreakNode(rules, definition.quality, item.enhanceLevel, item.breakLevel);
+  if (!node) {
+    throw new AppError("INVALID_INPUT", "这件装备现在不在突破节点上，不需要突破");
+  }
+  const stacks = settled.pieces.items.filter((row) => row.isStack);
+  const shortages: { itemSlug: string; need: number; have: number }[] = [];
+  for (const material of node.materials) {
+    const have = stacks.filter((row) => row.itemSlug === material.itemSlug).reduce((sum, row) => sum + row.quantity, 0);
+    if (have < material.count) {
+      shortages.push({ itemSlug: material.itemSlug, need: material.count, have });
+    }
+  }
+  if (shortages.length > 0) {
+    const text = shortages.map((row) => `${materialLabel(world, row.itemSlug)} 还差 ${row.need - row.have}（需要 ${row.need}，有 ${row.have}）`).join("；");
+    throw new AppError("BREAKTHROUGH_MATERIAL_SHORT", `突破材料不足：${text}`, { shortages });
+  }
+  for (const material of node.materials) {
+    let left = material.count;
+    for (const row of stacks.filter((stack) => stack.itemSlug === material.itemSlug)) {
+      if (left <= 0) {
+        break;
+      }
+      const take = Math.min(left, row.quantity);
+      left -= take;
+      if (row.quantity - take <= 0) {
+        await tx.delete(playerItems).where(eq(playerItems.id, row.id));
+      } else {
+        await tx.update(playerItems).set({ quantity: row.quantity - take }).where(eq(playerItems.id, row.id));
+      }
+    }
+  }
+  await tx.update(playerItems).set({ breakLevel: node.level }).where(eq(playerItems.id, item.id));
+  const after = await settleLocked(tx, playerId, world, now);
+  return { state: stateDto(world, playerId, after), broken: { itemId: item.id, level: node.level, materials: node.materials } };
 }
 
 export async function setAutoDecompose(tx: Tx, world: World, playerId: string, enabled: boolean, now: Date) {

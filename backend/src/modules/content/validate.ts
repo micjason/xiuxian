@@ -1,3 +1,4 @@
+import { breakMaterialProblems, enhanceRulesFromInput } from "./enhance.js";
 import { stagePowerErrors } from "./stage-power.js";
 
 const SLUG = /^[a-z][a-z0-9_]{1,47}$/;
@@ -19,6 +20,7 @@ export type ContentSnapshot = {
       speedBase?: number;
       recommendedPowerMargin?: number;
     };
+    enhance?: import("./enhance.js").EnhanceRules;
     artSlotRules?: { minRealmOrder: number; slots: number }[];
     idleKillCap?: number;
     minClientVersionCode?: number;
@@ -107,7 +109,7 @@ export type ContentSnapshot = {
   }[];
 };
 
-const EQUIPMENT_SLOTS = new Set(["weapon", "helmet", "clothes", "shoes", "accessory"]);
+const EQUIPMENT_SLOTS = new Set(["weapon", "helmet", "clothes", "gloves", "shoes", "accessory"]);
 const QUALITY_ORDER = ["white", "green", "blue", "purple", "orange"];
 
 const STAT_KEYS = ["attack", "defense", "hp", "speed"] as const;
@@ -200,6 +202,17 @@ export function validateContent(
         push(kind, row.slug, "slug", "编号重复");
       }
       seen.add(row.slug);
+    }
+  }
+
+  if (draft.items.some((item) => item.kind === "equipment" && item.enabled)) {
+    try {
+      const rules = enhanceRulesFromInput(draft.globals.enhance);
+      for (const message of breakMaterialProblems(rules, draft.items)) {
+        push("globals", "globals", "enhance", message);
+      }
+    } catch (cause) {
+      push("globals", "globals", "enhance", cause instanceof Error ? cause.message : "强化规则不正确");
     }
   }
 

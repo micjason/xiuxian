@@ -4,11 +4,12 @@ import { contentGlobals, contentItems, contentRealms, playerItems, playerStates 
 import { withTransaction } from "../../db/tx.js";
 import { withDb } from "../../test/db.js";
 import { registerPlayer } from "../auth/service.js";
+import { STARTING_ENHANCE_RULES } from "../content/enhance.js";
 import { loadCurrentWorld } from "../content/snapshot.js";
 import { decomposeItem, setAutoDecompose } from "./actions.js";
 
 describe("equipment decompose", () => {
-  it("turns a weaker spare piece into cultivation and remembers the switch", async () => {
+  it("turns a spare piece into enhancement exp and remembers the switch", async () => {
     await withDb(async (db) => {
       await db.insert(contentRealms).values({
         slug: "1",
@@ -23,6 +24,7 @@ describe("equipment decompose", () => {
         id: 1,
         offlineCapSeconds: 3600,
         bagCapacity: 20,
+        enhance: STARTING_ENHANCE_RULES,
         powerWeights: { attack: 4.7, defense: 1.6, hp: 0.95, speed: 2.6 },
         combat: {
           minInterval: 0.5,
@@ -57,7 +59,8 @@ describe("equipment decompose", () => {
         throw new Error("准备数据失败");
       }
       const decomposed = await withTransaction(db, (tx) => decomposeItem(tx, world, player.playerId, spare.id, now));
-      expect(decomposed.convertedCultivation).toBe(30);
+      expect(decomposed.gainedEnhanceExp).toBe(30);
+      expect(decomposed.state.enhanceExp).toBe(30);
       const left = await db.select().from(playerItems).where(eq(playerItems.playerId, player.playerId));
       expect(left.map((row) => row.itemSlug)).toEqual(["worn"]);
       const switched = await withTransaction(db, (tx) => setAutoDecompose(tx, world, player.playerId, true, now));

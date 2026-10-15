@@ -8,6 +8,7 @@ import { readRules, readGameRules, rulesForSave, rulesFromInput, saveRules } fro
 import { formulaExamples } from "./formula-examples.js";
 import { buildFormulaPreview } from "./formula-preview.js";
 import { loadDraftSnapshot } from "./snapshot.js";
+import { readEnhanceView, saveEnhanceRules } from "./enhance.js";
 import { listGear, removeMajorGear, saveGearQualityFactors, syncGear, updateGearPiece } from "./gear.js";
 import {
   createOpsItem,
@@ -31,6 +32,7 @@ import { publishSnapshot } from "./snapshot.js";
 import { duelTrialPuppets } from "./puppet-duel.js";
 import { createTrialPuppet, deleteTrialPuppet, listTrialPuppets, updateTrialPuppet } from "./puppets.js";
 import { runTrial, type TrialInput } from "./trial.js";
+import { diffContent, listContentVersions } from "./versions.js";
 
 function requiredPositive(value: unknown, label: string): number {
   if (value === undefined || value === null || value === "") {
@@ -263,6 +265,8 @@ export async function registerDraftRoutes(app: FastifyInstance, deps: { db: Db; 
     updateOpsSkill(deps.db, (request.params as { id: string }).id, request.body as never, request.actor?.actorId ?? null),
   );
   app.delete("/admin/draft/skills/:id", async (request) => deleteOpsSkill(deps.db, (request.params as { id: string }).id));
+  app.get("/admin/draft/enhance", async () => readEnhanceView(deps.db));
+  app.put("/admin/draft/enhance", async (request) => saveEnhanceRules(deps.db, request.body, request.actor?.actorId ?? null));
   app.get("/admin/draft/gear", async () => listGear(deps.db));
   app.put("/admin/draft/gear-qualities", async (request) =>
     saveGearQualityFactors(deps.db, request.body as Record<string, unknown>, request.actor?.actorId ?? null),
@@ -310,6 +314,10 @@ export async function registerDraftRoutes(app: FastifyInstance, deps: { db: Db; 
   app.post("/admin/draft/drop-tables", async (request) =>
     saveDraftDropTable(deps.db, request.body as never, request.actor?.actorId ?? null),
   );
+
+  // 发布中心用的只读接口：版本列表、任意两版（或版本与草稿）的改动清单。
+  app.get("/admin/draft/versions", async () => listContentVersions(deps.db));
+  app.get("/admin/draft/diff", async (request) => diffContent(deps.db, request.query as { from?: unknown; to?: unknown }));
 
   app.post("/admin/draft/publish", async (request) => {
     const body = (request.body ?? {}) as { note?: string };

@@ -19,6 +19,7 @@ export type ContentSnapshot = {
       defenseConstant?: number;
       speedBase?: number;
       recommendedPowerMargin?: number;
+      gearSpeedFactor?: number;
     };
     enhance?: import("./enhance.js").EnhanceRules;
     artSlotRules?: { minRealmOrder: number; slots: number }[];

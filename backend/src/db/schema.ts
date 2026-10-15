@@ -211,6 +211,7 @@ export const contentGlobals = pgTable("content_globals", {
     defenseConstant?: number;
     speedBase?: number;
     recommendedPowerMargin?: number;
+    gearSpeedFactor?: number;
   }>(),
   gearQualityFactors: jsonb("gear_quality_factors").$type<{
     white: number;

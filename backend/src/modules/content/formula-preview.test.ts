@@ -12,6 +12,7 @@ const rules: GameRules = {
   defenseConstant: 1,
   speedBase: 100,
   recommendedPowerMargin: 1.05,
+  gearSpeedFactor: 0.3,
 };
 
 describe("formula preview", () => {

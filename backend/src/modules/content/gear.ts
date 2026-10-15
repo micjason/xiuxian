@@ -6,6 +6,13 @@ import { ratePower, sumReachedRealmStats } from "../combat/stats.js";
 
 export const GEAR_BUDGET_RATIO = 0.55;
 
+/**
+ * 装备速度比例：鞋子、饰品上的“速度”数值按预算算出来的值再乘这个比例（0–1），
+ * 省下的战力原样补到同一部位的另一项属性（鞋子补气血、饰品补攻击），所以每件装备的战力不变，只是少一点速度。
+ * 1 = 不压速度（第 1 周之前的行为）；越小，出手间隔越难缩短。默认 0.1：第 1b 周模拟里，这个值让三个大境界的参考出手间隔落在 1.2 / 1.1 / 1.0 左右，和设计表 2.1 一致，普通怪击杀间隔与设计表 2.5 相差不到 10%（见 tools/sim 报告）。
+ */
+export const DEFAULT_GEAR_SPEED_FACTOR = 0.3;
+
 type GearStat = "attack" | "defense" | "hp" | "speed";
 
 export const GEAR_SLOTS: { key: string; name: string; share: number; stats: readonly GearStat[] }[] = [
@@ -69,7 +76,18 @@ export function majorKeyFor(realms: { slug: string; sortOrder: number; majorKey:
   return `major${first?.sortOrder ?? 1}`;
 }
 
-export function splitGearBudget(input: { budget: Stats; slotKey: string; factor: number; weights: Weights }): Stats {
+export function gearSpeedFactorOf(value: unknown): number {
+  if (value === undefined || value === null || value === "") {
+    return DEFAULT_GEAR_SPEED_FACTOR;
+  }
+  const number = Number(value);
+  if (!Number.isFinite(number) || number < 0 || number > 1) {
+    throw new AppError("INVALID_INPUT", "装备速度比例要在 0 到 1 之间");
+  }
+  return number;
+}
+
+export function splitGearBudget(input: { budget: Stats; slotKey: string; factor: number; weights: Weights; speedFactor?: number }): Stats {
   const slot = GEAR_SLOTS.find((row) => row.key === input.slotKey);
   if (!slot) {
     throw new AppError("INVALID_INPUT", "请选择部位：武器、头冠、衣服、鞋子、饰品");
@@ -84,12 +102,24 @@ export function splitGearBudget(input: { budget: Stats; slotKey: string; factor:
     throw new AppError("INVALID_INPUT", "请先在后台填写：攻击权重、防御权重、气血权重、速度权重");
   }
   const each = (budgetPower * slot.share * input.factor) / weightSum;
-  return {
-    attack: slot.stats.includes("attack") ? round2(each) : 0,
-    defense: slot.stats.includes("defense") ? round2(each) : 0,
-    hp: slot.stats.includes("hp") ? round2(each) : 0,
-    speed: slot.stats.includes("speed") ? round2(each) : 0,
-  };
+  const speedFactor = gearSpeedFactorOf(input.speedFactor);
+  const values: Stats = { attack: 0, defense: 0, hp: 0, speed: 0 };
+  const others = slot.stats.filter((key) => key !== "speed");
+  if (!slot.stats.includes("speed") || others.length === 0 || speedFactor === 1) {
+    for (const key of slot.stats) {
+      values[key] = round2(each);
+    }
+    return values;
+  }
+  // 速度压低后省下的战力，补给同一部位的其他属性，部位总战力不变。
+  const speed = each * speedFactor;
+  const otherWeightSum = others.reduce((sum, key) => sum + input.weights[key], 0);
+  const refill = otherWeightSum > 0 ? (each * weightSum - speed * input.weights.speed) / otherWeightSum : each;
+  values.speed = round2(speed);
+  for (const key of others) {
+    values[key] = round2(refill);
+  }
+  return values;
 }
 
 export function gearBudgetOf(
@@ -191,6 +221,7 @@ export async function syncGear(db: Db, adminId: string | null): Promise<void> {
   const factors = await readGearQualityFactors(db);
   const [globals] = await db.select().from(contentGlobals).where(eq(contentGlobals.id, 1)).limit(1);
   const weights = weightsOf(globals?.powerWeights);
+  const speedFactor = gearSpeedFactorOf(globals?.combat?.gearSpeedFactor);
   const realms = await db.select().from(contentRealms);
   const items = await db.select().from(contentItems);
   const groups = new Map<string, typeof realms>();
@@ -214,7 +245,7 @@ export async function syncGear(db: Db, adminId: string | null): Promise<void> {
     for (const slot of GEAR_SLOTS) {
       for (const quality of GEAR_QUALITIES) {
         const slug = gearPieceSlug(majorKey, slot.key, quality.key);
-        const stats = splitGearBudget({ budget, slotKey: slot.key, factor: factors[quality.key], weights });
+        const stats = splitGearBudget({ budget, slotKey: slot.key, factor: factors[quality.key], weights, speedFactor });
         const current = items.find((item) => item.slug === slug);
         const values = {
           ...stats,

@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { contentGlobals, contentRealms } from "../../db/schema.js";
-import { DEFAULT_GEAR_QUALITY_FACTORS, syncGear } from "./gear.js";
+import { DEFAULT_GEAR_QUALITY_FACTORS, gearSpeedFactorOf, syncGear } from "./gear.js";
 import { AppError } from "../../shared/errors.js";
 import type { Db } from "../operations/record.js";
 import type { ContentSnapshot } from "./validate.js";
@@ -15,6 +15,7 @@ export type GameRules = {
   defenseConstant: number;
   speedBase: number;
   recommendedPowerMargin: number;
+  gearSpeedFactor: number;
 };
 
 export type RulesInput = {
@@ -30,6 +31,7 @@ export type RulesInput = {
   defenseConstant?: number;
   speedBase?: number;
   recommendedPowerMargin?: number;
+  gearSpeedFactor?: number;
 };
 
 const fields = [
@@ -63,7 +65,7 @@ export function rulesForSave(
   stored: {
     offlineCapSeconds: number | null;
     bagCapacity: number | null;
-    combat: { challengeCooldownSeconds?: number; timeLimitSeconds?: number; recommendedPowerMargin?: number } | null;
+    combat: { challengeCooldownSeconds?: number; timeLimitSeconds?: number; recommendedPowerMargin?: number; gearSpeedFactor?: number } | null;
   } | null,
 ): RulesInput {
   return {
@@ -73,6 +75,7 @@ export function rulesForSave(
     challengeCooldownSeconds: input.challengeCooldownSeconds ?? stored?.combat?.challengeCooldownSeconds,
     timeLimitSeconds: input.timeLimitSeconds ?? stored?.combat?.timeLimitSeconds,
     recommendedPowerMargin: input.recommendedPowerMargin ?? stored?.combat?.recommendedPowerMargin,
+    gearSpeedFactor: input.gearSpeedFactor ?? stored?.combat?.gearSpeedFactor,
   };
 }
 
@@ -102,6 +105,7 @@ export function rulesFromInput(input: RulesInput): GameRules {
     defenseConstant: values.defenseConstant,
     speedBase: values.speedBase,
     recommendedPowerMargin: values.recommendedPowerMargin,
+    gearSpeedFactor: gearSpeedFactorOf(input.gearSpeedFactor),
   };
 }
 
@@ -121,6 +125,7 @@ function rulesInputOf(world: ContentSnapshot): RulesInput {
     defenseConstant: combat?.defenseConstant,
     speedBase: combat?.speedBase,
     recommendedPowerMargin: combat?.recommendedPowerMargin,
+    gearSpeedFactor: combat?.gearSpeedFactor,
   };
 }
 
@@ -158,6 +163,7 @@ export function rulesView(row: typeof contentGlobals.$inferSelect | null) {
     defenseConstant: combat?.defenseConstant ?? null,
     speedBase: combat?.speedBase ?? null,
     recommendedPowerMargin: combat?.recommendedPowerMargin ?? null,
+    gearSpeedFactor: gearSpeedFactorOf(combat?.gearSpeedFactor),
   };
 }
 
@@ -181,6 +187,7 @@ export async function saveRules(db: Db, input: RulesInput, adminId: string | nul
       defenseConstant: rules.defenseConstant,
       speedBase: rules.speedBase,
       recommendedPowerMargin: rules.recommendedPowerMargin,
+      gearSpeedFactor: rules.gearSpeedFactor,
     },
     updatedAt: new Date(),
     updatedBy: adminId,

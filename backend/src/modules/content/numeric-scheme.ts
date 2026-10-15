@@ -141,6 +141,8 @@ export function gearStats(majorIndex: number, slotKey: string, qualityKey: strin
     slotKey,
     factor,
     weights: SCHEME_WEIGHTS,
+    // 标准方案是固定的示例世界（速度只有个位数，压低后两位小数的取整会破坏品质比例），保持不压速度。
+    speedFactor: 1,
   });
 }
 

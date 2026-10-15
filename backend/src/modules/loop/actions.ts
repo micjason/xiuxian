@@ -438,7 +438,7 @@ function stateDto(world: World, playerId: string, settled: Awaited<ReturnType<ty
     speed: settled.stats.speed,
     interval: settled.stats.interval,
     cultivationRate: { bonusBp: settled.stats.bonusBp, gainPerTick: realm.gainPerTick },
-    breakthrough: { rateBp, cost: realm.breakthroughCost, nextSlug: realm.nextRealmSlug, requiredStage: gateOf(world, realm, settled.pieces.stages) },
+    breakthrough: { rateBp, cost: realm.breakthroughCost, nextSlug: realm.nextRealmSlug, requiredStage: gateOf(world, realm, settled.pieces.stages), preview: breakthroughPreview(world, next, settled) },
     challengeCooldownSeconds: readGameRules(world).challengeCooldownSeconds,
     autoDecompose: settled.state.autoDecompose,
     enhanceExp: settled.state.enhanceExp,
@@ -475,6 +475,29 @@ function stateDto(world: World, playerId: string, settled: Awaited<ReturnType<ty
       drops: settled.waves.drops,
       bagFull: settled.waves.bagFull,
     },
+  };
+}
+
+/** 突破后的样子（沿用现在穿的装备和运转的功法）：属性、战力、每秒修为、大招、新开放的关卡。突破流程界面用它显示“突破后”。 */
+function breakthroughPreview(world: World, next: World["realms"][number] | undefined, settled: Awaited<ReturnType<typeof settleLocked>>) {
+  if (!next || next.sortOrder == null) {
+    return null;
+  }
+  const after = statsOf(world, next.slug, settled.pieces.items, settled.pieces.skills);
+  return {
+    realmName: next.displayName ?? next.slug,
+    attack: after.attack,
+    defense: after.defense,
+    hp: after.hp,
+    speed: after.speed,
+    interval: after.interval,
+    power: after.power,
+    gainPerTick: next.gainPerTick,
+    tickSeconds: next.tickSeconds,
+    ult: ultOf(world, next.slug),
+    newStages: world.stages
+      .filter((stage) => stage.requiredRealmOrder === next.sortOrder)
+      .map((stage) => ({ slug: stage.slug, name: stage.displayName ?? stage.slug })),
   };
 }
 

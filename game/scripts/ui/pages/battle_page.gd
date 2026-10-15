@@ -148,7 +148,7 @@ func _build_arena() -> void:
 func _build_report_panel() -> Control:
 	var panel := PanelContainer.new()
 	panel.name = "ReportPanel"
-	panel.custom_minimum_size = Vector2(0, 320)
+	panel.custom_minimum_size = Vector2(0, 340)
 	panel.add_theme_stylebox_override("panel", ArtLib.nine("battle_log_panel") if ArtLib.has_ui("battle_log_panel") else ArtLib.nine("panel_inset"))
 	var column := UiKit.vbox(2)
 	panel.add_child(column)

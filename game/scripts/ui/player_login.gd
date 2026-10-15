@@ -8,6 +8,11 @@ var _password: LineEdit
 var _error: Label
 var _server: LineEdit
 var _card: PanelContainer
+var _logo: TextureRect
+
+const LOGO_TOP := 150.0
+const LOGO_BOTTOM := 560.0
+const CARD_GAP := 24.0
 
 
 func _ready() -> void:
@@ -23,8 +28,7 @@ func _ready() -> void:
 	logo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	logo.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	logo.set_anchors_preset(Control.PRESET_TOP_WIDE)
-	logo.offset_top = 150.0
-	logo.offset_bottom = 560.0
+	_logo = logo
 	add_child(logo)
 	_card = PanelContainer.new()
 	_card.add_theme_stylebox_override("panel", ArtLib.nine("panel_popup"))
@@ -65,7 +69,18 @@ func _ready() -> void:
 
 
 func _fit_card() -> void:
-	MainTheme.place_centered(_card, size, Vector2(860, 940))
+	var inset := UiSafeArea.current(get_viewport())
+	_logo.offset_top = inset.y + LOGO_TOP
+	_logo.offset_bottom = inset.y + LOGO_BOTTOM
+	var card := MainTheme.place_centered(_card, size, Vector2(860, 940))
+	# 1080×1920 上居中的卡片会压住标题的下半截：卡片顶不能高过标题底（v9 屏幕适配检查发现）
+	var screen_height := size.y if size.y > 64.0 else 1920.0
+	var top := screen_height * 0.5 + _card.offset_top
+	var min_top := _logo.offset_bottom + CARD_GAP
+	if top < min_top:
+		var shift := min_top - top
+		_card.offset_top += shift
+		_card.offset_bottom += shift
 
 
 func _field(placeholder: String) -> LineEdit:

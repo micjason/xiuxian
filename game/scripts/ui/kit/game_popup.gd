@@ -88,7 +88,7 @@ func _layout() -> void:
 	else:
 		_apply_sheet_layout(inset)
 	# 面板最高占屏幕 90%；内容更多时 body 在面板内滚动。
-	_max_scroll = maxf(240.0, get_viewport_rect().size.y * 0.94 - 300.0)
+	_max_scroll = maxf(240.0, (get_viewport_rect().size.y - inset.y - inset.w) * 0.94 - 300.0)  # 扣掉刘海和手势条，面板顶不会伸进刘海
 
 
 var _max_scroll := 1000.0

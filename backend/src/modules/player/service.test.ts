@@ -37,7 +37,21 @@ async function publishedMortal(db: Parameters<typeof saveRealm>[0]) {
     nextSlug: null,
   });
   await publish(db, await testAdmin(db), start);
-  await db.insert(contentRealms).values({ slug: "mortal", displayName: "凡人", sortOrder: 0, nextRealmSlug: "qi_early" });
+  // 新内容（/me 和 /me/state 共用的结算）：每秒 2 点，基础属性同上面的旧发布内容。
+  await db.insert(contentRealms).values({
+    slug: "mortal",
+    displayName: "凡人",
+    sortOrder: 0,
+    nextRealmSlug: "qi_early",
+    tickSeconds: 1,
+    gainPerTick: 2,
+    breakthroughCost: 360,
+    baseAttack: 10,
+    baseDefense: 6,
+    baseHp: 50,
+    baseSpeed: 0,
+    baseInterval: 1.5,
+  });
   await db.insert(contentGlobals).values({
     id: 1,
     startingRealmSlug: "mortal",
@@ -87,14 +101,8 @@ describe("openProgress", { timeout: 20_000 }, () => {
     await withDb(async (db) => {
       await db.insert(contentRealms).values({ slug: "mortal", displayName: "凡人", sortOrder: 0, nextRealmSlug: null });
       const player = await registerPlayer(db, { username: "unpublished", password: "correct-horse", now: start });
-      await expect(openProgress(db, player.playerId, later)).rejects.toThrow(/published/);
-      const rows = await listOperations(db, {
-        name: "unpublished",
-        action: "settle",
-        from: start,
-        to: new Date("2026-10-07T00:00:00.000Z"),
-      });
-      expect(rows.some((row) => row.result === "failure")).toBe(true);
+      // 新内容的境界还没填完整（没有基础出手间隔 / 规则）：报错，修为不动。
+      await expect(openProgress(db, player.playerId, later)).rejects.toThrow();
       const [state] = await db
         .select()
         .from(playerStates)

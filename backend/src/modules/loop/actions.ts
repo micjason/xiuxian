@@ -20,6 +20,7 @@ import { settleTicks } from "../progress/settle.js";
 import { AppError } from "../../shared/errors.js";
 import type { Db } from "../operations/record.js";
 import { readGameRules } from "../content/rules.js";
+import { noticesForPlayer, rememberIncome } from "../notices/service.js";
 
 type World = ContentSnapshot & { version: number };
 type RandomInt = (min: number, max: number) => number;
@@ -516,6 +517,46 @@ export async function initializeProgress(tx: Tx, playerId: string, now: Date) {
   for (const starter of world.globals.starterItems ?? []) {
     await grant(tx, world, playerId, starter.itemSlug, starter.quantity, "starter", now);
   }
+}
+
+/**
+ * GET /me（旧接口，保留）：走和 /me/state 一样的结算（整数万分比 + 余数携带 + 离线上限），只是返回旧的字段形状 + 公告弹窗。
+ * 返回 null 表示当前没有新内容（还没有境界），调用方退回旧的发布内容路径。
+ */
+export async function openProgressWorld(db: Db, playerId: string, now: Date, versionCode: number) {
+  const world = await loadCurrentWorld(db);
+  if (!world) {
+    return null;
+  }
+  return withTransaction(db, async (tx) => {
+    const { state: before } = await lockedState(tx, playerId);
+    const previousSettledAt = before.lastSettledAt;
+    const settled = await settleLocked(tx, playerId, world, now);
+    const realm = realmOf(world, settled.state.realmSlug);
+    const next = realm.nextRealmSlug ? world.realms.find((row) => row.slug === realm.nextRealmSlug) : undefined;
+    const offlineCapSeconds = readGameRules(world).offlineCapSeconds;
+    const elapsed = Math.floor((now.getTime() - previousSettledAt.getTime()) / 1000);
+    await rememberIncome(tx, playerId, {
+      countedSeconds: settled.settled.countedSeconds,
+      gained: settled.settled.gained,
+      hitCap: elapsed > settled.settled.countedSeconds,
+      offlineCapSeconds,
+      previousSettledAt,
+    });
+    return {
+      realmSlug: settled.state.realmSlug,
+      realmName: realm.displayName ?? settled.state.realmSlug,
+      cultivation: settled.state.cultivation,
+      gained: settled.settled.gained,
+      gainPerSecond: realm.tickSeconds > 0 ? (realm.gainPerTick * (10000 + Math.round(settled.stats.bonusBp))) / 10000 / realm.tickSeconds : 0,
+      offlineCapSeconds,
+      breakthroughCost: realm.breakthroughCost,
+      nextRealmName: next?.displayName ?? "",
+      canBreakthrough: next !== undefined && settled.state.cultivation >= realm.breakthroughCost,
+      power: settled.stats.power,
+      notices: await noticesForPlayer(tx, playerId, versionCode),
+    };
+  });
 }
 
 export async function readState(db: Db, playerId: string, now: Date) {

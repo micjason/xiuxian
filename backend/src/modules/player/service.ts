@@ -17,7 +17,7 @@ import { getPublishedRealm } from "../content/service.js";
 import { writeOperation, type Db } from "../operations/record.js";
 import { rememberIncome, noticesForPlayer } from "../notices/service.js";
 import { piecePower } from "./power.js";
-import { explainPlayerPower } from "../loop/actions.js";
+import { explainPlayerPower, openProgressWorld } from "../loop/actions.js";
 import { loadCurrentWorld } from "../content/snapshot.js";
 import { readRules } from "../content/rules.js";
 import { breakthrough, settleCultivation } from "./progress-rules.js";
@@ -37,6 +37,11 @@ async function lockedPlayer(db: Tx, playerId: string) {
 }
 
 export async function openProgress(db: Db, playerId: string, now: Date, versionCode = 0) {
+  // 有新内容（境界表）就走和 /me/state 相同的结算；只有没有新内容时才退回旧的发布内容路径。
+  const viaWorld = await openProgressWorld(db, playerId, now, versionCode);
+  if (viaWorld) {
+    return viaWorld;
+  }
   const realmPreview = await db.select({ realmSlug: playerStates.realmSlug, username: players.username, cultivation: playerStates.cultivation }).from(playerStates).innerJoin(players, eq(players.id, playerStates.playerId)).where(eq(playerStates.playerId, playerId)).limit(1);
   const preview = realmPreview[0];
   if (!preview) {

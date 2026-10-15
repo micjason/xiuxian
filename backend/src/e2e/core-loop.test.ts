@@ -146,9 +146,11 @@ describe("core loop", () => {
       const token = registered.json().token as string;
       const headers = { authorization: `Bearer ${token}`, "idempotency-key": "breakthrough-1" };
       clock = new Date(start.getTime() + 10_000);
-      const synced = await app.inject({ method: "POST", url: "/api/v1/me/sync", headers });
-      expect(synced.statusCode).toBe(200);
-      expect(synced.json().cultivation).toBe(100);
+      const settled = await app.inject({ method: "GET", url: "/api/v1/me/state", headers });
+      expect(settled.statusCode).toBe(200);
+      expect(settled.json().cultivation).toBe(100);
+      const gone = await app.inject({ method: "POST", url: "/api/v1/me/sync", headers });
+      expect(gone.statusCode).toBe(404);
 
       const firstBreak = await app.inject({ method: "POST", url: "/api/v1/me/breakthrough", headers });
       const secondBreak = await app.inject({ method: "POST", url: "/api/v1/me/breakthrough", headers });

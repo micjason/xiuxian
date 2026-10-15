@@ -1,9 +1,7 @@
 import { eq } from "drizzle-orm";
 import { withTransaction, type Tx } from "../../db/tx.js";
 import {
-  contentCurrent,
   contentRealms,
-  contentVersions,
   idempotencyKeys,
   noticeDismissals,
   playerItems,
@@ -14,7 +12,6 @@ import {
   players,
   repairApplications,
 } from "../../db/schema.js";
-import { settleTicks } from "../progress/settle.js";
 import { AppError } from "../../shared/errors.js";
 import { getPublishedRealm } from "../content/service.js";
 import { writeOperation, type Db } from "../operations/record.js";
@@ -133,46 +130,6 @@ async function openProgressLocked(db: Tx, playerId: string, now: Date, versionCo
     power: piecePower(realm, powerWeights),
     notices,
   };
-}
-
-export async function syncFromSnapshot(db: Db, playerId: string, now: Date) {
-  const [current] = await db.select().from(contentCurrent).where(eq(contentCurrent.id, 1)).limit(1);
-  if (!current) {
-    throw new AppError("CONTENT_NOT_PUBLISHED");
-  }
-  const [version] = await db.select().from(contentVersions).where(eq(contentVersions.version, current.version)).limit(1);
-  if (!version) {
-    throw new AppError("CONTENT_NOT_PUBLISHED");
-  }
-  const snapshot = version.snapshot as {
-    realms: { slug: string; tickSeconds: number; gainPerTick: number }[];
-    globals: { offlineCapSeconds: number };
-  };
-  return withTransaction(db, async (tx) => {
-    const { state } = await lockedPlayer(tx, playerId);
-    const realm = snapshot.realms.find((row) => row.slug === state.realmSlug);
-    if (!realm) {
-      throw new AppError("CONTENT_NOT_PUBLISHED");
-    }
-    if (snapshot.globals.offlineCapSeconds == null || snapshot.globals.offlineCapSeconds <= 0) {
-      throw new AppError("INVALID_INPUT", "请先在后台填写离线上限");
-    }
-    const settled = settleTicks({
-      cultivation: state.cultivation,
-      lastSettledAt: state.lastSettledAt,
-      now,
-      tickSeconds: realm.tickSeconds,
-      gainPerTick: realm.gainPerTick,
-      bonusBp: 0,
-      offlineCapSeconds: snapshot.globals.offlineCapSeconds,
-      remainderBp: state.cultivationRemainderBp,
-    });
-    await tx
-      .update(playerStates)
-      .set({ cultivation: settled.cultivation, lastSettledAt: settled.lastSettledAt, cultivationRemainderBp: settled.remainderBp })
-      .where(eq(playerStates.playerId, playerId));
-    return { cultivation: settled.cultivation, contentVersion: current.version, countedSeconds: settled.countedSeconds };
-  });
 }
 
 export async function listPlayers(db: Db) {

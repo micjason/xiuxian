@@ -1,8 +1,6 @@
 import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { contentGlobals, contentRealms, contentVersions } from "../../db/schema.js";
-import { registerPlayer } from "../auth/service.js";
-import { syncFromSnapshot } from "../player/service.js";
 import { withDb } from "../../test/db.js";
 import { publishSnapshot } from "./snapshot.js";
 
@@ -28,12 +26,9 @@ describe("publishSnapshot", () => {
       expect(again.version).toBe(2);
       const rows = await db.select().from(contentRealms).where(eq(contentRealms.slug, "mortal"));
       expect(rows).toHaveLength(1);
-      const player = await registerPlayer(db, { username: "syncer", password: "correct-horse", now: new Date("2026-10-08T02:00:00.000Z") });
-      const synced = await syncFromSnapshot(db, player.playerId, new Date("2026-10-08T02:00:10.000Z"));
-      const [stored] = await db.select().from(contentVersions);
-      expect(JSON.stringify(stored?.snapshot)).toContain("gainPerTick");
-      expect(synced.cultivation).toBeGreaterThan(0);
-      expect(synced.contentVersion).toBe(2);
+      const stored = await db.select().from(contentVersions);
+      expect(stored.map((row) => row.version).sort()).toEqual([1, 2]);
+      expect(JSON.stringify(stored[0]?.snapshot)).toContain("gainPerTick");
     });
   });
 });

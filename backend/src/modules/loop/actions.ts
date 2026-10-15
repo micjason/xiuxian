@@ -545,6 +545,8 @@ export async function challengeStage(tx: Tx, world: World, playerId: string, sta
       firstClearedAt: null,
       clearCount: 0,
       bestClearSeconds: null,
+      dailyRewardCount: 0,
+      dailyRewardDay: null,
     };
   }
   const rules = readGameRules(world);

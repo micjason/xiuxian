@@ -1,3 +1,4 @@
+import type { OptionalRuleValues, StageMonster, MonsterDropConfig, BossRewardEntry, BossRepeatReward } from "../modules/content/combat-types.js";
 import { sql } from "drizzle-orm";
 import {
   bigint,
@@ -212,7 +213,7 @@ export const contentGlobals = pgTable("content_globals", {
     speedBase?: number;
     recommendedPowerMargin?: number;
     gearSpeedFactor?: number;
-  }>(),
+  } & OptionalRuleValues>(),
   gearQualityFactors: jsonb("gear_quality_factors").$type<{
     white: number;
     green: number;
@@ -260,6 +261,11 @@ export const contentRealms = pgTable("content_realms", {
   baseHp: doublePrecision("base_hp").notNull().default(0),
   baseSpeed: doublePrecision("base_speed").notNull().default(0),
   baseInterval: doublePrecision("base_interval"),
+  /** 手动大招（按层填，同一个大境界的几层填一样的）。倍率 0 = 没有大招。 */
+  ultName: text("ult_name").notNull().default(""),
+  ultDamageMultBp: integer("ult_damage_mult_bp").notNull().default(0),
+  ultCooldownSeconds: doublePrecision("ult_cooldown_seconds").notNull().default(0),
+  ultFirstCooldownSeconds: doublePrecision("ult_first_cooldown_seconds").notNull().default(8),
   breakthroughCost: doublePrecision("breakthrough_cost").notNull().default(0),
   requiredStageSlug: text("required_stage_slug"),
   recommendedPower: integer("recommended_power").notNull().default(0),
@@ -357,6 +363,10 @@ export type StageBoss = {
   interval: number;
   drops: { itemSlug: string; chanceBp: number }[];
   reward?: { major: string; stageIndex: number; nextMajor: string | null };
+  /** 原型奖励模型：首通固定奖励（配了它或 repeat 就不再走旧的掉落表/方案奖励）。 */
+  firstClear?: BossRewardEntry[];
+  /** 首通之后每天前 N 次胜利的奖励（N = 规则“首领每日奖励次数”）。 */
+  repeat?: BossRepeatReward;
 };
 
 export const contentStages = pgTable("content_stages", {
@@ -372,6 +382,9 @@ export const contentStages = pgTable("content_stages", {
   bossHp: doublePrecision("boss_hp").notNull().default(1),
   bossInterval: doublePrecision("boss_interval").notNull().default(1.5),
   bosses: jsonb("bosses").$type<StageBoss[]>().notNull().default([]),
+  /** 普通怪（每个关卡一种），空 = 这个关卡没有波次。 */
+  monsters: jsonb("monsters").$type<StageMonster[]>().notNull().default([]),
+  monsterDrop: jsonb("monster_drop").$type<MonsterDropConfig | null>(),
   bossDropTableSlug: text("boss_drop_table_slug").notNull(),
   idleDropTableSlug: text("idle_drop_table_slug").notNull(),
   firstClearDropTableSlug: text("first_clear_drop_table_slug").notNull(),
@@ -414,6 +427,10 @@ export const playerStates = pgTable("player_states", {
   bagBonus: integer("bag_bonus").notNull().default(0),
   /** 结算时不足 1 点修为的部分，单位万分之一点，0..9999。见 progress/settle.ts。 */
   cultivationRemainderBp: integer("cultivation_remainder_bp").notNull().default(0),
+  /** 当前波次已经进行的秒数（前台在线时按波次周期推进）。 */
+  waveProgress: doublePrecision("wave_progress").notNull().default(0),
+  /** 连续阵亡次数（打赢一只就清零），客户端 ≥3 时提示去强化或切低关。 */
+  waveDeathsInRow: integer("wave_deaths_in_row").notNull().default(0),
 });
 
 export const playerItems = pgTable(
@@ -474,6 +491,9 @@ export const playerStageProgress = pgTable(
     firstClearedAt: timestamp("first_cleared_at", { withTimezone: true }),
     clearCount: integer("clear_count").notNull().default(0),
     bestClearSeconds: doublePrecision("best_clear_seconds"),
+    /** 首领每日奖励：今天（按每日重置整点算）已经拿过几次，和对应的日期。 */
+    dailyRewardCount: integer("daily_reward_count").notNull().default(0),
+    dailyRewardDay: text("daily_reward_day"),
   },
   (table) => [primaryKey({ columns: [table.playerId, table.stageSlug] })],
 );
@@ -552,3 +572,24 @@ export const repairApplications = pgTable(
   },
   (table) => [unique("repair_applications_name_player").on(table.repairName, table.playerId)],
 );
+
+/** 离线结算记录：一次离线（两次结算间隔超过在线判定）的结果。≥ 弹窗最短时长的会让客户端弹“闭关归来”，点“已读”只是确认，不领取（修为已经入账）。 */
+export const playerOfflineReports = pgTable("player_offline_reports", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  playerId: uuid("player_id")
+    .notNull()
+    .references(() => players.id),
+  startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
+  endedAt: timestamp("ended_at", { withTimezone: true }).notNull(),
+  /** 离线总秒数（可能超过上限）。 */
+  seconds: integer("seconds").notNull(),
+  /** 实际计入的秒数（≤ 离线上限）。 */
+  countedSeconds: integer("counted_seconds").notNull(),
+  hitCap: boolean("hit_cap").notNull().default(false),
+  gained: bigint("gained", { mode: "number" }).notNull().default(0),
+  baseGained: bigint("base_gained", { mode: "number" }).notNull().default(0),
+  bonusGained: bigint("bonus_gained", { mode: "number" }).notNull().default(0),
+  realmSlug: text("realm_slug").notNull(),
+  acknowledgedAt: timestamp("acknowledged_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});

@@ -4,6 +4,7 @@ import { DEFAULT_GEAR_QUALITY_FACTORS, gearSpeedFactorOf, syncGear } from "./gea
 import { AppError } from "../../shared/errors.js";
 import type { Db } from "../operations/record.js";
 import type { ContentSnapshot } from "./validate.js";
+import { OPTIONAL_RULES, type OptionalRuleKey, type OptionalRuleValues } from "./combat-types.js";
 
 export type GameRules = {
   offlineCapSeconds: number;
@@ -16,9 +17,9 @@ export type GameRules = {
   speedBase: number;
   recommendedPowerMargin: number;
   gearSpeedFactor: number;
-};
+} & Required<OptionalRuleValues>;
 
-export type RulesInput = {
+export type RulesInput = OptionalRuleValues & {
   offlineCapSeconds?: number;
   bagCapacity?: number;
   attackWeight?: number;
@@ -49,6 +50,28 @@ const fields = [
   ["recommendedPowerMargin", "推荐战力倍数", false],
 ] as const;
 
+const OPTIONAL_KEYS = Object.keys(OPTIONAL_RULES) as OptionalRuleKey[];
+
+/** 可选参数：没填就用默认值；填了就必须在范围内（整数项要填整数）。 */
+export function optionalRuleOf(key: OptionalRuleKey, value: unknown): number {
+  const spec = OPTIONAL_RULES[key];
+  if (value === undefined || value === null || value === "") {
+    return spec.default;
+  }
+  const number = Number(value);
+  if (!Number.isFinite(number) || number < spec.min || number > spec.max) {
+    throw new AppError("INVALID_INPUT", `${spec.label}要在 ${spec.min} 到 ${spec.max} 之间`);
+  }
+  if (spec.integer && !Number.isInteger(number)) {
+    throw new AppError("INVALID_INPUT", `${spec.label}要填整数`);
+  }
+  return number;
+}
+
+function optionalRulesOf(source: OptionalRuleValues | null | undefined): Required<OptionalRuleValues> {
+  return Object.fromEntries(OPTIONAL_KEYS.map((key) => [key, optionalRuleOf(key, source?.[key])])) as Required<OptionalRuleValues>;
+}
+
 function numberOf(value: unknown, label: string, allowZero: boolean): number {
   if (value === undefined || value === null || value === "") {
     throw new AppError("INVALID_INPUT", `请填写${label}`);
@@ -65,7 +88,7 @@ export function rulesForSave(
   stored: {
     offlineCapSeconds: number | null;
     bagCapacity: number | null;
-    combat: { challengeCooldownSeconds?: number; timeLimitSeconds?: number; recommendedPowerMargin?: number; gearSpeedFactor?: number } | null;
+    combat: ({ challengeCooldownSeconds?: number; timeLimitSeconds?: number; recommendedPowerMargin?: number; gearSpeedFactor?: number } & OptionalRuleValues) | null;
   } | null,
 ): RulesInput {
   return {
@@ -76,6 +99,7 @@ export function rulesForSave(
     timeLimitSeconds: input.timeLimitSeconds ?? stored?.combat?.timeLimitSeconds,
     recommendedPowerMargin: input.recommendedPowerMargin ?? stored?.combat?.recommendedPowerMargin,
     gearSpeedFactor: input.gearSpeedFactor ?? stored?.combat?.gearSpeedFactor,
+    ...Object.fromEntries(OPTIONAL_KEYS.map((key) => [key, input[key] ?? stored?.combat?.[key]])),
   };
 }
 
@@ -106,6 +130,7 @@ export function rulesFromInput(input: RulesInput): GameRules {
     speedBase: values.speedBase,
     recommendedPowerMargin: values.recommendedPowerMargin,
     gearSpeedFactor: gearSpeedFactorOf(input.gearSpeedFactor),
+    ...optionalRulesOf(input),
   };
 }
 
@@ -126,6 +151,7 @@ function rulesInputOf(world: ContentSnapshot): RulesInput {
     speedBase: combat?.speedBase,
     recommendedPowerMargin: combat?.recommendedPowerMargin,
     gearSpeedFactor: combat?.gearSpeedFactor,
+    ...optionalRulesOf(combat),
   };
 }
 
@@ -164,6 +190,7 @@ export function rulesView(row: typeof contentGlobals.$inferSelect | null) {
     speedBase: combat?.speedBase ?? null,
     recommendedPowerMargin: combat?.recommendedPowerMargin ?? null,
     gearSpeedFactor: gearSpeedFactorOf(combat?.gearSpeedFactor),
+    ...optionalRulesOf(combat),
   };
 }
 
@@ -188,6 +215,7 @@ export async function saveRules(db: Db, input: RulesInput, adminId: string | nul
       speedBase: rules.speedBase,
       recommendedPowerMargin: rules.recommendedPowerMargin,
       gearSpeedFactor: rules.gearSpeedFactor,
+      ...Object.fromEntries(OPTIONAL_KEYS.map((key) => [key, rules[key]])),
     },
     updatedAt: new Date(),
     updatedBy: adminId,

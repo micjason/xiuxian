@@ -156,6 +156,14 @@ export const rulesSchema: Schema = {
     { key: "challengeCooldownSeconds", label: "挑战冷却", kind: "number", group: "battle", required: true, min: 0, step: 1, unit: "秒", default: 0, hint: "两次挑战首领之间要间隔的秒数，0 表示没有冷却。", affects: "玩家挑战频率" },
     { key: "timeLimitSeconds", label: "单场时限", kind: "number", group: "battle", required: true, min: 1, step: 5, unit: "秒", default: 45, hint: "首领战超过这个时间没分出胜负，算玩家输。原型默认 45 秒；全局一个值，所有首领共用。", affects: "战斗胜负、试打结果" },
     { key: "recommendedPowerMargin", label: "推荐战力倍数", kind: "number", group: "battle", required: true, min: 0.1, step: 0.05, default: 1.05, hint: "关卡推荐战力 = 打赢首领所需战力 × 这个倍数。大于 1 更保守。", affects: "关卡推荐战力" },
+    { key: "onlineGapSeconds", label: "在线判定间隔", kind: "int", group: "world", min: 1, max: 600, step: 1, unit: "秒", default: 15, hint: "“在线”= 玩家前台打开游戏。两次请求间隔不超过这个秒数算在线（打普通怪、拿击杀修为和掉落）；超过就按离线段结算（只产修为）。客户端前台每 15 秒内至少请求一次。", affects: "普通怪波次、击杀修为、装备掉落、离线结算" },
+    { key: "offlinePopupMinSeconds", label: "离线弹窗最短时长", kind: "int", group: "world", min: 0, max: 86400, step: 60, unit: "秒", default: 300, hint: "离线达到这个秒数才弹“闭关归来”窗；不足时修为照常入账，只是不弹窗。", affects: "离线弹窗" },
+    { key: "dayStartHour", label: "每日重置整点", kind: "int", group: "world", min: 0, max: 23, step: 1, unit: "点", default: 5, hint: "北京时间的几点算新的一天（首领每日奖励次数按它重置）。", affects: "首领每日奖励次数" },
+    { key: "bossDailyRewardCount", label: "首领每日奖励次数", kind: "int", group: "battle", min: 0, max: 99, step: 1, unit: "次", default: 3, hint: "首领首通之后，每天前几次胜利有奖励；再赢也行，但没有奖励。", affects: "首领重复挑战奖励" },
+    { key: "ultAutoCastWindowSeconds", label: "大招自动释放等待", kind: "number", group: "battle", min: 0, max: 30, step: 0.5, precision: 1, unit: "秒", default: 2, hint: "大招冷却好之后等玩家点击的时间，超时自动释放。大招的名称、倍率、冷却在“境界”里按层填。", affects: "首领战大招" },
+    { key: "waveSize", label: "每波怪物数", kind: "int", group: "battle", min: 1, max: 10, step: 1, unit: "只", default: 3, hint: "普通怪一波有几只，依次上前，一次只和一只交战，中间不回血。", affects: "普通怪击杀速度" },
+    { key: "waveTransitionSeconds", label: "波次转场秒数", kind: "number", group: "battle", min: 0, max: 60, step: 0.5, precision: 1, unit: "秒", default: 2, hint: "一波打完到下一波之间的转场时间，转场时主角回满血。", affects: "普通怪击杀速度" },
+    { key: "reviveSeconds", label: "阵亡复活秒数", kind: "number", group: "battle", min: 0, max: 60, step: 0.5, precision: 1, unit: "秒", default: 3, hint: "普通怪打输（阵亡）后原地复活、回满血所需的秒数，无其他惩罚。", affects: "普通怪击杀速度" },
     { key: "bagCapacity", label: "行囊容量", kind: "int", group: "world", required: true, min: 1, step: 10, unit: "格", default: 20, hint: "玩家行囊最多放多少件（已穿戴的不占格）。满了无法挑战拿掉落。", affects: "行囊、掉落", warning: "调小不会清掉玩家已有物品，但已超出的玩家会无法挑战。" },
     { key: "offlineCapSeconds", label: "离线收益上限", kind: "int", group: "world", required: true, min: 1, step: 3600, unit: "秒", default: 28800, hint: "离线最多按多少秒结算修为，28800 = 8 小时。", affects: "离线收益" },
   ],
@@ -227,7 +235,7 @@ const extraLabels: Record<string, string> = {
   skillSlug: "对应功法", bossName: "首领名称", bossAttack: "首领攻击", bossDefense: "首领防御", bossHp: "首领气血", bossInterval: "首领出手间隔",
   tickSeconds: "修炼间隔", gainPerTick: "每次获得修为", breakthroughCost: "突破消耗修为", starterItems: "新手物品", startingRealmSlug: "初始境界",
   artSlotRules: "功法栏位规则", idleKillCap: "挂机击杀上限", minClientVersionCode: "最低客户端版本号", bagCapacity: "行囊容量",
-  offlineCapSeconds: "离线收益上限", attack: "攻击", defense: "防御", hp: "气血", speed: "速度", displayName: "名称",
+  offlineCapSeconds: "离线收益上限", onlineGapSeconds: "在线判定间隔", offlinePopupMinSeconds: "离线弹窗最短时长", dayStartHour: "每日重置整点", bossDailyRewardCount: "首领每日奖励次数", ultAutoCastWindowSeconds: "大招自动释放等待", waveSize: "每波怪物数", waveTransitionSeconds: "波次转场秒数", reviveSeconds: "阵亡复活秒数", attack: "攻击", defense: "防御", hp: "气血", speed: "速度", displayName: "名称",
 };
 
 const labelIndex = new Map<string, string>();

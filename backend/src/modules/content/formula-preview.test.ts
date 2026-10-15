@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildFormulaPreview } from "./formula-preview.js";
 import type { GameRules } from "./rules.js";
+import { DEFAULT_OPTIONAL_RULES } from "./combat-types.js";
 
 const rules: GameRules = {
   offlineCapSeconds: 36000,
@@ -13,6 +14,7 @@ const rules: GameRules = {
   speedBase: 100,
   recommendedPowerMargin: 1.05,
   gearSpeedFactor: 0.3,
+  ...DEFAULT_OPTIONAL_RULES,
 };
 
 describe("formula preview", () => {

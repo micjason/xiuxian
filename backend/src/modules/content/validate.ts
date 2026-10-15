@@ -1,5 +1,6 @@
 import { breakMaterialProblems, enhanceRulesFromInput } from "./enhance.js";
 import { stagePowerErrors } from "./stage-power.js";
+import type { BossRepeatReward, BossRewardEntry, MonsterDropConfig, OptionalRuleValues, StageMonster } from "./combat-types.js";
 
 const SLUG = /^[a-z][a-z0-9_]{1,47}$/;
 
@@ -20,7 +21,7 @@ export type ContentSnapshot = {
       speedBase?: number;
       recommendedPowerMargin?: number;
       gearSpeedFactor?: number;
-    };
+    } & OptionalRuleValues;
     enhance?: import("./enhance.js").EnhanceRules;
     artSlotRules?: { minRealmOrder: number; slots: number }[];
     idleKillCap?: number;
@@ -45,6 +46,10 @@ export type ContentSnapshot = {
     baseHp?: number;
     baseSpeed?: number;
     baseInterval?: number;
+    ultName?: string;
+    ultDamageMultBp?: number;
+    ultCooldownSeconds?: number;
+    ultFirstCooldownSeconds?: number;
     requiredStageSlug: string | null;
     recommendedPower: number;
     enabled: boolean;
@@ -71,7 +76,11 @@ export type ContentSnapshot = {
       interval: number;
       drops: { itemSlug: string; chanceBp: number }[];
       reward?: { major: string; stageIndex: number; nextMajor: string | null };
+      firstClear?: BossRewardEntry[];
+      repeat?: BossRepeatReward;
     }[];
+    monsters?: StageMonster[];
+    monsterDrop?: MonsterDropConfig | null;
     recommendedPower: number;
     enabled: boolean;
   }[];

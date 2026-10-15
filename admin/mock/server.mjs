@@ -99,7 +99,7 @@ let stages = [
 ];
 let rules = {
   defenseConstant: 1, speedBase: 100, minInterval: 0.5, attackWeight: 4.7, defenseWeight: 1.6, hpWeight: 0.95, speedWeight: 2.6,
-  challengeCooldownSeconds: 0, timeLimitSeconds: 45, recommendedPowerMargin: 1.05, gearSpeedFactor: 0.3, bagCapacity: 20, offlineCapSeconds: 28800, idleKillCap: 200, minClientVersionCode: 20,
+  challengeCooldownSeconds: 0, timeLimitSeconds: 45, recommendedPowerMargin: 1.05, gearSpeedFactor: 0.3, onlineGapSeconds: 15, offlinePopupMinSeconds: 300, dayStartHour: 5, bossDailyRewardCount: 3, ultAutoCastWindowSeconds: 2, waveSize: 3, waveTransitionSeconds: 2, reviveSeconds: 3, bagCapacity: 20, offlineCapSeconds: 28800, idleKillCap: 200, minClientVersionCode: 20,
 };
 let puppets = [
   { id: "pp1", displayName: "炼气中期·青锋良", kind: "configured", kindName: "按配置", realmCode: 3, realmName: "炼气中期", realmMissing: false, weapons: [{ id: "炼气武器绿", displayName: "青锋·良" }], skills: [{ id: "k1", displayName: "养气诀" }], attack: 63, defense: 49, hp: 428, speed: 14, interval: 1.32, power: 1024, powerDetail: null, tendency: "均衡", tendencyNote: null, problem: null },

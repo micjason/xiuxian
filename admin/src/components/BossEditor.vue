@@ -28,7 +28,8 @@
           <strong>掉落</strong>
           <el-button size="small" link type="primary" @click="boss.drops.push({ itemId: '', chancePercent: undefined })">添加掉落</el-button>
         </div>
-        <p v-if="boss.drops.length === 0" class="muted">没有掉落。玩家打赢也拿不到东西。</p>
+        <p v-if="boss.drops.length === 0 && (boss.firstClear ?? []).length === 0 && !boss.repeat" class="muted">没有掉落。玩家打赢也拿不到东西。</p>
+        <p v-else-if="boss.drops.length === 0" class="muted">没有按概率掉落的物品；奖励来自下面的「首通固定奖励」和「重复挑战奖励」。</p>
         <div v-for="(drop, dropIndex) in boss.drops" :key="dropIndex" class="drop">
           <el-select v-model="drop.itemId" filterable placeholder="选择装备、物品或功法" class="pick" @focus="$emit('active', dropField)">
             <el-option-group label="装备">

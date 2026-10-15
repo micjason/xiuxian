@@ -241,7 +241,7 @@ watch([query, filterValues, () => props.rows], () => {
   page.value = 1;
 });
 
-const errors = computed(() => validateSchema(props.schema, form.value));
+const errors = computed(() => validateSchema(props.schema, form.value, props.optionsMap));
 const dirty = computed(() => JSON.stringify(form.value) !== original.value);
 const drawerTitle = computed(() => {
   const name = String(form.value[props.nameKey ?? "displayName"] ?? "");

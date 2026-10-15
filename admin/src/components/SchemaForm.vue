@@ -118,7 +118,7 @@ const activeKey = ref("");
 const extras = computed(() => unregisteredFields(props.schema, model.value, props.hiddenKeys ?? []).map((field) => ({ ...field, readonly: true })));
 
 const allFields = computed(() => [...props.schema.fields, ...extras.value]);
-const errors = computed(() => validateSchema(props.schema, model.value));
+const errors = computed(() => validateSchema(props.schema, model.value, props.optionsMap));
 const activeField = computed(() => allFields.value.find((field) => field.key === activeKey.value) ?? null);
 
 const sections = computed(() => {

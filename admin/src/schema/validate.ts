@@ -1,11 +1,11 @@
-import type { FieldDef, FormValues, Schema } from "./types";
+import type { FieldDef, FieldOption, FormValues, Schema } from "./types";
 
 export function isBlank(value: unknown): boolean {
   return value === undefined || value === null || value === "" || (typeof value === "number" && Number.isNaN(value));
 }
 
 /** 校验单个字段，返回中文错误；通过返回空字符串。 */
-export function validateField(field: FieldDef, value: unknown): string {
+export function validateField(field: FieldDef, value: unknown, options?: FieldOption[]): string {
   if (field.readonly) {
     return "";
   }
@@ -27,16 +27,18 @@ export function validateField(field: FieldDef, value: unknown): string {
       return `${field.label}不能大于 ${field.max}${field.unit ?? ""}`;
     }
   }
-  if (field.kind === "select" && field.options && !field.options.some((option) => option.value === value)) {
+  // 选项是页面运行时才加载的（例如关卡列表）时，没加载出来就不校验，避免把合法值判成“不存在”。
+  const choices = options ?? field.options;
+  if (field.kind === "select" && choices && choices.length > 0 && !choices.some((option) => option.value === value)) {
     return `${field.label}的选项不存在`;
   }
   return "";
 }
 
-export function validateSchema(schema: Schema, values: FormValues): Record<string, string> {
+export function validateSchema(schema: Schema, values: FormValues, optionsMap?: Record<string, FieldOption[]>): Record<string, string> {
   const errors: Record<string, string> = {};
   for (const field of schema.fields) {
-    const message = validateField(field, values[field.key]);
+    const message = validateField(field, values[field.key], optionsMap?.[field.key]);
     if (message) {
       errors[field.key] = message;
     }

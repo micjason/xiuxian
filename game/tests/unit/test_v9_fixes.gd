@@ -122,3 +122,22 @@ func test_safe_area_debug_override_parses_and_clamps() -> void:
 	assert_null(UiSafeArea.debug_override())
 	OS.unset_environment("XIUXIAN_SAFE_AREA")
 	assert_null(UiSafeArea.debug_override())
+
+
+func test_stage_page_challenge_button_is_fixed_above_the_tab_bar() -> void:
+	var scene := await _boot("ready")
+	scene.call("_show_page", "adventure")
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var stage := scene.get("_stage_page") as StagePage
+	var button := stage.challenge_button()
+	assert_not_null(button, "选中关卡后就有挑战按钮")
+	assert_true(button.is_visible_in_tree())
+	var scroll := stage.get("_stage_view") as ScrollContainer
+	assert_false(scroll.is_ancestor_of(button), "按钮不在滚动区里")
+	var vp := scene.get_viewport().get_visible_rect().size
+	var rect := button.get_global_rect()
+	assert_lte(rect.end.y, vp.y - float(TabBarView.HEIGHT), "不盖标签栏")
+	assert_gte(rect.position.y, 0.0)
+	assert_gte(rect.position.y, scroll.get_global_rect().position.y, "在滚动区下面")
+	assert_gte(rect.size.y, 96.0, "触控尺寸")

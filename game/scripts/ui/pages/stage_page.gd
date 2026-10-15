@@ -17,6 +17,9 @@ var busy := false
 
 var _stage_view: ScrollContainer
 var _stage_box: VBoxContainer
+## 「挑战」按钮固定在页面底部（紧贴标签栏上方，页面容器已经扣掉了安全区），首领详情在它上面滚动。
+var _challenge_bar: VBoxContainer
+var _challenge_button: Button
 
 
 func _init() -> void:
@@ -42,6 +45,10 @@ func _init() -> void:
 	_stage_box = UiKit.vbox(UiTokens.SP_2)
 	_stage_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_stage_view.add_child(_stage_box)
+	_challenge_bar = UiKit.vbox(0)
+	_challenge_bar.name = "ChallengeBar"
+	_challenge_bar.visible = false
+	add_child(_challenge_bar)
 
 
 func bind(state: Dictionary, content: Dictionary, stages: Array[Dictionary], selected_slug: String) -> void:
@@ -59,6 +66,9 @@ func set_busy(value: bool) -> void:
 
 func _render_stages() -> void:
 	UiKit.clear(_stage_box)
+	UiKit.clear(_challenge_bar)
+	_challenge_button = null
+	_challenge_bar.visible = false
 	var power := int(_state.get("power", 0))
 	var head := UiKit.card()
 	_stage_box.add_child(head.panel)
@@ -264,11 +274,17 @@ func _boss_card(stage: Dictionary, power: int) -> Control:
 	if cooldown != null:
 		card.body.add_child(UiKit.label("挑战冷却 %s 秒" % str(cooldown), UiTokens.FS_CAPTION, UiTokens.TEXT_MUTED))
 	var recommended := int(stage.get("recommendedPower", 0))
-	var button := UiKit.button("挑战 %s" % boss_name, MainTheme.VAR_PRIMARY, UiTokens.H_CTA + 16)
-	button.disabled = busy or boss.is_empty()
-	button.pressed.connect(func() -> void: challenge_requested.emit(str(stage.get("slug", ""))))
-	card.body.add_child(UiKit.spacer(UiTokens.SP_1))
-	card.body.add_child(button)
 	if recommended > 0 and power < recommended:
 		card.body.add_child(UiKit.wrap_label("我的战力低于推荐值，可能打不过。可以先去角色页换装备。", UiTokens.FS_MICRO, UiTokens.WARNING))
+	_challenge_button = UiKit.button("挑战 %s" % boss_name, MainTheme.VAR_PRIMARY, UiTokens.H_CTA + 16)
+	_challenge_button.name = "StageChallengeButton"
+	_challenge_button.disabled = busy or boss.is_empty()
+	_challenge_button.pressed.connect(func() -> void: challenge_requested.emit(str(stage.get("slug", ""))))
+	_challenge_bar.add_child(_challenge_button)
+	_challenge_bar.visible = true
 	return card.panel
+
+
+## 供测试：固定在底部的挑战按钮（没选中关卡时为 null）。
+func challenge_button() -> Button:
+	return _challenge_button

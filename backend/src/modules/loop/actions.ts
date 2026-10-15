@@ -22,6 +22,7 @@ import type { Db } from "../operations/record.js";
 import { readGameRules } from "../content/rules.js";
 import { addEnhanceExp, bagUsedSlots, decomposeRow, freeOneSlot, grantItem } from "./bag.js";
 import { noticesForPlayer, rememberIncome } from "../notices/service.js";
+import { EMPTY_WAVES, cycleFor, farmableStages, resolveFarmStage, settleWaves, type WaveSettlement } from "./waves.js";
 
 type World = ContentSnapshot & { version: number };
 type RandomInt = (min: number, max: number) => number;
@@ -324,31 +325,65 @@ async function settleLocked(tx: Tx, playerId: string, world: World, now: Date) {
   const { state } = await lockedState(tx, playerId);
   const pieces = await loadPieces(tx, playerId);
   const stats = statsOf(world, state.realmSlug, pieces.items, pieces.skills);
+  const rules = readGameRules(world);
+  const realm = realmOf(world, state.realmSlug);
   const settled = settleTicks({
     cultivation: state.cultivation,
     lastSettledAt: state.lastSettledAt,
     now,
-    tickSeconds: realmOf(world, state.realmSlug).tickSeconds,
-    gainPerTick: realmOf(world, state.realmSlug).gainPerTick,
+    tickSeconds: realm.tickSeconds,
+    gainPerTick: realm.gainPerTick,
     bonusBp: stats.bonusBp,
-    offlineCapSeconds: readGameRules(world).offlineCapSeconds,
+    offlineCapSeconds: rules.offlineCapSeconds,
     remainderBp: state.cultivationRemainderBp,
   });
+  // 在线 / 离线：距离上次结算不超过 onlineGapSeconds 记为在线（前台心跳），在线才有普通怪击杀修为和装备掉落；
+  // 超过就是一段离线（只有上面的挂机修为）。
+  const gapSeconds = Math.max(0, (now.getTime() - state.lastSettledAt.getTime()) / 1000);
+  const online = gapSeconds <= rules.onlineGapSeconds;
+  const consumedSeconds = Math.max(0, (settled.lastSettledAt.getTime() - state.lastSettledAt.getTime()) / 1000);
+  let waves: WaveSettlement = { ...EMPTY_WAVES, online };
+  const stage = realm.sortOrder == null ? null : resolveFarmStage(world, realm.sortOrder, state.idleStageSlug);
+  if (online && stage && consumedSeconds > 0) {
+    waves = await settleWaves(tx, world, playerId, {
+      rules,
+      stage,
+      stats,
+      progress: state.waveProgress,
+      deathsInRow: state.waveDeathsInRow,
+      consumedSeconds,
+      autoDecompose: state.autoDecompose,
+      capacity: rules.bagCapacity + state.bagBonus,
+      now,
+    });
+  } else if (online && stage) {
+    waves = { ...EMPTY_WAVES, online, stageSlug: stage.slug, monsterName: stage.monsters?.[0]?.name ?? null, progress: state.waveProgress, deathsInRow: state.waveDeathsInRow };
+  }
+  const waveProgress = online ? (stage ? waves.progress : 0) : 0;
+  const waveDeathsInRow = online ? (stage ? waves.deathsInRow : 0) : 0;
+  const cultivation = settled.cultivation + waves.killCultivation;
   const [saved] = await tx
     .update(playerStates)
     .set({
-      cultivation: settled.cultivation,
+      cultivation,
       lastSettledAt: settled.lastSettledAt,
       cultivationRemainderBp: settled.remainderBp,
+      waveProgress,
+      waveDeathsInRow,
       stateVersion: state.stateVersion + 1,
     })
     .where(eq(playerStates.playerId, playerId))
     .returning();
+  const kept = saved ?? { ...state, cultivation, lastSettledAt: settled.lastSettledAt, cultivationRemainderBp: settled.remainderBp, waveProgress, waveDeathsInRow };
+  const items = waves.drops.length > 0 || waves.kills > 0 ? (await loadPieces(tx, playerId)).items : pieces.items;
   return {
-    state: saved ?? { ...state, cultivation: settled.cultivation, lastSettledAt: settled.lastSettledAt, cultivationRemainderBp: settled.remainderBp },
-    pieces,
+    state: kept,
+    pieces: { ...pieces, items },
     stats,
     settled,
+    waves,
+    stage,
+    gapSeconds,
   };
 }
 
@@ -382,6 +417,7 @@ function stateDto(world: World, playerId: string, settled: Awaited<ReturnType<ty
     defense: settled.stats.defense,
     hp: settled.stats.hp,
     speed: settled.stats.speed,
+    interval: settled.stats.interval,
     cultivationRate: { bonusBp: settled.stats.bonusBp, gainPerTick: realm.gainPerTick },
     breakthrough: { rateBp, cost: realm.breakthroughCost, nextSlug: realm.nextRealmSlug, requiredStage: gateOf(world, realm, settled.pieces.stages) },
     challengeCooldownSeconds: readGameRules(world).challengeCooldownSeconds,
@@ -392,6 +428,43 @@ function stateDto(world: World, playerId: string, settled: Awaited<ReturnType<ty
     items: settled.pieces.items,
     skills: settled.pieces.skills,
     stages: settled.pieces.stages,
+    wave: waveDto(world, settled),
+    lastSettle: {
+      online: settled.waves.online,
+      seconds: Math.floor(settled.gapSeconds),
+      passiveGained: settled.settled.gained,
+      kills: settled.waves.kills,
+      deaths: settled.waves.deaths,
+      killCultivation: settled.waves.killCultivation,
+      drops: settled.waves.drops,
+      bagFull: settled.waves.bagFull,
+    },
+  };
+}
+
+/** 普通怪波次的当前状态：在哪个关卡刷、一波多久、进行到哪、可以切到哪些关卡。 */
+function waveDto(world: World, settled: Awaited<ReturnType<typeof settleLocked>>) {
+  const rules = readGameRules(world);
+  const realm = realmOf(world, settled.state.realmSlug);
+  const monster = settled.stage?.monsters?.[0];
+  const cycle = monster ? cycleFor(rules, settled.stats, monster) : null;
+  return {
+    available: Boolean(settled.stage && monster),
+    stageSlug: settled.stage?.slug ?? null,
+    stageName: settled.stage?.displayName ?? null,
+    monster: monster ? { name: monster.name, hp: monster.hp, attack: monster.attack, defense: monster.defense, interval: monster.interval, killCultivation: monster.killCultivation } : null,
+    waveSize: rules.waveSize,
+    cycleSeconds: cycle ? Math.round(cycle.cycleSeconds * 1000) / 1000 : null,
+    killsPerWave: cycle?.kills ?? 0,
+    deathsPerWave: cycle?.deaths ?? 0,
+    progress: Math.round(settled.state.waveProgress * 1000) / 1000,
+    deathsInRow: settled.state.waveDeathsInRow,
+    onlineGapSeconds: rules.onlineGapSeconds,
+    chosenStageSlug: settled.state.idleStageSlug,
+    selectable:
+      realm.sortOrder == null
+        ? []
+        : farmableStages(world, realm.sortOrder).map((stage) => ({ slug: stage.slug, name: stage.displayName ?? stage.slug, monsterName: stage.monsters?.[0]?.name ?? "" })),
   };
 }
 
@@ -494,6 +567,22 @@ export async function openProgressWorld(db: Db, playerId: string, now: Date, ver
 export async function readState(db: Db, playerId: string, now: Date) {
   const world = await worldOrThrow(db);
   return withTransaction(db, async (tx) => stateDto(world, playerId, await settleLocked(tx, playerId, world, now)));
+}
+
+/** 选择在哪个关卡刷普通怪；null = 回到默认（境界够得着的最高关卡）。切换后当前波次重新开始。 */
+export async function setIdleStage(tx: Tx, world: World, playerId: string, stageSlug: string | null, now: Date) {
+  const settled = await settleLocked(tx, playerId, world, now);
+  if (stageSlug !== null) {
+    const realm = realmOf(world, settled.state.realmSlug);
+    const allowed = realm.sortOrder == null ? [] : farmableStages(world, realm.sortOrder);
+    if (!allowed.some((stage) => stage.slug === stageSlug)) {
+      throw new AppError("INVALID_INPUT", "这个关卡现在不能刷怪（境界不够，或者没有配置怪物）");
+    }
+  }
+  if (stageSlug !== settled.state.idleStageSlug) {
+    await tx.update(playerStates).set({ idleStageSlug: stageSlug, waveProgress: 0, waveDeathsInRow: 0 }).where(eq(playerStates.playerId, playerId));
+  }
+  return stateDto(world, playerId, await settleLocked(tx, playerId, world, now));
 }
 
 export async function advanceRealm(tx: Tx, world: World, playerId: string, now: Date, randomInt: RandomInt) {

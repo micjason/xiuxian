@@ -3,7 +3,8 @@ import { AppError } from "../../shared/errors.js";
 import type { Db } from "../operations/record.js";
 import { tryBreakthrough } from "../player/service.js";
 import { loadCurrentWorld } from "../content/snapshot.js";
-import { advanceRealm, challengeStage, breakthroughItem, decomposeItem, enhanceItem, equipItem, readState, runSkill, setAutoDecompose, stopSkill, unequipItem, unequipSlot, useItem, withIdempotency } from "./actions.js";
+import { setWaveRandom } from "./waves.js";
+import { advanceRealm, challengeStage, breakthroughItem, decomposeItem, enhanceItem, equipItem, readState, runSkill, setAutoDecompose, setIdleStage, stopSkill, unequipItem, unequipSlot, useItem, withIdempotency } from "./actions.js";
 
 type RandomInt = (min: number, max: number) => number;
 
@@ -19,6 +20,7 @@ export async function registerLoopRoutes(
   app: FastifyInstance,
   deps: { db: Db; now: () => Date; randomInt: RandomInt },
 ): Promise<void> {
+  setWaveRandom(deps.randomInt);
   app.get("/me/state", async (request) => readState(deps.db, request.actor!.actorId, deps.now()));
 
   app.post("/me/breakthrough", async (request) => {
@@ -108,6 +110,17 @@ export async function registerLoopRoutes(
     }
     return withIdempotency(deps.db, playerId, idempotencyKey(request.headers["idempotency-key"]), "auto-decompose", deps.now(), (tx, world) =>
       setAutoDecompose(tx, world, playerId, body.enabled === true, deps.now()),
+    );
+  });
+
+  app.post("/me/idle-stage", async (request) => {
+    const playerId = request.actor!.actorId;
+    const body = (request.body ?? {}) as { stageSlug?: unknown };
+    if (body.stageSlug !== null && typeof body.stageSlug !== "string") {
+      throw new AppError("INVALID_INPUT", "请选择关卡");
+    }
+    return withIdempotency(deps.db, playerId, idempotencyKey(request.headers["idempotency-key"]), "idle-stage", deps.now(), (tx, world) =>
+      setIdleStage(tx, world, playerId, body.stageSlug as string | null, deps.now()),
     );
   });
 

@@ -146,7 +146,8 @@ ADMIN_USERNAME=newadmin ADMIN_PASSWORD='至少8位的密码' npm run admin:ensur
 1. 启动 Godot，在项目管理器点「导入」（Import）。
 2. 选择文件 `xiuxian/game/project.godot`（注意是 `game` 目录里的，不是仓库根目录）→ 打开 → 「导入并编辑」。
 3. **第一次打开会花十几秒到一两分钟**导入图片等资源（右下角有进度）。成功：编辑器打开，左下「文件系统」里能看到 `scenes`、`scripts`、`assets` 等。
-4. 如果弹出“有插件/脚本错误”：先关掉编辑器再重新打开一次（第一次导入时偶尔会因为资源还没导完而报错），再不行见文末「排错」。
+4. 如果进度条停在某个字体文件（如 `NotoSansSC-Regular.subset.woff2`）超过 2 分钟不动：这是 Godot 导入字体时偶发的卡住（在 Linux 无头模式下遇到过，卡住后关掉重开即可，已导入的会保留）。关闭 Godot，重新打开工程继续导入。
+5. 如果弹出“有插件/脚本错误”：先关掉编辑器再重新打开一次（第一次导入时偶尔会因为资源还没导完而报错），再不行见文末「排错」。
 
 ### 3.3 运行游戏
 
@@ -202,6 +203,7 @@ $GODOT --headless --path game -s addons/gut/gut_cmdln.gd -gdir=res://tests/unit 
 | 后台提示账号或密码不正确 | 用户名密码按 1.1 里设的；忘了就用 `ADMIN_RESET=1 ADMIN_USERNAME=… ADMIN_PASSWORD=… npm run admin:ensure`（在 `backend/` 目录）重置。 |
 | 游戏登录页红字「网络失败，请稍后再试」 | 后端没开 / 地址不对。先 `curl http://127.0.0.1:8080/healthz`，再核对登录页「服务器地址」；曾保存过别的地址就删 `server_url.txt`（见 3.4）。 |
 | Godot 打开工程报资源缺失 / 脚本解析错误 / 满屏红字 | 一般是第一次导入没完成。关闭编辑器 → 删除 `game/.godot` 文件夹（只是缓存，会重新生成）→ 重新打开工程等导入完。仍有错：确认版本是 4.7.2 标准版，不是 4.6 / 4.8 / .NET 版。 |
+| 第一次导入卡住不动（字体文件） | 关掉 Godot 重新打开工程，会接着导入（盒子上无头导入偶发卡住，重试一次就过）。 |
 | 运行后窗口很小 | 正常，项目设置里窗口是 540×960（逻辑分辨率 1080×1920 的一半）。可以拖拽放大。 |
 | 控制台一堆 `FreeType: Error loading font` | 无头模式 / 部分环境下的字体提示，不影响登录和游戏。 |
 | 想把一切重置成刚装好的样子 | `cd backend && docker compose down -v`（**删库**），再 `tools/local/setup_local.sh`；游戏侧再删 `~/Library/Application Support/xiuxian/` 里的 `player_token.txt`。 |
@@ -216,7 +218,7 @@ $GODOT --headless --path game -s addons/gut/gut_cmdln.gd -gdir=res://tests/unit 
 - ✅ 后端 `npm run typecheck`、`npm run lint`、`npm test`（69 个测试文件 / 260 个测试全过）。
 - ✅ 后端 `npm run dev` 监听 `127.0.0.1:8080`，`/healthz` 返回 `contentVersion: 1`；注册、登录、后台管理员登录接口返回令牌。
 - ✅ 后台 `npm ci`、`vue-tsc`、`eslint`、`npm run build` 通过，`npm run dev` 能起，通过它的代理能登录管理员。
-- ✅ Godot 4.7.2：全新克隆首次 `--import` 通过；GUT 173 个测试 172 个通过（1 个已知老问题）；用无头真实后端联调脚本对本地后端注册、登录并读取玩家状态成功（炼气一层、战力 494）。
+- ✅ Godot 4.7.2：全新克隆首次 `--import` 通过（偶发卡在字体导入，重试一次通过，见第 3.2 步）；GUT 173 个测试 172 个通过（1 个已知老问题）；用无头真实后端联调脚本对本地后端注册、登录并读取玩家状态成功（炼气一层、战力 494）。
 
 **没有验证（需要你在 Mac 上第一次跑时留意）：**
 

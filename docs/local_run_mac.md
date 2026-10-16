@@ -240,4 +240,4 @@ git fetch /path/to/xiuxian-proto-week1.bundle proto/week1:dev2   # 把 bundle �
 git push origin dev2                                   # 普通推送，不要加 --force
 ```
 
-成功后 GitHub 上会出现 `dev2`，最新提交应为 `f6206b4`；`dev` 和 `main` 不会被改动。用 `git log --oneline -1 dev2` 可以核对。如果第二步报缺少前置提交，说明本地的 `dev` 不是 838d557，先执行 `git checkout dev && git pull` 再重试。
+成功后 GitHub 上会出现 `dev2`，最新提交号应与群里告知的一致；`dev` 和 `main` 不会被改动。用 `git log --oneline -1 dev2` 可以核对。如果第二步报缺少前置提交，说明本地的 `dev` 不是 838d557，先执行 `git checkout dev && git pull` 再重试。

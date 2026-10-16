@@ -227,3 +227,17 @@ $GODOT --headless --path game -s addons/gut/gut_cmdln.gd -gdir=res://tests/unit 
 - ⚠️ 没有人在 Godot 图形编辑器里点过 ▶，没有亲眼看登录页和主界面；只验证了无头导入、单元测试和用真实后端的无头联调。
 - ⚠️ 没有真机 / 模拟器验证（本次也不需要）。
 - ⚠️ 没有装了 git-lfs 的机器上验证 `git status` 的表现。
+
+---
+
+## 附：拿到 bundle 文件后，怎么变成 `dev2` 分支并推送
+
+bundle 文件 `xiuxian-proto-week1.bundle` 只包含 `dev` 之后的提交。在已经克隆了仓库的 Mac 终端里执行（先 `cd` 到仓库目录）：
+
+```bash
+git fetch origin dev                                   # 确保本地有 dev（838d557）
+git fetch /path/to/xiuxian-proto-week1.bundle proto/week1:dev2   # 把 bundle 里的提交取成本地分支 dev2
+git push origin dev2                                   # 普通推送，不要加 --force
+```
+
+成功后 GitHub 上会出现 `dev2`，最新提交应为 `f6206b4`；`dev` 和 `main` 不会被改动。用 `git log --oneline -1 dev2` 可以核对。如果第二步报缺少前置提交，说明本地的 `dev` 不是 838d557，先执行 `git checkout dev && git pull` 再重试。

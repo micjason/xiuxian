@@ -393,7 +393,6 @@ async function runBot(db: Json, cfg: { seed: number; schedule: Schedule; variant
   const sessionTimesHours = cfg.schedule === "B" ? [6, 6 + 1 / 3, 6 + 2 / 3] : [6, 6 + 1 / 3, 14.5];
   const day0 = clock;
   const endAt = T0 + cfg.days * 86400000;
-  let finalRealm = state.realmSlug as string;
   outer: for (let day = 0; clock < endAt; day++) {
     for (const h of sessionTimesHours) {
       const start = day0 + day * 86400000 + h * 3600000;
@@ -406,9 +405,8 @@ async function runBot(db: Json, cfg: { seed: number; schedule: Schedule; variant
         await heartbeat(true);
         if (t % 120 === 0) await manage();
       }
-      if (state.realmSlug === "jindan_3" && (state.cultivation as number) >= 0) { finalRealm = "jindan_3"; if (m.boss.byStage.jindan_3?.wins >= 1 || day >= cfg.days) break outer; }
+      if (state.realmSlug === "jindan_3" && (state.cultivation as number) >= 0) { if (m.boss.byStage.jindan_3?.wins >= 1 || day >= cfg.days) break outer; }
     }
-    finalRealm = state.realmSlug as string;
     if (state.realmSlug === "jindan_3" && day >= Number(process.env.SIM_EXTRA_DAYS ?? 1) + Math.floor(m.layerReached["jindan_3"] ?? 0)) break;
   }
   // 战力 vs 参考配置

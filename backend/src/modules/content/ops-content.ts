@@ -5,7 +5,7 @@ import { contentDropEntries, contentDropTables, contentItems, contentRealms, con
 import { AppError } from "../../shared/errors.js";
 import type { Db } from "../operations/record.js";
 import { loadDraftSnapshot } from "./snapshot.js";
-import { stageAutoPower, stageRecommendedPower } from "./stage-power.js";
+import { stageAutoPower } from "./stage-power.js";
 import type { ContentSnapshot } from "./validate.js";
 
 type BossInput = {

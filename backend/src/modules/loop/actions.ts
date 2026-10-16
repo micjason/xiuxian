@@ -20,7 +20,7 @@ import { settleTicks } from "../progress/settle.js";
 import { AppError } from "../../shared/errors.js";
 import type { Db } from "../operations/record.js";
 import { readGameRules } from "../content/rules.js";
-import { addEnhanceExp, freeOneSlot, grantItem } from "./bag.js";
+import { addEnhanceExp, grantItem } from "./bag.js";
 import { noticesForPlayer, rememberIncome } from "../notices/service.js";
 import { dailyUsed, grantBossRewards, usesRewardModel } from "./boss-rewards.js";
 import { acknowledgeOfflineReport, pendingOfflineReport, recordOfflineReport } from "./offline.js";

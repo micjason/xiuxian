@@ -65,7 +65,7 @@ cat <<MSG
 
 全部完成。下一步：
   1) 起后端（保持这个终端开着）：  cd backend && npm run dev
-  2) 看到 "Server listening at http://127.0.0.1:8080" 后，浏览器打开 http://127.0.0.1:8080/healthz 应显示 {"ok":true,...}
+  2) 看到 "Server listening at http://127.0.0.1:8080" 后，浏览器打开 http://127.0.0.1:8080/healthz 应显示 {"ok":true,"version":"dev","contentVersion":1}
   3) 另开终端起后台：              cd admin && npm ci && npm run dev   → http://127.0.0.1:5173
   4) 后台登录账号：$ADMIN_USERNAME，密码见上面的 ADMIN_PASSWORD（默认 xiuxian-local-1）
 MSG

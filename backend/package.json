@@ -11,6 +11,9 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "format": "prettier --write .",
+    "db:ensure": "node --env-file-if-exists=.env --import tsx src/scripts/ensure-database.ts",
+    "db:seed-prototype": "node --env-file-if-exists=.env --import tsx src/scripts/seed-prototype-if-empty.ts",
+    "admin:ensure": "node --env-file-if-exists=.env --import tsx src/scripts/ensure-admin.ts",
     "admin:create": "tsx src/scripts/create-admin.ts",
     "content:import": "tsx src/scripts/import-content.ts",
     "content:scheme": "node --env-file-if-exists=.env --import tsx src/scripts/apply-numeric-scheme.ts"

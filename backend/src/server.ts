@@ -23,7 +23,7 @@ const db = getDb();
 const stopSessionCleanup = startSessionCleanup(db);
 const app = await buildApp(db);
 const port = config.PORT;
-await app.listen({ port, host: "0.0.0.0" });
+await app.listen({ port, host: config.HOST });
 
 async function shutdown() {
   stopSessionCleanup();

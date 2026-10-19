@@ -8,7 +8,7 @@ extends RefCounted
 
 const DATASET_PATH := "res://resources/mock/prototype_dataset.json"
 ## 场景：ready = 突破条件全满足 + 有离线收益弹窗 + 背包 12/20；fresh = 刚开始；full = 背包 20/20；
-## gate = 修为够但没打过首领；top = 最高境界。
+## gate = 修为够但没打过首领；top = 最高境界；realm:<境界 slug> = 指定境界（按 gate 的装备/修为拼，如 realm:lianqi_2，用来查各境界的页面）。
 static var scenario := "ready"
 static var _data: Dictionary = {}
 static var _seq := 500
@@ -50,6 +50,9 @@ static func state(scene: String = "") -> Dictionary:
 	var which := scene if not scene.is_empty() else scenario
 	var content_data := content()
 	var realm_slug := {"fresh": "lianqi_1", "top": "jindan_3", "gate": "lianqi_3"}.get(which, "lianqi_3") as String
+	if which.begins_with("realm:"):
+		realm_slug = which.trim_prefix("realm:")
+		which = "gate"
 	var out := realm_snapshot(realm_slug)
 	out["code"] = 200
 	out["playerId"] = "mock-player"

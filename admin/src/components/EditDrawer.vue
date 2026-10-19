@@ -2,7 +2,7 @@
   <el-drawer
     v-model="open"
     :size="size"
-    :close-on-click-modal="false"
+    :close-on-click-modal="true"
     :before-close="beforeClose"
     destroy-on-close
     class="edit-drawer"
@@ -38,6 +38,7 @@ const props = withDefaults(
 const open = defineModel<boolean>({ required: true });
 const emit = defineEmits<{ save: [] }>();
 
+/** 点蒙层、右上角叉、Esc、取消按钮都会走这里：有未保存的改动先确认，没有就直接关。 */
 async function beforeClose(done: () => void): Promise<void> {
   if (props.dirty && !(await confirmDiscard())) {
     return;

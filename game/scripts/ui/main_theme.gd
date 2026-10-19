@@ -402,7 +402,7 @@ static func fill_parent(control: Control) -> void:
 static func place_centered(control: Control, bounds: Vector2, max_size: Vector2) -> Vector2:
 	var available := bounds
 	if available.x < 64.0:
-		available = Vector2(1080, 1920)
+		available = UiTokens.BASE_SIZE
 	var margin := 36.0
 	var card := Vector2(
 		minf(max_size.x, maxf(280.0, available.x - margin * 2.0)),

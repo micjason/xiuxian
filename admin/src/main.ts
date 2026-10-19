@@ -7,8 +7,10 @@ import "./styles/tokens.css";
 import "./styles/base.css";
 import App from "./App.vue";
 import { router } from "./router";
+import { installOverlayDefaults } from "./overlayDefaults";
 import { initTheme } from "./theme";
 
 initTheme();
+installOverlayDefaults();
 
 createApp(App).use(router).use(ElementPlus, { locale: zhCn }).mount("#app");

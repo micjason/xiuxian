@@ -6,6 +6,10 @@ extends Control
 signal page_selected(page: String)
 
 const HEIGHT := 176
+## 标签栏下面的同色填充（手势条 / Home 指示条的位置）：至少 48 画布像素，系统手势条更高时取系统值。
+## 填充和标签栏同色，整块贴在屏幕最底边；页面内容区的下沿 = 标签栏上沿。
+const SAFE_FILL_MIN := 48
+const FILL_COLOR := Color(7.0 / 255.0, 14.0 / 255.0, 11.0 / 255.0, 1.0)
 
 var _tabs: Array[Dictionary] = []
 var _buttons: Dictionary = {}
@@ -19,9 +23,18 @@ var current := ""
 func _init() -> void:
 	set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var fill := ColorRect.new()
+	fill.name = "DockFill"
+	fill.color = FILL_COLOR
+	fill.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	fill.offset_top = -float(SAFE_FILL_MIN)
+	fill.mouse_filter = Control.MOUSE_FILTER_STOP
+	add_child(fill)
 	var dock := TextureRect.new()
+	dock.name = "DockArt"
 	dock.texture = ArtLib.ui("dock_bg")
-	dock.set_anchors_preset(Control.PRESET_FULL_RECT)
+	dock.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	dock.offset_bottom = float(HEIGHT)
 	dock.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	dock.stretch_mode = TextureRect.STRETCH_SCALE
 	dock.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -122,12 +135,23 @@ func button_of(id: String) -> Button:
 	return _buttons.get(id, null)
 
 
+## 标签栏下面的填充高度（画布像素）。
+static func bottom_pad(inset: Vector4) -> float:
+	return maxf(float(SAFE_FILL_MIN), inset.w)
+
+
+## 整块（标签栏 + 同色填充）贴在屏幕最底边；左右安全区只缩小可点区域，底板仍然通宽。
 func apply_safe_area(inset: Vector4) -> void:
-	offset_left = inset.x
-	offset_right = -inset.z
-	offset_top = -(float(HEIGHT) + inset.w)
+	var pad := bottom_pad(inset)
+	offset_left = 0.0
+	offset_right = 0.0
+	offset_top = -(float(HEIGHT) + pad)
 	offset_bottom = 0.0
-	(get_node("Row") as Control).offset_bottom = -inset.w
+	(get_node("DockFill") as Control).offset_top = -pad
+	var row := get_node("Row") as Control
+	row.offset_left = inset.x
+	row.offset_right = -inset.z
+	row.offset_bottom = -pad
 
 
 func _refresh() -> void:

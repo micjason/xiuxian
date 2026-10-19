@@ -74,7 +74,7 @@ func _fit_card() -> void:
 	_logo.offset_bottom = inset.y + LOGO_BOTTOM
 	var card := MainTheme.place_centered(_card, size, Vector2(860, 940))
 	# 1080×1920 上居中的卡片会压住标题的下半截：卡片顶不能高过标题底（v9 屏幕适配检查发现）
-	var screen_height := size.y if size.y > 64.0 else 1920.0
+	var screen_height := size.y if size.y > 64.0 else UiTokens.BASE_SIZE.y
 	var top := screen_height * 0.5 + _card.offset_top
 	var min_top := _logo.offset_bottom + CARD_GAP
 	if top < min_top:

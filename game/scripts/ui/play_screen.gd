@@ -38,6 +38,7 @@ var _content: Dictionary = {}
 var _login: PlayerLogin
 var _timer: Timer
 var _selected_stage := ""
+var _selected_realm := ""
 var _busy := false
 var _page := PAGE_CULTIVATE
 var _mock := false
@@ -61,6 +62,8 @@ var _pages: Dictionary = {}
 var _mock_tag: Label
 var _offline_shown_id := ""
 var _heartbeats := 0
+var _last_inset := Vector4(-1, -1, -1, -1)
+var _last_view := Vector2.ZERO
 
 
 func _ready() -> void:
@@ -206,12 +209,16 @@ func _build_shell() -> void:
 ## 按安全区排布顶部栏、内容区和底部页签。桌面上安全区为 0。
 func _apply_layout() -> void:
 	var inset := UiSafeArea.current(get_viewport())
+	if OS.is_debug_build() and (inset != _last_inset or get_viewport_rect().size != _last_view):
+		_last_inset = inset
+		_last_view = get_viewport_rect().size
+		print("[layout] 视口 %s  窗口 %s  安全区(左,上,右,下) %s" % [_last_view, DisplayServer.window_get_size(), inset])
 	_top_bar.apply_safe_area(inset)
 	_tab_bar.apply_safe_area(inset)
 	_page_host.offset_left = float(UiTokens.PAGE_MARGIN) + inset.x
 	_page_host.offset_right = -(float(UiTokens.PAGE_MARGIN) + inset.z)
 	_page_host.offset_top = inset.y + _top_bar.content_height() + float(UiTokens.SP_1)
-	_page_host.offset_bottom = -(float(TabBarView.HEIGHT) + inset.w + float(UiTokens.SP_2))
+	_page_host.offset_bottom = -(float(TabBarView.HEIGHT) + TabBarView.bottom_pad(inset) + float(UiTokens.SP_2))
 	_toast.set_anchors_preset(Control.PRESET_TOP_WIDE)
 	_toast.offset_left = float(UiTokens.PAGE_MARGIN) + inset.x
 	_toast.offset_right = -(float(UiTokens.PAGE_MARGIN) + inset.z)
@@ -307,18 +314,27 @@ func _realm_after(slug: String) -> String:
 
 
 func _stage_render() -> void:
-	# 历练页只列有首领的关卡（普通关卡的小怪在修炼页自动刷，用「挂机刷怪地点」选）。
-	var stages: Array[Dictionary] = []
-	for stage in _stages_for_current_realm():
-		if not (stage.get("bosses", []) as Array).is_empty():
-			stages.append(stage)
+	# 历练页列出当前境界已解锁的全部关卡（有首领的可挑战，没有首领的只刷怪），再加一张下一个未解锁关卡的锁定卡。
+	var stages := _stages_for_current_realm()
+	# 换了境界（突破后）就重新选默认关卡：新解锁的首领关优先。
+	var realm_now := str(_state.get("realmSlug", ""))
+	if realm_now != _selected_realm:
+		_selected_realm = realm_now
+		_selected_stage = ""
 	var known := false
 	for stage in stages:
 		if str(stage.get("slug", "")) == _selected_stage:
 			known = true
 	if not known:
-		_selected_stage = "" if stages.is_empty() else str(stages[stages.size() - 1].get("slug", ""))
-	_stage_page.bind(_state, _content, stages, _selected_stage)
+		# 默认选中最高的首领关；一个首领关都没有就选最高的关卡。
+		var pick_boss := ""
+		var pick_last := ""
+		for stage in stages:
+			pick_last = str(stage.get("slug", ""))
+			if not (stage.get("bosses", []) as Array).is_empty():
+				pick_boss = pick_last
+		_selected_stage = pick_boss if not pick_boss.is_empty() else pick_last
+	_stage_page.bind(_state, _content, stages, _selected_stage, _next_locked_boss(), _next_locked_stage())
 
 
 ## 页签红点：能突破、背包里有新物品、有更强的装备可换。
@@ -639,6 +655,54 @@ func _stages_for_current_realm() -> Array[Dictionary]:
 		return left_code < right_code
 	)
 	return found
+
+
+func _realm_name_of_order(order: int) -> String:
+	for row in _content.get("realms", []):
+		if typeof(row) == TYPE_DICTIONARY and int((row as Dictionary).get("sortOrder", -1)) == order:
+			return str((row as Dictionary).get("displayName", ""))
+	return ""
+
+
+## 当前境界还打不到的最近一个关卡（want_boss = true 时只找有首领的）：
+## {stage, boss, monster, realm, power}（没有返回空字典）。历练页用它显示锁定卡和“哪个境界解锁哪个首领”。
+func _nearest_locked(want_boss: bool) -> Dictionary:
+	var code := _current_realm_code()
+	if code < 0:
+		return {}
+	var best: Dictionary = {}
+	var best_code := 0
+	for row in _content.get("stages", []):
+		if typeof(row) != TYPE_DICTIONARY:
+			continue
+		var stage := row as Dictionary
+		var stage_code := int(stage.get("requiredRealmOrder", -1))
+		if stage_code <= code:
+			continue
+		if want_boss and (stage.get("bosses", []) as Array).is_empty():
+			continue
+		if best.is_empty() or stage_code < best_code:
+			best = stage
+			best_code = stage_code
+	if best.is_empty():
+		return {}
+	var boss_rows: Array = best.get("bosses", [])
+	var monsters: Array = best.get("monsters", [])
+	return {
+		"stage": str(best.get("displayName", best.get("slug", ""))),
+		"boss": str((boss_rows[0] as Dictionary).get("name", "")) if not boss_rows.is_empty() and typeof(boss_rows[0]) == TYPE_DICTIONARY else "",
+		"monster": str((monsters[0] as Dictionary).get("name", "")) if not monsters.is_empty() and typeof(monsters[0]) == TYPE_DICTIONARY else "",
+		"realm": _realm_name_of_order(best_code),
+		"power": int(best.get("recommendedPower", 0)),
+	}
+
+
+func _next_locked_boss() -> Dictionary:
+	return _nearest_locked(true)
+
+
+func _next_locked_stage() -> Dictionary:
+	return _nearest_locked(false)
 
 
 func _stage_def(slug: String) -> Dictionary:

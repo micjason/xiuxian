@@ -100,12 +100,16 @@ onMounted(() => void refreshDraftStatus());
 </script>
 
 <style scoped>
+/* 整页不滚：左侧菜单固定在视口里（菜单项多了在菜单内部滚），右侧只有内容区自己滚动。 */
 .shell {
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
 }
 .side {
   display: flex;
   flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
   background: var(--xx-side-bg);
   color: var(--xx-side-text);
   transition: width 0.15s;
@@ -148,6 +152,7 @@ onMounted(() => void refreshDraftStatus());
 }
 .nav {
   flex: 1;
+  min-height: 0;
   padding: var(--xx-space-2);
   overflow-y: auto;
   border-right: 0;
@@ -217,6 +222,13 @@ onMounted(() => void refreshDraftStatus());
 }
 .body {
   min-width: 0;
+  height: 100vh;
+  overflow: hidden;
+}
+.app-main {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 .header {
   display: flex;

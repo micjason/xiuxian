@@ -174,3 +174,20 @@ func test_empty_text_without_a_locked_boss() -> void:
 	var text := StagePage.empty_text("金丹三层", {})
 	assert_true(text.contains("金丹三层还没有首领可以挑战"))
 	assert_false(text.contains("解锁"))
+
+
+## 演示数据的修为不能超过本境界突破所需（曾出现「3,300 / 300」）。最高境界没有 cost，不检查。
+func test_mock_scenes_cultivation_never_exceeds_requirement() -> void:
+	var scenes: Array = ["ready", "fresh", "full", "gate", "top"]
+	for slug in (ProtoMock._dataset().get("realms", {}) as Dictionary).keys():
+		scenes.append("realm:%s" % slug)
+	for scene in scenes:
+		var state := ProtoMock.state(scene)
+		var cost := float((state.get("breakthrough", {}) as Dictionary).get("cost", 0))
+		var exp_now := float(state.get("cultivation", 0))
+		assert_true(exp_now >= 0.0, "%s 修为不能为负" % scene)
+		if cost > 0.0:
+			assert_true(exp_now <= cost, "%s 修为 %s 超过所需 %s" % [scene, exp_now, cost])
+	var lq2 := ProtoMock.state("realm:lianqi_2")
+	var ratio := float(lq2.cultivation) / float(lq2.breakthrough.cost)
+	assert_true(ratio >= 0.6 and ratio <= 0.9, "realm 场景取 60%%~90%%，实际 %s" % ratio)

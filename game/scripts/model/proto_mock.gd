@@ -50,7 +50,8 @@ static func state(scene: String = "") -> Dictionary:
 	var which := scene if not scene.is_empty() else scenario
 	var content_data := content()
 	var realm_slug := {"fresh": "lianqi_1", "top": "jindan_3", "gate": "lianqi_3"}.get(which, "lianqi_3") as String
-	if which.begins_with("realm:"):
+	var by_realm := which.begins_with("realm:")
+	if by_realm:
 		realm_slug = which.trim_prefix("realm:")
 		which = "gate"
 	var out := realm_snapshot(realm_slug)
@@ -84,17 +85,19 @@ static func state(scene: String = "") -> Dictionary:
 	var breakthrough: Dictionary = out.get("breakthrough", {}) if typeof(out.get("breakthrough", null)) == TYPE_DICTIONARY else {}
 	var cost := float(breakthrough.get("cost", 0))
 	out["cultivation"] = 0.0
+	## 修为永远不超过本境界突破所需（cost）：满足条件的场景正好等于 cost（条满，可突破），
+	## 其余按比例取自真实境界配置。最高境界没有 cost（0），不受限。
 	match which:
 		"ready":
-			out["cultivation"] = 3300.0
+			out["cultivation"] = cost
 			if typeof(breakthrough.get("requiredStage", null)) == TYPE_DICTIONARY:
 				(breakthrough.requiredStage as Dictionary)["cleared"] = true
 		"gate":
-			out["cultivation"] = maxf(cost, 3300.0)
+			out["cultivation"] = floorf(cost * 0.75) if by_realm else cost
 		"fresh":
-			out["cultivation"] = 12.0
+			out["cultivation"] = floorf(cost * 0.2)
 		"full":
-			out["cultivation"] = 900.0
+			out["cultivation"] = floorf(cost * 0.5)
 		"top":
 			out["cultivation"] = 99999.0
 	out["breakthrough"] = breakthrough

@@ -1,22 +1,46 @@
 const tokenKey = "xiuxian-admin-token";
 const nameKey = "xiuxian-admin-name";
 
+function readSaved(key: string): string {
+  const saved = localStorage.getItem(key);
+  if (saved) {
+    return saved;
+  }
+  const currentTab = sessionStorage.getItem(key);
+  if (!currentTab) {
+    return "";
+  }
+  localStorage.setItem(key, currentTab);
+  sessionStorage.removeItem(key);
+  return currentTab;
+}
+
+function writeSaved(key: string, value: string): void {
+  localStorage.setItem(key, value);
+  sessionStorage.removeItem(key);
+}
+
+function removeSaved(key: string): void {
+  localStorage.removeItem(key);
+  sessionStorage.removeItem(key);
+}
+
 export function getToken(): string {
-  return sessionStorage.getItem(tokenKey) ?? "";
+  return readSaved(tokenKey);
 }
 
 export function setSession(token: string, name: string): void {
-  sessionStorage.setItem(tokenKey, token);
-  sessionStorage.setItem(nameKey, name);
+  writeSaved(tokenKey, token);
+  writeSaved(nameKey, name);
 }
 
 export function adminName(): string {
-  return sessionStorage.getItem(nameKey) ?? "";
+  return readSaved(nameKey);
 }
 
 export function clearSession(): void {
-  sessionStorage.removeItem(tokenKey);
-  sessionStorage.removeItem(nameKey);
+  removeSaved(tokenKey);
+  removeSaved(nameKey);
 }
 
 export class ApiError extends Error {

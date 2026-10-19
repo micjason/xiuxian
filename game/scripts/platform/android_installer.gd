@@ -20,7 +20,8 @@ func get_version_name() -> String:
 func get_version_code() -> int:
 	if _plugin != null:
 		return int(_plugin.getVersionCode())
-	return 0
+	# 没有插件（桌面 / 编辑器）：用打包脚本写进工程设置的 versionCode（tools/deploy/release_apk.sh 维护）
+	return int(ProjectSettings.get_setting("xiuxian/build/version_code", 0))
 
 
 func get_apk_version_code(project_path: String) -> int:

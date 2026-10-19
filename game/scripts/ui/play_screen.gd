@@ -64,6 +64,8 @@ var _offline_shown_id := ""
 var _heartbeats := 0
 var _last_inset := Vector4(-1, -1, -1, -1)
 var _last_view := Vector2.ZERO
+var _update_service: UpdateService
+var _update_prompt: UpdatePrompt
 
 
 func _ready() -> void:
@@ -76,6 +78,7 @@ func _ready() -> void:
 	_login = PlayerLogin.new()
 	_login.logged_in.connect(_on_logged_in)
 	add_child(_login)
+	_setup_update_check()
 	_timer = Timer.new()
 	_timer.wait_time = HEARTBEAT_DEFAULT
 	_timer.timeout.connect(_refresh_state)
@@ -100,15 +103,41 @@ func _ready() -> void:
 		_refresh_state()
 
 
+## 客户端更新：启动时（登录页或已登录都一样）静默检查 <服务器地址>/download/latest.json，
+## 有更高 versionCode 就弹「发现新版本」。演示模式不连服务器，除非 XIUXIAN_UPDATE_CHECK=1。
+func _setup_update_check() -> void:
+	_update_service = get_node_or_null("UpdateService") as UpdateService
+	if _update_service == null:
+		_update_service = UpdateService.new()
+		_update_service.name = "UpdateService"
+		add_child(_update_service)
+	_update_prompt = UpdatePrompt.new(_popup, _update_service)
+	_update_service.update_available.connect(func(info: Dictionary) -> void:
+		_update_prompt.show_update(info, _update_service.get_current_version()))
+	_check_update()
+
+
+func _check_update() -> void:
+	if OS.get_environment("XIUXIAN_UPDATE_CHECK") == "0":
+		return
+	if _mock and OS.get_environment("XIUXIAN_UPDATE_CHECK") != "1":
+		return
+	if _popup.visible:
+		return
+	_update_service.check_for_update(true)
+
+
 ## 应用切到后台：停心跳（服务器会把这段算离线）；回到前台：马上补一次心跳再恢复定时。
 func _notification(what: int) -> void:
 	if _timer == null or _mock:
 		return
 	if what == NOTIFICATION_APPLICATION_PAUSED:
 		_timer.stop()
-	elif what == NOTIFICATION_APPLICATION_RESUMED and not PlayerApi.token().is_empty():
-		_timer.start()
-		_refresh_state()
+	elif what == NOTIFICATION_APPLICATION_RESUMED:
+		_check_update()
+		if not PlayerApi.token().is_empty():
+			_timer.start()
+			_refresh_state()
 
 
 ## 心跳间隔：服务器的在线判定窗口减去余量，夹在 1..15 秒（读不到就用默认 12 秒）。

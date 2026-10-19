@@ -122,6 +122,11 @@ func _apply_center_layout(inset: Vector4) -> void:
 	_panel.add_theme_stylebox_override("panel", _center_art)
 
 
+## 点遮罩是否关闭（强制更新时关掉）。重新 open_popup 前要自己设回来。
+func set_dim_closes(enabled: bool) -> void:
+	_close_on_dim = enabled
+
+
 func is_centered() -> bool:
 	return _centered
 

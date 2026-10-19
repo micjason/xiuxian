@@ -18,6 +18,7 @@ import { registerReleaseRoutes } from "./modules/releases/routes.js";
 import { registerRepairRoutes } from "./modules/repairs/routes.js";
 import { registerGmRoutes } from "./modules/tools/gm.js";
 import { registerLoopRoutes } from "./modules/loop/routes.js";
+import { registerStaticSite } from "./plugins/static-site.js";
 
 export const logRedact = ["req.headers.authorization", "*.password", "*.token"];
 
@@ -26,7 +27,10 @@ export async function buildApp(
   now: () => Date = () => new Date(),
   options: { randomInt?: (min: number, max: number) => number } = {},
 ): Promise<FastifyInstance> {
+  // 前面有 nginx 时设 TRUST_PROXY=127.0.0.1，限流和日志才按玩家真实 IP 算；没设就不信任任何代理头。
+  const trustProxy = process.env.TRUST_PROXY ? process.env.TRUST_PROXY : false;
   const app = Fastify({
+    trustProxy,
     logger: {
       level: process.env.VITEST ? "silent" : (process.env.LOG_LEVEL ?? "info"),
       redact: logRedact,
@@ -62,7 +66,7 @@ export async function buildApp(
     const [current] = await db.select().from(contentCurrent).limit(1);
     return {
       ok: true,
-      version: process.env.npm_package_version ?? "dev",
+      version: process.env.APP_RELEASE ?? process.env.npm_package_version ?? "dev",
       contentVersion: current?.version ?? null,
     };
   });
@@ -102,8 +106,9 @@ export async function buildApp(
       await registerGmRoutes(scope, deps);
     }
   }, { prefix: "/api/v1" });
+  await registerStaticSite(app);
   app.addHook("onSend", async (request, reply) => {
-    if (!request.url.startsWith("/api/v1")) {
+    if (!request.url.startsWith("/api/v1") && !request.url.startsWith("/download/")) {
       reply.header("deprecation", "true");
     }
   });

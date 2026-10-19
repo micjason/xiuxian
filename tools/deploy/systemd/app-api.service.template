@@ -1,0 +1,27 @@
+# 由 tools/deploy/server/*.sh 渲染。只管 @APP_NAME@ 这一套，不碰服务器上的其他服务。
+[Unit]
+Description=Xiuxian game backend (@APP_NAME@)
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=@USER@
+Group=@USER@
+WorkingDirectory=@ROOT@/current/backend
+EnvironmentFile=@ENV_FILE@
+# 小内存机器（1.6G，别的服务也在用）：限制 Node 堆和整个服务的内存，崩了自动拉起
+ExecStart=@NODE_BIN@ --max-old-space-size=256 dist/server.js
+Restart=on-failure
+RestartSec=3
+MemoryHigh=320M
+MemoryMax=400M
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=@ROOT@/shared
+LimitNOFILE=8192
+
+[Install]
+WantedBy=multi-user.target

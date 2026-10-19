@@ -8,11 +8,18 @@ signal download_progress_changed(progress: float)
 signal download_ready(path: String)
 signal failed(message: String)
 
-const SIGNATURE_URL := "https://cdn.jsdelivr.net/gh/micjason/xiuxian-releases@latest/update.sig"
+## 客户端更新（dev2 自建服务器）：GET <服务器地址>/download/latest.json → 比 versionCode → 弹窗「发现新版本」
+## → 下载到 user://updates（显示进度，校验 sha256 和大小）→ 用 XiuxianUpdater 插件拉起系统安装器覆盖安装。
+## 没有插件（桌面、插件出错）时 open_in_browser() 用系统浏览器打开安装包地址，作为兜底。
+const MANIFEST_PATH := "/download/latest.json"
+
 
 func _api_base() -> String:
 	return ServerAddress.current()
-const PUBLIC_KEY_PATH := "res://assets/security/update_public.pem"
+
+
+func manifest_url() -> String:
+	return _api_base() + MANIFEST_PATH
 const DOWNLOAD_DIRECTORY := "user://updates"
 const DOWNLOAD_TEMP_PATH := DOWNLOAD_DIRECTORY + "/xiuxian.apk.part"
 const DOWNLOAD_PATH := DOWNLOAD_DIRECTORY + "/xiuxian.apk"
@@ -26,23 +33,19 @@ var _is_checking := false
 var _check_started_at_msec := 0
 var _is_downloading := false
 var _manifest_request: HTTPRequest
-var _signature_request: HTTPRequest
 var _apk_request: HTTPRequest
 
 
 func _ready() -> void:
-	_manifest_request = _create_request(60.0)
-	_signature_request = _create_request(60.0)
+	_manifest_request = _create_request(20.0)
 	_apk_request = _create_request(1800.0)
 	_manifest_request.request_completed.connect(_on_manifest_received)
-	_signature_request.request_completed.connect(_on_signature_received)
 	_apk_request.request_completed.connect(_on_apk_received)
 
 
 func _process(_delta: float) -> void:
 	if _is_checking and Time.get_ticks_msec() - _check_started_at_msec > CHECK_TIMEOUT_MSEC:
 		_manifest_request.cancel_request()
-		_signature_request.cancel_request()
 		_fail("检查更新超时，请确认网络后重试。")
 	if not _is_downloading:
 		return
@@ -69,7 +72,7 @@ func check_for_update(quiet: bool = false) -> void:
 	_is_checking = true
 	_check_started_at_msec = Time.get_ticks_msec()
 	status_changed.emit("" if quiet else "正在检查更新…")
-	var error := _manifest_request.request(_api_base() + "/update.json", _request_headers())
+	var error := _manifest_request.request(manifest_url(), _request_headers())
 	if error != OK:
 		_fail("无法开始检查更新，请稍后重试。")
 
@@ -97,6 +100,18 @@ func download_update() -> void:
 	if error != OK:
 		_is_downloading = false
 		_fail("无法开始下载，请稍后重试。")
+
+
+## 能不能在应用里直接下载并拉起系统安装器（Android + 插件）。不能时用 open_in_browser()。
+func can_install_in_app() -> bool:
+	return _installer.is_supported()
+
+
+## 兜底：用系统浏览器打开安装包地址（浏览器下载完，点通知安装）。
+func open_in_browser() -> bool:
+	if current_manifest == null:
+		return false
+	return OS.shell_open(current_manifest.apk_url) == OK
 
 
 func install_downloaded_update() -> void:
@@ -151,7 +166,7 @@ func _create_request(timeout_seconds: float) -> HTTPRequest:
 
 func _request_headers(extra: PackedStringArray = PackedStringArray()) -> PackedStringArray:
 	var headers := PackedStringArray([
-		"User-Agent: XiuxianUpdater/0.1",
+		"User-Agent: XiuxianUpdater/0.2",
 		"Cache-Control: no-cache",
 	])
 	headers.append_array(extra)
@@ -171,25 +186,9 @@ func _on_manifest_received(
 	_accept_manifest()
 
 
-func _on_signature_received(
-	result: int,
-	response_code: int,
-	_headers: PackedStringArray,
-	signature: PackedByteArray
-) -> void:
-	if result != HTTPRequest.RESULT_SUCCESS or response_code != 200 or signature.is_empty():
-		_fail("更新签名下载失败。")
-		return
-	_is_checking = false
-	if not _verify_manifest_signature(_manifest_bytes, signature):
-		_fail("更新信息安全校验失败。")
-		return
-	_accept_manifest()
-
-
 func _accept_manifest() -> void:
 	_is_checking = false
-	current_manifest = UpdateManifest.from_json(_manifest_bytes.get_string_from_utf8())
+	current_manifest = UpdateManifest.from_json(_manifest_bytes.get_string_from_utf8(), _api_base())
 	if current_manifest == null:
 		_fail("更新信息格式不正确。")
 		return
@@ -254,20 +253,6 @@ func _on_apk_received(
 	download_ready.emit(DOWNLOAD_PATH)
 
 
-func _verify_manifest_signature(data: PackedByteArray, signature: PackedByteArray) -> bool:
-	var public_key := CryptoKey.new()
-	if public_key.load(PUBLIC_KEY_PATH, true) != OK:
-		push_error("Unable to load update public key.")
-		return false
-	var crypto := Crypto.new()
-	return crypto.verify(
-		HashingContext.HASH_SHA256,
-		_sha256_bytes(data),
-		signature,
-		public_key
-	)
-
-
 func _verify_download() -> bool:
 	return _verify_apk_file(DOWNLOAD_TEMP_PATH)
 
@@ -280,7 +265,7 @@ func _verify_apk_file(project_path: String) -> bool:
 	if current_manifest == null or not FileAccess.file_exists(project_path):
 		return false
 	var file := FileAccess.open(project_path, FileAccess.READ)
-	if file == null or file.get_length() != current_manifest.apk_size:
+	if file == null or (current_manifest.apk_size > 0 and file.get_length() != current_manifest.apk_size):
 		return false
 	return _sha256_file(file) == current_manifest.apk_sha256
 
@@ -293,14 +278,6 @@ func _sha256_file(file: FileAccess) -> String:
 		var remaining := file.get_length() - file.get_position()
 		context.update(file.get_buffer(mini(remaining, 64 * 1024)))
 	return context.finish().hex_encode()
-
-
-func _sha256_bytes(data: PackedByteArray) -> PackedByteArray:
-	var context := HashingContext.new()
-	if context.start(HashingContext.HASH_SHA256) != OK:
-		return PackedByteArray()
-	context.update(data)
-	return context.finish()
 
 
 func _remove_if_exists(project_path: String) -> void:

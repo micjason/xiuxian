@@ -16,6 +16,8 @@ export function getDb() {
   if (!url) {
     throw new Error("DATABASE_URL is required");
   }
-  sql = postgres(url);
+  // DB_POOL_MAX：连接池上限（默认 10）。和别的服务共用一个 Postgres（max_connections 小）时调低。
+  const max = Number(process.env.DB_POOL_MAX ?? "10");
+  sql = postgres(url, { max: Number.isFinite(max) && max > 0 ? max : 10 });
   return drizzle(sql, { schema });
 }

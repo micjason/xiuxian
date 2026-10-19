@@ -1,0 +1,8 @@
+# 模拟服务器上已有的“别人的服务”：占 0.0.0.0:8080，部署脚本不能碰它
+[Unit]
+Description=xiuxian API
+After=network.target
+[Service]
+ExecStart=/usr/bin/python3 -m http.server 8080 --bind 0.0.0.0
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,21 @@
+# 2026-10-19 dev2 上线到云服务器 + 应用内更新
+
+- **部署**：`tools/deploy/deploy.sh`（发布、准备服务器、状态、回滚、备份、改密码、发布 APK）和 `rollback.sh`。
+  - 在 box 上用 esbuild 和 vite 打包，用 rsync 上传。
+  - 每个版本一个带时间戳的目录，current/previous 两个链接，只留 3 个版本。
+  - 健康检查不通过会自动回退。
+  - 每天 pg_dump，留 7 天。
+  - 服务器端脚本在 `tools/deploy/server/`。旧的 `deploy_backend.sh` 和 `nginx/` 已删除。
+- **后端**：
+  - 新增 `plugins/static-site.ts`，同一个服务提供后台网页（找不到的路径回到 index.html）和 `/download/*`；latest.json 不缓存。
+  - `DB_POOL_MAX` 控制连接池大小，`TRUST_PROXY` 开关信任代理。
+  - `/healthz` 里返回发布号。
+- **客户端**：
+  - 读 `/download/latest.json`，弹出 `UpdatePrompt` 显示「发现新版本」和进度；失败了改成「用浏览器下载」。
+  - 去掉了 jsdelivr 和签名清单。
+  - 只认同一台服务器或 https 的下载地址；`/download/` 路径会改写到当前连接的服务器。
+- **安装包**：`tools/deploy/release_apk.sh`。
+  - 包名 `com.micjason.xiuxian.dev2`，名称「修仙 测试版」，固定签名密钥。
+  - 默认服务器 http://101.132.74.32:8090。
+- **本地模拟**：`tools/deploy/sim/`，用 Docker 模拟一台装了 systemd、PG16、Node 22 和一个“原有服务”的服务器，先在这里跑通。
+- 说明见 `docs/deploy_online.md`。

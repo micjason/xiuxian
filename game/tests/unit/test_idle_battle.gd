@@ -111,29 +111,47 @@ func test_stage_page_wires_effect_below_name_and_hp() -> void:
 
 
 func test_kill_shows_gain_once_and_hides_hp_during_death() -> void:
+	# 用固定时间步手动推进（不依赖真实帧率）：--headless 下帧不限速，按“帧数”等待时真实时间只过了零点几秒，
+	# 溶解还没开始循环就结束了（动画师那边报的失败就是这个）。
 	var scene := await _boot()
 	var page := scene.get("_stage_page") as StagePage
 	var fx := page.battle_fx()
 	var hp := page.find_child("MonsterHp", true, false) as Control
+	page.set_process(false)  # 由测试喂血条
+	fx.set_process(false)
+	(fx.get("monster") as Node).set_process(false)
+	var dt := 1.0 / 30.0
+	var base := {"available": true, "wave_size": 3, "kill_cultivation": 12.0}
+	# 启动时页面已经按真实时间跑过几帧，可能有一只“待补的击杀”在播；先用当前击杀数、满血稳住 3 秒，让它播完再开始数。
+	var per := maxi(1, int((page.call("_wave") as Dictionary).get("killsPerWave", 3)))
+	var k0 := maxi(0, int(fx.get("_last_kills"))) % per
+	for i in 90:
+		var steady := base.duplicate()
+		steady["kills"] = k0
+		steady["ratio"] = float(k0) / float(per)
+		page.call("_refresh_wave", steady)
+		(fx.get("monster") as Node).call("_process", dt)
+		fx.call("_process", dt)
 	var gains: Array = []
 	fx.connect("spirit_arrived", func(g: float) -> void: gains.append(g))
-	page.set_process(false)  # 由测试喂血条
 	var hp_hidden_seen := false
 	var showing_false_seen := false
-	var base := {"available": true, "wave_size": 3, "kill_cultivation": 12.0}
-	for i in 150:  # 约 2.5 秒：先掉到 10%，再击杀一只
+	for i in 150:  # 5 秒：前 1.3 秒掉到 30%，然后击杀一只，之后等溶解、灵气、下一只刷出
 		var shown := base.duplicate()
-		shown["kills"] = 0 if i < 40 else 1
-		shown["ratio"] = (0.3 * float(i) / 40.0) / 3.0 if i < 40 else 1.0 / 3.0 + 0.001
+		var k := k0 if i < 40 else (k0 + 1) % per
+		shown["kills"] = k
+		shown["ratio"] = (float(k) + (0.3 * float(i) / 40.0 if i < 40 else 0.001)) / float(per)
 		page.call("_refresh_wave", shown)
 		if not bool(fx.call("monster_showing")):
 			showing_false_seen = true
 			if not hp.visible:
 				hp_hidden_seen = true
-		await get_tree().process_frame
-	await get_tree().create_timer(1.5).timeout
+		(fx.get("monster") as Node).call("_process", dt)
+		fx.call("_process", dt)
 	assert_true(showing_false_seen, "击杀后有一段怪物不显示（溶解）")
 	assert_true(hp_hidden_seen, "那段时间血条藏起来")
+	assert_true(bool(fx.call("monster_showing")), "下一只刷出来了")
+	assert_true(hp.visible, "下一只刷出后血条回来")
 	assert_eq(gains.size(), 1, "击杀一只只飘一次「+N 修为」")
 	assert_eq(page.find_children("KillFloat", "", true, false).size(), 0, "页面没有自己的飘字")
 

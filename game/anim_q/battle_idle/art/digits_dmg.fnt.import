@@ -1,0 +1,17 @@
+[remap]
+
+importer="font_data_bmfont"
+type="FontFile"
+uid="uid://b37qqtxrxklxs"
+path="res://.godot/imported/digits_dmg.fnt-334f80029f4ecc3340275b85b6f7fb75.fontdata"
+
+[deps]
+
+source_file="res://anim_q/battle_idle/art/digits_dmg.fnt"
+dest_files=["res://.godot/imported/digits_dmg.fnt-334f80029f4ecc3340275b85b6f7fb75.fontdata"]
+
+[params]
+
+fallbacks=[]
+compress=true
+scaling_mode=2

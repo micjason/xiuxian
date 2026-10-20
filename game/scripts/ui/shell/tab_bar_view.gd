@@ -262,6 +262,13 @@ func icon_center(id: String) -> Vector2:
 	return button.get_global_rect().get_center() if button != null else Vector2.ZERO
 
 
+## 页签文字（例如「背包」）中心的画布坐标（历练页挂机掉落飞入的终点）。
+func label_center(id: String) -> Vector2:
+	if _labels.has(id) and is_instance_valid(_labels[id]):
+		return (_labels[id] as Control).get_global_rect().get_center()
+	return icon_center(id)
+
+
 ## 图标受击跳动（float_drop/bag_pulse 的 hit：鼓一下再回弹 + 光环 + 小光点）。动画期间用它顶替原图标，播完换回来。
 func pulse(id: String) -> void:
 	if not _icons.has(id):

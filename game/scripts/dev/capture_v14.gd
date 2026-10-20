@@ -28,6 +28,7 @@ func _initialize() -> void:
 	await _wait(1.2)
 	print("adventure scroll ", view.scroll_vertical, " / ", view.get_v_scroll_bar().max_value - view.get_v_scroll_bar().page)
 	_shot("v14_adventure_scrolled")
+	await _battle_shots(view)
 	# 背包：拖到中间
 	_scene.call("_show_page", "bag")
 	await _wait(0.8)
@@ -80,6 +81,60 @@ func _initialize() -> void:
 	print("after equip worn=", EquipModel.worn_in(bag.model, str(target.slot_id)).get("id"), " target=", target.id)
 	_shot("v14_after_equip")
 	quit()
+
+
+## 挂机打小怪特效：命中 / 击杀溶解 / 掉落飞向背包 三帧。血条由脚本喂（和页面每帧传给特效的值一样），
+## 掉落 = 一条演示结算（真实配置里的物品，走 PlayScreen._stage_drops 同一条路）。
+func _battle_shots(view: ScrollContainer) -> void:
+	ScrollKit.of(view).jump_to(0)
+	var page := _scene.get("_stage_page") as StagePage
+	var fx := page.battle_fx()
+	page.set_process(false)
+	var state: Dictionary = _scene.get("_state")
+	state["lastSettle"] = {"online": true, "seconds": 12, "kills": 1, "killCultivation": 12, "drops": [{"itemSlug": "enh_stone_low", "quantity": 2}, {"itemSlug": "gear_major1_gloves_white", "quantity": 1}]}
+	_scene.call("_stage_drops")
+	_driving = true
+	_drive(page)
+	while true:  # 等一刀普通命中（之前页面自己跑着时可能还有一只待补的击杀）
+		await fx.hit_landed
+		if not bool(fx.get("_sw_final")):
+			break
+	await _wait(0.07)
+	_shot("v14_battle_hit")
+	await _wait_until(func() -> bool: return float(fx.get("_orb_t")) >= 0.0)  # 最后一刀落下、开始溶解
+	await _wait(0.3)
+	_shot("v14_battle_death")
+	await _wait(0.75)
+	_shot("v14_battle_drop")
+	await _wait(1.5)
+	_driving = false
+	page.set_process(true)
+
+
+var _driving := false
+
+
+func _drive(page: StagePage) -> void:
+	var base := {"available": true, "wave_size": 3, "kill_cultivation": 12.0}
+	var k0 := int(WaveView.display(_scene.get("_state"), 0.0).get("kills", 0)) % 3
+	var r0 := minf(1.0 - (page.find_child("MonsterHp", true, false) as QBar).ratio, 0.5)
+	var start := Time.get_ticks_msec()
+	while _driving:
+		var t := float(Time.get_ticks_msec() - start) / 1000.0
+		var shown := base.duplicate()
+		var r := minf(r0 + t / 2.6, 0.97)
+		var k := k0 if t < 2.8 else (k0 + 1) % 3
+		shown["kills"] = k
+		shown["ratio"] = (float(k) + (r if t < 2.8 else 0.0)) / 3.0
+		page.call("_refresh_wave", shown)
+		await process_frame
+
+
+func _wait_until(test: Callable) -> void:
+	for i in 600:
+		if test.call():
+			return
+		await process_frame
 
 
 func _pick(bag: BagPage, test: Callable) -> Dictionary:

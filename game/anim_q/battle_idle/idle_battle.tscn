@@ -1,0 +1,379 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://anim_q/battle_idle/idle_battle.gd" id="1_23c3h"]
+[ext_resource type="Texture2D" path="res://anim_q/battle_idle/fx/fx_ring.png" id="2_0rrjf"]
+[ext_resource type="PackedScene" path="res://anim_q/battle_idle/monster_rig.tscn" id="3_q47eh"]
+[ext_resource type="Script" path="res://anim_q/battle_idle/monster_rig.gd" id="4_6gnq3"]
+[ext_resource type="Texture2D" path="res://anim_q/battle_idle/fx/fx_dot.png" id="5_30b3j"]
+[ext_resource type="Texture2D" path="res://anim_q/battle_idle/fx/fx_glow.png" id="6_k6if1"]
+[ext_resource type="Texture2D" path="res://anim_q/battle_idle/art/sword.png" id="7_m15ku"]
+[ext_resource type="Texture2D" path="res://anim_q/battle_idle/fx/fx_slash.png" id="8_rn3fh"]
+[ext_resource type="Texture2D" path="res://anim_q/battle_idle/fx/fx_star.png" id="9_4qpp3"]
+[ext_resource type="FontFile" path="res://anim_q/battle_idle/art/digits_dmg.fnt" id="10_nlei5"]
+[ext_resource type="FontFile" path="res://anim_q/battle_idle/art/digits_xiuwei.fnt" id="11_jxeca"]
+[ext_resource type="Texture2D" path="res://anim_q/battle_idle/art/float_word_xiuwei.png" id="12_igsce"]
+[ext_resource type="Texture2D" path="res://anim_q/battle_idle/art/icon_stone.png" id="13_xfrrt"]
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_ygqnl"]
+blend_mode = 1
+
+[sub_resource type="Gradient" id="Gradient_v7op7"]
+offsets = PackedFloat32Array(0, 0.15, 1)
+colors = PackedColorArray(1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0)
+
+[sub_resource type="Curve" id="Curve_b5ui2"]
+_data = [Vector2(0, 1), 0.0, 0.0, 0, 0, Vector2(1, 0.2), 0.0, 0.0, 0, 0]
+point_count = 2
+
+[sub_resource type="Gradient" id="Gradient_xywjf"]
+colors = PackedColorArray(1, 1, 1, 0.9, 1, 1, 1, 0)
+
+[sub_resource type="Gradient" id="Gradient_fg1a3"]
+colors = PackedColorArray(1, 1, 1, 1, 1, 1, 1, 0)
+
+[sub_resource type="Gradient" id="Gradient_qb8ow"]
+colors = PackedColorArray(1, 1, 1, 1, 1, 1, 1, 0)
+
+[sub_resource type="Gradient" id="Gradient_1ivfn"]
+colors = PackedColorArray(1, 1, 1, 1, 1, 1, 1, 0)
+
+[sub_resource type="Gradient" id="Gradient_0n36a"]
+colors = PackedColorArray(1, 1, 1, 1, 1, 1, 1, 0)
+
+[node name="IdleBattleFx" type="Node2D" unique_id=1539273141]
+script = ExtResource("1_23c3h")
+
+[node name="GroundRing" type="Sprite2D" parent="." unique_id=125658036]
+modulate = Color(0.7, 0.96, 1, 1)
+material = SubResource("CanvasItemMaterial_ygqnl")
+position = Vector2(730, 860)
+scale = Vector2(1, 0.3)
+texture = ExtResource("2_0rrjf")
+
+[node name="Monster" type="Node2D" parent="." unique_id=526995341 instance=ExtResource("3_q47eh")]
+position = Vector2(730, 695)
+script = ExtResource("4_6gnq3")
+
+[node name="DeathBurst" type="CPUParticles2D" parent="." unique_id=103402053]
+material = SubResource("CanvasItemMaterial_ygqnl")
+emitting = false
+amount = 14
+texture = ExtResource("5_30b3j")
+lifetime = 0.8
+one_shot = true
+explosiveness = 0.85
+emission_shape = 1
+emission_sphere_radius = 70.0
+direction = Vector2(0, -1)
+spread = 70.0
+gravity = Vector2(0, -20)
+initial_velocity_min = 60.0
+initial_velocity_max = 140.0
+damping_min = 120.0
+damping_max = 160.0
+scale_amount_min = 0.5
+scale_amount_max = 1.1
+color = Color(0.7, 0.96, 1, 1)
+color_ramp = SubResource("Gradient_v7op7")
+
+[node name="Sword" type="Node2D" parent="." unique_id=58261335]
+position = Vector2(400, 610)
+rotation = 0.7853982
+
+[node name="Trail" type="CPUParticles2D" parent="Sword" unique_id=761564392]
+show_behind_parent = true
+material = SubResource("CanvasItemMaterial_ygqnl")
+emitting = false
+amount = 20
+texture = ExtResource("5_30b3j")
+lifetime = 0.3
+gravity = Vector2(0, 0)
+scale_amount_min = 1.6
+scale_amount_max = 2.3
+scale_amount_curve = SubResource("Curve_b5ui2")
+color = Color(0.72, 0.96, 1, 1)
+color_ramp = SubResource("Gradient_xywjf")
+
+[node name="Glow" type="Sprite2D" parent="Sword" unique_id=595775476]
+modulate = Color(0.6, 0.93, 1, 0.5)
+material = SubResource("CanvasItemMaterial_ygqnl")
+scale = Vector2(1.4, 1.4)
+texture = ExtResource("6_k6if1")
+
+[node name="Blade" type="Sprite2D" parent="Sword" unique_id=888230313]
+scale = Vector2(0.56, 0.56)
+texture = ExtResource("7_m15ku")
+
+[node name="Hit" type="Node2D" parent="." unique_id=1692871992]
+position = Vector2(650, 685)
+
+[node name="Ring" type="Sprite2D" parent="Hit" unique_id=1834547694]
+modulate = Color(1, 0.95, 0.75, 0.9)
+material = SubResource("CanvasItemMaterial_ygqnl")
+texture = ExtResource("2_0rrjf")
+
+[node name="SlashA" type="Sprite2D" parent="Hit" unique_id=1735493107]
+modulate = Color(1, 1, 0.92, 1)
+material = SubResource("CanvasItemMaterial_ygqnl")
+rotation = -0.4886922
+texture = ExtResource("8_rn3fh")
+
+[node name="SlashB" type="Sprite2D" parent="Hit" unique_id=1607364374]
+modulate = Color(1, 0.96, 0.8, 1)
+material = SubResource("CanvasItemMaterial_ygqnl")
+rotation = 1.0821041
+texture = ExtResource("8_rn3fh")
+
+[node name="Star" type="Sprite2D" parent="Hit" unique_id=1400131039]
+modulate = Color(1, 0.97, 0.8, 1)
+material = SubResource("CanvasItemMaterial_ygqnl")
+texture = ExtResource("9_4qpp3")
+
+[node name="Sparks" type="CPUParticles2D" parent="Hit" unique_id=1782221221]
+material = SubResource("CanvasItemMaterial_ygqnl")
+emitting = false
+amount = 10
+texture = ExtResource("9_4qpp3")
+lifetime = 0.42
+one_shot = true
+explosiveness = 0.95
+spread = 180.0
+gravity = Vector2(0, 300)
+initial_velocity_min = 220.0
+initial_velocity_max = 420.0
+damping_min = 300.0
+damping_max = 420.0
+scale_amount_min = 0.18
+scale_amount_max = 0.36
+color = Color(1, 0.93, 0.6, 1)
+color_ramp = SubResource("Gradient_fg1a3")
+
+[node name="HeroHit" type="Sprite2D" parent="." unique_id=942952505]
+modulate = Color(1, 0.85, 0.85, 1)
+material = SubResource("CanvasItemMaterial_ygqnl")
+position = Vector2(204, 660)
+texture = ExtResource("9_4qpp3")
+
+[node name="Orbs" type="Node2D" parent="." unique_id=1410201244]
+
+[node name="O0" type="Sprite2D" parent="Orbs" unique_id=1847886870]
+material = SubResource("CanvasItemMaterial_ygqnl")
+texture = ExtResource("5_30b3j")
+
+[node name="O1" type="Sprite2D" parent="Orbs" unique_id=1204624871]
+modulate = Color(0.62, 0.95, 1, 1)
+material = SubResource("CanvasItemMaterial_ygqnl")
+texture = ExtResource("5_30b3j")
+
+[node name="O2" type="Sprite2D" parent="Orbs" unique_id=937279833]
+modulate = Color(0.62, 0.95, 1, 1)
+material = SubResource("CanvasItemMaterial_ygqnl")
+texture = ExtResource("5_30b3j")
+
+[node name="O3" type="Sprite2D" parent="Orbs" unique_id=1370456819]
+material = SubResource("CanvasItemMaterial_ygqnl")
+texture = ExtResource("5_30b3j")
+
+[node name="O4" type="Sprite2D" parent="Orbs" unique_id=1201825463]
+modulate = Color(0.62, 0.95, 1, 1)
+material = SubResource("CanvasItemMaterial_ygqnl")
+texture = ExtResource("5_30b3j")
+
+[node name="O5" type="Sprite2D" parent="Orbs" unique_id=1016106962]
+modulate = Color(0.62, 0.95, 1, 1)
+material = SubResource("CanvasItemMaterial_ygqnl")
+texture = ExtResource("5_30b3j")
+
+[node name="O6" type="Sprite2D" parent="Orbs" unique_id=972954939]
+material = SubResource("CanvasItemMaterial_ygqnl")
+texture = ExtResource("5_30b3j")
+
+[node name="O7" type="Sprite2D" parent="Orbs" unique_id=1448883730]
+modulate = Color(0.62, 0.95, 1, 1)
+material = SubResource("CanvasItemMaterial_ygqnl")
+texture = ExtResource("5_30b3j")
+
+[node name="O8" type="Sprite2D" parent="Orbs" unique_id=665407349]
+modulate = Color(0.62, 0.95, 1, 1)
+material = SubResource("CanvasItemMaterial_ygqnl")
+texture = ExtResource("5_30b3j")
+
+[node name="O9" type="Sprite2D" parent="Orbs" unique_id=1016923017]
+material = SubResource("CanvasItemMaterial_ygqnl")
+texture = ExtResource("5_30b3j")
+
+[node name="O10" type="Sprite2D" parent="Orbs" unique_id=1116776757]
+modulate = Color(0.62, 0.95, 1, 1)
+material = SubResource("CanvasItemMaterial_ygqnl")
+texture = ExtResource("5_30b3j")
+
+[node name="O11" type="Sprite2D" parent="Orbs" unique_id=266338474]
+modulate = Color(0.62, 0.95, 1, 1)
+material = SubResource("CanvasItemMaterial_ygqnl")
+texture = ExtResource("5_30b3j")
+
+[node name="Numbers" type="Node2D" parent="." unique_id=1398501381]
+
+[node name="N0" type="Node2D" parent="Numbers" unique_id=523185665]
+
+[node name="Label" type="Label" parent="Numbers/N0" unique_id=404091710]
+offset_left = -210.0
+offset_top = -46.0
+offset_right = 210.0
+offset_bottom = 46.0
+theme_override_fonts/font = ExtResource("10_nlei5")
+theme_override_font_sizes/font_size = 84
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_shadow_color = Color(0.93, 0.5, 0.16, 1)
+theme_override_constants/shadow_offset_x = 0
+theme_override_constants/shadow_offset_y = 6
+text = "-128"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="N1" type="Node2D" parent="Numbers" unique_id=1047856412]
+
+[node name="Label" type="Label" parent="Numbers/N1" unique_id=715868202]
+offset_left = -210.0
+offset_top = -46.0
+offset_right = 210.0
+offset_bottom = 46.0
+theme_override_fonts/font = ExtResource("10_nlei5")
+theme_override_font_sizes/font_size = 84
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_shadow_color = Color(0.93, 0.5, 0.16, 1)
+theme_override_constants/shadow_offset_x = 0
+theme_override_constants/shadow_offset_y = 6
+text = "-128"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="N2" type="Node2D" parent="Numbers" unique_id=545115432]
+
+[node name="Label" type="Label" parent="Numbers/N2" unique_id=870052668]
+offset_left = -210.0
+offset_top = -46.0
+offset_right = 210.0
+offset_bottom = 46.0
+theme_override_fonts/font = ExtResource("10_nlei5")
+theme_override_font_sizes/font_size = 84
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_shadow_color = Color(0.93, 0.5, 0.16, 1)
+theme_override_constants/shadow_offset_x = 0
+theme_override_constants/shadow_offset_y = 6
+text = "-128"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="N3" type="Node2D" parent="Numbers" unique_id=1018379224]
+
+[node name="Label" type="Label" parent="Numbers/N3" unique_id=418973084]
+offset_left = -210.0
+offset_top = -46.0
+offset_right = 210.0
+offset_bottom = 46.0
+theme_override_fonts/font = ExtResource("10_nlei5")
+theme_override_font_sizes/font_size = 84
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_shadow_color = Color(0.93, 0.5, 0.16, 1)
+theme_override_constants/shadow_offset_x = 0
+theme_override_constants/shadow_offset_y = 6
+text = "-128"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Gain" type="Node2D" parent="." unique_id=139865407]
+
+[node name="Number" type="Label" parent="Gain" unique_id=16811618]
+offset_left = -300.0
+offset_top = -46.0
+offset_bottom = 46.0
+theme_override_fonts/font = ExtResource("11_jxeca")
+theme_override_font_sizes/font_size = 84
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_shadow_color = Color(0.12, 0.37, 0.56, 1)
+theme_override_constants/shadow_offset_x = 0
+theme_override_constants/shadow_offset_y = 6
+text = "+20"
+horizontal_alignment = 2
+vertical_alignment = 1
+
+[node name="Word" type="Sprite2D" parent="Gain" unique_id=930054110]
+position = Vector2(52, 2)
+scale = Vector2(1.25, 1.25)
+texture = ExtResource("12_igsce")
+
+[node name="Drops" type="Node2D" parent="." unique_id=457221238]
+z_index = 10
+
+[node name="D0" type="Sprite2D" parent="Drops" unique_id=127106140]
+top_level = true
+texture = ExtResource("13_xfrrt")
+
+[node name="Glow" type="Sprite2D" parent="Drops/D0" unique_id=834341535]
+modulate = Color(1, 0.9, 0.55, 0.65)
+show_behind_parent = true
+material = SubResource("CanvasItemMaterial_ygqnl")
+scale = Vector2(2.6, 2.6)
+texture = ExtResource("6_k6if1")
+
+[node name="Trail" type="CPUParticles2D" parent="Drops/D0" unique_id=529788786]
+show_behind_parent = true
+material = SubResource("CanvasItemMaterial_ygqnl")
+emitting = false
+texture = ExtResource("9_4qpp3")
+lifetime = 0.35
+spread = 180.0
+gravity = Vector2(0, 0)
+initial_velocity_max = 20.0
+scale_amount_max = 2.0
+color = Color(1, 0.9, 0.5, 1)
+color_ramp = SubResource("Gradient_qb8ow")
+
+[node name="D1" type="Sprite2D" parent="Drops" unique_id=909265575]
+top_level = true
+texture = ExtResource("13_xfrrt")
+
+[node name="Glow" type="Sprite2D" parent="Drops/D1" unique_id=1261710377]
+modulate = Color(1, 0.9, 0.55, 0.65)
+show_behind_parent = true
+material = SubResource("CanvasItemMaterial_ygqnl")
+scale = Vector2(2.6, 2.6)
+texture = ExtResource("6_k6if1")
+
+[node name="Trail" type="CPUParticles2D" parent="Drops/D1" unique_id=2007656460]
+show_behind_parent = true
+material = SubResource("CanvasItemMaterial_ygqnl")
+emitting = false
+texture = ExtResource("9_4qpp3")
+lifetime = 0.35
+spread = 180.0
+gravity = Vector2(0, 0)
+initial_velocity_max = 20.0
+scale_amount_max = 2.0
+color = Color(1, 0.9, 0.5, 1)
+color_ramp = SubResource("Gradient_1ivfn")
+
+[node name="D2" type="Sprite2D" parent="Drops" unique_id=300637129]
+top_level = true
+texture = ExtResource("13_xfrrt")
+
+[node name="Glow" type="Sprite2D" parent="Drops/D2" unique_id=1571930422]
+modulate = Color(1, 0.9, 0.55, 0.65)
+show_behind_parent = true
+material = SubResource("CanvasItemMaterial_ygqnl")
+scale = Vector2(2.6, 2.6)
+texture = ExtResource("6_k6if1")
+
+[node name="Trail" type="CPUParticles2D" parent="Drops/D2" unique_id=2106701572]
+show_behind_parent = true
+material = SubResource("CanvasItemMaterial_ygqnl")
+emitting = false
+texture = ExtResource("9_4qpp3")
+lifetime = 0.35
+spread = 180.0
+gravity = Vector2(0, 0)
+initial_velocity_max = 20.0
+scale_amount_max = 2.0
+color = Color(1, 0.9, 0.5, 1)
+color_ramp = SubResource("Gradient_0n36a")

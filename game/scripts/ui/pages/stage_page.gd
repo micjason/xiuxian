@@ -16,6 +16,8 @@ signal back_requested
 const ORIGIN := Vector2(24, 250)
 const SCENE_HEIGHT := 712.0
 const CARD_SIZE := Vector2(236, 296)
+## 挂机打小怪特效（anim_q/battle_idle，README 第 1 步）：飞剑出手、命中、伤害数字、击杀溶解、灵气、「+N 修为」、掉落飞进背包。
+const IdleBattle := preload("res://anim_q/battle_idle/idle_battle.tscn")
 
 var _state: Dictionary = {}
 var _content: Dictionary = {}
@@ -36,7 +38,8 @@ var _monster: TextureRect
 var _monster_far: TextureRect
 var _monster_chip: Label
 var _monster_hp: QBar
-var _float_layer: Control
+var _battle_fx: Node2D
+var _hero: Control
 var _last_kills := -1
 var _elapsed := 0.0
 
@@ -132,20 +135,25 @@ func _build_scene() -> void:
 	var hero := QHero.new(false, false)  # 动画主角（只要人物，莲台在下面）
 	hero.name = "StageHero"
 	_at(hero, Rect2(54, 520, 300, 300))
-	# 飞剑（装饰）
-	var sword := TextureRect.new()
-	sword.texture = ArtLib.icon("tab_adventure")
-	sword.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	sword.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	sword.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	sword.pivot_offset = Vector2(65, 65)
-	sword.rotation = deg_to_rad(30)
-	_at(sword, Rect2(470, 600, 130, 130))
+	_hero = hero
+	# 原来 (470,600) 的装饰飞剑去掉了：特效里自带会飞的剑（battle_idle/art/sword.png）。
 	# 怪物（远处小一只 + 目标一只，都朝左）：贴图按当前关卡的怪物名在 _render_scene 里查（ArtLib.monster_sprite_id）
 	_monster_far = _sprite("", Rect2(412, 450, 166, 166), true)
 	_monster_far.modulate = Color(1, 1, 1, 0.9)
 	_monster = _sprite("", Rect2(560, 510, 340, 370), true)
 	_monster.name = "TargetMonster"
+	_monster.visible = false  # 只用来取贴图和翻转；目标怪由特效里的怪物模板画（README 第 2 步）
+	# 特效层加在怪物名牌和血条之前 → 名牌、血条永远画在特效上面。全部用设计稿坐标，减掉页面原点对齐。
+	_battle_fx = IdleBattle.instantiate() as Node2D
+	_battle_fx.name = "IdleBattleFx"
+	_battle_fx.position = -ORIGIN
+	_scene.add_child(_battle_fx)
+	_battle_fx.call("bind_hero", hero)
+	# 掉落物是 top_level、用全局坐标飞到底栏；调高层级，飞到底栏时不被底栏（z 30）盖住。
+	var drops := _battle_fx.get_node_or_null("Drops") as CanvasItem
+	if drops != null:
+		drops.z_as_relative = false
+		drops.z_index = 50
 	var name_chip := QKit.tag("", "cream", 30, 16)
 	name_chip.name = "MonsterName"
 	_monster_chip = name_chip.get_child(0) as Label
@@ -153,10 +161,6 @@ func _build_scene() -> void:
 	_monster_hp = QKit.bar(1.0, UiTokens.Q_RED, 30, 1, UiTokens.Q_TRACK, "red") as QBar
 	_monster_hp.name = "MonsterHp"
 	_at(_monster_hp, Rect2(756, 444, 170, 30))
-	_float_layer = Control.new()
-	_float_layer.name = "KillFloats"
-	_float_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_at(_float_layer, Rect2(0, 258, 1080, 700))
 
 
 ## stages = 当前境界已解锁的全部关卡（有首领的和只刷怪的）；locked_stage = 下一个未解锁关卡；
@@ -215,7 +219,7 @@ func _render_scene() -> void:
 	var flip := ArtLib.monster_needs_flip(sprite) if not sprite.is_empty() else true
 	_monster.flip_h = flip
 	_monster_far.flip_h = flip
-	_monster.visible = tex != null
+	_monster.visible = false
 	_monster_far.visible = tex != null
 	var pip_row := _scene.find_child("PipRow", true, false) as HBoxContainer
 	while pip_row.get_child_count() > 1:
@@ -231,6 +235,11 @@ func _render_scene() -> void:
 		pip_row.add_child(pip)
 		_pips.append(pip)
 	_pip_lit = -1
+	# 当前怪物交给特效（贴图或气血变了才重新刷怪，重复调用没关系）。气血 = 配置值 wave.monster.hp，伤害数字加起来正好等于它。
+	# 第 4 个参数 = 每只击杀修为：灵气飞到主角时飘「+N 修为」（原来页面自己的 _float_gain 已删，不会飘两次）。
+	var mon: Dictionary = wave.get("monster", {}) if typeof(wave.get("monster", null)) == TYPE_DICTIONARY else {}
+	_battle_fx.call("set_monster", _monster.texture, _monster.flip_h, int(mon.get("hp", 0)), float(shown.get("kill_cultivation", 0)))
+	_battle_fx.visible = tex != null and bool(shown.available)
 	_refresh_wave(shown)
 
 
@@ -257,38 +266,27 @@ func _refresh_wave(shown: Dictionary) -> void:
 			(_pips[i] as Panel).add_theme_stylebox_override("panel", _pip_on if i < kills else _pip_off)
 	var per := maxi(1, int(_wave().get("killsPerWave", shown.get("wave_size", 3))))
 	var progress := float(shown.get("ratio", 0.0)) * float(per)
-	_monster_hp.set_ratio(1.0 - (progress - floorf(progress)))
-	if _last_kills >= 0 and kills > _last_kills and float(shown.get("kill_cultivation", 0)) > 0.0:
-		_float_gain(float(shown.get("kill_cultivation", 0)) * float(kills - _last_kills))
+	var hp_ratio := 1.0 - (progress - floorf(progress))
+	_monster_hp.set_ratio(hp_ratio)
+	_battle_fx.call("sync", hp_ratio, kills)  # 和血条同一个值、本波击杀数（README 第 4 步）
+	# 怪物溶解到下一只刷出之前先藏血条（名牌留着）
+	_monster_hp.visible = bool(_battle_fx.call("monster_showing")) and _monster_chip.get_parent().visible
 	_last_kills = kills
 
 
-## 击杀飘字「+N 修为」（美术位图数字 digits_xiuwei + 文字图 float_word_xiuwei）。
-func _float_gain(amount: float) -> void:
-	var row := UiKit.hbox(4)
-	row.name = "KillFloat"
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var number := Label.new()
-	number.text = "+%s" % CultivationFormat.amount(amount)
-	var font := ArtLib.digits_font("xiuwei")
-	if font != null:
-		number.add_theme_font_override("font", font)
-		number.add_theme_font_size_override("font_size", 60)
-		number.add_theme_color_override("font_color", Color.WHITE)
-	else:
-		number = QKit.outlined(number.text, 54, UiTokens.Q_WHITE, Color("2e8fd8"), 10)
-	row.add_child(number)
-	var word := QKit.cut_rect("float_word_xiuwei")
-	row.add_child(word)
-	row.position = Vector2(60, 40)
-	_float_layer.add_child(row)
-	row.scale = Vector2(0.6, 0.6)
-	var tween := row.create_tween()
-	tween.tween_property(row, "scale", Vector2(1.15, 1.15), 0.12)
-	tween.tween_property(row, "scale", Vector2.ONE, 0.06)
-	tween.tween_property(row, "position:y", row.position.y - 80.0, 0.8)
-	tween.parallel().tween_property(row, "modulate:a", 0.0, 0.8)
-	tween.tween_callback(row.queue_free)
+## 这次结算真的进了背包的掉落（图标），下一只怪死的时候从怪身上弹出、飞进背包（README 第 5 步）。只传真实掉落。
+func queue_drops(icons: Array[Texture2D]) -> void:
+	if not icons.is_empty():
+		_battle_fx.call("queue_drops", icons)
+
+
+## 掉落飞去的画布坐标（底栏背包页签）。
+func set_bag_target(point: Vector2) -> void:
+	_battle_fx.set("bag_target_global", point)
+
+
+func battle_fx() -> Node2D:
+	return _battle_fx
 
 
 func _render_stages() -> void:

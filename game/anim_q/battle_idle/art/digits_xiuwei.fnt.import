@@ -1,0 +1,17 @@
+[remap]
+
+importer="font_data_bmfont"
+type="FontFile"
+uid="uid://cfudftuvqpj77"
+path="res://.godot/imported/digits_xiuwei.fnt-5992515f110d7a283bc2301fc1f51cca.fontdata"
+
+[deps]
+
+source_file="res://anim_q/battle_idle/art/digits_xiuwei.fnt"
+dest_files=["res://.godot/imported/digits_xiuwei.fnt-5992515f110d7a283bc2301fc1f51cca.fontdata"]
+
+[params]
+
+fallbacks=[]
+compress=true
+scaling_mode=2

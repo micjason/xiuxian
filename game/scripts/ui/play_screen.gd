@@ -405,6 +405,7 @@ func _render(feedback: bool = false) -> void:
 				_home_page.show_feedback(lines)
 			_home_page.show_gains(last as Dictionary)
 			_fly_drops(lines)
+			_stage_drops()
 	_flags.adopt_if_first_run(_item_ids())
 	_bag_page.bind(_state, _content, _flags)
 	_stage_render()
@@ -440,6 +441,25 @@ func _fly_drops(lines: Array[Dictionary]) -> void:
 		get_tree().create_timer(0.2 * index).timeout.connect(func() -> void:
 			if is_instance_valid(fly):
 				fly.call("fly", start, target))
+
+
+## 历练页挂机特效：这次结算真的进了背包的掉落（不含背包满没拿到 / 自动分解的），下一只怪死时从怪身上弹出、飞进底栏「背包」。
+## 只在历练页可见时传（不在历练页时攒着会在之后凭空弹出）；最多 3 件。
+func _stage_drops() -> void:
+	if _page != PAGE_ADVENTURE or not _stage_page.is_visible_in_tree():
+		return
+	var icons: Array[Texture2D] = []
+	var last: Dictionary = _state.get("lastSettle", {}) if typeof(_state.get("lastSettle", null)) == TYPE_DICTIONARY else {}
+	for row in last.get("drops", []):
+		if typeof(row) != TYPE_DICTIONARY or bool((row as Dictionary).get("dropped", false)) or bool((row as Dictionary).get("decomposed", false)):
+			continue
+		var view := QKit.reward_view(_content, str((row as Dictionary).get("itemSlug", "")))
+		if view.texture != null and icons.size() < 3:
+			icons.append(view.texture)
+	if icons.is_empty():
+		return
+	_stage_page.set_bag_target(_tab_bar.label_center("bag"))
+	_stage_page.queue_drops(icons)
 
 
 ## 下一境界之后再下一个境界的名字（突破页第三个节点）；没有返回空串。

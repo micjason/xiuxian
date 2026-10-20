@@ -1,0 +1,29 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://anim_q/battle_idle/monster_rig.gd" id="1_3wulq"]
+[ext_resource type="Texture2D" path="res://anim_q/battle_idle/fx/fx_shadow.png" id="2_aabde"]
+[ext_resource type="Shader" path="res://anim_q/battle_idle/monster_fx.gdshader" id="3_nexgn"]
+[ext_resource type="Texture2D" path="res://anim_q/battle_idle/fx/fx_noise.png" id="4_dlbgm"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_4r8ye"]
+resource_local_to_scene = true
+shader = ExtResource("3_nexgn")
+shader_parameter/flash = null
+shader_parameter/flash_color = null
+shader_parameter/dissolve = null
+shader_parameter/edge_color = null
+shader_parameter/noise_tex = ExtResource("4_dlbgm")
+
+[node name="MonsterRig" type="Node2D" unique_id=526995341]
+script = ExtResource("1_3wulq")
+
+[node name="Shadow" type="Sprite2D" parent="." unique_id=666147397]
+modulate = Color(1, 1, 1, 0.75)
+position = Vector2(0, 180)
+scale = Vector2(2.5, 1)
+texture = ExtResource("2_aabde")
+
+[node name="Body" type="Node2D" parent="." unique_id=2114720969]
+
+[node name="Sprite" type="Sprite2D" parent="Body" unique_id=982948790]
+material = SubResource("ShaderMaterial_4r8ye")

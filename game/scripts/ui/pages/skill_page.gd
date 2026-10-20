@@ -115,10 +115,16 @@ func sheet_pad() -> float:
 	return 8.0
 
 
+var _bind_sig := 0
+
 func bind(state: Dictionary, content: Dictionary) -> void:
 	_view = SkillView.build(state, content)
 	if _selected.is_empty() or not _has(_selected):
 		_selected = str((_view.selected as Dictionary).get("slug", ""))
+	# v14：心跳每次都 bind，内容没变就不重建（原来每次重建约 100ms）。
+	var sig := hash([_view, _selected])
+	if sig == _bind_sig:
+		return
 	_render()
 
 
@@ -148,6 +154,7 @@ func _has(slug: String) -> bool:
 
 
 func _render() -> void:
+	_bind_sig = hash([_view, _selected])
 	UiKit.clear(_list)
 	var cards: Array = _view.get("cards", [])
 	_count.text = "已习得 %d/%d" % [int(_view.get("learned_count", 0)), int(_view.get("total_count", 0))]

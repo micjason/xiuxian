@@ -60,6 +60,10 @@ var _empty: Label
 var _sell_button: Button
 var _power_value: Label
 var _stat_labels: Dictionary = {}
+var _bind_sig := 0
+var _bound_content: Dictionary = {}
+## refresh 次数（测试 / 测量用）。
+var refresh_count := 0
 
 
 func _init() -> void:
@@ -325,10 +329,26 @@ func bind(state: Dictionary, content: Dictionary, item_flags: ItemFlags) -> void
 	_content = content
 	flags = item_flags
 	auto_decompose = bool(state.get("autoDecompose", false))
+	# 心跳每次都会 bind：和上次一样就不刷新（v14：原来每次都重建纸娃娃 8 格 + 背包全部格子，滚动被打断、卡顿）。
+	var sig := _bind_signature()
+	if sig == _bind_sig and is_same(content, _bound_content):
+		return
+	_bound_content = content
 	refresh()
 
 
+func _bind_signature() -> int:
+	var keys := ["items", "power", "hp", "attack", "defense", "speed", "bagCapacity", "enhanceExp", "autoDecompose", "realmName"]
+	var parts: Array = []
+	for key in keys:
+		parts.append(_state.get(key, null))
+	parts.append(flags.seen.keys() if flags != null else [])
+	return hash(parts)
+
+
 func refresh() -> void:
+	_bind_sig = _bind_signature()
+	refresh_count += 1
 	var seen: Dictionary = flags.seen if flags != null else {}
 	model = BagModel.from_state(_state, _content, seen)
 	var used := model.used_slots()

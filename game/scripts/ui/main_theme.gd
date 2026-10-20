@@ -202,15 +202,11 @@ static func _make_containers(theme: Theme) -> void:
 	theme.set_stylebox("fill", "ProgressBar", ArtLib.nine("bar_fill_jade"))
 	theme.set_color("font_color", "ProgressBar", UiTokens.TEXT)
 	theme.set_font_size("font_size", "ProgressBar", UiTokens.FS_MICRO)
-	# 触屏滚动条：窄但可见。
-	var track := _box(Color(UiTokens.Q_COCOA, 0.06), Color(0, 0, 0, 0), 0, UiTokens.R_SM, 0, 6, 6)
-	var grabber := _box(Color(UiTokens.Q_COCOA, 0.35), Color(0, 0, 0, 0), 0, UiTokens.R_SM, 0, 6, 6)
-	var grabber_hot := _box(Color(UiTokens.Q_COCOA, 0.6), Color(0, 0, 0, 0), 0, UiTokens.R_SM, 0, 6, 6)
+	# v14：全局不显示滚动条（成鹏要求）。ScrollKit 把每个 ScrollContainer 设成 SHOW_NEVER，这里样式也全空、宽度 0，双保险。
+	var none := StyleBoxEmpty.new()
 	for bar in ["VScrollBar", "HScrollBar"]:
-		theme.set_stylebox("scroll", bar, track)
-		theme.set_stylebox("grabber", bar, grabber)
-		theme.set_stylebox("grabber_highlight", bar, grabber_hot)
-		theme.set_stylebox("grabber_pressed", bar, grabber_hot)
+		for box in ["scroll", "scroll_focus", "grabber", "grabber_highlight", "grabber_pressed"]:
+			theme.set_stylebox(box, bar, none)
 	var rule := StyleBoxFlat.new()
 	rule.bg_color = Color(UiTokens.GOLD, 0.35)
 	rule.content_margin_top = 1

@@ -41,6 +41,11 @@ var _last_kills := -1
 var _elapsed := 0.0
 
 var _stage_view: ScrollContainer
+var _stages_sig := 0
+## 本波圆点两种样式（亮 / 暗）只建一次；原来每帧给每个圆点新建 StyleBox，整页每帧重绘。
+var _pip_on: StyleBox
+var _pip_off: StyleBox
+var _pip_lit := -1
 var _stage_box: VBoxContainer
 ## 「挑战」按钮固定在页面底部（紧贴标签栏上方），详情在它上面滚动。
 var _challenge_bar: HBoxContainer
@@ -165,7 +170,24 @@ func bind(state: Dictionary, content: Dictionary, stages: Array[Dictionary], sel
 	selected = selected_slug
 	_elapsed = 0.0
 	_render_scene()
+	_render_stages_if_changed()
+
+
+## 心跳每次都会 bind；列表内容没变就不重建（v14：原来每次心跳都整列重建，
+## 正在拖的列表会被打断、横排关卡卡跳回开头，还会卡一下）。
+func _render_stages_if_changed() -> void:
+	var sig := _stages_signature()
+	if sig == _stages_sig and _stage_box.get_child_count() > 0:
+		return
 	_render_stages()
+
+
+func _stages_signature() -> int:
+	var wave := _wave()
+	return hash([_stages, selected, _locked_next, _locked_stage, int(_state.get("power", 0)), str(_state.get("realmName", "")),
+		wave.get("stageSlug", null), wave.get("chosenStageSlug", null), wave.get("selectable", []),
+		_state.get("breakthrough", null), _state.get("challengeCooldownSeconds", null), _state.get("bossDaily", null),
+		busy, _dropdown_open])
 
 
 func set_busy(value: bool) -> void:
@@ -208,6 +230,7 @@ func _render_scene() -> void:
 		pip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		pip_row.add_child(pip)
 		_pips.append(pip)
+	_pip_lit = -1
 	_refresh_wave(shown)
 
 
@@ -225,9 +248,13 @@ func _process(delta: float) -> void:
 ## 本波圆点 = 已击杀只数；怪物血条 = 当前这只还剩多少（按本地经过的时间推算，只是显示）。
 func _refresh_wave(shown: Dictionary) -> void:
 	var kills := int(shown.get("kills", 0))
-	for i in _pips.size():
-		var on := i < kills
-		(_pips[i] as Panel).add_theme_stylebox_override("panel", QSkin.custom(UiTokens.Q_MINT if on else Color("f1e2c6"), UiTokens.Q_COCOA, 4, 999, 0, 0, 0))
+	if kills != _pip_lit:
+		_pip_lit = kills
+		if _pip_on == null:
+			_pip_on = QSkin.custom(UiTokens.Q_MINT, UiTokens.Q_COCOA, 4, 999, 0, 0, 0)
+			_pip_off = QSkin.custom(Color("f1e2c6"), UiTokens.Q_COCOA, 4, 999, 0, 0, 0)
+		for i in _pips.size():
+			(_pips[i] as Panel).add_theme_stylebox_override("panel", _pip_on if i < kills else _pip_off)
 	var per := maxi(1, int(_wave().get("killsPerWave", shown.get("wave_size", 3))))
 	var progress := float(shown.get("ratio", 0.0)) * float(per)
 	_monster_hp.set_ratio(1.0 - (progress - floorf(progress)))
@@ -265,7 +292,10 @@ func _float_gain(amount: float) -> void:
 
 
 func _render_stages() -> void:
+	_stages_sig = _stages_signature()
 	var keep_scroll := _stage_view.scroll_vertical
+	var cards := _stage_box.find_child("StageCards", false, false) as ScrollContainer
+	var keep_cards := cards.scroll_horizontal if cards != null else 0
 	UiKit.clear(_stage_box)
 	UiKit.clear(_challenge_bar)
 	_challenge_button = null
@@ -281,13 +311,16 @@ func _render_stages() -> void:
 		empty.body.add_child(UiKit.wrap_label("这个境界还没有开放的关卡。", UiTokens.FS_BODY, UiTokens.TEXT_MUTED))
 		_stage_box.add_child(empty.panel)
 	_build_challenge_bar(current)
-	_restore_scroll.call_deferred(keep_scroll)
+	_restore_scroll.call_deferred(keep_scroll, keep_cards)
 
 
-func _restore_scroll(value: int) -> void:
+func _restore_scroll(value: int, cards_value: int = 0) -> void:
 	await get_tree().process_frame
 	if is_instance_valid(_stage_view):
 		_stage_view.scroll_vertical = value
+		var cards := _stage_box.find_child("StageCards", false, false) as ScrollContainer
+		if cards != null:
+			cards.scroll_horizontal = cards_value
 
 
 static func _has_boss(stage: Dictionary) -> bool:

@@ -226,11 +226,18 @@ func set_busy(value: bool) -> void:
 	_button.disabled = value or not bool(_view.get("can_start", false))
 
 
+var _bind_sig := 0
+
 func bind(state: Dictionary, _content: Dictionary, next_realm_name: String, _after_next_name: String = "") -> void:
 	if _fx_running:
 		_pending_bind = [state, _content, next_realm_name, _after_next_name]
 		return
 	_view = BreakthroughView.build(state, next_realm_name)
+	# v14：心跳每次都 bind，内容没变就不重建（原来每次重建约 120ms，滚动时每隔十几秒卡一下）。
+	var sig := hash([_view, str(state.get("realmName", "")), next_realm_name])
+	if sig == _bind_sig and _body.get_child_count() > 0:
+		return
+	_bind_sig = sig
 	var has_next := bool(_view.has_next)
 	_ribbon_text.text = "突破 · %s" % next_realm_name if has_next else "已至最高境界"
 	if _break_fx != null and _break_fx.get_parent() != null:

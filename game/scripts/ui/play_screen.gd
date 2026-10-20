@@ -92,6 +92,7 @@ func _ready() -> void:
 	theme = APP_THEME
 	_mock = UiMock.enabled()
 	_hide_legacy_nodes()
+	ScrollKit.install(self)  # v14：所有滚动区域隐藏滚动条 + 手指拖动 / 惯性（含之后新建的弹窗列表）
 	_build_shell()
 	get_viewport().size_changed.connect(_apply_layout)
 	_show_page(PAGE_CULTIVATE)

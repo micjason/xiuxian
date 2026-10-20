@@ -126,7 +126,7 @@ func set_item(data: Dictionary) -> void:
 	_enhance.text = ("+%d" % enhance) if enhance > 0 else ""
 	_new.visible = bool(data.get("is_new", false))
 	_equipped.visible = bool(data.get("equipped", false))
-	tooltip_text = "%s · %s" % [str(data.get("name", "")), str(data.get("rarity_name", ""))]
+	# 不设 tooltip_text：手机上手指按住会触发悬停提示弹窗（每个提示都是一个新窗口），滚动时会卡。
 	_restyle()
 
 
@@ -136,7 +136,6 @@ func set_empty() -> void:
 	for node in [_glow, _icon_tex, _glyph, _count, _enhance, _new, _equipped, _check]:
 		(node as CanvasItem).visible = false
 	disabled = true
-	tooltip_text = ""
 	_restyle()
 
 

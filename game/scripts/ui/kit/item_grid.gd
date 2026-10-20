@@ -14,6 +14,9 @@ var selectable: Callable = func(_item: Dictionary) -> bool: return true
 var _grid: GridContainer
 var _selected: Dictionary = {}
 var _slots: Array[ItemSlot] = []
+var _sig := 0
+## set_items 真正改动格子的次数（测试 / 测量用）。
+var rebuilds := 0
 
 
 func _init() -> void:
@@ -34,11 +37,9 @@ func set_columns(value: int) -> void:
 
 
 ## min_rows：至少显示几行（空格补位）；max_cells：补位的格数上限（一般是容量）。
+## v14：格子复用，不再每次全删全建（原来每次心跳刷新都重建 20+ 个按钮：滚动中被打断、按住的格子消失、卡一下）；
+## 列表和上次完全一样时直接跳过。
 func set_items(items: Array[Dictionary], min_rows: int = 5, max_cells: int = 0) -> void:
-	for slot in _slots:
-		_grid.remove_child(slot)
-		slot.queue_free()
-	_slots.clear()
 	var keep := {}
 	for item in items:
 		keep[str(item.get("id", ""))] = true
@@ -50,19 +51,30 @@ func set_items(items: Array[Dictionary], min_rows: int = 5, max_cells: int = 0) 
 	if max_cells > 0:
 		cells = mini(cells, max_cells)
 	cells = maxi(cells, items.size())
-	for index in cells:
+	var sig := hash([items, cells, multi_select, _selected.keys()])
+	if sig == _sig and _slots.size() == cells:
+		return
+	_sig = sig
+	while _slots.size() > cells:
+		var extra: ItemSlot = _slots.pop_back()
+		_grid.remove_child(extra)
+		extra.queue_free()
+	while _slots.size() < cells:
 		var slot := ItemSlot.new()
+		slot.item_pressed.connect(_on_slot)
 		_grid.add_child(slot)
 		_slots.append(slot)
+	rebuilds += 1
+	for index in cells:
+		var slot := _slots[index]
 		if index < items.size():
 			var item := items[index]
 			slot.set_item(item)
 			slot.set_selected(_selected.has(str(item.get("id", ""))))
-			slot.item_pressed.connect(_on_slot)
-			if multi_select and not bool(selectable.call(item)):
-				slot.set_dimmed(true)
+			slot.set_dimmed(multi_select and not bool(selectable.call(item)))
 		else:
 			slot.set_empty()
+			slot.set_dimmed(false)
 
 
 func slot_count() -> int:
@@ -107,6 +119,8 @@ func select_all() -> void:
 
 
 func _on_slot(item: Dictionary) -> void:
+	if item.is_empty() or ScrollKit.tap_blocked():
+		return
 	if not multi_select:
 		slot_pressed.emit(item)
 		return

@@ -232,3 +232,18 @@ func _files(dir: String, out: Array[String] = []) -> Array[String]:
 	for d in DirAccess.get_directories_at(dir):
 		_files(dir + "/" + d, out)
 	return out
+
+
+## 0.13.0 上线后发现：外壳抬了 z 以后，登录页（z 0）被顶 / 底栏和主角盖住。登录页必须在主界面所有层之上、弹窗之下。
+func test_login_page_covers_the_whole_main_ui() -> void:
+	var scene: Node = load("res://scenes/main.tscn").instantiate()
+	add_child_autofree(scene)
+	await get_tree().process_frame
+	var login := scene.get("_login") as Control
+	assert_not_null(login)
+	for owner in ["_top_bar", "_tab_bar", "_fx_layer", "_break_layer"]:
+		assert_gt(login.z_index, (scene.get(owner) as CanvasItem).z_index, "登录页在 %s 之上" % owner)
+	# 主角部件最高 z 20（相对页面 0）
+	assert_gt(login.z_index, 20 + 1)
+	for owner in ["_popup", "_toast"]:
+		assert_lt(login.z_index, (scene.get(owner) as CanvasItem).z_index, "%s 在登录页之上（更新弹窗、提示）" % owner)

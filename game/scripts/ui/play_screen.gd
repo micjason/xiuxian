@@ -37,10 +37,11 @@ const HEARTBEAT_DEFAULT := 12.0
 const APP_THEME: Theme = preload("res://resources/theme/xiuxian_theme.tres")
 
 ## 绘制层级：动画场景里的部件自带 z_index（主角最高 20、飘字 50、掉落 40），会盖过后面添加的普通控件，
-## 所以外壳各层显式抬高：顶 / 底栏 < 特效层 < 突破弹窗 < 其它弹窗 < 提示条。点击顺序仍按节点顺序（和层级一致）。
+## 所以外壳各层显式抬高：顶 / 底栏 < 特效层 < 突破弹窗 < 登录页 < 其它弹窗 < 提示条。点击顺序仍按节点顺序（和层级一致）。
 const Z_BARS := 30
 const Z_FX := 60
 const Z_BREAK := 100
+const Z_LOGIN := 150  # 登录页盖住整个主界面（顶/底栏、主角），更新弹窗和提示条仍在它上面
 const Z_POPUP := 200
 const Z_TOAST := 300
 
@@ -96,6 +97,7 @@ func _ready() -> void:
 	_show_page(PAGE_CULTIVATE)
 	_login = PlayerLogin.new()
 	_login.logged_in.connect(_on_logged_in)
+	_login.z_index = Z_LOGIN
 	add_child(_login)
 	_setup_update_check()
 	_timer = Timer.new()

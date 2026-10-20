@@ -34,3 +34,11 @@
 - 改：离线领取 / 链路 2 等关闭动画（0.35s）；链路 3 等特效播完（最多 8s）出结算；离线开箱改查动画；「领取」文字按 claim_text。
 - GUT 212/212（`-gfailure_error_types=gut,push_error`，原因同前：GUT 字体是 LFS 指针）。
 - 截图：`/workspace/ui_preview_v13/`（7 屏 q_* + 特效关键帧 fx_*，`v13_sheet.png`），脚本 `scripts/dev/capture_v13.gd`（`/workspace/tools_ui/cap13.sh`）。xvfb 软件渲染下动画按真实时间播，关键帧可能差一两帧。
+
+## 上线 0.13.0（33）（时间均为 Asia/Shanghai）
+- 12:22 `tools/deploy/release_apk.sh --version-name 0.13.0` 导出签名（固定密钥，证书 SHA-256 与 0.12.0 相同，aapt2 核对包名 / 版本）；中途被打断，没有重导、没有再升版本。13:00 左右用 `tools/deploy/deploy.sh publish-apk /workspace/.deploy/apk/publish-33` 上传发布（只动 dev2：/opt/xiuxian-dev2、端口 8090；后端没有改，没有跑迁移、没有重启服务）。这次上传带宽只有约 20 KB/s，100 MB 传了约 32 分钟。
+- 外部核对：`/healthz` ok；`/download/latest.json` versionCode 33 / 0.13.0、sha256 `db11b74798c1029228a459d98b6ecaaab92c3405be059a14aa87ef25ffa90d4f`、size 100231178，和本地一致；外网下载的 APK sha256 一致；后台首页（`/`）加载正常、无页面错误（`/workspace/ui_preview_v13/real/admin_login.png`）；客户端假装 0.12.0（32）连线上服务器弹出「发现新版本 0.13.0」（`real/update_popup.png`）。
+
+## 上线后发现的问题（已在本地修，**未发布**）
+- `real/update_popup.png` 里看到：**未登录时主界面（顶栏、主角、底栏圆钮）画在登录页上面**。原因是本次给外壳各层抬了 z_index，登录页还是 0。修复：登录页 z = 150（主界面各层之上、弹窗 / 提示条之下），GUT 加 `test_login_page_covers_the_whole_main_ui`，修后截图 `real/update_popup_after_login_fix_local.png`。GUT 213/213。
+- 线上 0.13.0（33）包里还是有这个问题（只影响登录页；登录后的界面正常）。要修到手机上需要再发一个 0.13.1（34）：`DEPLOY_HOST=101.132.74.32 tools/deploy/release_apk.sh --version-name 0.13.1`（服务器拒绝同一个 versionCode 覆盖）。

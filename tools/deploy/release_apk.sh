@@ -128,8 +128,10 @@ GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD="$(cat "$KEYSTORE.pass")" GRADLE_USER_HO
 "$BUILD_TOOLS/apksigner" verify --print-certs "$APK" >"$OUT_DIR/verify-$CODE.txt"
 GOT_SHA="$(awk -F': ' '/certificate SHA-256 digest/ {print $2; exit}' "$OUT_DIR/verify-$CODE.txt" | tr -d ':' | tr 'a-f' 'A-F')"
 [ "$GOT_SHA" = "$(echo "$CERT_SHA" | tr -d ':')" ] || oops "安装包的签名证书和固定密钥对不上（$GOT_SHA）"
-BADGING="$("$BUILD_TOOLS/aapt2" dump badging "$APK" 2>/dev/null | head -3)"
-echo "$BADGING" | grep -q "name='$PACKAGE_ID' versionCode='$CODE' versionName='$VNAME'" || oops "包名 / 版本不对：$BADGING"
+# head 提前关管道会让 aapt2 收到 SIGPIPE，pipefail 下整句失败、set -e 直接无声退出 → 先完整输出再取
+BADGING="$("$BUILD_TOOLS/aapt2" dump badging "$APK" 2>/dev/null || true)"
+BADGING="$(printf '%s\n' "$BADGING" | sed -n '1,3p')"
+grep -q "name='$PACKAGE_ID' versionCode='$CODE' versionName='$VNAME'" <<<"$BADGING" || oops "包名 / 版本不对：$BADGING"
 SHA="$(sha256sum "$APK" | cut -d' ' -f1)"
 SIZE="$(stat -c %s "$APK")"
 STAGE="$OUT_DIR/publish-$CODE"

@@ -41,7 +41,7 @@ func _init() -> void:
 	_panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	_panel.mouse_filter = Control.MOUSE_FILTER_STOP
 	var art := ArtLib.nine("panel_popup")
-	art.expand_margin_bottom = 80.0  # 底部面板贴着屏幕下沿，把圆角和边线推到屏幕外
+	art.set("expand_margin_bottom", 80.0)  # 底部面板贴着屏幕下沿，把圆角和边线推到屏幕外
 	art.content_margin_bottom = 80.0
 	_sheet_art = KitStyle.themed(self, &"panel", &"GamePopup", art)
 	_center_art = ArtLib.nine("panel_popup")

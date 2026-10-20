@@ -63,31 +63,32 @@ static func card(title: String = "") -> Dictionary:
 ## 小节标题：金色文字 + 细金线。
 static func section_title(text: String) -> Control:
 	var box := vbox(6)
-	var head := label(text, UiTokens.FS_BODY, UiTokens.GOLD)
+	var head := label(text, UiTokens.FS_BODY, UiTokens.TEXT)
 	head.theme_type_variation = MainTheme.VAR_ACCENT
+	head.add_theme_color_override("font_color", UiTokens.TEXT)
 	box.add_child(head)
 	box.add_child(divider())
 	return box
 
 
-static func divider() -> TextureRect:
-	var node := TextureRect.new()
-	node.texture = ArtLib.ui("divider")
-	node.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	node.stretch_mode = TextureRect.STRETCH_SCALE
-	node.custom_minimum_size = Vector2(0, 10)
+## Q 版分隔线：一条浅可可色的细线（旧的金色描花分隔线不用了）。
+static func divider() -> Control:
+	var node := ColorRect.new()
+	node.color = Color(UiTokens.Q_COCOA, 0.18)
+	node.custom_minimum_size = Vector2(0, 3)
 	node.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return node
 
 
 ## 图标（白色剪影按 tint 染色）。size 是正方形边长。
+## Q 版彩色图标（ArtLib.is_color_icon）不染色。
 static func icon(name: String, size: int, tint: Color = UiTokens.TEXT) -> TextureRect:
 	var node := TextureRect.new()
 	node.texture = ArtLib.icon(name)
 	node.custom_minimum_size = Vector2(size, size)
 	node.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	node.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	node.modulate = tint
+	node.modulate = Color.WHITE if ArtLib.is_color_icon(name) else tint
 	node.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return node
 
@@ -179,14 +180,13 @@ static func page_title(text: String) -> Control:
 	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var panel := PanelContainer.new()
 	panel.add_theme_stylebox_override("panel", ArtLib.nine("page_title_plate"))
-	panel.custom_minimum_size = Vector2(560, 100)
+	panel.custom_minimum_size = Vector2(420, 104)
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var title := label(text, UiTokens.FS_H1, UiTokens.GOLD, HORIZONTAL_ALIGNMENT_CENTER)
+	var title := label(text, UiTokens.FS_H1, UiTokens.Q_WHITE, HORIZONTAL_ALIGNMENT_CENTER)
 	title.name = "Title"
 	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	title.add_theme_font_override("font", ArtLib.title_font())
-	title.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
-	title.add_theme_constant_override("outline_size", 8)
+	QSkin.outline(title, 12)
 	panel.add_child(title)
 	holder.add_child(panel)
 	return holder
@@ -206,9 +206,11 @@ static func cta_button(title_text: String, sub_text: String, variation: StringNa
 	column.add_theme_constant_override("separation", 0)
 	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	node.add_child(column)
-	var color := UiTokens.ON_GOLD if variation == MainTheme.VAR_PRIMARY else UiTokens.TEXT
+	var color := UiTokens.ON_PRIMARY if variation == MainTheme.VAR_PRIMARY else UiTokens.TEXT
 	var first := label(title_text, UiTokens.FS_H1, color, HORIZONTAL_ALIGNMENT_CENTER)
 	first.add_theme_font_override("font", ArtLib.title_font())
+	if variation == MainTheme.VAR_PRIMARY or variation == MainTheme.VAR_JADE:
+		QSkin.outline(first, 12)  # 设计稿：按钮大字白色 + 可可描边
 	column.add_child(first)
 	var second := label(sub_text, UiTokens.FS_MICRO, color, HORIZONTAL_ALIGNMENT_CENTER)
 	column.add_child(second)

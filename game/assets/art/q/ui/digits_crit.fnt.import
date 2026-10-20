@@ -1,0 +1,17 @@
+[remap]
+
+importer="font_data_bmfont"
+type="FontFile"
+uid="uid://nsyf2rbhsbqv"
+path="res://.godot/imported/digits_crit.fnt-ed1614d82727045a96c12386fb81d41a.fontdata"
+
+[deps]
+
+source_file="res://assets/art/q/ui/digits_crit.fnt"
+dest_files=["res://.godot/imported/digits_crit.fnt-ed1614d82727045a96c12386fb81d41a.fontdata"]
+
+[params]
+
+fallbacks=[]
+compress=true
+scaling_mode=2

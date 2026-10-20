@@ -25,7 +25,7 @@ func test_item_slot_shows_count_enhance_new_and_equipped_markers() -> void:
 	assert_eq(slot._enhance.text, "+5")
 	assert_true(slot._new.visible)
 	assert_true(slot._equipped.visible)
-	assert_true(slot._glow.visible, "珍品以上有光晕")
+	assert_false(slot._glow.visible, "Q 版靠品质底色区分，不再叠光晕")
 	assert_not_null(slot._icon_tex.texture, "装备显示部位图标")
 	slot.set_item({"id": "y", "name": "铁剑", "rarity": 0, "qty": 1, "enhance": 0, "is_new": true, "equipped": false})
 	assert_false(slot._glow.visible)
@@ -43,16 +43,16 @@ func test_item_slot_frame_follows_rarity() -> void:
 	for rarity in 6:
 		slot.set_item({"id": "r%d" % rarity, "name": "物", "rarity": rarity, "qty": 1})
 		var box := slot.get_theme_stylebox("normal") as StyleBoxTexture
-		assert_not_null(box, "品质框是九宫格贴图")
-		assert_eq(box.texture, ArtLib.ui("slot_r%d" % rarity))
+		assert_not_null(box, "品质框是美术切图")
+		assert_eq(box.texture, ArtLib.qui(str(QKit.SLOT_CUTS[rarity])), "Q 版品质格 slot_white…slot_red")
 	slot.set_empty()
-	assert_eq((slot.get_theme_stylebox("normal") as StyleBoxTexture).texture, ArtLib.ui("slot_empty"))
+	assert_eq((slot.get_theme_stylebox("normal") as StyleBoxTexture).texture, ArtLib.qui("slot_empty"))
 
 
 func test_item_slot_icon_follows_slot_then_category() -> void:
-	assert_eq(KitStyle.icon_for({"slot_id": "gloves", "category": "equip"}).texture.resource_path, "res://assets/art/items/gear_gloves.png", "有物品图就用物品图")
+	assert_eq(KitStyle.icon_for({"slot_id": "gloves", "category": "equip"}).texture.resource_path, "res://assets/art/q/items/gear_gloves.png", "有物品图就用物品图（Q 版）")
 	assert_not_null(KitStyle.icon_for({"category": "material"}).texture, "材料有图（物品图或类别图）")
-	assert_eq(KitStyle.icon_for({"category": "other", "kind": "skill_book"}).texture.resource_path, "res://assets/art/items/book_other.png")
+	assert_eq(KitStyle.icon_for({"category": "other", "kind": "skill_book"}).texture.resource_path, "res://assets/art/q/items/book_other.png")
 	assert_false(KitStyle.icon_for({"slot_id": "weapon", "category": "equip"}).tint, "彩色物品图不染色（剪影占位图才按品质染色）")
 
 
@@ -164,8 +164,11 @@ func _bag_page(scene: String = "ready") -> BagPage:
 func test_bag_page_merges_equipment_slots_and_a_5x4_grid() -> void:
 	var page := _bag_page()
 	assert_eq(page._tabs._buttons.size(), 4, "全部/装备/丹药/材料")
+	assert_eq(page._grid.columns, 6, "设计稿一行 6 格")
+	assert_true(LockedFeature.is_locked(page._sell_button), "一键出售还没有：点了提示功能暂未开放")
+	assert_eq((page.find_child("Stat_attack", true, false) as Label).text, QKit.grouped(float(ProtoMock.state("ready").get("attack", 0))), "属性取自玩家状态")
 	assert_eq(page._cells.size(), SlotConfig.all().size(), "6 个核心部位 + 2 个预留")
-	assert_eq(page._grid.slot_count(), 20, "5×4 格，空格补满")
+	assert_eq(page._grid.slot_count(), 20, "空格补到容量 20（6 列）")
 	assert_eq(page._grid.filled_count(), 10, "背包里 10 件（已穿戴的不占格）")
 	assert_string_contains(page._capacity_label.text, "10 / 20")
 	assert_false(page._wear_button.disabled, "背包里有更强的装备可一键穿戴")
@@ -232,10 +235,10 @@ func test_stage_page_power_status_uses_text_and_symbol() -> void:
 		assert_ne(str(level.symbol), "", "不能只靠颜色表达状态")
 
 
-const TABS := ["cultivate", "bag", "skill", "cave"]
+const TABS := ["cultivate", "adventure", "skill", "bag"]
 
 
-func test_main_scene_in_mock_mode_builds_the_four_tab_shell() -> void:
+func test_main_scene_in_mock_mode_builds_the_five_slot_shell() -> void:
 	OS.set_environment("XIUXIAN_UI_MOCK", "1")
 	var scene: Node = load("res://scenes/main.tscn").instantiate()
 	add_child_autofree(scene)
@@ -245,7 +248,8 @@ func test_main_scene_in_mock_mode_builds_the_four_tab_shell() -> void:
 	for page in ["_home_page", "_stage_page", "_battle_page", "_breakthrough_page", "_bag_page", "_skill_page", "_cave_page", "_tab_bar", "_top_bar", "_backdrop", "_toast"]:
 		assert_not_null(scene.get(page), page)
 	var tab_bar := scene.get("_tab_bar") as TabBarView
-	assert_eq(tab_bar._buttons.size(), 4, "修炼/背包/功法/洞府")
+	assert_eq(tab_bar._buttons.size(), 5, "修炼/历练/突破（中间大圆钮）/功法/背包")
+	assert_not_null(tab_bar.center_button())
 	for id in TABS:
 		assert_not_null(tab_bar.button_of(id), id)
 		assert_eq(tab_bar.button_of(id).size_flags_vertical, Control.SIZE_EXPAND_FILL, "页签铺满底栏高度")

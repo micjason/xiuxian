@@ -1,0 +1,229 @@
+﻿文件,类别/制作方式,授权状态,需要的动作,来源
+bg/bg_cave_1080x2340.webp,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+bg/bg_cave_1080x2340.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+bg/bg_cultivate_1080x1368.webp,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+bg/bg_cultivate_1080x1368.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+bg/bg_heifeng_1080x960.webp,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+bg/bg_heifeng_1080x960.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+bg/dimmer_overlay.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+bg/dot_tile_56.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+bg/page_base_1080x2340.webp,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+bg/page_base_1080x2340.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+bg/scene_fade_bottom.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+bg/scene_fade_top.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+icons/128/eq_boots.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+icons/128/eq_bracers.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+icons/128/eq_crown.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+icons/128/eq_pendant.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+icons/128/eq_robe.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+icons/128/eq_sword.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+icons/128/icon_chest.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+icons/128/icon_dongfu.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+icons/128/icon_gourd.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+icons/128/icon_lotus.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+icons/128/icon_pouch.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+icons/128/icon_scroll.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+icons/128/icon_stone.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+icons/128/icon_sword.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+icons/128/it_bone.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+icons/128/it_book_atk.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+icons/128/it_book_def.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+icons/128/it_book_hp.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+icons/128/it_elixir.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+icons/128/it_herb.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+icons/128/it_ore.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+icons/128/it_pill.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+icons/eq_boots.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+icons/eq_bracers.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+icons/eq_crown.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+icons/eq_pendant.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+icons/eq_robe.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+icons/eq_sword.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+icons/icon_chest.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+icons/icon_dongfu.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+icons/icon_gourd.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+icons/icon_lotus.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+icons/icon_pouch.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+icons/icon_scroll.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+icons/icon_stone.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+icons/icon_sword.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+icons/it_bone.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+icons/it_book_atk.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+icons/it_book_def.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+icons/it_book_hp.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+icons/it_elixir.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+icons/it_herb.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+icons/it_ore.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+icons/it_pill.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+sprites/bd_alchemy.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+sprites/bd_array.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+sprites/bd_field.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+sprites/bd_hut.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+sprites/char_meditate.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+sprites/char_meditate_glow.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+sprites/chest_closed.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+sprites/fx_aura_radial.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+sprites/fx_break_glow.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+sprites/fx_break_ring_1.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+sprites/fx_break_ring_2.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+sprites/fx_break_ring_3.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+sprites/fx_card_glow.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+sprites/fx_chest_glow.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+sprites/fx_chest_glow_big.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+sprites/fx_ground_shadow.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+sprites/fx_hit_burst.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+sprites/fx_light_beam.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+sprites/fx_orb_glow_btn.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+sprites/fx_particle_dot.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+sprites/fx_ring_dashed.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+sprites/fx_ring_solid.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+sprites/fx_star.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+sprites/fx_sunburst.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+sprites/fx_sword_trail.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+sprites/fx_teal_vignette.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+sprites/lotus_platform.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+sprites/lotus_platform_glow.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+sprites/mon_bear.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+sprites/mon_fox.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+sprites/mon_snake.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+sprites/mon_wolf.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+ui/arrow_dropdown.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/arrow_select.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/arrow_up_green.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/avatar_frame.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/avatar_mask.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/badge_idle_reward.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/badge_power.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材 ；含烘焙字形（ZCOOL QingKe HuangYou / ZCOOL KuaiLe，SIL OFL 1.1，可用于图片）,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/badge_realm_mint.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/bar_bg_30.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/bar_bg_40.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/bar_bg_xiuwei_52.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/bar_fill_blue_32.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/bar_fill_gold_22.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/bar_fill_gold_32.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/bar_fill_mint_32.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/bar_fill_red_22.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/bar_fill_red_32.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/bar_fill_xiuwei_44.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/bar_seg_divider.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/bar_shine.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/btn_back.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/btn_close.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/btn_grey_disabled_100.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/btn_grey_disabled_124.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/btn_grey_disabled_60.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/btn_mail.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/btn_mint_100_normal.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/btn_mint_100_pressed.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/btn_mint_124_normal.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/btn_mint_124_pressed.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/btn_mint_60_normal.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/btn_mint_60_pressed.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/btn_next_connector.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/btn_orange_100_normal.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/btn_orange_100_pressed.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/btn_orange_124_normal.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/btn_orange_124_pressed.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/btn_orange_150_normal.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/btn_orange_150_pressed.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/btn_orange_60_normal.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/btn_orange_60_pressed.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/btn_orange_r30_normal.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/btn_orange_r30_pressed.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/btn_plus.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材 ；含烘焙字形（ZCOOL QingKe HuangYou / ZCOOL KuaiLe，SIL OFL 1.1，可用于图片）,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/bubble_blue.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/bubble_cream.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/bubble_orange.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/bubble_tail_blue.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/bubble_tail_cream.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/bubble_tail_orange.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/card_apricot.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/card_apricot_deep.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/card_current_gold.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/card_locked.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/check_no.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/check_ok.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/chip_badge_orange.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/chip_blue.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/chip_cream.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/chip_dark.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/chip_green.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/chip_grey.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/chip_level_mint_42.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/chip_mint.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/chip_orange.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/chip_red.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/chip_redflat.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/chip_teal.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/currency_pill.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/digits_crit.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材 ；含烘焙字形（ZCOOL QingKe HuangYou / ZCOOL KuaiLe，SIL OFL 1.1，可用于图片）,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/digits_crit.fnt,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材 ；含烘焙字形（ZCOOL QingKe HuangYou / ZCOOL KuaiLe，SIL OFL 1.1，可用于图片）,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/digits_dmg.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材 ；含烘焙字形（ZCOOL QingKe HuangYou / ZCOOL KuaiLe，SIL OFL 1.1，可用于图片）,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/digits_dmg.fnt,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材 ；含烘焙字形（ZCOOL QingKe HuangYou / ZCOOL KuaiLe，SIL OFL 1.1，可用于图片）,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/digits_gain.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材 ；含烘焙字形（ZCOOL QingKe HuangYou / ZCOOL KuaiLe，SIL OFL 1.1，可用于图片）,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/digits_gain.fnt,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材 ；含烘焙字形（ZCOOL QingKe HuangYou / ZCOOL KuaiLe，SIL OFL 1.1，可用于图片）,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/digits_xiuwei.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材 ；含烘焙字形（ZCOOL QingKe HuangYou / ZCOOL KuaiLe，SIL OFL 1.1，可用于图片）,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/digits_xiuwei.fnt,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材 ；含烘焙字形（ZCOOL QingKe HuangYou / ZCOOL KuaiLe，SIL OFL 1.1，可用于图片）,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/field_dropdown_68.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/float_word_crit.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材 ；含烘焙字形（ZCOOL QingKe HuangYou / ZCOOL KuaiLe，SIL OFL 1.1，可用于图片）,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/float_word_xiuwei.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材 ；含烘焙字形（ZCOOL QingKe HuangYou / ZCOOL KuaiLe，SIL OFL 1.1，可用于图片）,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/fx_star.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/icon_crown_svg.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/icon_heart.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/icon_hourglass.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/icon_shield.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/icon_video.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/idle_lotus_disc.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/info_bar_blue_62.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/lock.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/orb_glow.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/orb_normal.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材 ；含烘焙字形（ZCOOL QingKe HuangYou / ZCOOL KuaiLe，SIL OFL 1.1，可用于图片）,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/orb_normal_notext.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材 ；含烘焙字形（ZCOOL QingKe HuangYou / ZCOOL KuaiLe，SIL OFL 1.1，可用于图片）,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/orb_pressed.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材 ；含烘焙字形（ZCOOL QingKe HuangYou / ZCOOL KuaiLe，SIL OFL 1.1，可用于图片）,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/orb_ring_dashed.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/panel_apricot.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/panel_cream.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/panel_pill_100.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/panel_pill_132.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/plate_gold_r30.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/plate_label_cream_66.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/plate_label_gold_66.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/popup_frame.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/radial_bg_176.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/radial_center_132.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/radial_fill_166.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/red_dot.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/ribbon_title_104.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/ribbon_title_78.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/row_cream_74.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/row_cream_r26.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/sheet_lower.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/side_entry.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/slot_blue.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/slot_empty.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/slot_green.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/slot_locked_overlay.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/slot_orange.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/slot_purple.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/slot_red.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/slot_white.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/strip_cream_96.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/tab_adventure_active.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+ui/tab_adventure_normal.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+ui/tab_bag_active.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+ui/tab_bag_normal.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+ui/tab_cultivate_active.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+ui/tab_cultivate_normal.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+ui/tab_filter_normal.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/tab_sel_plate.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/tab_techniques_active.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+ui/tab_techniques_normal.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+ui/tabbar_bg.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/toggle_off.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/toggle_on.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/well_apricot.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/well_bag_grid.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/well_teal.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+/workspace/fonts/ZCOOLKuaiLe-Regular.ttf,字体 ZCOOL KuaiLe（站酷快乐体）,SIL Open Font License 1.1（可商用、可嵌入；不可单独售卖字体）,随包附 OFL 文本,Google Fonts
+/workspace/fonts/ZCOOLQingKeHuangYou-Regular.ttf,字体 ZCOOL QingKe HuangYou（站酷庆科黄油体）,SIL Open Font License 1.1（可商用、可嵌入；不可单独售卖字体）,随包附 OFL 文本,Google Fonts
+(系统) Noto Sans CJK SC Bold,字体 正文,SIL Open Font License 1.1,随包附 OFL 文本,Google/Adobe Noto

@@ -21,8 +21,9 @@ func test_text_tokens_are_readable_on_card_surface() -> void:
 
 
 func test_button_text_is_readable_on_its_fill() -> void:
-	for fill in [UiTokens.GOLD, UiTokens.GOLD_HOVER, UiTokens.GOLD_PRESSED]:
-		assert_gte(UiTokens.contrast(UiTokens.ON_GOLD, fill), MIN_TEXT_CONTRAST)
+	# Q 版：主按钮底是橙色 PRIMARY_*，按钮上的字是深色 ON_PRIMARY（美术按钮上的白字另带可可描边）
+	for fill in [UiTokens.PRIMARY_FILL, UiTokens.PRIMARY_HOVER, UiTokens.PRIMARY_PRESSED]:
+		assert_gte(UiTokens.contrast(UiTokens.ON_PRIMARY, fill), MIN_TEXT_CONTRAST)
 
 
 func test_rarity_and_report_colors_are_readable() -> void:
@@ -68,8 +69,9 @@ func test_exported_theme_matches_code() -> void:
 	# 主按钮现在是九宫格贴图：金色实心底，贴图来自 ArtLib
 	var exported_fill := exported.get_stylebox("normal", MainTheme.VAR_PRIMARY) as StyleBoxTexture
 	assert_not_null(exported_fill, "主按钮应是 StyleBoxTexture")
-	assert_eq(exported_fill.texture, ArtLib.ui("btn_primary_normal"))
-	assert_eq(exported_fill.texture_margin_left, ArtLib.NINE["btn_primary_normal"][0])
+	var built_fill := ArtLib.nine("btn_primary_normal") as StyleBoxTexture
+	assert_eq(exported_fill.texture, built_fill.texture, "Q 版主按钮切图 btn_orange_124")
+	assert_eq(exported_fill.texture_margin_left, built_fill.texture_margin_left)
 	var exported_font := exported.get_font("font", MainTheme.VAR_TITLE) as FontVariation
 	assert_not_null(exported_font, "标题字体应是随包的毛笔字体")
 	assert_eq(exported_font.base_font.resource_path, ArtLib.FONT_TITLE)

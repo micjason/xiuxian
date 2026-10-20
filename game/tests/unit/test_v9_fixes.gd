@@ -29,15 +29,18 @@ func _labels(root: Node, out: Array[String] = []) -> Array[String]:
 	return out
 
 
-func test_offline_popup_button_says_zhidaole_and_hint_is_outside_the_scroll() -> void:
+## Q 版设计稿（10-20 成鹏确认）：「领取」（真的确认已读）+「双倍领取」（广告，没有：提示功能暂未开放）。
+func test_offline_popup_has_claim_and_locked_double_and_hint_is_outside_the_frame() -> void:
 	var scene := await _boot("ready")
 	var popup := scene.get("_offline_popup") as OfflinePopup
 	assert_true(popup.visible)
-	assert_eq(popup.claim_button().text, "知道了")
+	assert_eq(popup.claim_button().text, "领取")
+	assert_eq(popup.double_button().text, "双倍领取")
+	assert_true(LockedFeature.is_locked(popup.double_button()))
+	assert_false(LockedFeature.is_locked(popup.claim_button()))
 	var texts := _labels(popup)
-	assert_false(texts.has("领取"), "收益已入账，不再有“领取”")
-	assert_eq(texts.count("收益已入账"), 1)
-	assert_false("\n".join(texts).contains("点「领取」"))
+	assert_eq(texts.count("离线收益"), 1)
+	assert_false(texts.has("知道了"))
 	var foot := popup.find_child("FootHint", true, false) as Label
 	assert_not_null(foot)
 	assert_false(popup.get("_panel").is_ancestor_of(foot), "提示在卷轴外面，不压在下轴上")

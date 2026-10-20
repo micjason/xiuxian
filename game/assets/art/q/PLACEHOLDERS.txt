@@ -1,0 +1,1 @@
+# 美术没有交付、暂用设计稿临时切图的文件（重跑 tools/art/install_q_art.py 会刷新）

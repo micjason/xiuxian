@@ -15,6 +15,8 @@ var _glow: TextureRect
 var _glyph: Label
 var _item_label: Label
 var _badge: Label
+## Q 版外观（背包纸娃娃）：品质格切图 slot_<品质>，部位名不在格子里（背包页在格子下面放标签）。
+var q_mode := false
 
 
 func _init() -> void:
@@ -72,6 +74,34 @@ func _init() -> void:
 	pressed.connect(func() -> void: slot_pressed.emit(str(slot.get("id", ""))))
 
 
+## Q 版纸娃娃格（设计稿 150 方格）：品质框用美术 slot_* 切图，隐藏格内的部位名和装备名，角标「+N」白字描边。
+func make_q(size: float = 150.0) -> void:
+	q_mode = true
+	custom_minimum_size = Vector2(size, size * 166.0 / 160.0)
+	size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_name_label.visible = false
+	_item_label.visible = false
+	var column := _icon.get_parent().get_parent() as Control
+	column.offset_left = size * 0.1
+	column.offset_right = -size * 0.1
+	column.offset_top = size * 0.1
+	column.offset_bottom = -size * 0.14
+	_icon.offset_left = 0
+	_icon.offset_right = 0
+	_icon.offset_top = 0
+	_icon.offset_bottom = 0
+	_badge.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	_badge.offset_left = -size * 0.06
+	_badge.offset_top = -size * 0.08
+	_badge.offset_right = 90
+	_badge.offset_bottom = 40
+	_badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	_badge.add_theme_font_override("font", ArtLib.title_font())
+	_badge.add_theme_color_override("font_color", UiTokens.Q_WHITE)
+	_badge.add_theme_color_override("font_outline_color", UiTokens.Q_COCOA)
+	_badge.add_theme_constant_override("outline_size", 9)
+
+
 ## 紧凑模式（背包页一行放 8 格）：缩小最小尺寸，隐藏下面的装备名（名字看详情）。
 func make_compact(width: float = 112.0, height: float = 150.0) -> void:
 	custom_minimum_size = Vector2(width, height)
@@ -119,6 +149,29 @@ func _set_icon(tex: Texture2D, tint: Color) -> void:
 
 
 func _set_state(state: String, rarity: int = 0) -> void:
+	if q_mode:
+		_glow.visible = false
+		var cut := str(QKit.SLOT_CUTS[clampi(rarity, 0, 5)]) if state == "filled" else "slot_empty"
+		var tex := ArtLib.qui(cut)
+		if tex != null:
+			var box := StyleBoxTexture.new()
+			box.texture = tex
+			if state == "locked":
+				box.modulate_color = Color(0.85, 0.82, 0.8)
+			var down := box.duplicate() as StyleBoxTexture
+			down.modulate_color = Color(0.9, 0.88, 0.85)
+			for name in ["normal", "hover", "disabled"]:
+				add_theme_stylebox_override(name, box)
+			add_theme_stylebox_override("pressed", down)
+			add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+			if state == "locked":
+				_icon.texture = ArtLib.qui("lock") if ArtLib.qui("lock") != null else _icon.texture
+				_icon.modulate = Color.WHITE
+				_icon.offset_left = 12
+				_icon.offset_right = -12
+			elif state == "empty":
+				_icon.modulate = Color(UiTokens.Q_COCOA, 0.35)
+			return
 	var style: StyleBox
 	match state:
 		"filled":

@@ -2,12 +2,13 @@ class_name ItemSlot
 extends Button
 ## 行囊里的一个物品格：品质框、图标、品质光晕、堆叠数量、强化等级、新获得红点、已穿戴标记、多选勾。
 ## 数据来自 BagModel.normalize() 的展示字典；空格用 set_empty()。
-## 最小边长 176 画布像素（≈ 66dp），高于 48dp 的触控下限。美术接入见 KitStyle / ArtLib。
+## Q 版：品质色圆角方块 + 可可描边，角标白字可可描边（设计稿 q_bag）。
+## 最小边长 132 画布像素（≈ 48dp），一行 6 格放得下。美术接入见 KitStyle / ArtLib。
 
 signal item_pressed(item: Dictionary)
 
-const MIN_SIZE := 176
-const ICON_INSET := 30
+const MIN_SIZE := 132
+const ICON_INSET := 14
 
 var item: Dictionary = {}
 var selected := false
@@ -58,26 +59,26 @@ func _build() -> void:
 	_icon_tex.visible = false
 	layer.add_child(_icon_tex)
 	_glyph = _corner(layer, UiTokens.FS_H2, Control.PRESET_FULL_RECT, HORIZONTAL_ALIGNMENT_CENTER, VERTICAL_ALIGNMENT_CENTER)
-	_count = _corner(layer, UiTokens.FS_MICRO, Control.PRESET_BOTTOM_RIGHT, HORIZONTAL_ALIGNMENT_RIGHT, VERTICAL_ALIGNMENT_BOTTOM)
+	_count = _corner(layer, UiTokens.FS_CAPTION, Control.PRESET_BOTTOM_RIGHT, HORIZONTAL_ALIGNMENT_RIGHT, VERTICAL_ALIGNMENT_BOTTOM)
 	_enhance = _corner(layer, UiTokens.FS_MICRO, Control.PRESET_TOP_LEFT, HORIZONTAL_ALIGNMENT_LEFT, VERTICAL_ALIGNMENT_TOP)
-	_enhance.add_theme_color_override("font_color", UiTokens.GOLD_HOVER)
+	_enhance.add_theme_color_override("font_color", UiTokens.Q_WHITE)
 	_new = TextureRect.new()
 	_new.texture = ArtLib.ui("reddot")
 	_new.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	_new.offset_left = -34
-	_new.offset_right = -6
-	_new.offset_top = 6
-	_new.offset_bottom = 34
+	_new.offset_left = -26
+	_new.offset_right = 8
+	_new.offset_top = -8
+	_new.offset_bottom = 26
 	_new.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_new.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_new.visible = false
 	layer.add_child(_new)
 	_equipped = _corner(layer, UiTokens.FS_MICRO, Control.PRESET_BOTTOM_LEFT, HORIZONTAL_ALIGNMENT_LEFT, VERTICAL_ALIGNMENT_BOTTOM)
 	_equipped.text = "穿"
-	_equipped.add_theme_color_override("font_color", UiTokens.JADE)
+	_equipped.add_theme_color_override("font_color", UiTokens.Q_MINT_LIGHT)
 	_check = _corner(layer, UiTokens.FS_BODY, Control.PRESET_TOP_RIGHT, HORIZONTAL_ALIGNMENT_RIGHT, VERTICAL_ALIGNMENT_TOP)
 	_check.text = "✓"
-	_check.add_theme_color_override("font_color", UiTokens.GOLD_HOVER)
+	_check.add_theme_color_override("font_color", UiTokens.Q_ORANGE)
 	_check.visible = false
 
 
@@ -85,10 +86,10 @@ func _corner(parent: Control, size: int, preset: int, h: int, v: int) -> Label:
 	var node := Label.new()
 	node.set_anchors_preset(preset as Control.LayoutPreset)
 	if preset != Control.PRESET_FULL_RECT:
-		node.offset_left = 14 if h == HORIZONTAL_ALIGNMENT_LEFT else -120
-		node.offset_right = 120 if h == HORIZONTAL_ALIGNMENT_LEFT else -14
-		node.offset_top = 10 if v == VERTICAL_ALIGNMENT_TOP else -48
-		node.offset_bottom = 48 if v == VERTICAL_ALIGNMENT_TOP else -8
+		node.offset_left = 8 if h == HORIZONTAL_ALIGNMENT_LEFT else -120
+		node.offset_right = 120 if h == HORIZONTAL_ALIGNMENT_LEFT else -8
+		node.offset_top = 2 if v == VERTICAL_ALIGNMENT_TOP else -50
+		node.offset_bottom = 48 if v == VERTICAL_ALIGNMENT_TOP else -2
 		if h == HORIZONTAL_ALIGNMENT_LEFT:
 			node.anchor_right = node.anchor_left
 		else:
@@ -96,8 +97,10 @@ func _corner(parent: Control, size: int, preset: int, h: int, v: int) -> Label:
 	node.horizontal_alignment = h as HorizontalAlignment
 	node.vertical_alignment = v as VerticalAlignment
 	node.add_theme_font_size_override("font_size", size)
-	node.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
-	node.add_theme_constant_override("outline_size", 8)
+	node.add_theme_font_override("font", ArtLib.title_font())
+	node.add_theme_color_override("font_color", UiTokens.Q_WHITE)
+	node.add_theme_color_override("font_outline_color", UiTokens.Q_COCOA)
+	node.add_theme_constant_override("outline_size", 10)
 	node.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	parent.add_child(node)
 	return node
@@ -112,11 +115,11 @@ func set_item(data: Dictionary) -> void:
 	var tex := art.get("texture", null) as Texture2D
 	_icon_tex.texture = tex
 	_icon_tex.visible = tex != null
-	_icon_tex.modulate = color.lightened(0.25) if bool(art.get("tint", false)) else Color.WHITE
-	_glow.visible = KitStyle.glow_alpha(rarity) > 0.0
+	_icon_tex.modulate = color.darkened(0.15) if bool(art.get("tint", false)) else Color.WHITE
+	_glow.visible = false  # Q 版靠品质底色区分，不再加光晕
 	_glow.modulate = Color(color, KitStyle.glow_alpha(rarity))
 	_glyph.text = "" if tex != null else KitStyle.glyph_of(data)
-	_glyph.add_theme_color_override("font_color", color.lightened(0.15))
+	_glyph.add_theme_color_override("font_color", Color.WHITE)
 	var qty := int(data.get("qty", 1))
 	_count.text = ("×%d" % qty) if qty > 1 else ""
 	var enhance := int(data.get("enhance", 0))

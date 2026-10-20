@@ -1,42 +1,121 @@
 class_name BreakthroughPage
-extends VBoxContainer
-## 境界突破流程界面（设计稿 09 / 09b）：当前 → 目标 → 下一境界三个节点、战力提升环与成功率环、
-## 突破条件（修为、必须击败的首领）、突破后的属性和总战力、「开始突破」金色大按钮。
-## 条件没满足时按钮灰化（09），全满足时亮起（09b）。突破必定成功，超出的修为保留。
-## 属性和战力的「突破后」数值来自服务器 breakthrough.preview，这里不自己算。
+extends Control
+## 境界突破弹窗（Q 版设计稿 q_breakthrough_popup）：底栏正中「突破」圆钮打开，居中盖在当前页上（外壳加遮罩）。
+## 绶带标题「突破 · 下一境界」；舞台（当前 → 目标境界、战力提升牌、成功率环、打坐的主角）；
+## 突破条件（修为、必须击败的首领，满足打勾）；属性提升（生命/攻击/防御/速度 突破前 → 后、战力前 → 后）；
+## 「突破」大按钮（下写消耗）；首领没打时多一个「前往挑战」；底下「点击空白处关闭」。
+## 条件没满足时按钮灰化。数值全部来自服务器 breakthrough（preview / rateBp / requiredStage），这里不自己算。
 
 signal start_requested
 signal goto_stage_requested(stage_slug: String)
+signal close_requested
+
+## 弹窗框在 1080 画布上的位置（设计稿 60,340,960,1440；状态栏 90 以下）。
+const FRAME := Rect2(60, 340, 960, 1440)
 
 var _view: Dictionary = {}
+var _frame: PanelContainer
+var _ribbon_text: Label
 var _body: VBoxContainer
 var _button: Button
+var _button_title: Label
+var _button_sub: Label
 var _hint: Label
 var _goto: Button
+var _close_hint: Label
+var _inset_top := 90.0
 
 
 func _init() -> void:
-	add_theme_constant_override("separation", UiTokens.SP_1)
-	size_flags_vertical = Control.SIZE_EXPAND_FILL
-	add_child(UiKit.page_title("境界突破"))
+	name = "BreakthroughPage"
+	set_anchors_preset(Control.PRESET_FULL_RECT)
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_frame = PanelContainer.new()
+	_frame.name = "PopupFrame"
+	_frame.mouse_filter = Control.MOUSE_FILTER_STOP
+	_frame.add_theme_stylebox_override("panel", QKit.cut_box("popup_frame", 24, 30) if ArtLib.qui("popup_frame") != null else QSkin.custom(UiTokens.Q_CREAM, UiTokens.Q_COCOA, 6, 48, 12, 24, 30))
+	add_child(_frame)
 	var scroll := ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	add_child(scroll)
-	_body = UiKit.vbox(UiTokens.SP_1)
+	_frame.add_child(scroll)
+	_body = UiKit.vbox(18)
 	_body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(_body)
-	_button = UiKit.cta_button("开始突破", "", MainTheme.VAR_PRIMARY, 168)
+	var ribbon := QKit.ribbon("突破", 52, 420, true)
+	ribbon.name = "Ribbon"
+	_ribbon_text = ribbon.find_child("RibbonText", true, false) as Label
+	add_child(ribbon)
+	_button = Button.new()
 	_button.name = "StartButton"
+	_button.focus_mode = Control.FOCUS_NONE
+	_button.custom_minimum_size = Vector2(500, 156)
+	QKit.style_button(_button, "o", 52)
+	_button.custom_minimum_size = Vector2(500, 156)
+	var labels := UiKit.vbox(0)
+	labels.alignment = BoxContainer.ALIGNMENT_CENTER
+	labels.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	labels.set_anchors_preset(Control.PRESET_FULL_RECT)
+	labels.offset_bottom = -10
+	_button.add_child(labels)
+	_button_title = QKit.outlined("突破", 72, UiTokens.Q_WHITE, UiTokens.Q_COCOA, 12, HORIZONTAL_ALIGNMENT_CENTER)
+	labels.add_child(_button_title)
+	_button_sub = QKit.outlined("", 30, UiTokens.Q_WHITE, UiTokens.Q_COCOA, 6, HORIZONTAL_ALIGNMENT_CENTER, false)
+	labels.add_child(_button_sub)
 	_button.pressed.connect(func() -> void: start_requested.emit())
-	add_child(_button)
-	_goto = UiKit.button("", MainTheme.VAR_GHOST, UiTokens.H_TOUCH)
+	_goto = QKit.button("", "m", 100, 36)
 	_goto.name = "GotoStageButton"
 	_goto.visible = false
-	add_child(_goto)
 	_hint = UiKit.label("", UiTokens.FS_MICRO, UiTokens.TEXT_MUTED, HORIZONTAL_ALIGNMENT_CENTER)
 	_hint.name = "Hint"
-	add_child(_hint)
+	_close_hint = QKit.tag("点击空白处关闭", "dark", 32, 30).get_child(0) as Label
+	var close_pill := _close_hint.get_parent() as Control
+	close_pill.name = "CloseHint"
+	add_child(close_pill)
+	var close := Button.new()
+	close.name = "CloseButton"
+	close.focus_mode = Control.FOCUS_NONE
+	close.flat = true
+	var close_tex := ArtLib.qui("btn_close")
+	for key in ["normal", "hover", "pressed", "disabled", "focus"]:
+		var box: StyleBox = StyleBoxTexture.new() if close_tex != null and key != "focus" else StyleBoxEmpty.new()
+		if box is StyleBoxTexture:
+			(box as StyleBoxTexture).texture = close_tex
+		close.add_theme_stylebox_override(key, box)
+	if close_tex == null:
+		close.text = "✕"
+	close.pressed.connect(func() -> void: close_requested.emit())
+	add_child(close)
+	_layout()
+
+
+## 刘海高度变了重新摆（弹窗按设计稿画布坐标，整体跟着状态栏下移）。
+func apply_safe_area(inset: Vector4) -> void:
+	_inset_top = inset.y
+	_layout()
+
+
+func _layout() -> void:
+	var shift := _inset_top - 90.0
+	_frame.position = Vector2(FRAME.position.x, FRAME.position.y + shift)
+	_frame.size = FRAME.size + Vector2(0, 12)
+	var ribbon := get_node("Ribbon") as Control
+	ribbon.position = Vector2(540 - ribbon.custom_minimum_size.x / 2.0, 224 + shift)
+	var pill := get_node("CloseHint") as Control
+	pill.position = Vector2(340, 1814 + shift)
+	pill.custom_minimum_size = Vector2(400, 60)
+	var close := get_node("CloseButton") as Control
+	close.position = Vector2(948, 312 + shift)
+	close.size = Vector2(84, 89)
+
+
+## 弹出动画（缩放 0.92 → 1）。
+func pop_in() -> void:
+	_frame.pivot_offset = _frame.size / 2.0
+	_frame.scale = Vector2(0.92, 0.92)
+	_frame.modulate.a = 0.0
+	var tween := create_tween().set_parallel()
+	tween.tween_property(_frame, "scale", Vector2.ONE, 0.18).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.tween_property(_frame, "modulate:a", 1.0, 0.12)
 
 
 func view() -> Dictionary:
@@ -47,177 +126,204 @@ func start_button() -> Button:
 	return _button
 
 
+func goto_button() -> Button:
+	return _goto
+
+
 func set_busy(value: bool) -> void:
 	_button.disabled = value or not bool(_view.get("can_start", false))
 
 
-func bind(state: Dictionary, content: Dictionary, next_realm_name: String, after_next_name: String = "") -> void:
+func bind(state: Dictionary, _content: Dictionary, next_realm_name: String, _after_next_name: String = "") -> void:
 	_view = BreakthroughView.build(state, next_realm_name)
+	var has_next := bool(_view.has_next)
+	_ribbon_text.text = "突破 · %s" % next_realm_name if has_next else "已至最高境界"
 	UiKit.clear(_body)
-	_body.add_child(_nodes_row(str(state.get("realmName", "")), next_realm_name, after_next_name))
-	_body.add_child(_rings_row())
-	_body.add_child(_conditions_card())
+	_body.add_child(_stage(str(state.get("realmName", "")), next_realm_name))
+	_body.add_child(_conditions())
+	_body.add_child(_stats())
+	var foot := UiKit.vbox(8)
+	foot.alignment = BoxContainer.ALIGNMENT_CENTER
+	if _button.get_parent() != null:
+		_button.get_parent().remove_child(_button)
+	if _goto.get_parent() != null:
+		_goto.get_parent().remove_child(_goto)
+	if _hint.get_parent() != null:
+		_hint.get_parent().remove_child(_hint)
+	_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	foot.add_child(_button)
+	foot.add_child(_hint)
+	_goto.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	foot.add_child(_goto)
+	_body.add_child(foot)
 	var can_start := bool(_view.can_start)
 	_button.disabled = not can_start
-	UiKit.set_cta(_button, str(_view.button_text), str(_view.cost_text) if bool(_view.has_next) else "")
-	_hint.text = "突破必定成功，超出的修为会保留" if bool(_view.has_next) and can_start else str(_view.hint)
-	_goto.visible = bool(_view.has_next) and bool(_view.has_gate) and not bool(_view.boss_ok)
+	_button_title.text = "突破" if has_next else "已圆满"
+	_button_sub.text = "消耗 修为 %s" % OfflineView.grouped(float(_view.cost)) if has_next else ""
+	_hint.text = str(_view.hint)
+	_goto.visible = has_next and bool(_view.has_gate) and not bool(_view.boss_ok)
 	for connection in _goto.pressed.get_connections():
 		_goto.pressed.disconnect(connection.callable)
 	if _goto.visible:
 		var slug := str(_view.gate_stage)
-		_goto.text = "去挑战 %s" % str(_view.gate_stage_name)
+		_goto.text = "前往挑战 %s" % str(_view.gate_stage_name)
+		_goto.custom_minimum_size.x = 460
 		_goto.pressed.connect(func() -> void: goto_stage_requested.emit(slug))
 
 
-func _nodes_row(current_name: String, target_name: String, after_name: String) -> Control:
-	var row := UiKit.hbox(UiTokens.SP_1)
+## 舞台：境界行、战力提升牌（左）、成功率环（右）、主角坐莲台 + 灵气环。
+func _stage(current_name: String, target_name: String) -> Control:
+	var stage := Panel.new()
+	stage.name = "Stage"
+	stage.custom_minimum_size = Vector2(0, 560)
+	stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stage.clip_contents = true
+	stage.add_theme_stylebox_override("panel", QKit.cut_box("well_teal", 0, 0) if ArtLib.qui("well_teal") != null else QSkin.custom(Color("cfeefa"), Color(0, 0, 0, 0), 0, 36, 0, 0, 0))
+	var origin := Vector2(84, 410)
+	var add := func(node: Control, rect: Rect2) -> void:
+		node.position = rect.position - origin
+		node.size = rect.size
+		stage.add_child(node)
+	for spec in [["sprites/fx_sunburst", Rect2(280, 450, 520, 520), 0.6], ["sprites/fx_ring_solid", Rect2(200, 690, 680, 280), 0.7], ["sprites/fx_ring_dashed", Rect2(260, 720, 560, 220), 0.8], ["sprites/lotus_platform", Rect2(310, 726, 460, 224), 1.0], ["sprites/hero_meditate", Rect2(340, 496, 400, 400), 1.0]]:
+		var tex := TextureRect.new()
+		tex.texture = ArtLib.q(str(spec[0])) if ArtLib.has_q(str(spec[0]) + ".png") else null
+		tex.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		tex.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED if str(spec[0]).contains("hero") or str(spec[0]).contains("lotus") else TextureRect.STRETCH_SCALE
+		tex.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		tex.modulate.a = float(spec[2])
+		add.call(tex, spec[1])
+	var realm := PanelContainer.new()
+	realm.name = "RealmRow"
+	realm.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	realm.add_theme_stylebox_override("panel", QKit.cut_box("plate_label_cream_66", 30, 0) if ArtLib.qui("plate_label_cream_66") != null else QSkin.custom(UiTokens.Q_CREAM, UiTokens.Q_COCOA, 4, 33, 4, 30, 0))
+	var row := UiKit.hbox(10)
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.custom_minimum_size = Vector2(0, 290)
-	row.add_child(_node(current_name, "当前", "current", "ui_yinyang"))
-	row.add_child(UiKit.label("»", UiTokens.FS_H1, UiTokens.GOLD))
-	row.add_child(_node(target_name if bool(_view.has_next) else "—", "突破目标", "target", "ui_pagoda"))
-	row.add_child(UiKit.label("›", UiTokens.FS_H1, UiTokens.TEXT_DISABLED))
-	row.add_child(_node(after_name if not after_name.is_empty() else "更高境界", "未解锁", "locked", "ui_lock"))
-	return row
+	realm.add_child(row)
+	row.add_child(QKit.title(current_name, 36, UiTokens.TEXT))
+	row.add_child(QKit.title("→", 36, UiTokens.Q_ORANGE))
+	row.add_child(QKit.title(target_name if bool(_view.has_next) else "—", 36, UiTokens.Q_BLUE_DARK))
+	add.call(realm, Rect2(310, 432, 460, 71))
+	var plate := PanelContainer.new()
+	plate.name = "PowerGain"
+	plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	plate.add_theme_stylebox_override("panel", QKit.cut_box("plate_gold_r30", 14, 6) if ArtLib.qui("plate_gold_r30") != null else QSkin.custom(Color("ffe08a"), UiTokens.Q_COCOA, 4, 30, 6, 14, 6))
+	var col := UiKit.vbox(0)
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	plate.add_child(col)
+	col.add_child(QKit.title("战力提升", 32, UiTokens.TEXT, HORIZONTAL_ALIGNMENT_CENTER))
+	var delta := int(_view.power_delta)
+	col.add_child(QKit.outlined("%s%s" % ["+" if delta >= 0 else "", OfflineView.grouped(float(delta))], 50, UiTokens.Q_WHITE, UiTokens.Q_ORANGE_DARK, 10, HORIZONTAL_ALIGNMENT_CENTER))
+	add.call(plate, Rect2(104, 470, 196, 141))
+	add.call(_rate_ring(int(_view.rate_percent)), Rect2(810, 450, 176, 182))
+	return stage
 
 
-func _node(realm_name: String, tag: String, kind: String, icon_name: String) -> Control:
-	var column := UiKit.vbox(2)
-	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	column.alignment = BoxContainer.ALIGNMENT_CENTER
-	var chip := PanelContainer.new()
-	chip.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	var tag_color := UiTokens.TEXT_MUTED
-	var border := UiTokens.GOLD_BORDER
-	var fill := Color(0.1, 0.27, 0.22, 0.95)
-	match kind:
-		"current":
-			tag_color = UiTokens.JADE
-			border = UiTokens.JADE_DEEP
-		"target":
-			tag_color = UiTokens.GOLD_HOVER
-			border = UiTokens.GOLD
-			fill = Color(0.36, 0.08, 0.1, 0.95)
-		"locked":
-			tag_color = UiTokens.TEXT_DISABLED
-			border = Color(0.35, 0.37, 0.37)
-			fill = Color(0.12, 0.13, 0.13, 0.95)
-	chip.add_theme_stylebox_override("panel", ArtLib.nine("chip"))
-	chip.add_child(UiKit.label(tag, UiTokens.FS_MICRO, tag_color, HORIZONTAL_ALIGNMENT_CENTER))
-	column.add_child(chip)
-	var disc := PanelContainer.new()
-	disc.custom_minimum_size = Vector2(136, 136)
-	disc.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	disc.add_theme_stylebox_override("panel", KitStyle.box(fill, border, 5, 999))
-	var icon := UiKit.icon(icon_name, 72, tag_color)
-	disc.add_child(icon)
-	column.add_child(disc)
-	var label := UiKit.label(realm_name, UiTokens.FS_CAPTION, tag_color if kind != "current" else UiTokens.GOLD, HORIZONTAL_ALIGNMENT_CENTER)
-	label.clip_text = true
-	label.add_theme_font_override("font", ArtLib.title_font())
-	column.add_child(label)
-	return column
+## 成功率环（SPEC_Q：radial_bg_176 + 顺时针 TextureProgressBar radial_fill_166 偏移 (5,5) + radial_center_132 偏移 (22,22)）。
+func _rate_ring(percent: int) -> Control:
+	var holder := Control.new()
+	holder.name = "RateRing"
+	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var bg := QKit.cut_rect("radial_bg_176", Vector2(176, 182))
+	holder.add_child(bg)
+	var fill := TextureProgressBar.new()
+	fill.name = "RateFill"
+	fill.texture_progress = ArtLib.qui("radial_fill_166")
+	fill.fill_mode = TextureProgressBar.FILL_CLOCKWISE
+	fill.max_value = 100
+	fill.value = clampi(percent, 0, 100)
+	fill.position = Vector2(5, 5)
+	fill.size = Vector2(166, 166)
+	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	holder.add_child(fill)
+	var center := QKit.cut_rect("radial_center_132", Vector2(132, 132))
+	center.position = Vector2(22, 22)
+	holder.add_child(center)
+	var col := UiKit.vbox(0)
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.position = Vector2(22, 22)
+	col.size = Vector2(132, 132)
+	holder.add_child(col)
+	col.add_child(QKit.title("成功率", 30, UiTokens.TEXT_MUTED, HORIZONTAL_ALIGNMENT_CENTER))
+	col.add_child(QKit.outlined("%d%%" % percent, 44, UiTokens.Q_WHITE, UiTokens.Q_MINT_DARK, 8, HORIZONTAL_ALIGNMENT_CENTER))
+	return holder
 
 
-func _rings_row() -> Control:
-	var row := UiKit.hbox(UiTokens.SP_2)
-	row.custom_minimum_size = Vector2(0, 240)
-	var gain := float(_view.power_gain_percent)
-	var left := RingGauge.new(210.0)
-	left.color = Color("a47bd8")
-	left.ratio = clampf(gain / 200.0, 0.0, 1.0)
-	left.name = "PowerRing"
-	left.add_child(_ring_text("战力提升", "+%d%%" % int(round(gain)) if bool(_view.preview_ok) else "—"))
-	var right := RingGauge.new(210.0)
-	right.color = UiTokens.JADE_FILL
-	right.ratio = float(_view.rate_percent) / 100.0
-	right.name = "RateRing"
-	right.add_child(_ring_text("成功率", "%d%%" % int(_view.rate_percent)))
-	var hero := TextureRect.new()
-	hero.texture = ArtLib.icon("avatar_meditate")
-	hero.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	hero.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	hero.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	hero.modulate = UiTokens.GOLD_HOVER
-	row.add_child(left)
-	row.add_child(hero)
-	row.add_child(right)
-	return row
-
-
-func _ring_text(caption: String, value: String) -> Control:
-	var box := VBoxContainer.new()
-	box.set_anchors_preset(Control.PRESET_FULL_RECT)
-	box.alignment = BoxContainer.ALIGNMENT_CENTER
-	box.add_theme_constant_override("separation", 0)
-	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	box.add_child(UiKit.label(caption, UiTokens.FS_MICRO, UiTokens.TEXT, HORIZONTAL_ALIGNMENT_CENTER))
-	var big := UiKit.label(value, UiTokens.FS_H2, UiTokens.GOLD_HOVER, HORIZONTAL_ALIGNMENT_CENTER)
-	big.name = "Value"
-	big.add_theme_font_override("font", ArtLib.title_font())
-	box.add_child(big)
+func _section(title: String) -> Dictionary:
+	var box := QKit.inset(Color("fcebd0"), 30, 22, 16)
+	box.body.add_theme_constant_override("separation", 10)
+	box.body.add_child(QKit.title(title, 32, UiTokens.TEXT_MUTED))
 	return box
 
 
-func _conditions_card() -> Control:
-	var card := UiKit.card("突破条件")
-	card.panel.name = "ConditionsCard"
-	var body := card.body as VBoxContainer
-	body.add_theme_constant_override("separation", UiTokens.SP_1)
+## 突破条件：修为（当前 / 所需）、必须击败的首领。满足的打勾。
+func _conditions() -> Control:
+	var box := _section("突破条件")
+	box.panel.name = "Conditions"
 	if not bool(_view.has_next):
-		body.add_child(UiKit.label("当前已是最高境界", UiTokens.FS_BODY, UiTokens.TEXT_MUTED, HORIZONTAL_ALIGNMENT_CENTER))
-		return card.panel
-	body.add_child(_condition_row("res_cultivation", "修为", "当前已达标" if bool(_view.cultivation_ok) else "还差 %s" % OfflineView.grouped(float(_view.cost) - float(_view.cultivation)), "%s / %s" % [OfflineView.grouped(float(_view.cultivation)), OfflineView.grouped(float(_view.cost))], bool(_view.cultivation_ok), float(_view.cultivation_ratio)))
+		box.body.add_child(UiKit.label("当前已是最高境界", UiTokens.FS_MICRO, UiTokens.TEXT_MUTED))
+		return box.panel
+	box.body.add_child(_condition_row("res_lotus", "修为已满" if bool(_view.cultivation_ok) else "修为", "%s / %s" % [OfflineView.grouped(float(_view.cultivation)), OfflineView.grouped(float(_view.cost))], bool(_view.cultivation_ok)))
 	if bool(_view.has_gate):
-		body.add_child(_condition_row("tab_adventure", "击败首领", str(_view.gate_stage_name), "%s · %s" % [str(_view.gate_boss), "已击败" if bool(_view.boss_ok) else "未击败"], bool(_view.boss_ok), -1.0))
-	body.add_child(_after_row())
-	return card.panel
+		box.body.add_child(_condition_row("tab_adventure", "击败 %s" % str(_view.gate_boss), str(_view.gate_stage_name), bool(_view.boss_ok)))
+	return box.panel
 
 
-func _condition_row(icon_name: String, title: String, sub: String, value: String, ok: bool, ratio: float) -> Control:
+func _condition_row(icon_name: String, title: String, value: String, ok: bool) -> Control:
 	var panel := PanelContainer.new()
-	panel.add_theme_stylebox_override("panel", ArtLib.nine("row_bg"))
-	var row := UiKit.hbox(UiTokens.SP_1)
+	panel.name = "ConditionRow"
+	panel.add_theme_stylebox_override("panel", QKit.cut_box("row_cream_74", 18, 0) if ArtLib.qui("row_cream_74") != null else QSkin.custom(Color.WHITE, UiTokens.Q_COCOA, 4, 37, 4, 18, 0))
+	panel.custom_minimum_size = Vector2(0, 80)
+	var row := UiKit.hbox(14)
 	panel.add_child(row)
-	row.add_child(UiKit.icon(icon_name, 56, UiTokens.JADE if ok else UiTokens.TEXT_MUTED))
-	var names := UiKit.vbox(0)
-	names.custom_minimum_size = Vector2(190, 0)
-	row.add_child(names)
-	names.add_child(UiKit.label(title, UiTokens.FS_BODY, UiTokens.TEXT))
-	var sub_label := UiKit.label(sub, UiTokens.FS_MICRO, UiTokens.TEXT_MUTED)
-	sub_label.clip_text = true
-	names.add_child(sub_label)
-	var middle := UiKit.vbox(2)
-	middle.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(middle)
-	var value_label := UiKit.label(value, UiTokens.FS_CAPTION, UiTokens.GOLD_HOVER, HORIZONTAL_ALIGNMENT_RIGHT)
-	value_label.clip_text = true
-	middle.add_child(value_label)
-	if ratio >= 0.0:
-		middle.add_child(UiKit.ratio_bar(ratio, "bar_fill_gold" if ok else "bar_fill_jade", 20))
-	var mark := UiKit.label(("已满足 ✔" if ok else "未满足 ✖"), UiTokens.FS_MICRO, UiTokens.SUCCESS if ok else UiTokens.DANGER, HORIZONTAL_ALIGNMENT_CENTER)
-	mark.name = "Mark"
-	row.add_child(mark)
+	row.add_child(UiKit.icon(icon_name, 56))
+	var name := QKit.title(title, 34, UiTokens.TEXT)
+	name.custom_minimum_size = Vector2(260, 0)
+	name.clip_text = true
+	row.add_child(name)
+	var mid := UiKit.label(value, UiTokens.FS_MICRO, UiTokens.Q_MINT_DARK if ok else UiTokens.Q_RED, HORIZONTAL_ALIGNMENT_CENTER)
+	mid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	mid.clip_text = true
+	row.add_child(mid)
+	row.add_child(UiKit.label("已满足" if ok else "未满足", UiTokens.FS_MICRO, UiTokens.Q_MINT_DARK if ok else UiTokens.Q_RED))
+	row.add_child(QKit.check(ok, 56))
 	return panel
 
 
-func _after_row() -> Control:
+## 属性提升：4 格（突破前 → 后、增量），右上战力前 → 后。数据来自 breakthrough.preview。
+func _stats() -> Control:
+	var box := _section("属性提升")
+	box.panel.name = "StatsBox"
+	var head := box.body.get_child(0) as Label
+	box.body.remove_child(head)
+	var top := UiKit.hbox(8)
+	box.body.add_child(top)
+	head.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	top.add_child(head)
+	top.add_child(QKit.title("战力 %s" % OfflineView.grouped(float(_view.power_now)), 34, UiTokens.TEXT))
+	top.add_child(QKit.title("→ %s" % OfflineView.grouped(float(_view.power_after)), 34, UiTokens.Q_ORANGE_DARK))
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 16)
+	grid.add_theme_constant_override("v_separation", 14)
+	box.body.add_child(grid)
+	for row in _view.rows:
+		grid.add_child(_stat_cell(str(row.name), float(row.before), float(row.after), float(row.delta)))
+	return box.panel
+
+
+func _stat_cell(stat_name: String, before: float, after: float, delta: float) -> Control:
 	var panel := PanelContainer.new()
-	panel.name = "AfterRow"
-	panel.add_theme_stylebox_override("panel", ArtLib.nine("row_bg"))
-	var column := UiKit.vbox(2)
-	panel.add_child(column)
-	var head := UiKit.hbox(UiTokens.SP_1)
-	column.add_child(head)
-	head.add_child(UiKit.label("突破后", UiTokens.FS_BODY, UiTokens.TEXT))
-	var power := UiKit.label("战力 %s → %s" % [OfflineView.grouped(float(_view.power_now)), OfflineView.grouped(float(_view.power_after))] if bool(_view.preview_ok) else "战力 %s" % OfflineView.grouped(float(_view.power_now)), UiTokens.FS_BODY, UiTokens.GOLD_HOVER, HORIZONTAL_ALIGNMENT_RIGHT)
-	power.name = "PowerAfter"
-	power.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	head.add_child(power)
-	if bool(_view.preview_ok):
-		var stats := UiKit.hbox(UiTokens.SP_2)
-		column.add_child(stats)
-		for row in _view.rows:
-			stats.add_child(UiKit.label("%s %s → %s" % [str(row.name), OfflineView.grouped(float(row.before)), OfflineView.grouped(float(row.after))], UiTokens.FS_MICRO, UiTokens.TEXT))
+	panel.custom_minimum_size = Vector2(0, 88)
+	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	panel.add_theme_stylebox_override("panel", QSkin.custom(Color.WHITE, UiTokens.Q_COCOA, 4, 24, 4, 16, 0))
+	var row := UiKit.hbox(8)
+	panel.add_child(row)
+	row.add_child(QKit.title(stat_name, 32, UiTokens.TEXT))
+	var values := UiKit.label("%d→%d" % [int(round(before)), int(round(after))], UiTokens.FS_MICRO, UiTokens.TEXT_MUTED)
+	values.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	values.clip_text = true
+	row.add_child(values)
+	var gain := int(round(delta))
+	row.add_child(QKit.outlined("%s%d%s" % ["+" if gain >= 0 else "", gain, "↑" if gain > 0 else ""], 36, UiTokens.Q_WHITE, UiTokens.Q_MINT_DARK, 8, HORIZONTAL_ALIGNMENT_RIGHT))
 	return panel

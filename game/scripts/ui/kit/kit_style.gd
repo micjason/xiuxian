@@ -28,12 +28,18 @@ static func themed(control: Control, style_name: StringName, theme_type: StringN
 
 
 static func slot_box(control: Control, rarity: int, selected: bool = false, pressed: bool = false) -> StyleBox:
+	var q := _q_slot(str(QKit.SLOT_CUTS[clampi(rarity, 0, 5)]), Color(1.0, 0.86, 0.55) if selected else (Color(0.9, 0.88, 0.85) if pressed else Color.WHITE))
+	if q != null:
+		return q
 	var name := "slot_selected" if selected else ArtLib.slot_frame(rarity)
 	var art := ArtLib.nine(name, Color(1.25, 1.25, 1.25) if pressed else Color.WHITE)
 	return themed(control, StringName(name), &"ItemSlot", art)
 
 
 static func empty_slot_box(control: Control) -> StyleBox:
+	var q := _q_slot("slot_empty", Color.WHITE)
+	if q != null:
+		return q
 	return themed(control, &"slot_empty", &"ItemSlot", ArtLib.nine("slot_empty"))
 
 
@@ -59,3 +65,14 @@ static func glyph_of(item: Dictionary) -> String:
 ## 品质光晕的强度：珍品以上才有光晕，越高越亮。
 static func glow_alpha(rarity: int) -> float:
 	return [0.0, 0.0, 0.0, 0.35, 0.5, 0.65][clampi(rarity, 0, 5)]
+
+
+## Q 版品质格（美术 slot_white…slot_red / slot_empty，160×166 整张缩放，不是九宫格）。
+static func _q_slot(cut: String, modulate: Color) -> StyleBoxTexture:
+	var tex := ArtLib.qui(cut)
+	if tex == null:
+		return null
+	var box := StyleBoxTexture.new()
+	box.texture = tex
+	box.modulate_color = modulate
+	return box

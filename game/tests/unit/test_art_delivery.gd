@@ -36,7 +36,12 @@ func test_backgrounds_are_the_delivered_1080x2400_art() -> void:
 	for name in ["home", "character", "bag", "skill", "battle", "breakthrough", "login", "stage_1", "stage_2", "stage_3", "stage_4", "stage_5", "stage_6"]:
 		var tex := ArtLib.bg(name)
 		assert_not_null(tex, name)
-		assert_eq(Vector2i(tex.get_width(), tex.get_height()), Vector2i(1080, 2400), name)
+		if tex.resource_path.contains("/art/q/"):
+			var want := {"cultivate": Vector2i(1080, 1368), "adventure": Vector2i(1080, 960), "cave": Vector2i(1080, 2340)}
+			var q_name := str(ArtLib.Q_BG_ALIAS.get(name, name))
+			assert_eq(Vector2i(tex.get_width(), tex.get_height()), want.get(q_name, Vector2i(1080, tex.get_height())), "%s → Q 版 %s" % [name, q_name])
+		else:
+			assert_eq(Vector2i(tex.get_width(), tex.get_height()), Vector2i(1080, 2400), name)
 
 
 func test_ultimate_button_art_is_present() -> void:

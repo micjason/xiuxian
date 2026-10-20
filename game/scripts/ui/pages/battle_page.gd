@@ -407,9 +407,18 @@ func _float_damage(event: Dictionary) -> void:
 	var ult := str(event.get("kind", "")) == "ult"
 	var amount := BagModel.shown(float(event.get("damage", 0)))
 	var label := UiKit.label("-%d" % amount, UiTokens.FS_H1 if ult else UiTokens.FS_BODY_L, UiTokens.DANGER if boss_side else (UiTokens.REPORT_CRIT if ult else UiTokens.REPORT_DAMAGE_DEALT), HORIZONTAL_ALIGNMENT_CENTER)
-	label.add_theme_font_override("font", ArtLib.title_font())
-	label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
-	label.add_theme_constant_override("outline_size", 10)
+	## 伤害数字用美术位图字体（digits_dmg 普通 / digits_crit 大招），缺字体时退回标题字 + 描边。
+	var digits := ArtLib.digits_font("crit" if ult else "dmg")
+	if digits != null:
+		label.add_theme_font_override("font", digits)
+		label.add_theme_font_size_override("font_size", 84 if ult else 64)
+		label.add_theme_color_override("font_color", Color.WHITE)  # 位图字体会乘字色，保持美术原色
+		if boss_side:
+			label.modulate = Color(1.0, 0.72, 0.72)
+	else:
+		label.add_theme_font_override("font", ArtLib.title_font())
+		label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
+		label.add_theme_constant_override("outline_size", 10)
 	label.set_meta("side", side)
 	label.set_anchors_preset(Control.PRESET_CENTER_LEFT if boss_side else Control.PRESET_CENTER_RIGHT)
 	var lane: int = int(_float_count[side]) % FLOAT_LANES

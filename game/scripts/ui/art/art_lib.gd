@@ -10,7 +10,32 @@ const ICON_DIR := "res://assets/art/icons/"
 const BG_DIR := "res://assets/art/bg/"
 const ITEM_DIR := "res://assets/art/items/"
 const FONT_BODY := "res://assets/fonts/NotoSansSC-Regular.subset.woff2"
-const FONT_TITLE := "res://assets/fonts/MaShanZheng-Regular.subset.woff2"
+## Q 版标题字体（站酷快乐体，OFL）。旧的毛笔字 MaShanZheng 不再用于界面。
+const FONT_TITLE := "res://assets/fonts/ZCOOLKuaiLe-Regular.subset.woff2"
+const FONT_TITLE_INK := "res://assets/fonts/MaShanZheng-Regular.subset.woff2"
+## Q 版美术（2026-10-20 设计稿）：assets/art/q/{ui,icons,items,sprites,bg}/<id>。
+## 美术切图交付前，这里放的是设计稿用的临时切图（清单 assets/art/q/PLACEHOLDERS.txt，tools/art/install_q_art.py 重新入库）；
+## 九宫格框体没有切图时由 QSkin 用代码画（见 nine()）。
+const Q_DIR := "res://assets/art/q/"
+## 旧框体 id → 美术 Q 版九宫格切图名（assets/art/q/ui/<名>.png，边距在生成表 QNine.TABLE）。
+## 没列的 id（或切图不存在）用 QSkin 代码画的样式。内容边距仍按 QSkin.SPECS（切图边距含投影，太大）。
+const Q_NINE_ALIAS := {
+	"panel_card": "panel_cream", "panel_popup": "popup_frame", "panel_popup_scroll": "popup_frame",
+	"panel_inset": "well_apricot", "row_bg": "row_cream_r26", "row_selected": "card_current_gold",
+	"row_locked": "card_locked", "chip": "chip_cream", "chip_mint": "chip_mint", "chip_orange": "chip_orange",
+	"chip_dark": "chip_dark", "btn_primary_normal": "btn_orange_124_normal", "btn_primary_pressed": "btn_orange_124_pressed",
+	"btn_primary_disabled": "btn_grey_disabled_124", "btn_jade_normal": "btn_mint_124_normal",
+	"btn_jade_pressed": "btn_mint_124_pressed", "btn_jade_disabled": "btn_grey_disabled_124",
+	"bar_frame": "bar_bg_40", "bar_fill_jade": "bar_fill_mint_32", "bar_fill_gold": "bar_fill_gold_32",
+	"bar_fill_cin": "bar_fill_red_32", "bar_fill_blue": "bar_fill_blue_32",
+}
+## 旧图标名 → Q 版图标 id（Q 版图标是彩色的，不再染色）。
+const Q_ICON_ALIAS := {
+	"tab_cultivate": "tab_cultivate", "tab_adventure": "tab_adventure", "tab_skill": "tab_skill", "tab_bag": "tab_bag",
+	"tab_cave": "side_cave", "res_cultivation": "res_lotus", "avatar_meditate": "avatar", "cat_scroll": "book_other",
+}
+## 旧背景名 → Q 版背景 id。
+const Q_BG_ALIAS := {"home": "cultivate", "stage_1": "adventure", "stage_2": "adventure", "battle": "adventure", "character": "cave", "breakthrough": "cultivate"}
 
 ## 九宫格：名称 → [左右边距, 上下边距, 内容横向边距, 内容纵向边距]
 const NINE := {
@@ -105,12 +130,64 @@ static func ui(name: String) -> Texture2D:
 	return _load(UI_DIR + name + ".png")
 
 
+## 图标：有 Q 版彩色图标就用 Q 版（调用方用 is_color_icon 判断要不要染色），否则用旧的白色剪影。
 static func icon(name: String) -> Texture2D:
+	var q := q_icon_id(name)
+	if not q.is_empty():
+		return _load(Q_DIR + "icons/" + q + ".png")
 	return _load(ICON_DIR + name + ".png")
 
 
+static func q_icon_id(name: String) -> String:
+	var id := str(Q_ICON_ALIAS.get(name, name))
+	return id if ResourceLoader.exists(Q_DIR + "icons/" + id + ".png") else ""
+
+
+## 这个图标是 Q 版彩色图（不能再按品质/状态染色）。
+static func is_color_icon(name: String) -> bool:
+	return not q_icon_id(name).is_empty()
+
+
 static func bg(name: String) -> Texture2D:
+	var q := str(Q_BG_ALIAS.get(name, name))
+	if ResourceLoader.exists(Q_DIR + "bg/" + q + ".webp"):
+		return _load(Q_DIR + "bg/" + q + ".webp")
 	return _load(BG_DIR + name + ".webp")
+
+
+static func has_q(path_in_q: String) -> bool:
+	return ResourceLoader.exists(Q_DIR + path_in_q)
+
+
+## Q 版图片：q("sprites/hero_meditate") 等；不存在时警告并返回 null。
+static func q(path_in_q: String) -> Texture2D:
+	return _load(Q_DIR + path_in_q + ".png")
+
+
+## 美术 Q 版界面切图 assets/art/q/ui/<name>.png；没有返回 null（不警告，调用方退回代码绘制）。
+static func qui(name: String) -> Texture2D:
+	var path := Q_DIR + "ui/" + name + ".png"
+	return _load(path) if ResourceLoader.exists(path) else null
+
+
+## 美术的位图数字字体（digits_dmg / digits_crit / digits_gain / digits_xiuwei，BMFont .fnt）。
+static func digits_font(kind: String) -> Font:
+	var path := Q_DIR + "ui/digits_" + kind + ".fnt"
+	if not ResourceLoader.exists(path):
+		return null
+	var font := load(path) as FontFile
+	if font != null:
+		font.fixed_size_scale_mode = TextServer.FIXED_SIZE_SCALE_ENABLED
+	return font
+
+
+## 怪物/首领立绘（Q 版）：按名字里的字挑；认不出返回 ""（调用方退回旧的首领剪影图标）。
+static func monster_sprite_id(monster_name: String) -> String:
+	const KEYS := [["狼", "mon_wolf"], ["狐", "mon_fox"], ["蛇", "mon_snake"], ["蟒", "mon_snake"], ["熊", "mon_bear"]]
+	for entry in KEYS:
+		if monster_name.contains(str(entry[0])) and has_q("sprites/%s.png" % entry[1]):
+			return str(entry[1])
+	return ""
 
 
 ## 图标没交付时用 fallback 顶上（占位）。例如页签「洞府」的 tab_cave（N160）还没出图。
@@ -123,7 +200,7 @@ static func has_ui(name: String) -> bool:
 
 
 static func has_icon(name: String) -> bool:
-	return ResourceLoader.exists(ICON_DIR + name + ".png")
+	return ResourceLoader.exists(ICON_DIR + name + ".png") or not q_icon_id(name).is_empty()
 
 
 ## 开关贴图（160×80）。没交付时返回 null，调用方画占位。
@@ -131,11 +208,53 @@ static func switch_tex(on: bool) -> Texture2D:
 	return ui(SWITCH_ON if on else SWITCH_OFF)
 
 
-## 九宫格样式盒。modulate 可以给 hover 等状态提亮。
-static func nine(name: String, modulate: Color = Color.WHITE) -> StyleBoxTexture:
-	var spec: Array = NINE.get(name, [32, 32, 24, 16])
+## 九宫格样式盒（Q 版）：有 assets/art/q/ui/<name>.png 切图就用切图（边距 Q_NINE，没填用 NINE），
+## 否则用 QSkin 画的圆角描边样式。modulate 可以给 hover 等状态提亮。
+static func nine(name: String, modulate: Color = Color.WHITE) -> StyleBox:
+	var cut := str(Q_NINE_ALIAS.get(name, name))
+	if QNine.TABLE.has(cut) and ResourceLoader.exists(Q_DIR + "ui/" + cut + ".png"):
+		var box := q_nine(cut, modulate)
+		var pad: Array = QSkin.SPECS.get(name, [0, 0, 0, 0, 0, 24, 16])
+		box.content_margin_left = int(pad[5])
+		box.content_margin_right = int(pad[5])
+		box.content_margin_top = int(pad[6])
+		box.content_margin_bottom = int(pad[6]) + 6  # 切图下方含投影
+		return box
+	return QSkin.box(name, modulate)
+
+
+## 美术 Q 版九宫格切图（按切图名，边距照 checklist_q.csv）。内容边距 = 九宫格边距的一半（调用方可再改）。
+static func q_nine(cut: String, modulate: Color = Color.WHITE) -> StyleBoxTexture:
+	var spec: Array = QNine.TABLE.get(cut, [24, 24, 24, 24, false])
 	var box := StyleBoxTexture.new()
-	box.texture = ui(name)
+	box.texture = _load(Q_DIR + "ui/" + cut + ".png")
+	box.texture_margin_left = spec[0]
+	box.texture_margin_top = spec[1]
+	box.texture_margin_right = spec[2]
+	box.texture_margin_bottom = spec[3]
+	box.content_margin_left = int(spec[0]) / 2
+	box.content_margin_right = int(spec[2]) / 2
+	box.content_margin_top = int(spec[1]) / 2
+	box.content_margin_bottom = int(spec[3]) / 2
+	box.modulate_color = modulate
+	box.axis_stretch_horizontal = StyleBoxTexture.AXIS_STRETCH_MODE_STRETCH
+	box.axis_stretch_vertical = StyleBoxTexture.AXIS_STRETCH_MODE_STRETCH
+	return box
+
+
+## 这张切图只能横向拉伸（高度固定 = 贴图高）。
+static func q_fixed_height(cut: String) -> bool:
+	return bool((QNine.TABLE.get(cut, [0, 0, 0, 0, false]) as Array)[4])
+
+
+## 旧版（墨色）九宫格贴图。界面已不用，只留给美术对照和测试。
+static func ink_nine(name: String, modulate: Color = Color.WHITE) -> StyleBoxTexture:
+	return _nine_from(ui(name), NINE.get(name, [32, 32, 24, 16]), modulate)
+
+
+static func _nine_from(texture: Texture2D, spec: Array, modulate: Color) -> StyleBoxTexture:
+	var box := StyleBoxTexture.new()
+	box.texture = texture
 	box.texture_margin_left = spec[0]
 	box.texture_margin_right = spec[0]
 	box.texture_margin_top = spec[1]
@@ -289,6 +408,11 @@ static func item_icon_candidates(item: Dictionary) -> Array[String]:
 ## 返回 {texture, tint, source}。source = 命中的文件名，没命中前三层时是 "placeholder"。texture 可能为 null。
 ## exists 只给测试用（传入自定义的存在判断）；平时用 ResourceLoader。
 static func item_icon(item: Dictionary, exists: Callable = Callable()) -> Dictionary:
+	if not exists.is_valid():
+		for name in item_icon_candidates(item):
+			var q_path := Q_DIR + "items/" + name + ".png"
+			if ResourceLoader.exists(q_path):
+				return {"texture": _load(q_path), "tint": false, "source": "q/" + name}
 	for name in item_icon_candidates(item):
 		var path := ITEM_DIR + name + ".png"
 		var found: bool = exists.call(path) if exists.is_valid() else ResourceLoader.exists(path)

@@ -9,6 +9,8 @@ signal tab_changed(tab_id: String)
 var current := ""
 var _buttons: Dictionary = {}
 var _titles: Dictionary = {}
+## Q 版筛选页签（设计稿背包：选中 btn_orange_r30，未选 tab_filter_normal，164×84）。
+var q_style := false
 
 
 func _init() -> void:
@@ -54,5 +56,22 @@ func select(id: String, emit: bool = false) -> void:
 
 
 func _refresh() -> void:
+	if q_style:
+		for id in _buttons:
+			var button := _buttons[id] as Button
+			button.custom_minimum_size = Vector2(164, 104)
+			button.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+			if id == current:
+				QKit.style_button(button, "o", 36, 30)
+			else:
+				QKit.style_button(button, "c", 36, 30)
+				if ArtLib.qui("tab_filter_normal") != null:
+					var box := QKit.cut_box("tab_filter_normal", 20, 0)
+					box.content_margin_bottom = 8
+					for key in ["normal", "hover", "pressed"]:
+						button.add_theme_stylebox_override(key, box)
+			button.custom_minimum_size = Vector2(164, 104 if id == current else 83)
+			button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		return
 	for id in _buttons:
 		(_buttons[id] as Button).theme_type_variation = MainTheme.VAR_CHOICE_SELECTED if id == current else MainTheme.VAR_CHOICE

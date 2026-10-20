@@ -134,7 +134,7 @@ func test_bag_full_does_not_block_the_fight_and_the_result_shows_the_prompt() ->
 
 func test_four_tabs_and_heartbeat_interval_follow_server_window() -> void:
 	var scene := await _boot("ready")
-	assert_eq((scene.get("_tab_bar") as TabBarView)._buttons.size(), 4)
+	assert_eq((scene.get("_tab_bar") as TabBarView)._buttons.size(), 5, "修炼/历练/突破/功法/背包")
 	assert_eq(PlayScreen.heartbeat_seconds({"wave": {"onlineGapSeconds": 15}}), 12.0)
 	assert_eq(PlayScreen.heartbeat_seconds({}), PlayScreen.HEARTBEAT_DEFAULT)
 	assert_eq(PlayScreen.heartbeat_seconds({"wave": {"onlineGapSeconds": 2}}), 1.0)

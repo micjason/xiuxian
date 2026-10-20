@@ -108,14 +108,14 @@ static func _make_buttons(theme: Theme) -> void:
 		ArtLib.nine("btn_secondary_normal", Color(1.14, 1.14, 1.14)),
 		ArtLib.nine("btn_secondary_pressed"),
 		ArtLib.nine("btn_secondary_disabled"),
-		UiTokens.GOLD_HOVER, UiTokens.GOLD)
+		UiTokens.TEXT, UiTokens.TEXT)
 	_variation_of(theme, VAR_SECONDARY, "Button")
-	_button_variation(theme, VAR_PRIMARY, UiTokens.ON_GOLD, UiTokens.FS_HERO,
+	_button_variation(theme, VAR_PRIMARY, UiTokens.ON_PRIMARY, UiTokens.FS_HERO,
 		ArtLib.nine("btn_primary_normal"),
 		ArtLib.nine("btn_primary_normal", Color(1.1, 1.1, 1.1)),
 		ArtLib.nine("btn_primary_pressed"),
 		ArtLib.nine("btn_primary_disabled"),
-		UiTokens.ON_GOLD, UiTokens.ON_GOLD)
+		UiTokens.ON_PRIMARY, UiTokens.ON_PRIMARY)
 	theme.set_font("font", VAR_PRIMARY, ArtLib.bold_font())
 	theme.set_color("font_disabled_color", VAR_PRIMARY, UiTokens.TEXT_DISABLED)
 	# 青玉按钮：强化、运转等"正向但不是本屏唯一主操作"的按钮。
@@ -141,7 +141,7 @@ static func _make_buttons(theme: Theme) -> void:
 	var tab_idle := _box(Color(0, 0, 0, 0), Color(0, 0, 0, 0), 0, 0, 0, 8, 8)
 	var tab_hover := _box(Color(1, 1, 1, 0.05), Color(0, 0, 0, 0), 0, 0, 0, 8, 8)
 	_button_variation(theme, VAR_TAB, UiTokens.TEXT_MUTED, UiTokens.FS_BODY, tab_idle, tab_hover, tab_hover, tab_idle, UiTokens.TEXT, UiTokens.GOLD)
-	var tab_active := _box(Color(UiTokens.GOLD, 0.12), Color(UiTokens.GOLD, 1), 0, 0, 0, 8, 8)
+	var tab_active := _box(Color(UiTokens.Q_ORANGE, 0.18), Color(UiTokens.Q_ORANGE_DARK, 1), 0, 0, 0, 8, 8)
 	tab_active.border_width_top = 6
 	_button_variation(theme, VAR_TAB_ACTIVE, UiTokens.GOLD, UiTokens.FS_BODY, tab_active, tab_active, tab_active, tab_active, UiTokens.GOLD, UiTokens.GOLD)
 	# 列表项（关卡、物品、功法）：整行可点，选中时金边发光。
@@ -203,9 +203,9 @@ static func _make_containers(theme: Theme) -> void:
 	theme.set_color("font_color", "ProgressBar", UiTokens.TEXT)
 	theme.set_font_size("font_size", "ProgressBar", UiTokens.FS_MICRO)
 	# 触屏滚动条：窄但可见。
-	var track := _box(Color(1, 1, 1, 0.03), Color(0, 0, 0, 0), 0, UiTokens.R_SM, 0, 6, 6)
-	var grabber := _box(Color(UiTokens.GOLD, 0.45), Color(0, 0, 0, 0), 0, UiTokens.R_SM, 0, 6, 6)
-	var grabber_hot := _box(Color(UiTokens.GOLD, 0.8), Color(0, 0, 0, 0), 0, UiTokens.R_SM, 0, 6, 6)
+	var track := _box(Color(UiTokens.Q_COCOA, 0.06), Color(0, 0, 0, 0), 0, UiTokens.R_SM, 0, 6, 6)
+	var grabber := _box(Color(UiTokens.Q_COCOA, 0.35), Color(0, 0, 0, 0), 0, UiTokens.R_SM, 0, 6, 6)
+	var grabber_hot := _box(Color(UiTokens.Q_COCOA, 0.6), Color(0, 0, 0, 0), 0, UiTokens.R_SM, 0, 6, 6)
 	for bar in ["VScrollBar", "HScrollBar"]:
 		theme.set_stylebox("scroll", bar, track)
 		theme.set_stylebox("grabber", bar, grabber)
@@ -230,7 +230,7 @@ static func _make_inputs(theme: Theme) -> void:
 	theme.set_color("default_color", "RichTextLabel", UiTokens.TEXT)
 	theme.set_font_size("normal_font_size", "RichTextLabel", UiTokens.FS_BODY)
 	theme.set_font_size("bold_font_size", "RichTextLabel", UiTokens.FS_BODY)
-	var slider_bg := _box(Color(0.06, 0.08, 0.08, 1), UiTokens.BORDER_SUBTLE, 1, UiTokens.R_SM, 0, 0, 8)
+	var slider_bg := _box(UiTokens.Q_TRACK, UiTokens.Q_COCOA, 2, UiTokens.R_SM, 0, 0, 8)
 	theme.set_stylebox("slider", "HSlider", slider_bg)
 	theme.set_stylebox("grabber_area", "HSlider", _box(UiTokens.JADE_FILL, UiTokens.JADE_FILL, 0, UiTokens.R_SM, 0, 0, 8))
 	theme.set_stylebox("grabber_area_highlight", "HSlider", _box(UiTokens.GOLD, UiTokens.GOLD, 0, UiTokens.R_SM, 0, 0, 8))
@@ -258,9 +258,9 @@ static func _make_dialogs(theme: Theme) -> void:
 	# 内嵌窗口：标题画在内容区上方，所以边框要向上多扩一个标题高度，否则标题会盖在页面上。
 	var title_height := 96
 	var border := ArtLib.nine("panel_popup")
-	border.expand_margin_top = title_height
-	var border_idle := ArtLib.nine("panel_popup", Color(0.85, 0.85, 0.85))
-	border_idle.expand_margin_top = title_height
+	border.set("expand_margin_top", title_height)
+	var border_idle := ArtLib.nine("panel_popup", Color(0.95, 0.95, 0.95))
+	border_idle.set("expand_margin_top", title_height)
 	theme.set_stylebox("embedded_border", "Window", border)
 	theme.set_stylebox("embedded_unfocused_border", "Window", border_idle)
 	theme.set_color("title_color", "Window", UiTokens.GOLD)
@@ -286,6 +286,10 @@ static func footer_panel() -> StyleBoxFlat:
 
 static func input_normal() -> StyleBox:
 	var box := ArtLib.nine("panel_inset")
+	if box is StyleBoxFlat:
+		(box as StyleBoxFlat).bg_color = UiTokens.Q_WHITE
+		(box as StyleBoxFlat).border_color = UiTokens.Q_COCOA
+		(box as StyleBoxFlat).set_border_width_all(3)
 	box.content_margin_left = 28
 	box.content_margin_right = 28
 	box.content_margin_top = 18
@@ -294,8 +298,12 @@ static func input_normal() -> StyleBox:
 
 
 static func input_focus() -> StyleBox:
-	var box := input_normal() as StyleBoxTexture
-	box.modulate_color = Color(1.9, 1.7, 1.1)
+	var box := input_normal()
+	if box is StyleBoxFlat:
+		(box as StyleBoxFlat).border_color = UiTokens.Q_ORANGE_DARK
+		(box as StyleBoxFlat).set_border_width_all(4)
+	elif box is StyleBoxTexture:
+		(box as StyleBoxTexture).modulate_color = Color(1.1, 1.05, 0.9)
 	return box
 
 
@@ -440,7 +448,7 @@ static func _box(
 	box.border_color = border
 	box.set_border_width_all(border_width)
 	box.set_corner_radius_all(radius)
-	box.shadow_color = Color(0, 0, 0, 0.32)
+	box.shadow_color = Color(0.42, 0.29, 0.23, 0.26)
 	box.shadow_size = shadow_size
 	box.content_margin_left = margin_x
 	box.content_margin_right = margin_x

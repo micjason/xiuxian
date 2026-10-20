@@ -1,0 +1,17 @@
+[remap]
+
+importer="font_data_bmfont"
+type="FontFile"
+uid="uid://ctuwnlgmcrfy6"
+path="res://.godot/imported/digits_xiuwei.fnt-dfcf8b5b539eb53b8fac6bb8a8da83dc.fontdata"
+
+[deps]
+
+source_file="res://assets/art/q/ui/digits_xiuwei.fnt"
+dest_files=["res://.godot/imported/digits_xiuwei.fnt-dfcf8b5b539eb53b8fac6bb8a8da83dc.fontdata"]
+
+[params]
+
+fallbacks=[]
+compress=true
+scaling_mode=2

@@ -48,7 +48,7 @@ func set_items(items: Array[Dictionary], min_rows: int = 5, max_cells: int = 0) 
 	var rows := maxi(min_rows, int(ceil(float(items.size()) / float(columns))))
 	var cells := rows * columns
 	if max_cells > 0:
-		cells = mini(cells, int(ceil(float(max_cells) / float(columns))) * columns)
+		cells = mini(cells, max_cells)
 	cells = maxi(cells, items.size())
 	for index in cells:
 		var slot := ItemSlot.new()

@@ -1,7 +1,7 @@
 class_name BagPage
 extends VBoxContainer
-## 背包页（装备栏已并入，设计稿 05）：标题、分类页签（全部/装备/丹药/材料）、装备栏（6 个部位 + 2 个锁定预留位）、
-## 背包容量 + 一键穿戴 / 整理 / 批量、自动分解开关行、5 列 × 4 行格子（初始容量 20）。
+## 背包页（Q 版设计稿 q_bag）：纸娃娃（境界绶带 + 6 个部位 + 法宝/灵宠锁定位）、战力与四项属性、
+## 筛选页签（全部/装备/丹药/材料）+ 容量、自动分解开关、6 列格子（初始容量 20），底部 一键出售（未开放）/一键穿戴/批量/整理。
 ## 点格子或装备栏部位弹出物品详情（强化 / 穿戴 / 脱下 / 分解；已穿戴的分解按钮灰掉并写「已穿戴，无法分解」）。
 ## 数据通过 bind(state, content, flags) 传入；操作通过 action_requested 发出，由外壳调接口，不直接访问网络。
 
@@ -9,8 +9,20 @@ extends VBoxContainer
 ## ids: 物品 id 数组（auto_decompose 时是 [bool]）。
 signal action_requested(kind: String, ids: Array)
 
-const COLUMNS := 5
+const COLUMNS := 6
 const ROWS := 4
+## 纸娃娃格位置（卡内坐标，设计稿换算）：左列 武器/头冠/衣服，右列 护腕/靴子/饰品，下面 法宝/灵宠。
+const DOLL_POS := {
+	"weapon": Vector2(48, 86), "helmet": Vector2(48, 280), "clothes": Vector2(48, 474),
+	"gloves": Vector2(834, 86), "shoes": Vector2(834, 280), "accessory": Vector2(834, 474),
+	"artifact": Vector2(332, 600), "pet": Vector2(600, 600),
+}
+const STAT_CELLS := [
+	{"key": "hp", "name": "生命", "cut": "icon_heart", "icon": "", "color": Color("e5484d")},
+	{"key": "attack", "name": "攻击", "cut": "", "icon": "gear_weapon", "color": Color("ea7a1e")},
+	{"key": "defense", "name": "防御", "cut": "icon_shield", "icon": "", "color": Color("2e7fd0")},
+	{"key": "speed", "name": "速度", "cut": "", "icon": "gear_shoes", "color": Color("2f9e5b")},
+]
 const TABS: Array[Dictionary] = [
 	{"id": "all", "name": "全部"},
 	{"id": "equip", "name": "装备"},
@@ -28,7 +40,7 @@ var auto_decompose := false
 var _state: Dictionary = {}
 var _content: Dictionary = {}
 var _tabs: SegTabs
-var _doll_row: HBoxContainer
+var _doll_row: Control
 var _doll_note: Label
 var _cells: Dictionary = {}
 var _capacity_label: Label
@@ -45,93 +57,222 @@ var _selected_label: Label
 var _decompose_button: Button
 var _hint: Label
 var _empty: Label
+var _sell_button: Button
+var _power_value: Label
+var _stat_labels: Dictionary = {}
 
 
 func _init() -> void:
-	add_theme_constant_override("separation", UiTokens.SP_1)
+	add_theme_constant_override("separation", 20)
 	size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_build()
 
 
 func _build() -> void:
-	add_child(UiKit.page_title("背包"))
-	_tabs = SegTabs.new()
-	_tabs.tab_changed.connect(_on_tab)
-	add_child(_tabs)
 	add_child(_build_doll())
-	add_child(_build_capacity_row())
-	add_child(_build_auto_row())
+	add_child(_build_stats())
+	var filter_row := UiKit.hbox(14)
+	filter_row.name = "FilterRow"
+	add_child(filter_row)
+	_tabs = SegTabs.new()
+	_tabs.q_style = true
+	_tabs.add_theme_constant_override("separation", 14)
+	_tabs.tab_changed.connect(_on_tab)
+	filter_row.add_child(_tabs)
+	var spacer := Control.new()
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	filter_row.add_child(spacer)
+	filter_row.add_child(_build_capacity_pill())
+	var frame := PanelContainer.new()
+	frame.name = "GridCard"
+	frame.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	frame.add_theme_stylebox_override("panel", QKit.cut_box("panel_cream", 22, 18))
+	var column := UiKit.vbox(10)
+	frame.add_child(column)
+	column.add_child(_build_auto_row())
 	_grid = ItemGrid.new()
+	_grid.name = "BagGrid"
 	_grid.set_columns(COLUMNS)
 	_grid.selectable = BagModel.selectable_for_batch
 	_grid.slot_pressed.connect(_on_slot)
 	_grid.selection_changed.connect(_on_selection)
-	var frame := PanelContainer.new()
-	frame.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	frame.add_theme_stylebox_override("panel", ArtLib.nine("panel_inset"))
-	frame.add_child(_grid)
-	add_child(frame)
-	_empty = UiKit.wrap_label("这个分类里还没有东西。去历练打首领，会掉落装备和材料。", UiTokens.FS_CAPTION, UiTokens.TEXT_MUTED)
+	var well := PanelContainer.new()
+	well.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	well.add_theme_stylebox_override("panel", QKit.cut_box("well_bag_grid", 16, 16) if ArtLib.qui("well_bag_grid") != null else ArtLib.nine("panel_inset"))
+	well.add_child(_grid)
+	column.add_child(well)
+	_empty = UiKit.wrap_label("这个分类里还没有东西。去历练打首领，会掉落装备和材料。", UiTokens.FS_MICRO, UiTokens.TEXT_MUTED)
 	_empty.visible = false
-	add_child(_empty)
-	_hint = UiKit.wrap_label("", UiTokens.FS_CAPTION, UiTokens.JADE)
+	column.add_child(_empty)
+	add_child(frame)
+	_hint = UiKit.wrap_label("", UiTokens.FS_MICRO, UiTokens.Q_TEAL_DARK)
 	_hint.visible = false
 	add_child(_hint)
 	_batch_bar = UiKit.hbox(UiTokens.TAP_GAP)
 	_batch_bar.visible = false
 	add_child(_batch_bar)
-	_selected_label = UiKit.label("已选 0 件", UiTokens.FS_CAPTION, UiTokens.TEXT)
+	_selected_label = UiKit.label("已选 0 件", UiTokens.FS_MICRO, UiTokens.TEXT)
 	_selected_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_batch_bar.add_child(_selected_label)
-	var all_button := UiKit.button("全选", MainTheme.VAR_SECONDARY)
-	all_button.custom_minimum_size = Vector2(160, UiTokens.H_TOUCH)
+	var all_button := QKit.button("全选", "m", 100, 34)
+	all_button.custom_minimum_size.x = 180
 	all_button.pressed.connect(func() -> void: _grid.select_all())
 	_batch_bar.add_child(all_button)
-	_decompose_button = UiKit.button("分解所选", MainTheme.VAR_DANGER)
-	_decompose_button.custom_minimum_size = Vector2(280, UiTokens.H_TOUCH)
+	_decompose_button = QKit.button("分解所选", "o", 100, 34)
+	_decompose_button.custom_minimum_size.x = 280
 	_decompose_button.disabled = true
 	_decompose_button.pressed.connect(_confirm_batch)
 	_batch_bar.add_child(_decompose_button)
+	add_child(_build_capacity_row())
+	var orb_room := Control.new()
+	orb_room.name = "OrbRoom"
+	orb_room.custom_minimum_size = Vector2(0, 110)
+	orb_room.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(orb_room)
 
 
+## 纸娃娃（设计稿 36,252,1008,700）：浅青底、境界绶带、打坐小人 + 莲台，左 武器/头冠/衣服、右 护腕/靴子/饰品，下面两个锁定位 法宝/灵宠。
 func _build_doll() -> Control:
-	var card := PanelContainer.new()
+	var card := Control.new()
 	card.name = "EquipBar"
-	card.add_theme_stylebox_override("panel", ArtLib.nine("panel_card"))
-	var column := UiKit.vbox(UiTokens.SP_1)
-	card.add_child(column)
-	var head := UiKit.hbox(UiTokens.SP_1)
-	column.add_child(head)
-	head.add_child(UiKit.label("装备栏", UiTokens.FS_CAPTION, UiTokens.GOLD))
-	_doll_note = UiKit.label("", UiTokens.FS_MICRO, UiTokens.TEXT_MUTED, HORIZONTAL_ALIGNMENT_RIGHT)
-	_doll_note.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	head.add_child(_doll_note)
-	_doll_row = UiKit.hbox(6)
-	column.add_child(_doll_row)
+	card.custom_minimum_size = Vector2(0, 700)
+	var back := Panel.new()
+	back.set_anchors_preset(Control.PRESET_FULL_RECT)
+	back.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	back.add_theme_stylebox_override("panel", QKit.cut_box("panel_cream", 0, 0))
+	card.add_child(back)
+	var well := Panel.new()
+	well.set_anchors_preset(Control.PRESET_FULL_RECT)
+	well.offset_left = 22
+	well.offset_top = 20
+	well.offset_right = -22
+	well.offset_bottom = -26
+	well.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	well.add_theme_stylebox_override("panel", QKit.cut_box("well_teal", 0, 0) if ArtLib.qui("well_teal") != null else QSkin.custom(Color("d9f3ee"), Color(0, 0, 0, 0), 0, 28, 0, 0, 0))
+	card.add_child(well)
+	## 设计稿的圆台：奶油色椭圆 + 杏色描边（美术没出这张，代码画）。
+	var stage := Panel.new()
+	stage.name = "DollStage"
+	stage.position = Vector2(286, 480)
+	stage.size = Vector2(460, 110)
+	stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stage.add_theme_stylebox_override("panel", QSkin.custom(Color("fbe7c6"), Color("e9c99a"), 6, 230, 0, 0, 0))
+	card.add_child(stage)
+	var hero := _sprite("hero_meditate", Rect2(296, 96, 440, 440))
+	hero.name = "DollHero"
+	card.add_child(hero)
+	var ribbon := QKit.ribbon("", 40, 300, false)
+	ribbon.name = "DollRibbon"
+	ribbon.position = Vector2(366, 10)
+	card.add_child(ribbon)
+	_doll_note = ribbon.find_child("RibbonText", true, false) as Label
+	_doll_row = Control.new()
+	_doll_row.name = "DollSlots"
+	_doll_row.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_doll_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(_doll_row)
 	return card
 
 
-func _build_capacity_row() -> Control:
-	var row := UiKit.hbox(UiTokens.SP_1)
-	_capacity_label = UiKit.label("背包容量 0 / 20", UiTokens.FS_CAPTION, UiTokens.TEXT)
+func _sprite(slug: String, rect: Rect2) -> TextureRect:
+	var node := TextureRect.new()
+	node.texture = ArtLib.q("sprites/" + slug) if ArtLib.has_q("sprites/%s.png" % slug) else null
+	node.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	node.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	node.position = rect.position
+	node.size = rect.size
+	node.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return node
+
+
+## 战力 + 四项属性（设计稿 36,974,1008,166）。全部取自玩家状态（power / hp / attack / defense / speed）。
+func _build_stats() -> Control:
+	var card := PanelContainer.new()
+	card.name = "StatsCard"
+	card.custom_minimum_size = Vector2(0, 166)
+	card.add_theme_stylebox_override("panel", QKit.cut_box("panel_cream", 26, 14))
+	var row := UiKit.hbox(14)
+	card.add_child(row)
+	var power := UiKit.vbox(0)
+	power.custom_minimum_size = Vector2(170, 0)
+	power.alignment = BoxContainer.ALIGNMENT_CENTER
+	power.add_child(QKit.title("战力", 30, UiTokens.TEXT_MUTED))
+	_power_value = QKit.outlined("0", 60, UiTokens.Q_GOLD, UiTokens.Q_COCOA, 10)
+	_power_value.name = "PowerValue"
+	power.add_child(_power_value)
+	row.add_child(power)
+	for spec in STAT_CELLS:
+		var cell := PanelContainer.new()
+		cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		cell.add_theme_stylebox_override("panel", QKit.cut_box("well_apricot", 12, 8))
+		var inner := UiKit.hbox(6)
+		inner.alignment = BoxContainer.ALIGNMENT_CENTER
+		cell.add_child(inner)
+		var icon: Control
+		if not str(spec.cut).is_empty():
+			icon = QKit.cut_rect(str(spec.cut), Vector2(52, 52))
+		else:
+			var rect := TextureRect.new()
+			rect.texture = ArtLib.q("items/" + str(spec.icon)) if ArtLib.has_q("items/%s.png" % spec.icon) else ArtLib.icon(str(spec.icon))
+			rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			icon = rect
+		icon.custom_minimum_size = Vector2(52, 52)
+		icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		inner.add_child(icon)
+		var texts := UiKit.vbox(0)
+		texts.add_child(QKit.title(str(spec.name), 30, UiTokens.TEXT_MUTED))
+		var value := QKit.title("0", 40, spec.color as Color)
+		value.name = "Stat_" + str(spec.key)
+		texts.add_child(value)
+		_stat_labels[str(spec.key)] = value
+		inner.add_child(texts)
+		row.add_child(cell)
+	return card
+
+
+func _build_capacity_pill() -> Control:
+	var pill := PanelContainer.new()
+	pill.name = "CapacityPill"
+	pill.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	pill.add_theme_stylebox_override("panel", QKit.cut_box("chip_cream", 16, 2))
+	var row := UiKit.hbox(6)
+	pill.add_child(row)
+	var pouch := UiKit.icon("tab_bag", 64)
+	pouch.custom_minimum_size = Vector2(64, 64)
+	row.add_child(pouch)
+	_capacity_label = QKit.title("容量 0 / 20", 30, UiTokens.TEXT)
 	_capacity_label.name = "CapacityLabel"
-	_capacity_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_capacity_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	row.add_child(_capacity_label)
-	_wear_button = UiKit.button("一键穿戴", MainTheme.VAR_SECONDARY, 80)
+	return pill
+
+
+## 底部按钮：一键出售（没有出售功能 → 「功能暂未开放」）、一键穿戴、批量（分解）、整理。
+func _build_capacity_row() -> Control:
+	var row := UiKit.hbox(16)
+	row.name = "BagActions"
+	_sell_button = QKit.button("一键出售", "m", 100, 36)
+	_sell_button.name = "SellAllButton"
+	_sell_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	LockedFeature.wire(_sell_button, "bag_sell")
+	row.add_child(_sell_button)
+	_wear_button = QKit.button("一键穿戴", "o", 100, 36)
 	_wear_button.name = "WearAllButton"
-	_wear_button.custom_minimum_size = Vector2(210, 80)
+	_wear_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_wear_button.pressed.connect(_on_wear_all)
 	row.add_child(_wear_button)
-	_sort_button = UiKit.button("整理", MainTheme.VAR_SECONDARY, 80)
-	_sort_button.name = "SortButton"
-	_sort_button.custom_minimum_size = Vector2(150, 80)
-	_sort_button.pressed.connect(_tidy)
-	row.add_child(_sort_button)
-	_batch_button = UiKit.button("批量", MainTheme.VAR_SECONDARY, 80)
+	_batch_button = QKit.button("批量", "m", 100, 36)
 	_batch_button.name = "BatchButton"
-	_batch_button.custom_minimum_size = Vector2(150, 80)
+	_batch_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_batch_button.pressed.connect(_toggle_batch)
 	row.add_child(_batch_button)
+	_sort_button = QKit.button("整理", "o", 100, 36)
+	_sort_button.name = "SortButton"
+	_sort_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_sort_button.pressed.connect(_tidy)
+	row.add_child(_sort_button)
 	return row
 
 
@@ -139,31 +280,42 @@ func _build_capacity_row() -> Control:
 func _build_auto_row() -> Control:
 	_auto_switch = Button.new()
 	_auto_switch.name = "AutoDecomposeRow"
-	_auto_switch.custom_minimum_size = Vector2(0, 88)
+	_auto_switch.custom_minimum_size = Vector2(0, 72)
 	_auto_switch.focus_mode = Control.FOCUS_NONE
-	var frame := ArtLib.nine("chip")
 	for state in ["normal", "hover", "pressed", "disabled", "focus"]:
-		_auto_switch.add_theme_stylebox_override(state, frame if state != "focus" else StyleBoxEmpty.new())
+		_auto_switch.add_theme_stylebox_override(state, StyleBoxEmpty.new())
 	_auto_switch.pressed.connect(func() -> void: action_requested.emit("auto_decompose", [not auto_decompose]))
-	var row := UiKit.hbox(UiTokens.SP_1)
+	var row := UiKit.hbox(10)
 	row.set_anchors_preset(Control.PRESET_FULL_RECT)
-	row.offset_left = 20
-	row.offset_right = -20
+	row.offset_left = 6
+	row.offset_right = -6
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_auto_switch.add_child(row)
-	_auto_label = UiKit.label("自动分解（仅未强化的白、绿装备）", UiTokens.FS_CAPTION, UiTokens.TEXT)
+	_auto_label = QKit.title("自动分解（仅未强化的白、绿装备）", 32, UiTokens.TEXT)
 	_auto_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_auto_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_auto_label.clip_text = true
 	row.add_child(_auto_label)
-	_auto_text = UiKit.label("关", UiTokens.FS_CAPTION, UiTokens.TEXT_MUTED)
+	_auto_text = UiKit.label("关", UiTokens.FS_MICRO, UiTokens.TEXT_MUTED)
 	_auto_text.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	row.add_child(_auto_text)
-	_auto_icon = UiKit.icon_from(ArtLib.switch_tex(false), 80, Color.WHITE)
-	_auto_icon.custom_minimum_size = Vector2(120, 60)
+	_auto_icon = TextureRect.new()
+	_auto_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_auto_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_auto_icon.custom_minimum_size = Vector2(112, 64)
 	_auto_icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_auto_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(_auto_icon)
 	return _auto_switch
+
+
+## 下半薄荷底板的上沿跟着属性卡（设计稿 962）。
+func sheet_anchor() -> Control:
+	return get_node_or_null("StatsCard") as Control
+
+
+func sheet_pad() -> float:
+	return 12.0
 
 
 func bind(state: Dictionary, content: Dictionary, item_flags: ItemFlags) -> void:
@@ -178,15 +330,19 @@ func refresh() -> void:
 	var seen: Dictionary = flags.seen if flags != null else {}
 	model = BagModel.from_state(_state, _content, seen)
 	var used := model.used_slots()
-	_capacity_label.text = "背包容量 %d / %d" % [used, model.capacity]
-	_capacity_label.add_theme_color_override("font_color", UiTokens.WARNING if model.is_full() else UiTokens.TEXT)
+	_capacity_label.text = "容量 %d / %d" % [used, model.capacity]
+	_capacity_label.add_theme_color_override("font_color", UiTokens.Q_RED if model.is_full() else UiTokens.TEXT)
+	_power_value.text = QKit.grouped(float(_state.get("power", 0)))
+	for key in _stat_labels:
+		(_stat_labels[key] as Label).text = QKit.grouped(float(_state.get(key, 0)))
 	var tabs: Array = []
 	for entry in TABS:
 		tabs.append({"id": entry.id, "name": entry.name})
 	_tabs.set_tabs(tabs, category)
 	_auto_text.text = "开" if auto_decompose else "关"
-	_auto_text.add_theme_color_override("font_color", UiTokens.GOLD_HOVER if auto_decompose else UiTokens.TEXT_MUTED)
-	_auto_icon.texture = ArtLib.switch_tex(auto_decompose)
+	_auto_text.add_theme_color_override("font_color", UiTokens.Q_TEAL_DARK if auto_decompose else UiTokens.TEXT_MUTED)
+	var toggle_tex := ArtLib.qui("toggle_on" if auto_decompose else "toggle_off")
+	_auto_icon.texture = toggle_tex if toggle_tex != null else ArtLib.switch_tex(auto_decompose)
 	_render_doll()
 	_wear_button.disabled = EquipModel.best_upgrades(model).is_empty()
 	_render_grid()
@@ -197,13 +353,31 @@ func _render_doll() -> void:
 	_cells.clear()
 	var slots := EquipModel.slots_of(model)
 	for slot in SlotConfig.all():
+		var id := str(slot.id)
+		var small := bool(slot.get("locked", false))
+		var holder := Control.new()
+		holder.name = "Holder_" + id
+		holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		holder.top_level = false
 		var cell := EquipSlotCell.new()
-		cell.make_compact(108.0, 150.0)
-		cell.setup(slot, slots.get(str(slot.id), {}))
+		cell.make_q(76.0 if small else 150.0)
+		cell.setup(slot, slots.get(id, {}))
 		cell.slot_pressed.connect(_on_equip_slot)
-		_doll_row.add_child(cell)
-		_cells[str(slot.id)] = cell
-	_doll_note.text = "%d 个部位 · 法宝、灵宠第三期开放" % SlotConfig.core().size()
+		holder.add_child(cell)
+		var pos: Vector2 = DOLL_POS.get(id, Vector2.ZERO)
+		var label_text := str(slot.get("name", "")).replace("头部", "头冠").replace("身体", "衣服").replace("手部", "护腕").replace("腿/鞋", "靴子")
+		var label: Control = QKit.tag(label_text, "cream" if small else ("orange" if not slots.get(id, {}).is_empty() else "grey"), 30, 16)
+		if small:
+			label = QKit.title(label_text, 30, UiTokens.TEXT_MUTED)
+		holder.add_child(label)
+		_doll_row.add_child(holder)
+		holder.set_anchors_preset(Control.PRESET_TOP_LEFT)
+		holder.position = pos
+		cell.position = Vector2.ZERO
+		cell.size = cell.custom_minimum_size
+		label.position = Vector2(90, 18) if small else Vector2(75 - label.get_combined_minimum_size().x / 2.0, 150)
+		_cells[id] = cell
+	_doll_note.text = str(_state.get("realmName", "")) if not str(_state.get("realmName", "")).is_empty() else "装备"
 
 
 func equip_cell(slot_id: String) -> EquipSlotCell:
@@ -266,14 +440,14 @@ func _toggle_batch() -> void:
 	_grid.set_multi_select(on)
 	_batch_bar.visible = on
 	_batch_button.text = "完成" if on else "批量"
-	_batch_button.theme_type_variation = MainTheme.VAR_PRIMARY if on else MainTheme.VAR_SECONDARY
+	QKit.style_button(_batch_button, "o" if on else "m", 36)
 	_on_selection([])
 
 
 func _leave_batch() -> void:
 	_batch_bar.visible = false
 	_batch_button.text = "批量"
-	_batch_button.theme_type_variation = MainTheme.VAR_SECONDARY
+	QKit.style_button(_batch_button, "m", 36)
 
 
 func _on_selection(ids: Array) -> void:

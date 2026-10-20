@@ -15,8 +15,10 @@
       "note": "",
       "lines": [
         "Ma Shan Zheng · The Ma Shan Zheng Project Authors · Google Fonts",
+        "ZCOOL KuaiLe · The ZCOOL KuaiLe Project Authors · Google Fonts",
         "Noto Sans SC · Google / Adobe",
-        "均为子集化版本，许可文本随包附带。"
+        "均为子集化版本，许可文本随包附带。",
+        "Q 版界面切图里烘焙的字形来自 ZCOOL QingKe HuangYou / ZCOOL KuaiLe（SIL OFL 1.1）。"
       ]
     },
     {
@@ -32,7 +34,8 @@
       "lines": [
         "界面切图、图标、Logo、启动图为原创绘制；物品图标、背景和弹窗头图含 AI 生成素材再加工（商用条款待确认）。",
         "Logo 与启动图的字形来自 Ma Shan Zheng（SIL OFL 1.1）。",
-        "详见仓库里的 ASSETS_LICENSES.md 第 7 节。"
+        "详见仓库里的 ASSETS_LICENSES.md 第 7 节。",
+        "Q 版界面（2026-10）：框体按钮为程序绘制；人物、怪物、建筑、背景和彩色图标含 AI 生成素材（商用条款待确认），详见 ASSETS_LICENSES.md 第 8 节。"
       ]
     }
   ]

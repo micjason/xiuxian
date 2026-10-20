@@ -1,7 +1,8 @@
 extends Control
-## 游戏主界面外壳：背景、顶部栏（头像/境界/总战力/修为）、底部四个页签（修炼 / 背包 / 功法 / 洞府）、
+## 游戏主界面外壳（Q 版）：背景、顶部栏（头像/境界/战力/货币/修为）、底部五格（修炼 / 历练 /【突破】/ 功法 / 背包）、
 ## 页面、通用弹层、离线收益弹窗、突破成功弹窗、登录层。
-## 修炼页里有「历练」入口（关卡）→ 首领战界面；「突破」按钮 → 境界突破流程界面；它们不占页签。
+## 底栏正中的「突破」大圆钮打开境界突破弹窗（居中弹出，盖在当前页上）；修炼页右侧「洞府」入口进洞府页；
+## 历练页「挑战」→ 首领战界面。洞府 / 首领战不占页签，分别高亮「修炼」「历练」。
 ## 界面全部由代码搭建，美术来自 ArtLib（res://assets/art/）；main.tscn 里的旧节点保留但隐藏
 ## （场景测试按名字检查它们），数据和操作由这里统一处理：真实模式走 PlayerApi，演示模式走 UiMock。
 ## 前台心跳：定时拉 /me/state（服务器据此判在线、结算击杀与掉落）；应用切到后台就停，回前台立刻补一次。
@@ -20,12 +21,14 @@ const PAGE_BACKGROUNDS := {
 	PAGE_ADVENTURE: "stage_2",
 	PAGE_BATTLE: "battle",
 	PAGE_BREAKTHROUGH: "breakthrough",
-	PAGE_BAG: "bag",
-	PAGE_SKILL: "skill",
+	PAGE_BAG: "",
+	PAGE_SKILL: "",
 	PAGE_CAVE: "character",
 }
 ## 不在页签里的页面 → 高亮哪个页签（都算「修炼」）。
-const TAB_OF := {PAGE_ADVENTURE: PAGE_CULTIVATE, PAGE_BATTLE: PAGE_CULTIVATE, PAGE_BREAKTHROUGH: PAGE_CULTIVATE}
+const TAB_OF := {PAGE_BATTLE: PAGE_ADVENTURE, PAGE_CAVE: PAGE_CULTIVATE}
+## 顶栏第二行（修为条）只在这些页显示（设计稿：修炼、功法）。
+const PAGES_WITH_CULTIVATION := [PAGE_CULTIVATE, PAGE_SKILL]
 ## 心跳：服务器 onlineGapSeconds（默认 15 秒）内有请求才算在线，所以间隔要比它短。
 const HEARTBEAT_MARGIN := 3.0
 const HEARTBEAT_DEFAULT := 12.0
@@ -53,6 +56,9 @@ var _home_page: HomePage
 var _stage_page: StagePage
 var _battle_page: BattlePage
 var _breakthrough_page: BreakthroughPage
+## 突破弹窗层（全屏遮罩 + 居中弹窗，盖在当前页上面、顶栏和底栏下面也遮住）。
+var _break_layer: Control
+var _page_before_break := PAGE_CULTIVATE
 var _bag_page: BagPage
 var _skill_page: SkillPage
 var _cave_page: CavePage
@@ -188,7 +194,9 @@ func _build_shell() -> void:
 	_battle_page.retry_requested.connect(_open_battle)
 	_breakthrough_page = BreakthroughPage.new()
 	_breakthrough_page.start_requested.connect(_on_breakthrough)
+	_breakthrough_page.close_requested.connect(_close_breakthrough)
 	_breakthrough_page.goto_stage_requested.connect(func(slug: String) -> void:
+		_close_breakthrough()
 		_select_stage(slug)
 		_show_page(PAGE_ADVENTURE))
 	_bag_page = BagPage.new()
@@ -196,22 +204,41 @@ func _build_shell() -> void:
 	_bag_page.action_requested.connect(_on_page_action)
 	_skill_page = SkillPage.new()
 	_cave_page = CavePage.new()
+	_cave_page.back_requested.connect(func() -> void: _show_page(PAGE_CULTIVATE))
 	_pages = {PAGE_CULTIVATE: _home_page, PAGE_ADVENTURE: _stage_page, PAGE_BATTLE: _battle_page, PAGE_BREAKTHROUGH: _breakthrough_page, PAGE_BAG: _bag_page, PAGE_SKILL: _skill_page, PAGE_CAVE: _cave_page}
-	for page in _pages.values():
-		(page as Control).visible = false
-		_page_host.add_child(page)
+	for key in _pages:
+		(_pages[key] as Control).visible = false
+		if key != PAGE_BREAKTHROUGH:
+			_page_host.add_child(_pages[key])
 	_top_bar = TopBar.new()
 	_top_bar.settings_pressed.connect(func() -> void: CreditsView.show_credits(_popup))
 	add_child(_top_bar)
 	_tab_bar = TabBarView.new()
 	_tab_bar.set_tabs([
 		{"id": PAGE_CULTIVATE, "name": "修炼", "icon": "tab_cultivate"},
-		{"id": PAGE_BAG, "name": "背包", "icon": "tab_bag"},
+		{"id": PAGE_ADVENTURE, "name": "历练", "icon": "tab_adventure"},
+		{"id": PAGE_BREAKTHROUGH, "name": "突破", "center": true},
 		{"id": PAGE_SKILL, "name": "功法", "icon": "tab_skill"},
-		{"id": PAGE_CAVE, "name": "洞府", "icon": "tab_cave", "fallback": "ui_gate"},
+		{"id": PAGE_BAG, "name": "背包", "icon": "tab_bag"},
 	] as Array[Dictionary], PAGE_CULTIVATE)
 	_tab_bar.page_selected.connect(_show_page)
+	_tab_bar.center_pressed.connect(_on_center_pressed)
+	_top_bar.breakthrough_pressed.connect(_on_center_pressed)
 	add_child(_tab_bar)
+	_break_layer = Control.new()
+	_break_layer.name = "BreakthroughLayer"
+	_break_layer.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_break_layer.visible = false
+	var dim := ColorRect.new()
+	dim.name = "Dimmer"
+	dim.color = Color(0, 0, 0, 0.55)
+	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	dim.gui_input.connect(func(event: InputEvent) -> void:
+		if event is InputEventMouseButton and (event as InputEventMouseButton).pressed and not _busy:
+			_close_breakthrough())
+	_break_layer.add_child(dim)
+	_break_layer.add_child(_breakthrough_page)
+	add_child(_break_layer)
 	_toast = Toast.new()
 	add_child(_toast)
 	if _mock:
@@ -230,7 +257,9 @@ func _build_shell() -> void:
 	_offline_popup.acknowledged.connect(_on_offline_ack)
 	add_child(_offline_popup)
 	_success_popup = BreakthroughSuccess.new()
-	_success_popup.closed.connect(func() -> void: _show_page(PAGE_CULTIVATE))
+	_success_popup.closed.connect(func() -> void:
+		_close_breakthrough()
+		_show_page(PAGE_CULTIVATE))
 	add_child(_success_popup)
 	_apply_layout()
 
@@ -251,8 +280,10 @@ func _apply_layout() -> void:
 	_toast.set_anchors_preset(Control.PRESET_TOP_WIDE)
 	_toast.offset_left = float(UiTokens.PAGE_MARGIN) + inset.x
 	_toast.offset_right = -(float(UiTokens.PAGE_MARGIN) + inset.z)
-	_toast.offset_top = inset.y + float(TopBar.HEIGHT) + float(UiTokens.SP_1)
+	_toast.offset_top = inset.y + _top_bar.content_height() + float(UiTokens.SP_2)
 	_toast.offset_bottom = _toast.offset_top + 110.0
+	_breakthrough_page.apply_safe_area(inset)
+	_offline_popup.apply_safe_area(inset)
 	if _mock_tag != null:
 		_mock_tag.set_anchors_preset(Control.PRESET_TOP_LEFT)
 		_mock_tag.offset_left = float(UiTokens.PAGE_MARGIN) + inset.x
@@ -262,14 +293,24 @@ func _apply_layout() -> void:
 
 
 func _show_page(page: String) -> void:
+	if page == PAGE_BREAKTHROUGH:
+		_open_breakthrough()
+		return
 	if _page == PAGE_BATTLE and page != PAGE_BATTLE and _battle_page.is_running():
 		_toast.say("战斗进行中，打完再离开", false)
 		return
+	if _break_layer.visible:
+		_close_breakthrough()
 	_page = page
 	for key in _pages:
-		(_pages[key] as Control).visible = key == page
+		if key != PAGE_BREAKTHROUGH:
+			(_pages[key] as Control).visible = key == page
 	_tab_bar.select(str(TAB_OF.get(page, page)))
 	_backdrop.show_background(str(PAGE_BACKGROUNDS.get(page, "home")))
+	_top_bar.set_cultivation_visible(page in PAGES_WITH_CULTIVATION)
+	_apply_layout()
+	var page_node := _pages[page] as Control
+	_backdrop.set_sheet_anchor(page_node.call("sheet_anchor") if page_node.has_method("sheet_anchor") else null, float(page_node.call("sheet_pad")) if page_node.has_method("sheet_pad") else 52.0)
 	if page == PAGE_BAG:
 		_bag_page.mark_visible_seen()
 		_update_dots()
@@ -370,7 +411,9 @@ func _stage_render() -> void:
 func _update_dots() -> void:
 	var view := BreakthroughView.build(_state)
 	var gain := float((_state.get("cultivationRate", {}) as Dictionary).get("gainPerTick", 0)) if typeof(_state.get("cultivationRate", null)) == TYPE_DICTIONARY else 0.0
-	_tab_bar.set_dot(PAGE_CULTIVATE, gain > 0.0 and bool(view.can_start))
+	_tab_bar.set_center("max" if not bool(view.has_next) else ("ready" if bool(view.can_start) else "hint"), _realm_name(BagModel.plain(_breakthrough_info().get("nextSlug", null))) if bool(view.has_next) else "已圆满")
+	_tab_bar.set_dot(PAGE_CULTIVATE, false)
+	_tab_bar.set_dot(PAGE_ADVENTURE, gain > 0.0 and bool(view.cultivation_ok) and not bool(view.boss_ok))
 	var bag := BagModel.from_state(_state, _content, _flags.seen)
 	var fresh := false
 	for item in bag.items:
@@ -378,7 +421,6 @@ func _update_dots() -> void:
 			fresh = true
 	_tab_bar.set_dot(PAGE_BAG, fresh or not EquipModel.best_upgrades(bag).is_empty())
 	_tab_bar.set_dot(PAGE_SKILL, false)
-	_tab_bar.set_dot(PAGE_CAVE, false)
 
 
 func _item_ids() -> Array:
@@ -412,7 +454,7 @@ func _maybe_show_offline() -> void:
 	_offline_popup.show_report(view)
 
 
-## 点「知道了」：告诉服务器已读（修为早已入账），成功才关；失败留着可再点。
+## 点「领取」（或关闭 / 点空白处）：告诉服务器已读（修为早已入账），成功才关；失败留着可再点。
 func _on_offline_ack(report_id: String) -> void:
 	var result := await _post("/api/v1/me/offline-reports/%s/ack" % report_id.uri_encode())
 	if int(result.get("code", 0)) != 200:
@@ -461,8 +503,33 @@ func _on_battle_submit(slug: String, taps: Array) -> void:
 
 # ───────── 突破 ─────────
 
+## 底栏突破钮 / 顶栏修为条右侧状态钮：已到最高境界不响应（按钮本身也禁用）；其余打开突破弹窗
+## （条件不满足时弹窗里写清差什么，开始按钮不可点，并给「前往挑战」）。
+func _on_center_pressed() -> void:
+	var view := BreakthroughView.build(_state)
+	if not bool(view.has_next):
+		_toast.say_neutral(str(view.hint))
+		return
+	if not bool(view.can_start):
+		_toast.say_neutral(str(view.hint))
+	_open_breakthrough()
+
+
 func _open_breakthrough() -> void:
-	_show_page(PAGE_BREAKTHROUGH)
+	if not _break_layer.visible:
+		_page_before_break = _page
+	_break_layer.visible = true
+	_breakthrough_page.visible = true
+	_breakthrough_page.pop_in()
+
+
+func _close_breakthrough() -> void:
+	_break_layer.visible = false
+	_breakthrough_page.visible = false
+
+
+func breakthrough_open() -> bool:
+	return _break_layer.visible
 
 
 func _on_breakthrough() -> void:
@@ -648,6 +715,10 @@ func _on_auto_decompose(enabled: bool) -> void:
 
 func _set_status(message: String) -> void:
 	_toast.say(message, false, 6.0)
+
+
+func _breakthrough_info() -> Dictionary:
+	return _state.get("breakthrough", {}) if typeof(_state.get("breakthrough", null)) == TYPE_DICTIONARY else {}
 
 
 func _realm_name(slug: String) -> String:

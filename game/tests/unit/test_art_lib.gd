@@ -15,10 +15,22 @@ func test_every_nine_slice_texture_exists_and_margins_fit() -> void:
 		assert_lt(int(margin[0]) * 2, tex.get_width(), "%s 左右边距超过贴图宽度" % key)
 		assert_lt(int(margin[1]) * 2, tex.get_height(), "%s 上下边距超过贴图高度" % key)
 		var box := ArtLib.nine(key)
-		assert_true(box is StyleBoxTexture)
-		assert_eq(box.texture, tex)
-		assert_eq(box.texture_margin_left, margin[0])
-		assert_eq(box.texture_margin_top, margin[1])
+		var cut := str(ArtLib.Q_NINE_ALIAS.get(key, key))
+		if QNine.TABLE.has(cut) and ArtLib.qui(cut) != null:
+			# Q 版：旧框体名换成美术 Q 版切图（Q_NINE_ALIAS），边距照 checklist_q.csv（QNine）
+			var spec: Array = QNine.TABLE[cut]
+			assert_true(box is StyleBoxTexture, key)
+			assert_eq((box as StyleBoxTexture).texture, ArtLib.qui(cut), key)
+			assert_eq((box as StyleBoxTexture).texture_margin_left, float(spec[0]), key)
+			assert_eq((box as StyleBoxTexture).texture_margin_top, float(spec[1]), key)
+			assert_lt(int(spec[0]) + int(spec[2]), ArtLib.qui(cut).get_width(), "%s 左右边距之和小于宽" % cut)
+			assert_lt(int(spec[1]) + int(spec[3]), ArtLib.qui(cut).get_height(), "%s 上下边距之和小于高" % cut)
+		elif box is StyleBoxTexture:
+			assert_eq(box.texture, tex)
+			assert_eq(box.texture_margin_left, margin[0])
+			assert_eq(box.texture_margin_top, margin[1])
+		else:
+			assert_true(QSkin.SPECS.has(key), "%s 没有切图时用 QSkin 代码画（%s）" % [key, box])
 
 
 func test_icons_for_every_slot_category_and_boss_pool_exist() -> void:
@@ -37,7 +49,10 @@ func test_backgrounds_exist_and_are_portrait() -> void:
 	for name in BG_NAMES:
 		var tex := ArtLib.bg(name)
 		assert_not_null(tex, "缺少背景 %s" % name)
-		if tex != null:
+		if tex != null and tex.resource_path.contains("/art/q/"):
+			# Q 版背景是贴顶的场景图（修炼 1080×1368、历练 1080×960、洞府 1080×2340），下面接薄荷底板 / 渐隐
+			assert_eq(tex.get_width(), 1080, "%s Q 版背景通宽" % name)
+		elif tex != null:
 			assert_gt(tex.get_height(), tex.get_width(), "%s 应是竖屏图" % name)
 
 

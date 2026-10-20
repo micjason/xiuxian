@@ -61,7 +61,7 @@ static func feedback(last: Dictionary, name_of: Callable) -> Array[Dictionary]:
 		var freed: Array = row.get("freed", [])
 		if not freed.is_empty():
 			text += "（分解了 %d 件白/绿装备腾出格子）" % freed.size()
-		lines.append({"kind": "drop", "quality": str(row.get("quality", "")), "text": text})
+		lines.append({"kind": "drop", "quality": str(row.get("quality", "")), "text": text, "slug": str(row.get("itemSlug", "")), "name": item_name, "quantity": int(row.get("quantity", 1))})
 	return lines
 
 

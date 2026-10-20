@@ -113,6 +113,21 @@ OFL 允许商用、嵌入游戏、修改和再发布，不得单独出售字体�
 - `art/ui/page_title_plate.png` 不是美术交付的：它是原来的 `ribbon_title.png`（本项目程序绘制的占位）另存，因为美术第 3 轮把 `ribbon_title` 交成了红色卷轴缎带，只适合弹窗标题；页面标题牌需要美术另出暗色版。
 - 二进制文件（png/webp/svg）按仓库既有做法直接提交；`.gitattributes` 里写了 LFS 过滤规则，但本机没装 git-lfs，所以这些文件和之前的美术一样是普通二进制提交（以后在装了 git-lfs 的机器上迁移）。
 
+## 8. Q 版美术交付（2026-10-20，/workspace/art_out_q/，已并入 `art/q/`）
+
+逐文件清单照抄美术的 `license_q.csv` → `art_q_license_list.csv`（228 行）。入库脚本 `tools/art/install_q_art.py`：`art/q/ui/` 保持美术原名，`art/q/{icons,items,sprites,bg}` 按 ArtLib 的 id 改名（对应表在脚本 `MAP` 里，可反查美术原文件名）。**不确定的一律“待确认”。**
+
+| 类别 | 仓库文件 | 制作方式（美术自述） | 授权状态 | 要做的事 |
+|---|---|---|---|---|
+| A. AI 生成 + 代码后处理 | `art/q/bg/cultivate、adventure、cave.webp`；`art/q/sprites/` 的人物、怪物、建筑、宝箱、莲台；`art/q/icons/`、`art/q/items/` 的彩色图标；`art/q/icons/avatar.png`（取自美术 `anim_layers/char/face_full_closed.png`，美术清单里没有单列，按同批人物 A 类处理） | Grok Bot 内置图像生成出原图，再抠图、描边、缩放、压缩 | **商用/再授权条款尚未确认** | 发布前确认条款并留存生成记录；确认不了就用人工原创图替换同名文件 |
+| B. 代码绘制 | `art/q/ui/` 的九宫格、按钮、底栏、突破球、进度条、品质格、开关、红点、角标等；`art/q/bg/dots_tile.png`、`scene_fade_*.png`；`art/q/sprites/fx_*.png` | HTML/CSS/SVG 无头 Chrome 渲染，无第三方图片 | 原创，可商用 | 无 |
+| B+字体 | `art/q/ui/` 里烘焙了字的 15 张（`orb_normal`、`orb_pressed`、`float_word_*`、`digits_*.png/.fnt` 等，见清单） | 字形来自 ZCOOL QingKe HuangYou / ZCOOL KuaiLe | SIL OFL 1.1，字体可用于图片 | 致谢页列出字体 |
+| 字体 | `fonts/ZCOOLKuaiLe-Regular.subset.woff2`（Q 版标题/按钮字，按用到的字子集化） | Copyright 2018 The ZCOOL KuaiLe Project Authors | SIL OFL 1.1，可商用、可嵌入，不得单独出售 | 全文 `fonts/OFL-ZCOOLKuaiLe.txt` |
+
+备注：
+- 九宫格边距由脚本从美术 `checklist_q.csv` 生成到 `scripts/ui/art/q_nine.gd`；入库时校验了尺寸和“宽 > 左+右、高 > 上+下”，结果写在 `art/q/CHECK.txt`。
+- 美术的 PNG 版背景（几 MB）没有入库，只用 webp。旧版墨色美术（第 7 节）仍在仓库里，Q 版没有的切图回退到它。
+
 ## 如何替换
 
 1. 同名文件覆盖 `game/assets/art/...`；尺寸可以不同，九宫格边距改 `art_lib.gd` 里的 `NINE`。

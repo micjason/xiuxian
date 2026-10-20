@@ -1,9 +1,11 @@
 class_name HomePage
 extends VBoxContainer
-## 修炼页（首页，按设计稿 01）：莲台人物、右侧「历练」入口、当前一波的进度与击杀/掉落反馈、
-## 「突破」金色大按钮（修为条只在顶栏显示一次）、挂机收益卡片。
-## 只负责显示和发信号：突破流程、历练、跳页都交给外壳处理。
-## 波次进度由服务器每次心跳给出，两次心跳之间按本地经过的秒数推进（只影响显示）。
+## 修炼页（Q 版设计稿 q_cultivate）：莲台场景上打坐的主角（背景图自带莲台）、右侧圆形入口
+## 「历练」（副标 = 正在刷的关卡）/「洞府」/「炼丹」（暂未开放）、左下宝箱「+收益」（暂未开放）；
+## 下半薄荷底板上：当前一波的关卡卡（进度 3 段、最近一次击杀、最近掉落）和挂机修炼条。
+## 「突破」在底栏正中的大圆钮（外壳处理），这里不再放突破按钮。
+## 只负责显示和发信号。波次进度由服务器每次心跳给出，两次心跳之间按本地经过的秒数推进（只影响显示）。
+## 设计稿坐标（SPEC_Q 第 8 节）按页面区域（画布 y 362 起、x 24 起）换算。
 
 signal breakthrough_requested
 signal adventure_requested
@@ -11,182 +13,230 @@ signal page_requested(page: String)
 
 const FEED_SECONDS := 9.0
 const FEED_MAX := 3
+## 页面区左上角在画布上的位置（顶栏 + 刘海 90 之下，页面左右边距 24）——设计稿坐标减去它。
+const ORIGIN := Vector2(24, 362)
 
 var _hero: Control
 var _ring: TextureRect
 var _adventure: Button
 var _adventure_caption: Label
 var _adventure_dot: Control
+var _cave: Button
+var _alchemy: Button
+var _chest: Button
 var _wave_title: Label
 var _wave_text: Label
-var _wave_bar_host: Control
-var _wave_bar: Control
-var _feed_box: VBoxContainer
-var _cta: Button
-var _cta_dot: Control
+var _wave_bar: QBar
+var _feed_label: Label
+var _drop_row: HBoxContainer
+var _auto_button: Button
 var _idle_title: Label
 var _idle_text: Label
 var _spin: Tween
 var _state: Dictionary = {}
+var _content: Dictionary = {}
 var _elapsed := 0.0
 var _feed: Array[Dictionary] = []
 var _shown_ratio := -1.0
 var _shown_text := ""
+var _wave_card: Control
 
 
 func _init() -> void:
-	add_theme_constant_override("separation", UiTokens.SP_2)
+	add_theme_constant_override("separation", 0)
 	size_flags_vertical = Control.SIZE_EXPAND_FILL
 	size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_build_hero()
 	_build_wave_card()
-	_build_cta()
+	var gap := Control.new()
+	gap.custom_minimum_size = Vector2(0, 30)
+	gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(gap)
 	_build_idle_card()
+	var orb_room := Control.new()
+	orb_room.name = "OrbRoom"  # 底栏突破球凸出来的那一截
+	orb_room.custom_minimum_size = Vector2(0, 150)
+	orb_room.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(orb_room)
 
 
 func _ready() -> void:
 	_spin = create_tween().set_loops()
-	_spin.tween_property(_ring, "rotation", TAU, 90.0).from(0.0)
+	_spin.tween_property(_ring, "rotation", TAU, 20.0).from(0.0)
+
+
+func _sprite(path: String, rect: Rect2, parent: Control, alpha: float = 1.0) -> TextureRect:
+	var node := TextureRect.new()
+	node.name = path.get_file().to_pascal_case()
+	node.texture = ArtLib.q(path) if ArtLib.has_q(path + ".png") else null
+	node.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	node.stretch_mode = TextureRect.STRETCH_SCALE
+	node.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	node.position = rect.position - ORIGIN
+	node.size = rect.size
+	node.modulate = Color(1, 1, 1, alpha)
+	parent.add_child(node)
+	return node
 
 
 func _build_hero() -> void:
 	_hero = Control.new()
 	_hero.name = "Hero"
-	_hero.custom_minimum_size = Vector2(0, 420)
+	_hero.custom_minimum_size = Vector2(0, 700)
 	_hero.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_hero.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_hero)
-	var glow := TextureRect.new()
-	glow.texture = ArtLib.ui("glow_soft")
-	glow.set_anchors_preset(Control.PRESET_CENTER)
-	glow.offset_left = -330
-	glow.offset_right = 330
-	glow.offset_top = -330
-	glow.offset_bottom = 330
-	glow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	glow.modulate = Color(UiTokens.GOLD, 0.28)
-	glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_hero.add_child(glow)
-	_ring = TextureRect.new()
-	_ring.texture = ArtLib.ui("formation")
-	_ring.set_anchors_preset(Control.PRESET_CENTER)
-	_ring.offset_left = -290
-	_ring.offset_right = 290
-	_ring.offset_top = -290
-	_ring.offset_bottom = 290
-	_ring.pivot_offset = Vector2(290, 290)
-	_ring.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	_ring.modulate = Color(1, 1, 1, 0.9)
-	_ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_hero.add_child(_ring)
-	var avatar := UiKit.icon("avatar_meditate", 250, UiTokens.GOLD_HOVER)
-	avatar.set_anchors_preset(Control.PRESET_CENTER)
-	avatar.offset_left = -125
-	avatar.offset_right = 125
-	avatar.offset_top = -150
-	avatar.offset_bottom = 100
-	_hero.add_child(avatar)
-	_hero.add_child(_build_adventure_entry())
+	_sprite("sprites/fx_aura_radial", Rect2(90, 330, 900, 900), _hero, 0.85)
+	_ring = _sprite("sprites/fx_ring_dashed", Rect2(265, 470, 550, 550), _hero, 0.8)
+	_ring.pivot_offset = Vector2(275, 275)
+	_sprite("sprites/fx_ground_shadow", Rect2(300, 1016, 480, 70), _hero, 0.8)
+	var hero := _sprite("sprites/hero_meditate", Rect2(187, 380, 706, 690), _hero)
+	hero.name = "HeroSprite"
+	hero.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_build_side_entries()
+	_build_chest()
 
 
-## 右侧「历练」入口：圆形按钮（复用剑图标 tab_adventure）+ 红点 + 标牌 + 关卡副文字。
-func _build_adventure_entry() -> Control:
-	var holder := VBoxContainer.new()
-	holder.name = "AdventureEntry"
-	holder.set_anchors_preset(Control.PRESET_CENTER_RIGHT)
-	holder.offset_left = -190
-	holder.offset_right = 0
-	holder.offset_top = -10
-	holder.offset_bottom = 190
-	holder.add_theme_constant_override("separation", 6)
-	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_adventure = Button.new()
+## 右侧三个圆形入口（设计稿 924,400 / 924,670 / 924,890）。
+func _build_side_entries() -> void:
+	var adventure := QKit.side_button("tab_adventure", "历练")
+	adventure.root.name = "AdventureEntry"
+	_adventure = adventure.button
 	_adventure.name = "AdventureButton"
-	_adventure.custom_minimum_size = Vector2(150, 150)
-	_adventure.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	_adventure.focus_mode = Control.FOCUS_NONE
-	var disc := KitStyle.box(Color(0.1, 0.27, 0.22, 0.95), UiTokens.GOLD, 5, 999)
-	for state in ["normal", "hover", "disabled", "focus"]:
-		_adventure.add_theme_stylebox_override(state, disc if state != "focus" else StyleBoxEmpty.new())
-	_adventure.add_theme_stylebox_override("pressed", KitStyle.box(Color(0.14, 0.34, 0.28, 0.98), UiTokens.GOLD_HOVER, 5, 999))
-	var sword := UiKit.icon("tab_adventure", 96, UiTokens.GOLD_HOVER)
-	sword.set_anchors_preset(Control.PRESET_CENTER)
-	sword.offset_left = -48
-	sword.offset_right = 48
-	sword.offset_top = -48
-	sword.offset_bottom = 48
-	_adventure.add_child(sword)
-	_adventure_dot = UiKit.reddot()
-	_adventure_dot.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	_adventure_dot.offset_left = -38
-	_adventure_dot.offset_right = -2
-	_adventure_dot.offset_top = 2
-	_adventure_dot.offset_bottom = 38
-	_adventure.add_child(_adventure_dot)
+	_adventure_dot = adventure.dot
 	_adventure.pressed.connect(func() -> void: adventure_requested.emit())
-	holder.add_child(_adventure)
-	var plate := PanelContainer.new()
-	plate.add_theme_stylebox_override("panel", ArtLib.nine("chip"))
-	plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	plate.add_child(UiKit.label("历练", UiTokens.FS_CAPTION, UiTokens.GOLD_HOVER, HORIZONTAL_ALIGNMENT_CENTER))
-	holder.add_child(plate)
-	_adventure_caption = UiKit.label("", UiTokens.FS_MICRO, UiTokens.TEXT_MUTED, HORIZONTAL_ALIGNMENT_CENTER)
-	_adventure_caption.clip_text = true
-	holder.add_child(_adventure_caption)
-	return holder
+	_place_side(adventure.root, 400)
+	_adventure_caption = QKit.outlined("", 30, UiTokens.Q_WHITE, UiTokens.Q_COCOA, 8, HORIZONTAL_ALIGNMENT_CENTER)
+	_adventure_caption.name = "AdventureCaption"
+	var chip := QKit.tag("", "dark", 30, 14)
+	chip.name = "AdventureStage"
+	chip.remove_child(chip.get_child(0))
+	chip.add_child(_adventure_caption)
+	chip.position = Vector2(906, 586) - ORIGIN
+	chip.custom_minimum_size = Vector2(168, 44)
+	_hero.add_child(chip)
+	var cave := QKit.side_button("side_cave", "洞府")
+	cave.root.name = "CaveEntry"
+	_cave = cave.button
+	_cave.name = "CaveButton"
+	_cave.pressed.connect(func() -> void: page_requested.emit("cave"))
+	_place_side(cave.root, 670)
+	var alchemy := QKit.side_button("side_alchemy", "炼丹")
+	alchemy.root.name = "AlchemyEntry"
+	_alchemy = alchemy.button
+	_alchemy.name = "AlchemyButton"
+	LockedFeature.wire(_alchemy, "alchemy")
+	_place_side(alchemy.root, 890)
+
+
+func _place_side(root: Control, y: float) -> void:
+	root.position = Vector2(924 - 30, y) - ORIGIN
+	root.custom_minimum_size = Vector2(192, 190)
+	_hero.add_child(root)
+
+
+## 左下宝箱 + 「+收益」气泡（挂机宝箱玩法还没有：展示，点了提示暂未开放）。
+func _build_chest() -> void:
+	_sprite("sprites/fx_chest_glow", Rect2(28, 1150, 220, 90), _hero, 0.9)
+	_chest = Button.new()
+	_chest.name = "ChestButton"
+	_chest.focus_mode = Control.FOCUS_NONE
+	_chest.flat = true
+	for state in ["normal", "hover", "pressed", "disabled", "focus"]:
+		_chest.add_theme_stylebox_override(state, StyleBoxEmpty.new())
+	_chest.position = Vector2(40, 1040) - ORIGIN
+	_chest.size = Vector2(190, 187)
+	var art := TextureRect.new()
+	art.texture = ArtLib.q("sprites/chest_closed") if ArtLib.has_q("sprites/chest_closed.png") else ArtLib.icon("chest")
+	art.set_anchors_preset(Control.PRESET_FULL_RECT)
+	art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_chest.add_child(art)
+	LockedFeature.wire(_chest, "idle_chest")
+	_hero.add_child(_chest)
+	var bubble := QKit.tag("+收益", "orange", 32, 20)
+	bubble.name = "ChestBubble"
+	bubble.position = Vector2(150, 986) - ORIGIN
+	_hero.add_child(bubble)
 
 
 func _build_wave_card() -> void:
-	var card := UiKit.card()
-	card.panel.name = "WaveCard"
-	add_child(card.panel)
+	var card := QKit.panel(UiTokens.Q_CREAM, 34, 30, 22)
+	_wave_card = card.panel
+	_wave_card.name = "WaveCard"
+	_wave_card.custom_minimum_size = Vector2(0, 372)
+	_wave_card.size_flags_horizontal = Control.SIZE_FILL
+	add_child(_wave_card)
 	var body := card.body as VBoxContainer
-	var head := UiKit.hbox(UiTokens.SP_2)
+	body.add_theme_constant_override("separation", 14)
+	var head := UiKit.hbox(12)
 	body.add_child(head)
-	_wave_title = UiKit.label("", UiTokens.FS_BODY, UiTokens.GOLD)
+	var sword := UiKit.icon("tab_adventure", 64)
+	head.add_child(sword)
+	_wave_title = QKit.title("", 46, UiTokens.TEXT)
+	_wave_title.name = "WaveTitle"
 	_wave_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_wave_title.clip_text = true
 	head.add_child(_wave_title)
-	_wave_text = UiKit.label("", UiTokens.FS_CAPTION, UiTokens.TEXT, HORIZONTAL_ALIGNMENT_RIGHT)
+	_wave_text = UiKit.label("", UiTokens.FS_MICRO, UiTokens.TEXT_MUTED, HORIZONTAL_ALIGNMENT_RIGHT)
+	_wave_text.name = "WaveText"
 	head.add_child(_wave_text)
-	_wave_bar_host = Control.new()
-	_wave_bar_host.custom_minimum_size = Vector2(0, 44)
-	_wave_bar_host.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	body.add_child(_wave_bar_host)
-	_feed_box = UiKit.vbox(2)
-	_feed_box.name = "Feed"
-	body.add_child(_feed_box)
-
-
-func _build_cta() -> void:
-	_cta = UiKit.cta_button("突破", "突破至 —", MainTheme.VAR_PRIMARY, 168)
-	_cta.name = "BreakthroughButton"
-	_cta.pressed.connect(func() -> void: breakthrough_requested.emit())
-	_cta_dot = UiKit.reddot()
-	_cta_dot.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	_cta_dot.offset_left = -50
-	_cta_dot.offset_right = -14
-	_cta_dot.offset_top = 10
-	_cta_dot.offset_bottom = 46
-	_cta_dot.visible = false
-	_cta.add_child(_cta_dot)
-	add_child(_cta)
+	_wave_bar = QKit.bar(0.0, UiTokens.Q_MINT, 40, 3) as QBar
+	_wave_bar.name = "WaveBar"
+	body.add_child(_wave_bar)
+	var row := UiKit.hbox(12)
+	body.add_child(row)
+	_feed_label = UiKit.label("本波打完后显示击杀与掉落", UiTokens.FS_MICRO, UiTokens.TEXT)
+	_feed_label.name = "FeedLine"
+	_feed_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_feed_label.clip_text = true
+	row.add_child(_feed_label)
+	_auto_button = QKit.button("⚔ 自动挑战中", "m", 60, 30)
+	_auto_button.name = "AutoChallenge"
+	_auto_button.custom_minimum_size.x = 240
+	_auto_button.tooltip_text = "挂机自动刷怪中，点开历练换地点"
+	_auto_button.pressed.connect(func() -> void: adventure_requested.emit())
+	row.add_child(_auto_button)
+	var drops := QKit.inset(UiTokens.Q_CARD, 24, 20, 8)
+	drops.panel.name = "DropRow"
+	drops.panel.custom_minimum_size = Vector2(0, 104)
+	body.add_child(drops.panel)
+	_drop_row = UiKit.hbox(14)
+	_drop_row.alignment = BoxContainer.ALIGNMENT_BEGIN
+	(drops.body as VBoxContainer).alignment = BoxContainer.ALIGNMENT_CENTER
+	(drops.body as VBoxContainer).size_flags_vertical = Control.SIZE_EXPAND_FILL
+	drops.body.add_child(_drop_row)
+	_render_drops()
 
 
 func _build_idle_card() -> void:
 	var card := PanelContainer.new()
 	card.name = "IdleCard"
-	card.add_theme_stylebox_override("panel", ArtLib.nine("panel_card"))
+	card.custom_minimum_size = Vector2(0, 140)
+	if ArtLib.qui("panel_pill_132") != null:
+		card.add_theme_stylebox_override("panel", QKit.cut_box("panel_pill_132", 20, 6))
+		(card.get_theme_stylebox("panel") as StyleBoxTexture).content_margin_left = 16
+	else:
+		card.add_theme_stylebox_override("panel", QSkin.custom(UiTokens.Q_CREAM, UiTokens.Q_COCOA, 4, 66, 8, 20, 6))
 	add_child(card)
 	var row := UiKit.hbox(UiTokens.SP_2)
 	card.add_child(row)
-	row.add_child(UiKit.icon("res_cultivation", 64, UiTokens.JADE))
+	var disc := QKit.cut_rect("idle_lotus_disc", Vector2(104, 104))
+	disc.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	if disc is TextureRect:
+		var lotus := UiKit.icon("res_lotus", 80)
+		QKit.center_in(lotus, Vector2(80, 80))
+		disc.add_child(lotus)
+	row.add_child(disc)
 	var text := UiKit.vbox(0)
+	text.alignment = BoxContainer.ALIGNMENT_CENTER
 	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(text)
-	_idle_title = UiKit.label("挂机修炼中", UiTokens.FS_BODY, UiTokens.TEXT)
+	_idle_title = QKit.title("挂机修炼中  · · ·", 40, UiTokens.TEXT)
 	text.add_child(_idle_title)
 	_idle_text = UiKit.label("", UiTokens.FS_MICRO, UiTokens.TEXT_MUTED)
+	_idle_text.name = "IdleText"
 	text.add_child(_idle_text)
 
 
@@ -198,29 +248,37 @@ func _process(delta: float) -> void:
 	_expire_feed(delta)
 
 
-## 供外壳读：突破入口按钮。
-func breakthrough_button() -> Button:
-	return _cta
+## 下半薄荷底板的上沿跟着这张卡（外壳交给 Backdrop.set_sheet_anchor）。
+func sheet_anchor() -> Control:
+	return _wave_card
 
 
 func adventure_button() -> Button:
 	return _adventure
 
 
-## 状态变化后重画。next_realm_name 由外壳提供。
-func bind(state: Dictionary, content: Dictionary, next_realm_name: String) -> void:
+func cave_button() -> Button:
+	return _cave
+
+
+func alchemy_button() -> Button:
+	return _alchemy
+
+
+func chest_button() -> Button:
+	return _chest
+
+
+## 状态变化后重画。next_realm_name 由外壳提供（底栏突破钮用，这里只留接口）。
+func bind(state: Dictionary, content: Dictionary, _next_realm_name: String) -> void:
 	_state = state
+	_content = content
 	_elapsed = 0.0
-	var view := BreakthroughView.build(state, next_realm_name)
-	if view.has_next:
-		UiKit.set_cta(_cta, "突破", "突破至 %s" % next_realm_name)
-		_cta.disabled = false
-	else:
-		UiKit.set_cta(_cta, "已圆满", "当前已是最高境界")
-		_cta.disabled = true
-	_cta_dot.visible = view.can_start
-	_adventure_caption.text = WaveView.stage_caption(state)
-	_adventure_dot.visible = true
+	var caption := WaveView.stage_caption(state)
+	_adventure_caption.text = caption if not caption.is_empty() else "未开启"
+	var view := BreakthroughView.build(state)
+	# 历练入口的红点：突破被首领卡住（修为够了、首领没打）时提醒去历练。
+	_adventure_dot.visible = bool(view.has_next) and bool(view.cultivation_ok) and not bool(view.boss_ok)
 	_shown_ratio = -1.0
 	_refresh_wave_bar()
 	_render_idle(state, content)
@@ -242,7 +300,7 @@ func _render_idle(state: Dictionary, content: Dictionary) -> void:
 	var per_second := gain * (1.0 + bonus) / tick
 	var text := "每秒修为 +%s" % _plain_number(per_second)
 	if cap > 0.0:
-		text += "    离线最多累计 %s" % OfflineView.duration_text(int(cap))
+		text += " · 离线最多累计 %s" % OfflineView.duration_text(int(cap))
 	_idle_text.text = text
 
 
@@ -266,17 +324,17 @@ func _refresh_wave_bar() -> void:
 	_shown_text = text
 	_shown_ratio = float(shown.ratio)
 	_wave_text.text = text
-	UiKit.clear(_wave_bar_host)
-	_wave_bar = UiKit.ratio_bar(float(shown.ratio), "bar_fill_jade", 44)
-	_wave_bar.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_wave_bar_host.add_child(_wave_bar)
+	_wave_bar.segments = maxi(1, int(shown.get("wave_size", 3)))
+	_wave_bar.set_ratio(float(shown.ratio))
 
 
-## 击杀 / 掉落反馈：卡片里留最近几条，英雄区飘字。lines 来自 WaveView.feedback。
+## 击杀 / 掉落反馈：击杀行显示最近一条，掉落行显示最近两件（图标 + 名字）。lines 来自 WaveView.feedback。
 func show_feedback(lines: Array[Dictionary]) -> void:
 	for line in lines:
-		_feed.append({"text": str(line.get("text", "")), "kind": str(line.get("kind", "")), "quality": str(line.get("quality", "")), "left": FEED_SECONDS})
-		# 不再在莲台上飘字：同一条信息已经在下面的波次卡片里显示，两处重复（负责人 v8 验收意见）
+		var entry := line.duplicate()
+		entry["left"] = FEED_SECONDS
+		_feed.append(entry)
+		# 不在莲台上飘字：同一条信息已经在下面的波次卡片里显示（负责人 v8 验收意见）
 	while _feed.size() > FEED_MAX:
 		_feed.pop_front()
 	_render_feed()
@@ -303,19 +361,32 @@ func _expire_feed(delta: float) -> void:
 
 
 func _render_feed() -> void:
-	UiKit.clear(_feed_box)
+	var line_text := ""
+	var kind := ""
 	for line in _feed:
-		var label := UiKit.label(str(line.text), UiTokens.FS_MICRO, _feed_color(str(line.kind), str(line.quality)))
-		label.clip_text = true
-		_feed_box.add_child(label)
+		if str(line.get("kind", "")) != "drop":
+			line_text = str(line.text)
+			kind = str(line.kind)
+	_feed_label.text = line_text if not line_text.is_empty() else "本波打完后显示击杀与掉落"
+	_feed_label.add_theme_color_override("font_color", UiTokens.Q_RED if kind in ["warn", "death"] else UiTokens.TEXT)
+	_render_drops()
 
 
-static func _feed_color(kind: String, quality: String) -> Color:
-	match kind:
-		"kill":
-			return UiTokens.JADE
-		"warn", "death":
-			return UiTokens.WARNING
-		"drop":
-			return UiTokens.rarity_color({"white": 0, "green": 1, "blue": 2, "purple": 3, "orange": 4, "red": 5}.get(quality, 1) as int).lightened(0.15)
-	return UiTokens.TEXT
+func _render_drops() -> void:
+	UiKit.clear(_drop_row)
+	_drop_row.add_child(QKit.title("掉落", 34, UiTokens.TEXT_MUTED))
+	var drops: Array[Dictionary] = []
+	for line in _feed:
+		if str(line.get("kind", "")) == "drop":
+			drops.append(line)
+	if drops.is_empty():
+		_drop_row.add_child(UiKit.label("暂无", UiTokens.FS_MICRO, UiTokens.TEXT_MUTED))
+		return
+	for index in range(maxi(0, drops.size() - 2), drops.size()):
+		var line := drops[index]
+		var view := QKit.reward_view(_content, str(line.get("slug", "")))
+		_drop_row.add_child(QKit.reward_slot(_content, str(line.get("slug", "")), 88, int(line.get("quantity", 1))))
+		var name := QKit.title(str(view.name), 32, UiTokens.rarity_color(int(view.rarity)).darkened(0.2))
+		name.clip_text = true
+		name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		_drop_row.add_child(name)

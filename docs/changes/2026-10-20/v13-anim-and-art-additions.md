@@ -42,3 +42,8 @@
 ## 上线后发现的问题（已在本地修，**未发布**）
 - `real/update_popup.png` 里看到：**未登录时主界面（顶栏、主角、底栏圆钮）画在登录页上面**。原因是本次给外壳各层抬了 z_index，登录页还是 0。修复：登录页 z = 150（主界面各层之上、弹窗 / 提示条之下），GUT 加 `test_login_page_covers_the_whole_main_ui`，修后截图 `real/update_popup_after_login_fix_local.png`。GUT 213/213。
 - 线上 0.13.0（33）包里还是有这个问题（只影响登录页；登录后的界面正常）。要修到手机上需要再发一个 0.13.1（34）：`DEPLOY_HOST=101.132.74.32 tools/deploy/release_apk.sh --version-name 0.13.1`（服务器拒绝同一个 versionCode 覆盖）。
+
+## 0.13.1（34）：登录页修复上线（Asia/Shanghai）
+- 发布前：GUT 213/213；未登录截图 `real/login_0131_prebuild.png` 正常；7 屏 + 突破成功弹窗重截与 v13 截图对比无变化（只差动画帧），`v13_sheet.png` 未重做。
+- 13:08 从 1ce86e2 导出签名（同一固定密钥），14:04 左右上传完成（约 25 KB/s）。只动 dev2；后端没改，没跑迁移。
+- 外部核对：healthz ok；latest.json 34 / 0.13.1、sha256 `aa93caa32d3dcd99822afa19aaad8ab5906c3f371e254b6de81c0d21125ba3f3`、size 100231274；外网下载 APK sha256 一致；后台首页正常（`real/admin_login_0131.png`）；客户端假装 0.13.0 弹「发现新版本 0.13.1」，下面登录页显示正常（`real/update_popup_0131.png`）。

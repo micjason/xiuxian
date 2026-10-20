@@ -61,8 +61,9 @@ func _init() -> void:
 
 
 func _ready() -> void:
-	_spin = create_tween().set_loops()
-	_spin.tween_property(_ring, "rotation", TAU, 20.0).from(0.0)
+	if _ring != null:
+		_spin = create_tween().set_loops()
+		_spin.tween_property(_ring, "rotation", TAU, 20.0).from(0.0)
 
 
 func _sprite(path: String, rect: Rect2, parent: Control, alpha: float = 1.0) -> TextureRect:
@@ -86,13 +87,18 @@ func _build_hero() -> void:
 	_hero.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_hero.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_hero)
-	_sprite("sprites/fx_aura_radial", Rect2(90, 330, 900, 900), _hero, 0.85)
-	_ring = _sprite("sprites/fx_ring_dashed", Rect2(265, 470, 550, 550), _hero, 0.8)
-	_ring.pivot_offset = Vector2(275, 275)
+	var hero := QHero.new()
+	if not hero.is_animated():
+		# 没有动画场景时照旧：光晕 + 慢转虚线环 + 静态拼合图
+		_sprite("sprites/fx_aura_radial", Rect2(90, 330, 900, 900), _hero, 0.85)
+		_ring = _sprite("sprites/fx_ring_dashed", Rect2(265, 470, 550, 550), _hero, 0.8)
+		_ring.pivot_offset = Vector2(275, 275)
 	_sprite("sprites/fx_ground_shadow", Rect2(300, 1016, 480, 70), _hero, 0.8)
-	var hero := _sprite("sprites/hero_meditate", Rect2(187, 380, 706, 690), _hero)
+	# 动画主角（anim_q/hero_meditate）：锚点 = 设计稿 (540, 1070)，角色框 706×690（README 第 1 节）
 	hero.name = "HeroSprite"
-	hero.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	hero.position = Vector2(187, 380) - ORIGIN
+	hero.size = Vector2(706, 690)
+	_hero.add_child(hero)
 	_build_side_entries()
 	_build_chest()
 
@@ -326,6 +332,49 @@ func _refresh_wave_bar() -> void:
 	_wave_text.text = text
 	_wave_bar.segments = maxi(1, int(shown.get("wave_size", 3)))
 	_wave_bar.set_ratio(float(shown.ratio))
+
+
+## 获得修为飘字（float_drop/float_number，README 3a）：本次结算的挂机修为 → 主角头上 (540,720) 蓝色大字，
+## 击杀修为 → (780,560) 金色小字。数值就是服务器结算里的 passiveGained / killCultivation（取整），为 0 不飘。
+## 只飘修为数字；击杀 / 掉落的文字仍只在下面波次卡片里（v9 去重的要求不变）。
+func show_gains(last: Dictionary) -> void:
+	if not is_visible_in_tree() or not bool(last.get("online", false)):
+		return
+	var passive := roundi(float(last.get("passiveGained", 0)))
+	var kill := roundi(float(last.get("killCultivation", 0)))
+	if passive > 0:
+		_float_gain(passive, 0, Vector2(540, 720))
+	if kill > 0:
+		_float_gain(kill, 1, Vector2(780, 560))
+
+
+func _float_gain(value: int, style: int, design_pos: Vector2) -> void:
+	var node := QFx.make(QFx.FLOAT_NUMBER) as Node2D
+	if node == null:
+		return
+	node.name = "GainFloat"  # 同名兄弟节点会被引擎改名成 @GainFloat@n，所以另外打个 meta 方便查
+	node.set_meta(&"gain_float", true)
+	node.set("value", value)
+	node.set("color_style", style)
+	node.set("unit", "修为")
+	node.position = design_pos - ORIGIN
+	_hero.add_child(node)
+	var ap := QFx.player(node)
+	ap.animation_finished.connect(func(_name: StringName) -> void: node.queue_free())
+	ap.play("pop")
+
+
+func gain_floats() -> Array[Node]:
+	return _hero.get_children().filter(func(n: Node) -> bool: return n.has_meta(&"gain_float") and not n.is_queued_for_deletion())
+
+
+## 掉落行里第 index 件掉落物格子的画布中心（飞入背包的起点）；没有返回 null。
+func drop_slot_centers() -> Array[Vector2]:
+	var out: Array[Vector2] = []
+	for child in _drop_row.get_children():
+		if child is Control and (child as Control).tooltip_text != "":
+			out.append((child as Control).get_global_rect().get_center())
+	return out
 
 
 ## 击杀 / 掉落反馈：击杀行显示最近一条，掉落行显示最近两件（图标 + 名字）。lines 来自 WaveView.feedback。

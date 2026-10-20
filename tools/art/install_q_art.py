@@ -11,6 +11,13 @@
    背景只用 webp（PNG 版太大），dot_tile / scene_fade 是小 png。
 3. 美术的逐文件授权表 license_q.csv 拷到 game/assets/art_q_license_list.csv（ASSETS_LICENSES.md 第 8 节引用）。
 4. 美术没交的 id 用设计稿临时切图（/workspace/q_src/cut、/workspace/q_design/src）顶上，记在 q/PLACEHOLDERS.txt。
+5. 主角静态图 sprites/hero_meditate 由角色拆层拼合图（anim_layers/char/_assembled_closed.png，双手搭膝）
+   裁出设计稿角色框（画布 0,0–1288,1259 = 设计稿 706×690）生成（GENERATED）。
+6. 动画特效（2026-10-20 动画交付 /workspace/anim_out_q/，--anim 指定）：5 个文件夹原样拷到 game/anim_q/
+   （场景里的 res://anim_q/... 路径不变）；不拷 .import（Godot 重新导入）。每个文件夹自带的 TTF 字体不拷
+   （3 份 8 MB 的庆科黄油体 + 3 份 1.5 MB 的快乐体），场景里的字体改指向 assets/fonts/ 的子集字体：
+   快乐体用已有的 ZCOOLKuaiLe-Regular.subset.woff2，庆科黄油体按快乐体子集的字表 + ASCII 子集化成
+   ZCOOLQingKeHuangYou-Regular.subset.woff2。
 """
 import argparse, csv, os, shutil, sys
 
@@ -28,8 +35,8 @@ MAP = {
         'side_cave': 'icons/icon_dongfu.png', 'side_alchemy': 'icons/icon_gourd.png',
         'chest': 'icons/icon_chest.png', 'res_stone': 'icons/icon_stone.png',
         'res_gourd': 'icons/icon_gourd.png', 'res_lotus': 'icons/icon_lotus.png',
-        # 美术没出头像图（只有 ui/avatar_frame + avatar_mask），用角色分层里的整张脸
-        'avatar': 'anim_layers/char/face_full_closed.png',
+        # 主角头像（美术 2026-10-20 补交，已裁圆、带浅青底；战斗页等用图标 avatar 的地方都用它）
+        'avatar': 'ui/avatar_player_round@2x.png',
     },
     'items': {
         'gear_weapon': 'icons/eq_sword.png', 'gear_helmet': 'icons/eq_crown.png',
@@ -41,14 +48,19 @@ MAP = {
         'pill_qi': 'icons/it_elixir.png', 'pill_body': 'icons/it_pill.png', 'pill_other': 'icons/it_pill.png',
     },
     'sprites': {
-        'hero_meditate': 'sprites/char_meditate.png',
         'mon_wolf': 'sprites/mon_wolf.png', 'mon_fox': 'sprites/mon_fox.png',
         'mon_snake': 'sprites/mon_snake.png', 'mon_bear': 'sprites/mon_bear.png',
+        # 幽冥古道 / 赤炎火山（SPEC_Q 12.4，2026-10-20 补交）
+        'mon_ghost': 'sprites/mon_ghost.png', 'mon_bone_golem': 'sprites/mon_bone_golem.png',
+        'mon_bat': 'sprites/mon_bat.png', 'mon_ghost_elder': 'sprites/mon_ghost_elder.png',
+        'mon_lava_lizard': 'sprites/mon_lava_lizard.png', 'mon_fire_crow': 'sprites/mon_fire_crow.png',
+        'mon_lava_golem': 'sprites/mon_lava_golem.png', 'mon_fire_jiao': 'sprites/mon_fire_jiao.png',
         'bd_field': 'sprites/bd_field.png', 'bd_alchemy': 'sprites/bd_alchemy.png',
         'bd_array': 'sprites/bd_array.png', 'bd_hut': 'sprites/bd_hut.png',
         'chest_closed': 'sprites/chest_closed.png',
-        # 离线弹窗的开箱图（美术 2026-10-20 补交，动画分层里的整张打开宝箱）
-        'chest_open': 'anim_layers/chest/chest_open.png', 'lotus_platform': 'sprites/lotus_platform.png',
+        # 开箱宝箱（SPEC_Q 12.2，2x 图按 0.5 显示）：离线弹窗动画缺失时的静态图
+        'chest_open': 'sprites/chest_open.png', 'chest_closed_hd': 'sprites/chest_closed_hd.png',
+        'lotus_platform': 'sprites/lotus_platform.png',
         'fx_aura_radial': 'sprites/fx_aura_radial.png', 'fx_ring_solid': 'sprites/fx_ring_solid.png',
         'fx_ring_dashed': 'sprites/fx_ring_dashed.png', 'fx_light_beam': 'sprites/fx_light_beam.png',
         'fx_ground_shadow': 'sprites/fx_ground_shadow.png', 'fx_sunburst': 'sprites/fx_sunburst.png',
@@ -63,6 +75,89 @@ MAP = {
     },
 }
 FALLBACK = {'icons/avatar.png': '/workspace/q_design/src/avatar.png'}
+# 由美术图加工生成的文件：目标 -> (美术相对路径, 裁切框, 输出尺寸)
+GENERATED = {
+    'sprites/hero_meditate.png': ('anim_layers/char/_assembled_closed.png', (0, 0, 1288, 1259), (706, 690)),
+}
+
+ANIM_OUT = os.path.join(REPO, 'game/anim_q')
+ANIM_DIRS = ('hero_meditate', 'ui_fx', 'float_drop', 'breakthrough', 'chest_open')
+FONT_DIR = os.path.join(REPO, 'game/assets/fonts')
+FONT_MAP = {
+    'ZCOOLKuaiLe-Regular.ttf': 'res://assets/fonts/ZCOOLKuaiLe-Regular.subset.woff2',
+    'ZCOOLQingKeHuangYou-Regular.ttf': 'res://assets/fonts/ZCOOLQingKeHuangYou-Regular.subset.woff2',
+}
+
+
+def install_anim(anim: str, problems: list) -> int:
+    """动画交付 → game/anim_q/。返回拷贝的文件数。"""
+    import re
+    _clear_keep_imports(ANIM_OUT)
+    count = 0
+    qingke = None
+    for folder in ANIM_DIRS:
+        src_root = os.path.join(anim, folder)
+        if not os.path.isdir(src_root):
+            problems.append(f'动画交付缺少文件夹 {folder}')
+            continue
+        for dirpath, _dirs, files in os.walk(src_root):
+            rel_dir = os.path.relpath(dirpath, anim)
+            for name in sorted(files):
+                src = os.path.join(dirpath, name)
+                if name.endswith('.import'):
+                    continue
+                if os.path.basename(dirpath) == 'font':
+                    if name.startswith('ZCOOLQingKeHuangYou'):
+                        qingke = src
+                    continue
+                dst = os.path.join(ANIM_OUT, os.path.relpath(src, anim))
+                copy(src, dst)
+                count += 1
+                if name.endswith('.tscn'):
+                    text = open(dst, encoding='utf-8').read()
+                    def repl(m):
+                        font = os.path.basename(m.group(1))
+                        if font not in FONT_MAP:
+                            problems.append(f'{rel_dir}/{name} 用了没登记的字体 {font}')
+                            return m.group(0)
+                        return f'path="{FONT_MAP[font]}"'
+                    text = re.sub(r'path="(res://anim_q/[^"]+/font/[^"]+)"', repl, text)
+                    open(dst, 'w', encoding='utf-8').write(text)
+    if qingke:
+        _subset_qingke(qingke)
+    else:
+        problems.append('动画交付里没有 ZCOOLQingKeHuangYou 字体，没法生成子集')
+    return count
+
+
+def _subset_qingke(src: str) -> None:
+    from fontTools import subset
+    from fontTools.ttLib import TTFont
+    kuaile = TTFont(os.path.join(FONT_DIR, 'ZCOOLKuaiLe-Regular.subset.woff2'))
+    chars = set(kuaile.getBestCmap().keys()) | set(range(0x20, 0x7F)) | {ord(c) for c in '，、·×÷％＋－万亿修为突破成功'}
+    opts = subset.Options()
+    opts.flavor = 'woff2'
+    opts.layout_features = ['*']
+    opts.name_IDs = ['*']  # 保留版权 / OFL 声明
+    font = TTFont(src)
+    sub = subset.Subsetter(opts)
+    sub.populate(unicodes=sorted(chars))
+    sub.subset(font)
+    subset.save_font(font, os.path.join(FONT_DIR, 'ZCOOLQingKeHuangYou-Regular.subset.woff2'), opts)
+
+
+def _clear_keep_imports(path):
+    for dirpath, _dirs, files in os.walk(path):
+        for name in files:
+            if not name.endswith('.import'):
+                os.remove(os.path.join(dirpath, name))
+
+
+def _drop_orphan_imports(path):
+    for dirpath, _dirs, files in os.walk(path):
+        for name in files:
+            if name.endswith('.import') and not os.path.exists(os.path.join(dirpath, name[:-7])):
+                os.remove(os.path.join(dirpath, name))
 
 
 def copy(src, dst):
@@ -73,13 +168,13 @@ def copy(src, dst):
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument('--from', dest='art', default='/workspace/art_out_q')
-    art = ap.parse_args().art
+    ap.add_argument('--anim', dest='anim', default='/workspace/anim_out_q')
+    args = ap.parse_args()
+    art = args.art
     placeholders, problems = [], []
-    # 旧的占位目录整个重建，避免留下美术已改名的旧文件
+    # 旧的占位目录重建，避免留下美术已改名的旧文件；Godot 的 .import 留着（uid 不变），源文件没了的最后再删
     for folder in ('icons', 'items', 'sprites', 'bg', 'ui'):
-        path = os.path.join(OUT, folder)
-        if os.path.isdir(path):
-            shutil.rmtree(path)
+        _clear_keep_imports(os.path.join(OUT, folder))
     for folder, table in MAP.items():
         for ident, rel in table.items():
             name = ident if folder == 'bg' else ident + '.png'
@@ -94,6 +189,15 @@ def main() -> int:
                     problems.append(f'缺少 {rel}（{folder}/{name}）')
                     continue
             copy(src, dst)
+    from PIL import Image
+    for target, (rel, box, size) in GENERATED.items():
+        src = os.path.join(art, rel)
+        if not os.path.isfile(src):
+            problems.append(f'缺少 {rel}（{target}）')
+            continue
+        dst = os.path.join(OUT, target)
+        os.makedirs(os.path.dirname(dst), exist_ok=True)
+        Image.open(src).convert('RGBA').crop(box).resize(size, Image.LANCZOS).save(dst, optimize=True)
     # ui/：原名全拷（含 .fnt）
     ui_src = os.path.join(art, 'ui')
     for name in sorted(os.listdir(ui_src)):
@@ -135,10 +239,13 @@ def main() -> int:
     with open(os.path.join(OUT, 'PLACEHOLDERS.txt'), 'w') as fh:
         fh.write('# 美术没有交付、暂用设计稿临时切图的文件（重跑 tools/art/install_q_art.py 会刷新）\n')
         fh.write('\n'.join(placeholders) + ('\n' if placeholders else ''))
+    anim_count = install_anim(args.anim, problems) if args.anim else 0
+    _drop_orphan_imports(OUT)
+    _drop_orphan_imports(ANIM_OUT)
     with open(os.path.join(OUT, 'CHECK.txt'), 'w') as fh:
-        fh.write('# 入库检查（缺文件 / 尺寸不符 / 九宫格边距过大）\n')
+        fh.write('# 入库检查（缺文件 / 尺寸不符 / 九宫格边距过大 / 动画交付）\n')
         fh.write('\n'.join(problems) + ('\n' if problems else '无问题\n'))
-    print(f'installed into {OUT}; nine-slice {len(nine)}; placeholders {len(placeholders)}; problems {len(problems)}')
+    print(f'installed into {OUT}; nine-slice {len(nine)}; placeholders {len(placeholders)}; anim files {anim_count}; problems {len(problems)}')
     for p in problems:
         print('  !', p)
     return 1 if problems else 0

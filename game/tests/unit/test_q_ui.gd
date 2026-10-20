@@ -119,18 +119,24 @@ func test_offline_claim_still_acknowledges_but_double_only_toasts() -> void:
 	assert_eq(_toast(scene).text(), LockedFeature.TEXT)
 	popup.claim_button().pressed.emit()
 	assert_signal_emitted(popup, "acknowledged")
-	for i in 5:
-		await get_tree().process_frame
+	await wait_seconds(0.35)  # 关闭动画 0.22s 后隐藏
 	assert_false(popup.visible, "领取后关掉弹窗")
 
 
 func test_offline_popup_shows_opened_chest() -> void:
 	var scene := await _boot("ready")
 	var popup := scene.get("_offline_popup") as OfflinePopup
-	var chest := popup.find_child("Chest", true, false) as TextureRect
-	assert_not_null(chest)
 	assert_true(ArtLib.has_q("sprites/chest_open.png"), "开箱图已入库")
-	assert_eq(chest.texture.resource_path, "res://assets/art/q/sprites/chest_open.png", "离线弹窗用打开的宝箱")
+	# v13：开箱动画（chest_open 场景：关着 → 开盖金光 → 打开后待机）；没有动画时退回静态开箱图
+	var fx := popup.chest_fx()
+	if fx != null:
+		assert_false(popup.find_child("Chest", true, false) is TextureRect, "有动画就不再叠静态图")
+		await wait_seconds(3.6)
+		assert_eq(QFx.player(fx).current_animation, "idle_open", "开完停在打开的样子")
+	else:
+		var chest := popup.find_child("Chest", true, false) as TextureRect
+		assert_not_null(chest)
+		assert_eq(chest.texture.resource_path, "res://assets/art/q/sprites/chest_open.png", "离线弹窗用打开的宝箱")
 
 
 func test_toast_is_one_shared_component() -> void:

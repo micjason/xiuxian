@@ -6,6 +6,8 @@ extends Button
 ## 外观用美术切图（SPEC_Q：orb_glow 320 呼吸 → orb_ring_dashed 252 慢转 → orb_normal/pressed 220）：
 ## ready 用带字的 orb_normal / orb_pressed；hint 用 orb_normal_notext 调淡 + 代码字「突破」；max 灰化 + 「已圆满」。
 ## 没有切图时退回 _draw 画的圆盘。
+## 2026-10-20 起优先用动画交付的 ui_fx/ui_break_orb.tscn（README 2c）：idle 循环（外圈光晕呼吸、虚线圈慢转、星星闪、金色光点），
+## 按下 / 松开播 PressPlayer 的 press / release。三种状态照旧：ready 全套光效；hint 收起光效、圆钮调淡；max 灰化 + 「已圆满」。
 
 const SIZE := 220.0
 const DISC := 192.0
@@ -17,6 +19,9 @@ var _art: TextureRect
 var _t := 0.0
 var _glow: Texture2D
 var _ring: Texture2D
+var _orb: Control
+const ORB_SIZE := 420.0
+const ORB_GLOW_NODES := ["Glow", "Halo", "Ring", "Star1", "Star2", "Star3", "Sparkles"]
 
 
 func _init() -> void:
@@ -37,6 +42,16 @@ func _init() -> void:
 	add_child(_art)
 	_glow = ArtLib.qui("orb_glow")
 	_ring = ArtLib.qui("orb_ring_dashed")
+	_orb = QFx.make(QFx.BREAK_ORB) as Control
+	if _orb != null:
+		_orb.name = "Orb"
+		_orb.position = Vector2(SIZE - ORB_SIZE, SIZE - ORB_SIZE) / 2.0  # 圆心对齐按钮中心
+		_orb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var hit := _orb.get_node_or_null("Hit") as Button
+		if hit != null:  # 点击由本按钮处理（三种状态、禁用），场景自带的透明按钮不接手指
+			hit.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			hit.disabled = true
+		add_child(_orb)
 	_label = QKit.outlined("突破", 66, UiTokens.Q_WHITE, UiTokens.Q_COCOA, 16, HORIZONTAL_ALIGNMENT_CENTER)
 	_label.name = "Title"
 	_label.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -59,11 +74,14 @@ func set_state(value: String) -> void:
 	_label.add_theme_font_size_override("font_size", 50 if value == "max" else 66)
 	_dot.visible = value == "ready"
 	_update_art()
-	set_process(value == "ready" and _ring != null)
+	set_process(value == "ready" and _ring != null and _orb == null)
 	queue_redraw()
 
 
 func _update_art() -> void:
+	if _orb != null:
+		_update_orb()
+		return
 	var baked := ArtLib.qui("orb_pressed" if (button_pressed or is_pressed()) else "orb_normal")
 	var plain := ArtLib.qui("orb_normal_notext")
 	_art.visible = plain != null
@@ -80,6 +98,32 @@ func _update_art() -> void:
 		_label.visible = true
 
 
+func _update_orb() -> void:
+	_art.visible = false
+	var ready := state == "ready"
+	for path in ORB_GLOW_NODES:
+		var node := _orb.get_node_or_null(path) as CanvasItem
+		if node != null:
+			node.visible = ready
+			if node is CPUParticles2D:
+				(node as CPUParticles2D).emitting = ready
+	var base := _orb.get_node_or_null("Press/Base") as CanvasItem
+	if base != null:
+		base.modulate = Color.WHITE if ready else (Color(1.0, 0.92, 0.85, 0.78) if state == "hint" else Color(0.72, 0.7, 0.68, 1.0))
+	var text := _orb.get_node_or_null("Press/Text") as CanvasItem
+	if text != null:
+		text.visible = state != "max"
+		text.modulate = Color.WHITE if ready else Color(1, 1, 1, 0.85)
+	_label.visible = state == "max"
+	var ap := QFx.player(_orb)
+	if ap != null:
+		if ready and ap.has_animation("idle"):
+			if ap.current_animation != "idle":
+				ap.play("idle")
+		else:
+			ap.stop()
+
+
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_READY:
 		button_down.connect(_on_press_change)
@@ -87,6 +131,10 @@ func _notification(what: int) -> void:
 
 
 func _on_press_change() -> void:
+	if _orb != null:
+		if not disabled:
+			QFx.play(_orb, "press" if is_pressed() else "release", "PressPlayer")
+		return
 	_update_art()
 	_label.offset_top = 6.0 if is_pressed() else 0.0
 	_label.offset_bottom = -2.0 if is_pressed() else -8.0
@@ -99,7 +147,17 @@ func _process(delta: float) -> void:
 
 ## 是否用美术切图（测试用）。
 func uses_art() -> bool:
-	return _art.visible
+	return _art.visible or _orb != null
+
+
+## 用的是动画圆钮（ui_break_orb）。
+func uses_orb_fx() -> bool:
+	return _orb != null
+
+
+func orb_animation() -> String:
+	var ap := QFx.player(_orb)
+	return ap.current_animation if ap != null else ""
 
 
 func has_dot() -> bool:
@@ -111,6 +169,8 @@ func title_text() -> String:
 
 
 func _draw() -> void:
+	if _orb != null:
+		return
 	if _art.visible:
 		if state == "ready":
 			var c := size / 2.0

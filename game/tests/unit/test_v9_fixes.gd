@@ -34,7 +34,7 @@ func test_offline_popup_has_claim_and_locked_double_and_hint_is_outside_the_fram
 	var scene := await _boot("ready")
 	var popup := scene.get("_offline_popup") as OfflinePopup
 	assert_true(popup.visible)
-	assert_eq(popup.claim_button().text, "领取")
+	assert_eq(popup.claim_text().replace(" ", ""), "领取")  # 动画按钮上写「领 取」
 	assert_eq(popup.double_button().text, "双倍领取")
 	assert_true(LockedFeature.is_locked(popup.double_button()))
 	assert_false(LockedFeature.is_locked(popup.claim_button()))

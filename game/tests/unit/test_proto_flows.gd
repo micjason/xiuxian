@@ -80,7 +80,7 @@ func test_chain2_offline_popup_shows_once_and_ack_clears_the_report() -> void:
 	assert_not_null(popup.claim_button())
 	var report_id := str((scene.get("_state") as Dictionary).offlineReport.id)
 	popup.claim_button().pressed.emit()
-	await wait_frames(3)
+	await wait_seconds(0.35)  # 先播关闭动画（0.22s）再隐藏
 	assert_false(popup.visible)
 	assert_null((scene.get("_state") as Dictionary).get("offlineReport"))
 	scene.call("_maybe_show_offline")
@@ -103,8 +103,9 @@ func test_chain3_breakthrough_needs_the_gate_boss_then_succeeds_and_shows_before
 	scene.call("_open_breakthrough")
 	assert_true(bool(page.view().can_start))
 	scene.call("_on_breakthrough")
-	await wait_frames(4)
 	var success := scene.get("_success_popup") as BreakthroughSuccess
+	# 充能 2.0s + 成功特效 2.4s 播完才出结算弹窗
+	await wait_until(func() -> bool: return success.visible, 8.0)
 	assert_true(success.visible)
 	var summary := success.summary()
 	assert_eq(int(summary.power_before), before_power)

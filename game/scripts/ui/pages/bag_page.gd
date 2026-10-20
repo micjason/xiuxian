@@ -158,8 +158,10 @@ func _build_doll() -> Control:
 	stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	stage.add_theme_stylebox_override("panel", QSkin.custom(Color("fbe7c6"), Color("e9c99a"), 6, 230, 0, 0, 0))
 	card.add_child(stage)
-	var hero := _sprite("hero_meditate", Rect2(296, 96, 440, 440))
+	var hero := QHero.new(false, false)  # 动画主角（拆层拼合），只要人物；下面是代码画的圆台
 	hero.name = "DollHero"
+	hero.position = Vector2(296, 96)
+	hero.size = Vector2(440, 440)
 	card.add_child(hero)
 	var ribbon := QKit.ribbon("", 40, 300, false)
 	ribbon.name = "DollRibbon"

@@ -106,13 +106,25 @@ func _build_arena() -> void:
 	_arena.clip_contents = true
 	_arena.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_arena)
-	_hero_art = UiKit.icon("avatar_meditate", 230, UiTokens.GOLD_HOVER)
-	_hero_art.set_anchors_preset(Control.PRESET_CENTER_LEFT)
-	_hero_art.offset_left = 30
-	_hero_art.offset_right = 270
-	_hero_art.offset_top = -100
-	_hero_art.offset_bottom = 130
-	_arena.add_child(_hero_art)
+	# 主角：动画主角（拆层拼合，只要人物）；没有动画交付时退回头像图标
+	var hero := QHero.new(false, false)
+	if hero.is_animated():
+		hero.name = "BattleHero"
+		hero.set_anchors_preset(Control.PRESET_CENTER_LEFT)
+		hero.offset_left = 20
+		hero.offset_right = 280
+		hero.offset_top = -120
+		hero.offset_bottom = 134
+		_arena.add_child(hero)
+	else:
+		hero.free()
+		_hero_art = UiKit.icon("avatar_meditate", 230, UiTokens.GOLD_HOVER)
+		_hero_art.set_anchors_preset(Control.PRESET_CENTER_LEFT)
+		_hero_art.offset_left = 30
+		_hero_art.offset_right = 270
+		_hero_art.offset_top = -100
+		_hero_art.offset_bottom = 130
+		_arena.add_child(_hero_art)
 	_boss_art = TextureRect.new()
 	_boss_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_boss_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
@@ -239,8 +251,16 @@ func open_stage(state: Dictionary, content: Dictionary, stage: Dictionary, gate:
 	_me_name.text = "我 · %s" % my_realm_name
 	_boss_name_label.text = _boss_name
 	_boss_meta.text = "首领  推荐战力 %d" % int(stage.get("recommendedPower", 0)) if int(stage.get("recommendedPower", 0)) > 0 else "首领"
-	_boss_art.texture = ArtLib.icon(ArtLib.boss_icon_name(_boss_name))
-	_boss_art.modulate = UiTokens.rarity_color(4).lightened(0.25)
+	# 首领立绘：Q 版怪物图（按名字查，含幽冥古道 / 赤炎火山），朝左面向主角；认不出的首领退回旧剪影（染色）
+	var sprite := ArtLib.monster_sprite_id(_boss_name)
+	if not sprite.is_empty():
+		_boss_art.texture = ArtLib.q("sprites/" + sprite)
+		_boss_art.modulate = Color.WHITE
+		_boss_art.flip_h = ArtLib.monster_needs_flip(sprite)
+	else:
+		_boss_art.texture = ArtLib.icon(ArtLib.boss_icon_name(_boss_name))
+		_boss_art.modulate = UiTokens.rarity_color(4).lightened(0.25)
+		_boss_art.flip_h = false
 	_refresh_bars()
 	_refresh_ult()
 	_refresh_time()

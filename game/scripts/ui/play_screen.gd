@@ -36,6 +36,14 @@ const HEARTBEAT_DEFAULT := 12.0
 ## 运行时主题由 MainTheme.make() 导出（scripts/dev/export_theme.gd），改令牌或美术后需重新导出。
 const APP_THEME: Theme = preload("res://resources/theme/xiuxian_theme.tres")
 
+## 绘制层级：动画场景里的部件自带 z_index（主角最高 20、飘字 50、掉落 40），会盖过后面添加的普通控件，
+## 所以外壳各层显式抬高：顶 / 底栏 < 特效层 < 突破弹窗 < 其它弹窗 < 提示条。点击顺序仍按节点顺序（和层级一致）。
+const Z_BARS := 30
+const Z_FX := 60
+const Z_BREAK := 100
+const Z_POPUP := 200
+const Z_TOAST := 300
+
 var _state: Dictionary = {}
 var _content: Dictionary = {}
 var _login: PlayerLogin
@@ -51,6 +59,9 @@ var _backdrop: Backdrop
 var _top_bar: TopBar
 var _tab_bar: TabBarView
 var _toast: Toast
+var _fx_layer: Control
+## 突破充能动画（breakthrough_fx 的 charge）的长度。
+const CHARGE_SECONDS := 2.0
 var _page_host: MarginContainer
 var _home_page: HomePage
 var _stage_page: StagePage
@@ -58,6 +69,8 @@ var _battle_page: BattlePage
 var _breakthrough_page: BreakthroughPage
 ## 突破弹窗层（全屏遮罩 + 居中弹窗，盖在当前页上面、顶栏和底栏下面也遮住）。
 var _break_layer: Control
+var _break_open := false
+var _break_gen := 0
 var _page_before_break := PAGE_CULTIVATE
 var _bag_page: BagPage
 var _skill_page: SkillPage
@@ -212,6 +225,7 @@ func _build_shell() -> void:
 			_page_host.add_child(_pages[key])
 	_top_bar = TopBar.new()
 	_top_bar.settings_pressed.connect(func() -> void: CreditsView.show_credits(_popup))
+	_top_bar.z_index = Z_BARS
 	add_child(_top_bar)
 	_tab_bar = TabBarView.new()
 	_tab_bar.set_tabs([
@@ -224,22 +238,33 @@ func _build_shell() -> void:
 	_tab_bar.page_selected.connect(_show_page)
 	_tab_bar.center_pressed.connect(_on_center_pressed)
 	_top_bar.breakthrough_pressed.connect(_on_center_pressed)
+	_tab_bar.z_index = Z_BARS
 	add_child(_tab_bar)
+	# 特效层（掉落物飞进背包等跨页面的动画）：在页面和底栏之上、弹窗之下，不拦截点击。
+	_fx_layer = Control.new()
+	_fx_layer.name = "FxLayer"
+	_fx_layer.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_fx_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_fx_layer.z_index = Z_FX
+	add_child(_fx_layer)
 	_break_layer = Control.new()
 	_break_layer.name = "BreakthroughLayer"
 	_break_layer.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_break_layer.visible = false
 	var dim := ColorRect.new()
 	dim.name = "Dimmer"
-	dim.color = Color(0, 0, 0, 0.55)
+	# 有动画外壳时遮罩由弹窗自己画（淡入淡出），这一层只接「点空白处关闭」
+	dim.color = Color(0, 0, 0, 0) if _breakthrough_page.has_popup_fx() else Color(0, 0, 0, 0.55)
 	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
 	dim.gui_input.connect(func(event: InputEvent) -> void:
 		if event is InputEventMouseButton and (event as InputEventMouseButton).pressed and not _busy:
 			_close_breakthrough())
 	_break_layer.add_child(dim)
 	_break_layer.add_child(_breakthrough_page)
+	_break_layer.z_index = Z_BREAK
 	add_child(_break_layer)
 	_toast = Toast.new()
+	_toast.z_index = Z_TOAST
 	add_child(_toast)
 	if _mock:
 		_mock_tag = Label.new()
@@ -251,15 +276,19 @@ func _build_shell() -> void:
 		_mock_tag.add_theme_color_override("font_color", UiTokens.WARNING)
 		_mock_tag.add_theme_stylebox_override("normal", KitStyle.box(Color(0.1, 0.07, 0.02, 0.85), UiTokens.WARNING, 2, UiTokens.R_SM, 6))
 		_mock_tag.tooltip_text = "演示数据：不连服务器，操作只在本机内存里生效"
+		_mock_tag.z_index = Z_TOAST
 		add_child(_mock_tag)
+	_popup.z_index = Z_POPUP
 	add_child(_popup)
 	_offline_popup = OfflinePopup.new()
 	_offline_popup.acknowledged.connect(_on_offline_ack)
+	_offline_popup.z_index = Z_POPUP
 	add_child(_offline_popup)
 	_success_popup = BreakthroughSuccess.new()
 	_success_popup.closed.connect(func() -> void:
 		_close_breakthrough()
 		_show_page(PAGE_CULTIVATE))
+	_success_popup.z_index = Z_POPUP
 	add_child(_success_popup)
 	_apply_layout()
 
@@ -277,11 +306,7 @@ func _apply_layout() -> void:
 	_page_host.offset_right = -(float(UiTokens.PAGE_MARGIN) + inset.z)
 	_page_host.offset_top = inset.y + _top_bar.content_height() + float(UiTokens.SP_1)
 	_page_host.offset_bottom = -(float(TabBarView.HEIGHT) + TabBarView.bottom_pad(inset) + float(UiTokens.SP_2))
-	_toast.set_anchors_preset(Control.PRESET_TOP_WIDE)
-	_toast.offset_left = float(UiTokens.PAGE_MARGIN) + inset.x
-	_toast.offset_right = -(float(UiTokens.PAGE_MARGIN) + inset.z)
-	_toast.offset_top = inset.y + _top_bar.content_height() + float(UiTokens.SP_2)
-	_toast.offset_bottom = _toast.offset_top + 110.0
+	_toast.place_top(float(UiTokens.PAGE_MARGIN) + inset.x, inset.y + _top_bar.content_height() + float(UiTokens.SP_2), float(UiTokens.PAGE_MARGIN) + inset.z, 110.0)
 	_breakthrough_page.apply_safe_area(inset)
 	_offline_popup.apply_safe_area(inset)
 	if _mock_tag != null:
@@ -299,7 +324,7 @@ func _show_page(page: String) -> void:
 	if _page == PAGE_BATTLE and page != PAGE_BATTLE and _battle_page.is_running():
 		_toast.say("战斗进行中，打完再离开", false)
 		return
-	if _break_layer.visible:
+	if _break_open:
 		_close_breakthrough()
 	_page = page
 	for key in _pages:
@@ -366,12 +391,43 @@ func _render(feedback: bool = false) -> void:
 			var lines := WaveView.feedback(last as Dictionary, _reward_name)
 			if not lines.is_empty():
 				_home_page.show_feedback(lines)
+			_home_page.show_gains(last as Dictionary)
+			_fly_drops(lines)
 	_flags.adopt_if_first_run(_item_ids())
 	_bag_page.bind(_state, _content, _flags)
 	_stage_render()
 	_skill_page.bind(_state, _content)
 	_breakthrough_page.bind(_state, _content, next_name, _realm_after(BagModel.plain(breakthrough.get("nextSlug", null))))
 	_update_dots()
+
+
+## 掉落物飞进底栏背包（float_drop/drop_fly + bag_pulse，README 3b/3c）：只在修炼页、只飞这次结算真的进了背包的物品
+## （最多 3 件；背包满没拿到的不飞）。起点 = 波次卡片掉落行里的物品格，终点 = 底栏背包图标；到达时背包图标跳一下。
+func _fly_drops(lines: Array[Dictionary]) -> void:
+	if _page != PAGE_CULTIVATE or not _home_page.is_visible_in_tree() or not QFx.has(QFx.DROP_FLY):
+		return
+	var drops := lines.filter(func(l: Dictionary) -> bool: return str(l.get("kind", "")) == "drop")
+	if drops.is_empty():
+		return
+	var starts := _home_page.drop_slot_centers()
+	var target := _tab_bar.icon_center("bag")
+	var fallback := _home_page.sheet_anchor().get_global_rect().get_center()
+	var shown := drops.slice(maxi(0, drops.size() - 3))
+	for index in shown.size():
+		var line: Dictionary = shown[index]
+		var view := QKit.reward_view(_content, str(line.get("slug", "")))
+		if view.texture == null:
+			continue
+		var fly := QFx.make(QFx.DROP_FLY) as Node2D
+		fly.name = "DropFly"
+		fly.set("icon", view.texture)
+		fly.set("icon_size", 100.0)
+		_fx_layer.add_child(fly)
+		var start: Vector2 = starts[mini(index, starts.size() - 1)] if not starts.is_empty() else fallback
+		fly.connect("arrived", func() -> void: _tab_bar.pulse("bag"))
+		get_tree().create_timer(0.2 * index).timeout.connect(func() -> void:
+			if is_instance_valid(fly):
+				fly.call("fly", start, target))
 
 
 ## 下一境界之后再下一个境界的名字（突破页第三个节点）；没有返回空串。
@@ -516,20 +572,30 @@ func _on_center_pressed() -> void:
 
 
 func _open_breakthrough() -> void:
-	if not _break_layer.visible:
+	if not _break_open:
 		_page_before_break = _page
+	_break_open = true
+	_break_gen += 1
 	_break_layer.visible = true
 	_breakthrough_page.visible = true
 	_breakthrough_page.pop_in()
 
 
+## 关闭突破弹窗：逻辑上立刻关（breakthrough_open() 变 false），画面播完关闭动画再隐藏。
 func _close_breakthrough() -> void:
-	_break_layer.visible = false
-	_breakthrough_page.visible = false
+	if not _break_open:
+		return
+	_break_open = false
+	_break_gen += 1
+	var gen := _break_gen
+	_breakthrough_page.pop_out(func() -> void:
+		if gen == _break_gen and not _break_open:
+			_break_layer.visible = false
+			_breakthrough_page.visible = false)
 
 
 func breakthrough_open() -> bool:
-	return _break_layer.visible
+	return _break_open
 
 
 func _on_breakthrough() -> void:
@@ -539,17 +605,29 @@ func _on_breakthrough() -> void:
 	_breakthrough_page.set_busy(true)
 	var before := _state.duplicate(true)
 	var unlocks := BreakthroughView.unlocks(before, _content)
+	# 充能动画和请求同时开始；成功要等充能播完再播成功特效，最后弹「突破成功」结算
+	_breakthrough_page.play_charge()
+	var started := Time.get_ticks_msec()
 	var result := await _post("/api/v1/me/breakthrough")
-	_busy = false
 	if int(result.get("code", 0)) != 200:
+		_busy = false
+		_breakthrough_page.finish_fx()
 		_render()
 		_toast.say(PlayerApi.error_message(result), false)
 		return
 	var outcome: Dictionary = result.get("result", {})
 	_apply_action_state(result)
 	if bool(outcome.get("success", false)):
+		var left := CHARGE_SECONDS - float(Time.get_ticks_msec() - started) / 1000.0
+		if _breakthrough_page.break_fx() != null and left > 0.0:
+			await get_tree().create_timer(left).timeout
+		await _breakthrough_page.play_success()
+		_busy = false
+		_breakthrough_page.finish_fx()
 		_success_popup.show_success(BreakthroughView.success_summary(before, _state), unlocks)
 	else:
+		_busy = false
+		_breakthrough_page.finish_fx()
 		_toast.say("突破失败，损失修为 %s" % CultivationFormat.amount(float(outcome.get("lostCultivation", 0))), false)
 
 

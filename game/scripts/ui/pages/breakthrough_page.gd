@@ -5,6 +5,10 @@ extends Control
 ## 突破条件（修为、必须击败的首领，满足打勾）；属性提升（生命/攻击/防御/速度 突破前 → 后、战力前 → 后）；
 ## 「突破」大按钮（下写消耗）；首领没打时多一个「前往挑战」；底下「点击空白处关闭」。
 ## 条件没满足时按钮灰化。数值全部来自服务器 breakthrough（preview / rateBp / requiredStage），这里不自己算。
+## 动画（2026-10-20 动画交付）：弹窗 ui_popup 的 open / close（README 2b）；舞台用 breakthrough_fx（README 4）：
+## 平时 idle（法阵慢转、光晕），点「突破」播 charge（进度条充满 + 水波纹），服务器回成功后播 success（光柱、光环、星光、
+## 「突破成功」横幅）；失败回到 idle。横幅从场景默认的 y-360（会压住「当前 → 目标境界」行和两侧的战力牌、成功率环）
+## 挪到主角脚下（TITLE_Y），和舞台上的文字、牌子都不重叠。播动画期间新的状态先存着，播完再重画（不打断动画）。
 
 signal start_requested
 signal goto_stage_requested(stage_slug: String)
@@ -24,17 +28,34 @@ var _hint: Label
 var _goto: Button
 var _close_hint: Label
 var _inset_top := 90.0
+var _fx: Control  # ui_popup 外壳；没有动画交付时为 null
+var _host: Control
+var _break_fx: Node2D
+var _fx_running := false
+var _pending_bind: Array = []
+
+## 突破特效在舞台里的锚点（设计稿 (540, 892) − 舞台左上 (84, 410)）和「突破成功」横幅的 y（相对锚点）。
+const FX_ANCHOR := Vector2(456, 482)
+const TITLE_Y := 0.0
 
 
 func _init() -> void:
 	name = "BreakthroughPage"
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_host = self
+	_fx = QFx.popup_shell()
+	if _fx != null:
+		# 遮罩只管画（淡入淡出），点空白处关闭仍由外壳底下那层透明遮罩接
+		_fx.name = "PopupFx"
+		(_fx.get_node("Backdrop") as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(_fx)
+		_host = QFx.popup_content(_fx)
 	_frame = PanelContainer.new()
 	_frame.name = "PopupFrame"
 	_frame.mouse_filter = Control.MOUSE_FILTER_STOP
 	_frame.add_theme_stylebox_override("panel", QKit.cut_box("popup_frame", 24, 30) if ArtLib.qui("popup_frame") != null else QSkin.custom(UiTokens.Q_CREAM, UiTokens.Q_COCOA, 6, 48, 12, 24, 30))
-	add_child(_frame)
+	_host.add_child(_frame)
 	var scroll := ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_frame.add_child(scroll)
@@ -44,7 +65,7 @@ func _init() -> void:
 	var ribbon := QKit.ribbon("突破", 52, 420, true)
 	ribbon.name = "Ribbon"
 	_ribbon_text = ribbon.find_child("RibbonText", true, false) as Label
-	add_child(ribbon)
+	_host.add_child(ribbon)
 	_button = Button.new()
 	_button.name = "StartButton"
 	_button.focus_mode = Control.FOCUS_NONE
@@ -62,6 +83,7 @@ func _init() -> void:
 	_button_sub = QKit.outlined("", 30, UiTokens.Q_WHITE, UiTokens.Q_COCOA, 6, HORIZONTAL_ALIGNMENT_CENTER, false)
 	labels.add_child(_button_sub)
 	_button.pressed.connect(func() -> void: start_requested.emit())
+	QFx.bounce(_button)
 	_goto = QKit.button("", "m", 100, 36)
 	_goto.name = "GotoStageButton"
 	_goto.visible = false
@@ -70,7 +92,7 @@ func _init() -> void:
 	_close_hint = QKit.tag("点击空白处关闭", "dark", 32, 30).get_child(0) as Label
 	var close_pill := _close_hint.get_parent() as Control
 	close_pill.name = "CloseHint"
-	add_child(close_pill)
+	_host.add_child(close_pill)
 	var close := Button.new()
 	close.name = "CloseButton"
 	close.focus_mode = Control.FOCUS_NONE
@@ -84,7 +106,7 @@ func _init() -> void:
 	if close_tex == null:
 		close.text = "✕"
 	close.pressed.connect(func() -> void: close_requested.emit())
-	add_child(close)
+	_host.add_child(close)
 	_layout()
 
 
@@ -98,18 +120,23 @@ func _layout() -> void:
 	var shift := _inset_top - 90.0
 	_frame.position = Vector2(FRAME.position.x, FRAME.position.y + shift)
 	_frame.size = FRAME.size + Vector2(0, 12)
-	var ribbon := get_node("Ribbon") as Control
+	var ribbon := _host.get_node("Ribbon") as Control
 	ribbon.position = Vector2(540 - ribbon.custom_minimum_size.x / 2.0, 224 + shift)
-	var pill := get_node("CloseHint") as Control
+	var pill := _host.get_node("CloseHint") as Control
 	pill.position = Vector2(340, 1814 + shift)
 	pill.custom_minimum_size = Vector2(400, 60)
-	var close := get_node("CloseButton") as Control
+	var close := _host.get_node("CloseButton") as Control
 	close.position = Vector2(948, 312 + shift)
 	close.size = Vector2(84, 89)
+	if _fx != null:
+		QFx.set_popup_pivot(_fx, Rect2(_frame.position, _frame.size))
 
 
-## 弹出动画（缩放 0.92 → 1）。
+## 弹出动画：ui_popup 的 open（遮罩淡入 + 面板 0.55 → 1.06 → 1）；没有动画交付时缩放 0.92 → 1。
 func pop_in() -> void:
+	if _fx != null:
+		QFx.play(_fx, "open")
+		return
 	_frame.pivot_offset = _frame.size / 2.0
 	_frame.scale = Vector2(0.92, 0.92)
 	_frame.modulate.a = 0.0
@@ -118,8 +145,73 @@ func pop_in() -> void:
 	tween.tween_property(_frame, "modulate:a", 1.0, 0.12)
 
 
+## 关闭动画（ui_popup 的 close，0.22s），播完调 done；没有动画交付时立刻调。
+func pop_out(done: Callable) -> void:
+	if _fx == null:
+		done.call()
+		return
+	QFx.play(_fx, "close")
+	get_tree().create_timer(0.24).timeout.connect(done)
+
+
+func has_popup_fx() -> bool:
+	return _fx != null
+
+
 func view() -> Dictionary:
 	return _view
+
+
+## ---- 突破特效（breakthrough_fx）----
+
+func break_fx() -> Node2D:
+	return _break_fx
+
+
+func fx_running() -> bool:
+	return _fx_running
+
+
+## 点「突破」：充能（2s）。服务器结果回来前就开始播。
+func play_charge() -> void:
+	if _break_fx == null:
+		return
+	_fx_running = true
+	QFx.play(_break_fx, "charge")
+
+
+## 成功：光柱、光环、星光、「突破成功」横幅（2.4s），播完返回。
+func play_success() -> void:
+	if _break_fx == null:
+		return
+	_fx_running = true
+	var ap := QFx.player(_break_fx)
+	if ap == null or not ap.has_animation("success"):
+		return
+	ap.play("success")
+	await ap.animation_finished
+
+
+## 结束特效：回到 idle，补上播动画期间收到的新状态。
+func finish_fx() -> void:
+	_fx_running = false
+	if _break_fx != null:
+		QFx.play(_break_fx, "idle")
+	if not _pending_bind.is_empty():
+		var args := _pending_bind
+		_pending_bind = []
+		bind(args[0], args[1], args[2], args[3])
+
+
+## 「突破成功」横幅（场景 Front/Title/Box）在画布上的矩形（按缩放 1 算，测试 / 截图核对用）。
+func success_title_rect() -> Rect2:
+	if _break_fx == null:
+		return Rect2()
+	var box := _break_fx.get_node("Front/Title/Box") as Control
+	var title := _break_fx.get_node("Front/Title") as Node2D
+	var origin := title.get_global_transform().origin
+	var scale := _break_fx.get_global_transform().get_scale()
+	return Rect2(origin + Vector2(box.offset_left, box.offset_top) * scale, Vector2(box.offset_right - box.offset_left, box.offset_bottom - box.offset_top) * scale)
 
 
 func start_button() -> Button:
@@ -135,9 +227,14 @@ func set_busy(value: bool) -> void:
 
 
 func bind(state: Dictionary, _content: Dictionary, next_realm_name: String, _after_next_name: String = "") -> void:
+	if _fx_running:
+		_pending_bind = [state, _content, next_realm_name, _after_next_name]
+		return
 	_view = BreakthroughView.build(state, next_realm_name)
 	var has_next := bool(_view.has_next)
 	_ribbon_text.text = "突破 · %s" % next_realm_name if has_next else "已至最高境界"
+	if _break_fx != null and _break_fx.get_parent() != null:
+		_break_fx.get_parent().remove_child(_break_fx)  # 特效和主角复用，不随每次心跳重建
 	UiKit.clear(_body)
 	_body.add_child(_stage(str(state.get("realmName", "")), next_realm_name))
 	_body.add_child(_conditions())
@@ -184,7 +281,13 @@ func _stage(current_name: String, target_name: String) -> Control:
 		node.position = rect.position - origin
 		node.size = rect.size
 		stage.add_child(node)
-	for spec in [["sprites/fx_sunburst", Rect2(280, 450, 520, 520), 0.6], ["sprites/fx_ring_solid", Rect2(200, 690, 680, 280), 0.7], ["sprites/fx_ring_dashed", Rect2(260, 720, 560, 220), 0.8], ["sprites/lotus_platform", Rect2(310, 726, 460, 224), 1.0], ["sprites/hero_meditate", Rect2(340, 496, 400, 400), 1.0]]:
+	if _break_fx == null:
+		_break_fx = _make_break_fx()
+	if _break_fx != null:
+		_break_fx.position = FX_ANCHOR
+		stage.add_child(_break_fx)
+	var statics := [["sprites/fx_sunburst", Rect2(280, 450, 520, 520), 0.6], ["sprites/fx_ring_solid", Rect2(200, 690, 680, 280), 0.7], ["sprites/fx_ring_dashed", Rect2(260, 720, 560, 220), 0.8], ["sprites/lotus_platform", Rect2(310, 726, 460, 224), 1.0], ["sprites/hero_meditate", Rect2(340, 496, 400, 400), 1.0]]
+	for spec in ([] if _break_fx != null else statics):
 		var tex := TextureRect.new()
 		tex.texture = ArtLib.q(str(spec[0])) if ArtLib.has_q(str(spec[0]) + ".png") else null
 		tex.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -216,6 +319,40 @@ func _stage(current_name: String, target_name: String) -> Control:
 	add.call(plate, Rect2(104, 470, 196, 141))
 	add.call(_rate_ring(int(_view.rate_percent)), Rect2(810, 450, 176, 182))
 	return stage
+
+
+## 突破特效 + 莲台 + 动画主角（README 4：HeroSlot 里放莲台和主角，主角缩放 400/706，坐垫隐藏）。没有交付返回 null。
+func _make_break_fx() -> Node2D:
+	var fx := QFx.make(QFx.BREAKTHROUGH) as Node2D
+	if fx == null:
+		return null
+	fx.name = "BreakFx"
+	var title := fx.get_node_or_null("Front/Title") as Node2D
+	if title != null:
+		title.position = Vector2(0, TITLE_Y)
+	# 横幅挪到主角脚下后会和主角重叠：主角部件自带 z_index（最高 20），前景层要比它高才盖得住
+	var front := fx.get_node_or_null("Front") as CanvasItem
+	if front != null:
+		front.z_index = 30
+	var slot := fx.get_node("HeroSlot") as Node2D
+	if ArtLib.has_q("sprites/lotus_platform.png"):
+		var lotus := Sprite2D.new()
+		lotus.name = "Lotus"
+		lotus.texture = ArtLib.q("sprites/lotus_platform")
+		lotus.scale = Vector2.ONE * (460.0 / lotus.texture.get_width())
+		lotus.position = Vector2(0, -54)  # 设计稿莲台 (310,726,460,224) 的中心 (540, 838)
+		slot.add_child(lotus)
+	var hero := QFx.make(QFx.HERO) as Node2D
+	if hero != null:
+		hero.name = "Hero"
+		hero.scale = Vector2.ONE * (400.0 / 706.0)
+		hero.position = Vector2(0, -0.5)
+		var seat := hero.get_node_or_null("Rig/Cushion") as CanvasItem
+		if seat != null:
+			seat.visible = false
+		slot.add_child(hero)
+	QFx.play(fx, "idle")
+	return fx
 
 
 ## 成功率环（SPEC_Q：radial_bg_176 + 顺时针 TextureProgressBar radial_fill_166 偏移 (5,5) + radial_center_132 偏移 (22,22)）。

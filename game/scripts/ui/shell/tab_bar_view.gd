@@ -254,6 +254,49 @@ func button_of(id: String) -> Button:
 	return _buttons.get(id, null)
 
 
+## 页签图标中心的画布坐标（掉落物飞入的终点）。
+func icon_center(id: String) -> Vector2:
+	if _icons.has(id):
+		return (_icons[id] as Control).get_global_rect().get_center()
+	var button := button_of(id)
+	return button.get_global_rect().get_center() if button != null else Vector2.ZERO
+
+
+## 图标受击跳动（float_drop/bag_pulse 的 hit：鼓一下再回弹 + 光环 + 小光点）。动画期间用它顶替原图标，播完换回来。
+func pulse(id: String) -> void:
+	if not _icons.has(id):
+		return
+	var icon := _icons[id] as TextureRect
+	var fx := icon.get_parent().get_node_or_null("IconPulse") as Node2D
+	if fx == null:
+		fx = QFx.make(QFx.BAG_PULSE) as Node2D
+		if fx == null:
+			return
+		fx.name = "IconPulse"
+		icon.get_parent().add_child(fx)
+		QFx.player(fx).animation_finished.connect(func(_name: StringName) -> void:
+			fx.visible = false
+			icon.visible = true)
+	var sprite := fx.get_node("Icon") as Sprite2D
+	if icon.texture != null:
+		sprite.texture = icon.texture
+		var tex_size := icon.texture.get_size()
+		fx.scale = Vector2.ONE * minf(icon.size.x / tex_size.x, icon.size.y / tex_size.y)  # Icon:scale 由动画驱动，整体缩放
+	fx.position = icon.position + icon.size / 2.0
+	fx.visible = true
+	icon.visible = false
+	var ap := QFx.player(fx)
+	ap.stop()
+	ap.play("hit")
+
+
+func pulse_count(id: String) -> int:
+	if not _icons.has(id):
+		return 0
+	var fx := (_icons[id] as Control).get_parent().get_node_or_null("IconPulse")
+	return 1 if fx != null and (fx as CanvasItem).visible else 0
+
+
 ## 标签栏下面的填充高度（画布像素）。
 static func bottom_pad(inset: Vector4) -> float:
 	return maxf(float(SAFE_FILL_MIN), inset.w)

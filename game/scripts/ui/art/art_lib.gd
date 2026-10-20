@@ -181,13 +181,30 @@ static func digits_font(kind: String) -> Font:
 	return font
 
 
-## 怪物/首领立绘（Q 版）：按名字里的字挑；认不出返回 ""（调用方退回旧的首领剪影图标）。
+## 怪物/首领立绘（Q 版）：按名字里的字挑，按表的顺序先到先得；认不出返回 ""（调用方退回旧的首领剪影图标）。
+## 黑风岭：狼/狐/蛇/蟒/熊。幽冥古道 / 赤炎火山（SPEC_Q 12.4，名字按 prototype-v12 配置）：
+## 游魂、骨傀、血蝠、噬魂老鬼；炎鳞蜥、火鸦、熔岩傀、赤焰蛟。
+## 「噬魂老鬼」也含「魂」，所以「老鬼 / 噬魂」排在「魂」前面。两种「傀」按前面的字分：骨傀 →「骨」、熔岩傀 →「熔岩」（不按「傀」查）。
+const MONSTER_KEYS := [
+	["狼", "mon_wolf"], ["狐", "mon_fox"], ["蛇", "mon_snake"], ["蟒", "mon_snake"], ["熊", "mon_bear"],
+	["老鬼", "mon_ghost_elder"], ["噬魂", "mon_ghost_elder"], ["魂", "mon_ghost"], ["骨", "mon_bone_golem"],
+	["蝠", "mon_bat"], ["蜥", "mon_lava_lizard"], ["鸦", "mon_fire_crow"], ["熔岩", "mon_lava_golem"], ["蛟", "mon_fire_jiao"],
+]
+## 原图就朝左（头朝左）的立绘：火鸦、炎鳞蜥、赤焰蛟（SPEC_Q 12.4）。黑风岭四只原图朝右，场景里翻转成朝左。
+## 正面的（游魂、骨傀、血蝠、噬魂老鬼、熔岩傀）翻不翻都一样，照旧翻转。
+const MONSTER_FACES_LEFT := ["mon_fire_crow", "mon_lava_lizard", "mon_fire_jiao"]
+
+
 static func monster_sprite_id(monster_name: String) -> String:
-	const KEYS := [["狼", "mon_wolf"], ["狐", "mon_fox"], ["蛇", "mon_snake"], ["蟒", "mon_snake"], ["熊", "mon_bear"]]
-	for entry in KEYS:
+	for entry in MONSTER_KEYS:
 		if monster_name.contains(str(entry[0])) and has_q("sprites/%s.png" % entry[1]):
 			return str(entry[1])
 	return ""
+
+
+## 历练场景里怪物要朝左（面向左边的主角）：这张立绘需不需要水平翻转。
+static func monster_needs_flip(sprite_id: String) -> bool:
+	return not MONSTER_FACES_LEFT.has(sprite_id)
 
 
 ## 图标没交付时用 fallback 顶上（占位）。例如页签「洞府」的 tab_cave（N160）还没出图。

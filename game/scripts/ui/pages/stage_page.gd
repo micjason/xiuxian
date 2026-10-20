@@ -78,7 +78,7 @@ func _at(node: Control, rect: Rect2) -> Control:
 
 func _sprite(path: String, rect: Rect2, flip: bool = false) -> TextureRect:
 	var node := TextureRect.new()
-	node.texture = ArtLib.q(path) if ArtLib.has_q(path + ".png") else null
+	node.texture = ArtLib.q(path) if not path.is_empty() and ArtLib.has_q(path + ".png") else null
 	node.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	node.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	node.flip_h = flip
@@ -124,7 +124,9 @@ func _build_scene() -> void:
 	# 主角 + 莲台 + 光晕
 	_sprite("sprites/fx_aura_radial", Rect2(30, 520, 380, 380)).modulate = Color(1, 1, 1, 0.7)
 	_sprite("sprites/lotus_platform", Rect2(60, 780, 280, 140))
-	_sprite("sprites/hero_meditate", Rect2(54, 520, 300, 300))
+	var hero := QHero.new(false, false)  # 动画主角（只要人物，莲台在下面）
+	hero.name = "StageHero"
+	_at(hero, Rect2(54, 520, 300, 300))
 	# 飞剑（装饰）
 	var sword := TextureRect.new()
 	sword.texture = ArtLib.icon("tab_adventure")
@@ -134,10 +136,10 @@ func _build_scene() -> void:
 	sword.pivot_offset = Vector2(65, 65)
 	sword.rotation = deg_to_rad(30)
 	_at(sword, Rect2(470, 600, 130, 130))
-	# 怪物（远处小一只 + 目标一只，都朝左）
-	_monster_far = _sprite("sprites/mon_snake", Rect2(412, 450, 166, 166), true)
+	# 怪物（远处小一只 + 目标一只，都朝左）：贴图按当前关卡的怪物名在 _render_scene 里查（ArtLib.monster_sprite_id）
+	_monster_far = _sprite("", Rect2(412, 450, 166, 166), true)
 	_monster_far.modulate = Color(1, 1, 1, 0.9)
-	_monster = _sprite("sprites/mon_snake", Rect2(560, 510, 340, 370), true)
+	_monster = _sprite("", Rect2(560, 510, 340, 370), true)
 	_monster.name = "TargetMonster"
 	var name_chip := QKit.tag("", "cream", 30, 16)
 	name_chip.name = "MonsterName"
@@ -188,6 +190,9 @@ func _render_scene() -> void:
 	var tex: Texture2D = ArtLib.q("sprites/" + sprite) if not sprite.is_empty() else (ArtLib.icon(ArtLib.boss_icon_name(monster_name)) if not monster_name.is_empty() else null)
 	_monster.texture = tex
 	_monster_far.texture = tex
+	var flip := ArtLib.monster_needs_flip(sprite) if not sprite.is_empty() else true
+	_monster.flip_h = flip
+	_monster_far.flip_h = flip
 	_monster.visible = tex != null
 	_monster_far.visible = tex != null
 	var pip_row := _scene.find_child("PipRow", true, false) as HBoxContainer

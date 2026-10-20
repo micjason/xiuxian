@@ -1,0 +1,42 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://anim_q/float_drop/drop_fly.gd" id="1_3gpvf"]
+[ext_resource type="Texture2D" path="res://anim_q/float_drop/fx/fx_sparkle_gold.png" id="2_ypueo"]
+[ext_resource type="Texture2D" path="res://anim_q/float_drop/fx/fx_glow.png" id="3_difgs"]
+[ext_resource type="Texture2D" path="res://anim_q/float_drop/art/drop_crown.png" id="4_ms16t"]
+
+[sub_resource type="Curve" id="Curve_qbx1w"]
+_data = [Vector2(0, 1), 0.0, 0.0, 0, 0, Vector2(1, 0.1), 0.0, 0.0, 0, 0]
+point_count = 2
+
+[sub_resource type="Gradient" id="Gradient_224ss"]
+colors = PackedColorArray(1, 1, 1, 1, 1, 0.9, 0.6, 0)
+
+[node name="DropFly" type="Node2D" unique_id=497278707]
+z_index = 40
+script = ExtResource("1_3gpvf")
+
+[node name="Trail" type="CPUParticles2D" parent="." unique_id=1036924643]
+emitting = false
+amount = 30
+texture = ExtResource("2_ypueo")
+lifetime = 0.45
+spread = 180.0
+gravity = Vector2(0, 0)
+initial_velocity_min = 10.0
+initial_velocity_max = 40.0
+scale_amount_min = 0.28
+scale_amount_max = 0.45
+scale_amount_curve = SubResource("Curve_qbx1w")
+color_ramp = SubResource("Gradient_224ss")
+
+[node name="Item" type="Node2D" parent="." unique_id=1277309888]
+
+[node name="Glow" type="Sprite2D" parent="Item" unique_id=740363570]
+modulate = Color(1, 0.82, 0.3, 1)
+scale = Vector2(0.85, 0.85)
+texture = ExtResource("3_difgs")
+
+[node name="Icon" type="Sprite2D" parent="Item" unique_id=1465278186]
+scale = Vector2(0.25, 0.25)
+texture = ExtResource("4_ms16t")

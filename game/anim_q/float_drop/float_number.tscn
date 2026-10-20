@@ -1,0 +1,206 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://anim_q/float_drop/float_number.gd" id="1_x80dg"]
+[ext_resource type="FontFile" path="res://assets/fonts/ZCOOLQingKeHuangYou-Regular.subset.woff2" id="2_utnkc"]
+[ext_resource type="FontFile" path="res://assets/fonts/ZCOOLKuaiLe-Regular.subset.woff2" id="3_jgfxg"]
+
+[sub_resource type="LabelSettings" id="LabelSettings_87oi7"]
+font = ExtResource("2_utnkc")
+font_size = 96
+outline_size = 22
+outline_color = Color(0.18039216, 0.56078434, 0.84705883, 1)
+shadow_size = 22
+shadow_color = Color(0.12156863, 0.37254903, 0.56078434, 1)
+shadow_offset = Vector2(0, 7)
+
+[sub_resource type="LabelSettings" id="LabelSettings_ppggp"]
+font = ExtResource("3_jgfxg")
+font_size = 48
+font_color = Color(0.18039216, 0.49803922, 0.76862746, 1)
+outline_size = 12
+
+[sub_resource type="Animation" id="Animation_4xitx"]
+length = 0.001
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("Pop:scale")
+tracks/0/interp = 0
+tracks/0/loop_wrap = false
+tracks/0/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [Vector2(1, 1)]
+}
+tracks/1/type = "value"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath(".:roll_t")
+tracks/1/interp = 0
+tracks/1/loop_wrap = false
+tracks/1/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [1.0]
+}
+tracks/2/type = "value"
+tracks/2/imported = false
+tracks/2/enabled = true
+tracks/2/path = NodePath("Pop:position")
+tracks/2/interp = 0
+tracks/2/loop_wrap = false
+tracks/2/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [Vector2(0, 0)]
+}
+tracks/3/type = "value"
+tracks/3/imported = false
+tracks/3/enabled = true
+tracks/3/path = NodePath("Pop:modulate")
+tracks/3/interp = 0
+tracks/3/loop_wrap = false
+tracks/3/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [Color(1, 1, 1, 1)]
+}
+
+[sub_resource type="Animation" id="Animation_y0cft"]
+length = 1.25
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("Pop:position")
+tracks/0/interp = 0
+tracks/0/loop_wrap = false
+tracks/0/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [Vector2(0, 0)]
+}
+tracks/1/type = "value"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath("Pop:modulate")
+tracks/1/interp = 0
+tracks/1/loop_wrap = false
+tracks/1/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [Color(1, 1, 1, 1)]
+}
+tracks/2/type = "value"
+tracks/2/imported = false
+tracks/2/enabled = true
+tracks/2/path = NodePath(".:roll_t")
+tracks/2/interp = 2
+tracks/2/loop_wrap = false
+tracks/2/keys = {
+"times": PackedFloat32Array(0, 0.9),
+"transitions": PackedFloat32Array(1, 0.4),
+"update": 0,
+"values": [0.0, 1.0]
+}
+tracks/3/type = "value"
+tracks/3/imported = false
+tracks/3/enabled = true
+tracks/3/path = NodePath("Pop:scale")
+tracks/3/interp = 2
+tracks/3/loop_wrap = false
+tracks/3/keys = {
+"times": PackedFloat32Array(0, 0.9, 1.02, 1.14, 1.25),
+"transitions": PackedFloat32Array(1, 1, 1, 1, 1),
+"update": 0,
+"values": [Vector2(1, 1), Vector2(1, 1), Vector2(1.2, 1.2), Vector2(0.96, 0.96), Vector2(1, 1)]
+}
+
+[sub_resource type="Animation" id="Animation_f3lj3"]
+length = 1.5
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("Pop:scale")
+tracks/0/interp = 2
+tracks/0/loop_wrap = false
+tracks/0/keys = {
+"times": PackedFloat32Array(0, 0.14, 0.24, 0.32),
+"transitions": PackedFloat32Array(1, 1, 1, 1),
+"update": 0,
+"values": [Vector2(0, 0), Vector2(1.28, 1.28), Vector2(0.94, 0.94), Vector2(1, 1)]
+}
+tracks/1/type = "value"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath(".:roll_t")
+tracks/1/interp = 2
+tracks/1/loop_wrap = false
+tracks/1/keys = {
+"times": PackedFloat32Array(0, 0.65),
+"transitions": PackedFloat32Array(1, 0.4),
+"update": 0,
+"values": [0.0, 1.0]
+}
+tracks/2/type = "value"
+tracks/2/imported = false
+tracks/2/enabled = true
+tracks/2/path = NodePath("Pop:position")
+tracks/2/interp = 2
+tracks/2/loop_wrap = false
+tracks/2/keys = {
+"times": PackedFloat32Array(0, 0.32, 1.5),
+"transitions": PackedFloat32Array(1, 1, 1),
+"update": 0,
+"values": [Vector2(0, 0), Vector2(0, -36), Vector2(0, -170)]
+}
+tracks/3/type = "value"
+tracks/3/imported = false
+tracks/3/enabled = true
+tracks/3/path = NodePath("Pop:modulate")
+tracks/3/interp = 1
+tracks/3/loop_wrap = false
+tracks/3/keys = {
+"times": PackedFloat32Array(0, 1.05, 1.5),
+"transitions": PackedFloat32Array(1, 1, 1),
+"update": 0,
+"values": [Color(1, 1, 1, 1), Color(1, 1, 1, 1), Color(1, 1, 1, 0)]
+}
+
+[sub_resource type="AnimationLibrary" id="AnimationLibrary_eqa65"]
+_data = {
+&"RESET": SubResource("Animation_4xitx"),
+&"count": SubResource("Animation_y0cft"),
+&"pop": SubResource("Animation_f3lj3")
+}
+
+[node name="FloatNumber" type="Node2D" unique_id=168469775]
+z_index = 50
+script = ExtResource("1_x80dg")
+
+[node name="Pop" type="Node2D" parent="." unique_id=810771219]
+
+[node name="Row" type="HBoxContainer" parent="Pop" unique_id=787017222]
+mouse_filter = 2
+theme_override_constants/separation = 10
+alignment = 1
+
+[node name="Num" type="Label" parent="Pop/Row" unique_id=1826319351]
+layout_mode = 2
+text = "+33,120"
+label_settings = SubResource("LabelSettings_87oi7")
+vertical_alignment = 1
+
+[node name="Unit" type="Label" parent="Pop/Row" unique_id=1286536653]
+layout_mode = 2
+text = "修为"
+label_settings = SubResource("LabelSettings_ppggp")
+vertical_alignment = 1
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="." unique_id=1526547106]
+libraries/ = SubResource("AnimationLibrary_eqa65")

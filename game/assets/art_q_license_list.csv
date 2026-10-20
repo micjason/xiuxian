@@ -62,7 +62,8 @@ sprites/bd_hut.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码�
 sprites/char_meditate.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
 sprites/char_meditate_glow.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
 sprites/chest_closed.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
-anim_layers/chest/chest_open.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/hr/chests.jpg → anim_layers/_src/build_chest2.py → art_out_q/anim_layers/chest/chest_open.png（入库为 art/q/sprites/chest_open.png）
+sprites/chest_closed_hd.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+sprites/chest_open.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
 sprites/fx_aura_radial.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
 sprites/fx_break_glow.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
 sprites/fx_break_ring_1.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
@@ -84,8 +85,16 @@ sprites/fx_sword_trail.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染�
 sprites/fx_teal_vignette.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
 sprites/lotus_platform.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
 sprites/lotus_platform_glow.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+sprites/mon_bat.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
 sprites/mon_bear.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+sprites/mon_bone_golem.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+sprites/mon_fire_crow.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+sprites/mon_fire_jiao.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
 sprites/mon_fox.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+sprites/mon_ghost.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+sprites/mon_ghost_elder.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+sprites/mon_lava_golem.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+sprites/mon_lava_lizard.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
 sprites/mon_snake.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
 sprites/mon_wolf.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
 ui/arrow_dropdown.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
@@ -93,6 +102,10 @@ ui/arrow_select.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无
 ui/arrow_up_green.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
 ui/avatar_frame.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
 ui/avatar_mask.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/avatar_player.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+ui/avatar_player@2x.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+ui/avatar_player_round.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+ui/avatar_player_round@2x.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
 ui/badge_idle_reward.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
 ui/badge_power.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材 ；含烘焙字形（ZCOOL QingKe HuangYou / ZCOOL KuaiLe，SIL OFL 1.1，可用于图片）,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
 ui/badge_realm_mint.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
@@ -220,6 +233,8 @@ ui/tab_sel_plate.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），�
 ui/tab_techniques_active.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
 ui/tab_techniques_normal.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
 ui/tabbar_bg.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/toast_bg.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/toast_bg_lock.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
 ui/toggle_off.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
 ui/toggle_on.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
 ui/well_apricot.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
@@ -228,3 +243,81 @@ ui/well_teal.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第
 /workspace/fonts/ZCOOLKuaiLe-Regular.ttf,字体 ZCOOL KuaiLe（站酷快乐体）,SIL Open Font License 1.1（可商用、可嵌入；不可单独售卖字体）,随包附 OFL 文本,Google Fonts
 /workspace/fonts/ZCOOLQingKeHuangYou-Regular.ttf,字体 ZCOOL QingKe HuangYou（站酷庆科黄油体）,SIL Open Font License 1.1（可商用、可嵌入；不可单独售卖字体）,随包附 OFL 文本,Google Fonts
 (系统) Noto Sans CJK SC Bold,字体 正文,SIL Open Font License 1.1,随包附 OFL 文本,Google/Adobe Noto
+anim_layers/chest/chest_open.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/hr/chests.jpg → anim_layers/_src/build_chest2.py → art_out_q/anim_layers/chest/chest_open.png（入库为 art/q/sprites/chest_open.png）
+anim_q/hero_meditate/hero_glow.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/cut/char_meditate.png 高斯模糊外发光（anim_out_q/_work/assemble.py）→ anim_out_q/hero_meditate/hero_glow.png（由 A 类主角图派生）
+anim_q/hero_meditate/hero_meditate.tscn,自有代码（Godot 场景 / 脚本，动画交付 anim_out_q 生成）,自有,无,/workspace/anim_out_q/hero_meditate/hero_meditate.tscn（README.md；生成工具 _preview_project/tools/build.gd）
+anim_q/hero_meditate/art/back_hair.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src → art_out_q/anim_layers/char/back_hair.png（美术拆层图，rig.json）→ anim_out_q/hero_meditate/art/back_hair.png
+anim_q/hero_meditate/art/blush.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src → art_out_q/anim_layers/char/blush.png（美术拆层图，rig.json）→ anim_out_q/hero_meditate/art/blush.png
+anim_q/hero_meditate/art/body.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src → art_out_q/anim_layers/char/body.png（美术拆层图，rig.json）→ anim_out_q/hero_meditate/art/body.png
+anim_q/hero_meditate/art/cushion_lotus.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src → art_out_q/anim_layers/char/cushion_lotus.png（美术拆层图，rig.json）→ anim_out_q/hero_meditate/art/cushion_lotus.png
+anim_q/hero_meditate/art/eyes_closed.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src → art_out_q/anim_layers/char/eyes_closed.png（美术拆层图，rig.json）→ anim_out_q/hero_meditate/art/eyes_closed.png
+anim_q/hero_meditate/art/eyes_open.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src → art_out_q/anim_layers/char/eyes_open.png（美术拆层图，rig.json）→ anim_out_q/hero_meditate/art/eyes_open.png
+anim_q/hero_meditate/art/front_hair.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src → art_out_q/anim_layers/char/front_hair.png（美术拆层图，rig.json）→ anim_out_q/hero_meditate/art/front_hair.png
+anim_q/hero_meditate/art/hair_bun.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src → art_out_q/anim_layers/char/hair_bun.png（美术拆层图，rig.json）→ anim_out_q/hero_meditate/art/hair_bun.png
+anim_q/hero_meditate/art/head_base.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src → art_out_q/anim_layers/char/head_base.png（美术拆层图，rig.json）→ anim_out_q/hero_meditate/art/head_base.png
+anim_q/hero_meditate/art/mouth.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src → art_out_q/anim_layers/char/mouth.png（美术拆层图，rig.json）→ anim_out_q/hero_meditate/art/mouth.png
+anim_q/hero_meditate/art/mouth_closed.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src → art_out_q/anim_layers/char/mouth_closed.png（美术拆层图，rig.json）→ anim_out_q/hero_meditate/art/mouth_closed.png
+anim_q/hero_meditate/art/robe_hem.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src → art_out_q/anim_layers/char/robe_hem.png（美术拆层图，rig.json）→ anim_out_q/hero_meditate/art/robe_hem.png
+anim_q/hero_meditate/art/sleeve_L.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src → art_out_q/anim_layers/char/sleeve_L.png（美术拆层图，rig.json）→ anim_out_q/hero_meditate/art/sleeve_L.png
+anim_q/hero_meditate/art/sleeve_R.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src → art_out_q/anim_layers/char/sleeve_R.png（美术拆层图，rig.json）→ anim_out_q/hero_meditate/art/sleeve_R.png
+anim_q/hero_meditate/fx/fx_dot_cyan.png,B. 代码生成（程序生成的占位特效图，numpy/PIL，无第三方素材）,自有（本项目代码生成）,无（可让美术替换为同名同尺寸图）,anim_out_q/_work/gen_tex.py → anim_out_q/hero_meditate/fx/fx_dot_cyan.png
+anim_q/hero_meditate/fx/fx_glow.png,B. 代码生成（程序生成的占位特效图，numpy/PIL，无第三方素材）,自有（本项目代码生成）,无（可让美术替换为同名同尺寸图）,anim_out_q/_work/gen_tex.py → anim_out_q/hero_meditate/fx/fx_glow.png
+anim_q/hero_meditate/fx/fx_magic_circle.png,B. 代码生成（程序生成的占位特效图，numpy/PIL，无第三方素材）,自有（本项目代码生成）,无（可让美术替换为同名同尺寸图）,anim_out_q/_work/gen_tex.py → anim_out_q/hero_meditate/fx/fx_magic_circle.png
+anim_q/hero_meditate/fx/fx_qi_ribbon_L.png,B. 代码生成（程序生成的占位特效图，numpy/PIL，无第三方素材）,自有（本项目代码生成）,无（可让美术替换为同名同尺寸图）,anim_out_q/_work/gen_tex.py → anim_out_q/hero_meditate/fx/fx_qi_ribbon_L.png
+anim_q/hero_meditate/fx/fx_qi_ribbon_R.png,B. 代码生成（程序生成的占位特效图，numpy/PIL，无第三方素材）,自有（本项目代码生成）,无（可让美术替换为同名同尺寸图）,anim_out_q/_work/gen_tex.py → anim_out_q/hero_meditate/fx/fx_qi_ribbon_R.png
+anim_q/hero_meditate/fx/fx_sparkle_cyan.png,B. 代码生成（程序生成的占位特效图，numpy/PIL，无第三方素材）,自有（本项目代码生成）,无（可让美术替换为同名同尺寸图）,anim_out_q/_work/gen_tex.py → anim_out_q/hero_meditate/fx/fx_sparkle_cyan.png
+anim_q/hero_meditate/fx/fx_wisp.png,B. 代码生成（程序生成的占位特效图，numpy/PIL，无第三方素材）,自有（本项目代码生成）,无（可让美术替换为同名同尺寸图）,anim_out_q/_work/gen_tex.py → anim_out_q/hero_meditate/fx/fx_wisp.png
+anim_q/ui_fx/ui_break_orb.tscn,自有代码（Godot 场景 / 脚本，动画交付 anim_out_q 生成）,自有,无,/workspace/anim_out_q/ui_fx/ui_break_orb.tscn（README.md；生成工具 _preview_project/tools/build.gd）
+anim_q/ui_fx/ui_button_bounce.tscn,自有代码（Godot 场景 / 脚本，动画交付 anim_out_q 生成）,自有,无,/workspace/anim_out_q/ui_fx/ui_button_bounce.tscn（README.md；生成工具 _preview_project/tools/build.gd）
+anim_q/ui_fx/ui_popup.tscn,自有代码（Godot 场景 / 脚本，动画交付 anim_out_q 生成）,自有,无,/workspace/anim_out_q/ui_fx/ui_popup.tscn（README.md；生成工具 _preview_project/tools/build.gd）
+anim_q/ui_fx/art/btn_orange_124_normal.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/ui/btn_orange_124_normal.png → anim_out_q/ui_fx/art/btn_orange_124_normal.png
+anim_q/ui_fx/art/btn_orange_124_pressed.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/ui/btn_orange_124_pressed.png → anim_out_q/ui_fx/art/btn_orange_124_pressed.png
+anim_q/ui_fx/art/fx_star.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/ui/fx_star.png → anim_out_q/ui_fx/art/fx_star.png
+anim_q/ui_fx/art/orb_base.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src → art_out_q/anim_layers/orb/orb_base.png（美术拆层图，rig.json）→ anim_out_q/ui_fx/art/orb_base.png
+anim_q/ui_fx/art/orb_glow.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src → art_out_q/anim_layers/orb/orb_glow.png（美术拆层图，rig.json）→ anim_out_q/ui_fx/art/orb_glow.png
+anim_q/ui_fx/art/orb_ring_dashed.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src → art_out_q/anim_layers/orb/orb_ring_dashed.png（美术拆层图，rig.json）→ anim_out_q/ui_fx/art/orb_ring_dashed.png
+anim_q/ui_fx/art/orb_text.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src → art_out_q/anim_layers/orb/orb_text.png（美术拆层图，rig.json）→ anim_out_q/ui_fx/art/orb_text.png
+anim_q/ui_fx/art/popup_frame.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/ui/popup_frame.png → anim_out_q/ui_fx/art/popup_frame.png
+anim_q/ui_fx/art/ribbon_title_104.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/ui/ribbon_title_104.png → anim_out_q/ui_fx/art/ribbon_title_104.png
+anim_q/ui_fx/fx/fx_glow.png,B. 代码生成（程序生成的占位特效图，numpy/PIL，无第三方素材）,自有（本项目代码生成）,无（可让美术替换为同名同尺寸图）,anim_out_q/_work/gen_tex.py → anim_out_q/ui_fx/fx/fx_glow.png
+anim_q/ui_fx/fx/fx_sparkle_gold.png,B. 代码生成（程序生成的占位特效图，numpy/PIL，无第三方素材）,自有（本项目代码生成）,无（可让美术替换为同名同尺寸图）,anim_out_q/_work/gen_tex.py → anim_out_q/ui_fx/fx/fx_sparkle_gold.png
+anim_q/float_drop/bag_pulse.tscn,自有代码（Godot 场景 / 脚本，动画交付 anim_out_q 生成）,自有,无,/workspace/anim_out_q/float_drop/bag_pulse.tscn（README.md；生成工具 _preview_project/tools/build.gd）
+anim_q/float_drop/drop_fly.gd,自有代码（Godot 场景 / 脚本，动画交付 anim_out_q 生成）,自有,无,/workspace/anim_out_q/float_drop/drop_fly.gd（README.md；生成工具 _preview_project/tools/build.gd）
+anim_q/float_drop/drop_fly.tscn,自有代码（Godot 场景 / 脚本，动画交付 anim_out_q 生成）,自有,无,/workspace/anim_out_q/float_drop/drop_fly.tscn（README.md；生成工具 _preview_project/tools/build.gd）
+anim_q/float_drop/float_number.gd,自有代码（Godot 场景 / 脚本，动画交付 anim_out_q 生成）,自有,无,/workspace/anim_out_q/float_drop/float_number.gd（README.md；生成工具 _preview_project/tools/build.gd）
+anim_q/float_drop/float_number.tscn,自有代码（Godot 场景 / 脚本，动画交付 anim_out_q 生成）,自有,无,/workspace/anim_out_q/float_drop/float_number.tscn（README.md；生成工具 _preview_project/tools/build.gd）
+anim_q/float_drop/fx/fx_dot_gold.png,B. 代码生成（程序生成的占位特效图，numpy/PIL，无第三方素材）,自有（本项目代码生成）,无（可让美术替换为同名同尺寸图）,anim_out_q/_work/gen_tex.py → anim_out_q/float_drop/fx/fx_dot_gold.png
+anim_q/float_drop/fx/fx_glow.png,B. 代码生成（程序生成的占位特效图，numpy/PIL，无第三方素材）,自有（本项目代码生成）,无（可让美术替换为同名同尺寸图）,anim_out_q/_work/gen_tex.py → anim_out_q/float_drop/fx/fx_glow.png
+anim_q/float_drop/fx/fx_ring.png,B. 代码生成（程序生成的占位特效图，numpy/PIL，无第三方素材）,自有（本项目代码生成）,无（可让美术替换为同名同尺寸图）,anim_out_q/_work/gen_tex.py → anim_out_q/float_drop/fx/fx_ring.png
+anim_q/float_drop/fx/fx_sparkle_gold.png,B. 代码生成（程序生成的占位特效图，numpy/PIL，无第三方素材）,自有（本项目代码生成）,无（可让美术替换为同名同尺寸图）,anim_out_q/_work/gen_tex.py → anim_out_q/float_drop/fx/fx_sparkle_gold.png
+anim_q/float_drop/art/drop_crown.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/cut/eq_crown.png（anim_out_q/_work/assemble.py 拷贝）→ anim_out_q/float_drop/art/drop_crown.png
+anim_q/float_drop/art/drop_stone.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/cut/icon_stone.png（anim_out_q/_work/assemble.py 拷贝）→ anim_out_q/float_drop/art/drop_stone.png
+anim_q/float_drop/art/tab_bag_normal.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,art_out_q/ui/tab_bag_normal.png → anim_out_q/float_drop/art/tab_bag_normal.png
+anim_q/breakthrough/breakthrough_fx.tscn,自有代码（Godot 场景 / 脚本，动画交付 anim_out_q 生成）,自有,无,/workspace/anim_out_q/breakthrough/breakthrough_fx.tscn（README.md；生成工具 _preview_project/tools/build.gd）
+anim_q/breakthrough/fx/fx_dot_cyan.png,B. 代码生成（程序生成的占位特效图，numpy/PIL，无第三方素材）,自有（本项目代码生成）,无（可让美术替换为同名同尺寸图）,anim_out_q/_work/gen_tex.py → anim_out_q/breakthrough/fx/fx_dot_cyan.png
+anim_q/breakthrough/fx/fx_glow.png,B. 代码生成（程序生成的占位特效图，numpy/PIL，无第三方素材）,自有（本项目代码生成）,无（可让美术替换为同名同尺寸图）,anim_out_q/_work/gen_tex.py → anim_out_q/breakthrough/fx/fx_glow.png
+anim_q/breakthrough/fx/fx_magic_circle.png,B. 代码生成（程序生成的占位特效图，numpy/PIL，无第三方素材）,自有（本项目代码生成）,无（可让美术替换为同名同尺寸图）,anim_out_q/_work/gen_tex.py → anim_out_q/breakthrough/fx/fx_magic_circle.png
+anim_q/breakthrough/fx/fx_pillar.png,B. 代码生成（程序生成的占位特效图，numpy/PIL，无第三方素材）,自有（本项目代码生成）,无（可让美术替换为同名同尺寸图）,anim_out_q/_work/gen_tex.py → anim_out_q/breakthrough/fx/fx_pillar.png
+anim_q/breakthrough/fx/fx_rays.png,B. 代码生成（程序生成的占位特效图，numpy/PIL，无第三方素材）,自有（本项目代码生成）,无（可让美术替换为同名同尺寸图）,anim_out_q/_work/gen_tex.py → anim_out_q/breakthrough/fx/fx_rays.png
+anim_q/breakthrough/fx/fx_ring.png,B. 代码生成（程序生成的占位特效图，numpy/PIL，无第三方素材）,自有（本项目代码生成）,无（可让美术替换为同名同尺寸图）,anim_out_q/_work/gen_tex.py → anim_out_q/breakthrough/fx/fx_ring.png
+anim_q/breakthrough/fx/fx_ripple.png,B. 代码生成（程序生成的占位特效图，numpy/PIL，无第三方素材）,自有（本项目代码生成）,无（可让美术替换为同名同尺寸图）,anim_out_q/_work/gen_tex.py → anim_out_q/breakthrough/fx/fx_ripple.png
+anim_q/breakthrough/fx/fx_sparkle_cyan.png,B. 代码生成（程序生成的占位特效图，numpy/PIL，无第三方素材）,自有（本项目代码生成）,无（可让美术替换为同名同尺寸图）,anim_out_q/_work/gen_tex.py → anim_out_q/breakthrough/fx/fx_sparkle_cyan.png
+anim_q/breakthrough/fx/fx_sparkle_gold.png,B. 代码生成（程序生成的占位特效图，numpy/PIL，无第三方素材）,自有（本项目代码生成）,无（可让美术替换为同名同尺寸图）,anim_out_q/_work/gen_tex.py → anim_out_q/breakthrough/fx/fx_sparkle_gold.png
+anim_q/breakthrough/art/bar_bg_40.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/ui/bar_bg_40.png → anim_out_q/breakthrough/art/bar_bg_40.png
+anim_q/breakthrough/art/bar_fill_gold_32.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/ui/bar_fill_gold_32.png → anim_out_q/breakthrough/art/bar_fill_gold_32.png
+anim_q/breakthrough/art/bar_shine.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/ui/bar_shine.png → anim_out_q/breakthrough/art/bar_shine.png
+anim_q/breakthrough/art/ribbon_title_104.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/ui/ribbon_title_104.png → anim_out_q/breakthrough/art/ribbon_title_104.png
+anim_q/chest_open/chest_open.tscn,自有代码（Godot 场景 / 脚本，动画交付 anim_out_q 生成）,自有,无,/workspace/anim_out_q/chest_open/chest_open.tscn（README.md；生成工具 _preview_project/tools/build.gd）
+anim_q/chest_open/number_roll.gd,自有代码（Godot 场景 / 脚本，动画交付 anim_out_q 生成）,自有,无,/workspace/anim_out_q/chest_open/number_roll.gd（README.md；生成工具 _preview_project/tools/build.gd）
+anim_q/chest_open/art/chest_base_closed.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src → art_out_q/anim_layers/chest/chest_base_closed.png（美术拆层图，rig.json）→ anim_out_q/chest_open/art/chest_base_closed.png
+anim_q/chest_open/art/chest_lid.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src → art_out_q/anim_layers/chest/chest_lid.png（美术拆层图，rig.json）→ anim_out_q/chest_open/art/chest_lid.png
+anim_q/chest_open/art/chest_open.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,art_out_q/_src/raw/sprites/chest_open.png（同 art/q/sprites/chest_open.png）→ anim_out_q/chest_open/art/chest_open.png
+anim_q/chest_open/art/coin.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src → art_out_q/anim_layers/chest/coin.png（美术拆层图，rig.json）→ anim_out_q/chest_open/art/coin.png
+anim_q/chest_open/art/spirit_stone.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src → art_out_q/anim_layers/chest/spirit_stone.png（美术拆层图，rig.json）→ anim_out_q/chest_open/art/spirit_stone.png
+anim_q/chest_open/art/yuanbao.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src → art_out_q/anim_layers/chest/yuanbao.png（美术拆层图，rig.json）→ anim_out_q/chest_open/art/yuanbao.png
+anim_q/chest_open/fx/fx_glow.png,B. 代码生成（程序生成的占位特效图，numpy/PIL，无第三方素材）,自有（本项目代码生成）,无（可让美术替换为同名同尺寸图）,anim_out_q/_work/gen_tex.py → anim_out_q/chest_open/fx/fx_glow.png
+anim_q/chest_open/fx/fx_pillar.png,B. 代码生成（程序生成的占位特效图，numpy/PIL，无第三方素材）,自有（本项目代码生成）,无（可让美术替换为同名同尺寸图）,anim_out_q/_work/gen_tex.py → anim_out_q/chest_open/fx/fx_pillar.png
+anim_q/chest_open/fx/fx_rays.png,B. 代码生成（程序生成的占位特效图，numpy/PIL，无第三方素材）,自有（本项目代码生成）,无（可让美术替换为同名同尺寸图）,anim_out_q/_work/gen_tex.py → anim_out_q/chest_open/fx/fx_rays.png
+anim_q/chest_open/fx/fx_ring.png,B. 代码生成（程序生成的占位特效图，numpy/PIL，无第三方素材）,自有（本项目代码生成）,无（可让美术替换为同名同尺寸图）,anim_out_q/_work/gen_tex.py → anim_out_q/chest_open/fx/fx_ring.png
+anim_q/chest_open/fx/fx_sparkle_gold.png,B. 代码生成（程序生成的占位特效图，numpy/PIL，无第三方素材）,自有（本项目代码生成）,无（可让美术替换为同名同尺寸图）,anim_out_q/_work/gen_tex.py → anim_out_q/chest_open/fx/fx_sparkle_gold.png
+assets/fonts/ZCOOLQingKeHuangYou-Regular.subset.woff2,字体 ZCOOL QingKe HuangYou（站酷庆科黄油体）子集（fontTools 按 ZCOOLKuaiLe 子集字表 + ASCII 裁剪）,SIL Open Font License 1.1（可商用、可嵌入；不可单独售卖字体）,随包附 OFL 文本 assets/fonts/OFL-ZCOOLQingKeHuangYou.txt,Google Fonts /workspace/fonts/ZCOOLQingKeHuangYou-Regular.ttf → tools/art/install_q_art.py 子集化（动画飘字 / 横幅用）

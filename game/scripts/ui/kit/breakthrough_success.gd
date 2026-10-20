@@ -1,8 +1,11 @@
 class_name BreakthroughSuccess
 extends Control
-## 突破成功弹窗（设计稿 06）：丝带「突破成功」、旧境界 → 新境界、四项属性前后和增量、
+## 突破成功弹窗：绶带「突破成功」、主角坐莲台（动画主角 + 突破特效 idle）、旧境界 → 新境界、四项属性前后和增量、
 ## 总战力前后与增幅、境界解锁（每秒修为 / 大招伤害 / 新关卡）、「继续修炼」。
 ## 数据来自 BreakthroughView.success_summary（前后两份服务器状态）和 BreakthroughView.unlocks。
+## 2026-10-20：旧版顶部插画（墨色旧主角）换成 Q 版舞台 + 新主角；「突破成功」绶带放在弹窗最上面单独一行，
+## 下面才是舞台和「旧境界 → 新境界」——原来绶带压在插画底边、离境界行只差几像素，看着像压住了标题。
+## 弹出用 ui_popup 的 open 动画；「继续修炼」按下回弹。
 
 signal closed
 
@@ -10,8 +13,9 @@ var _panel: PanelContainer
 var _body: VBoxContainer
 var _summary: Dictionary = {}
 var _unlocks: Array[Dictionary] = []
+var _fx: Control
 
-const HEADER_HEIGHT := 330.0
+const STAGE_HEIGHT := 380.0
 
 
 func _init() -> void:
@@ -19,15 +23,23 @@ func _init() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	visible = false
-	var dim := ColorRect.new()
-	dim.color = Color(0, 0, 0, 0.72)
-	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(dim)
+	var host: Control = self
+	_fx = QFx.popup_shell(Color(0, 0, 0, 0.72))
+	if _fx != null:
+		_fx.name = "PopupFx"
+		add_child(_fx)
+		host = QFx.popup_content(_fx)
+	else:
+		var dim := ColorRect.new()
+		dim.color = Color(0, 0, 0, 0.72)
+		dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+		add_child(dim)
 	var center := CenterContainer.new()
 	center.set_anchors_preset(Control.PRESET_FULL_RECT)
 	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(center)
+	host.add_child(center)
 	_panel = PanelContainer.new()
+	_panel.name = "Panel"
 	_panel.custom_minimum_size = Vector2(936, 0)
 	_panel.add_theme_stylebox_override("panel", ArtLib.nine("panel_popup"))
 	center.add_child(_panel)
@@ -83,48 +95,63 @@ func show_success(summary: Dictionary, unlocks: Array[Dictionary]) -> void:
 	var button := UiKit.button("继续修炼", MainTheme.VAR_PRIMARY, UiTokens.H_CTA)
 	button.name = "ContinueButton"
 	button.pressed.connect(close_popup)
+	QFx.bounce(button)
 	_body.add_child(button)
 	visible = true
+	if _fx != null:
+		QFx.set_popup_pivot(_fx, Rect2(Vector2.ZERO, get_viewport_rect().size))
+		QFx.play(_fx, "open")
 
 
-## 顶部插画（popup_breakthrough_header 960×420）+ 压在底边的红色丝带「突破成功」。
+## 顶部：「突破成功」绶带（单独一行，不压任何字）+ 舞台（青色底、莲台、动画主角、突破特效 idle 循环）。
 func _header() -> Control:
-	var holder := Control.new()
-	holder.custom_minimum_size = Vector2(0, HEADER_HEIGHT)
-	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if ArtLib.has_ui("popup_breakthrough_header"):
-		var frame := PanelContainer.new()
-		frame.set_anchors_preset(Control.PRESET_FULL_RECT)
-		frame.offset_bottom = -40
-		frame.clip_contents = true
-		frame.add_theme_stylebox_override("panel", ArtLib.nine("panel_inset"))
-		frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		holder.add_child(frame)
-		var art := TextureRect.new()
-		art.name = "HeaderArt"
-		art.texture = ArtLib.ui("popup_breakthrough_header")
-		art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-		art.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		frame.add_child(art)
-	var ribbon := PanelContainer.new()
+	var box := UiKit.vbox(12)
+	box.name = "Header"
+	var ribbon := QKit.ribbon("突破成功", 60, 420, true)
 	ribbon.name = "Ribbon"
-	ribbon.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-	ribbon.offset_left = -310
-	ribbon.offset_right = 310
-	ribbon.offset_top = -110
-	ribbon.offset_bottom = 0
-	ribbon.add_theme_stylebox_override("panel", ArtLib.nine("ribbon_title"))
-	ribbon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var title := UiKit.label("突破成功", 72, UiTokens.GOLD_HOVER, HORIZONTAL_ALIGNMENT_CENTER)
-	title.name = "Title"
-	title.add_theme_font_override("font", ArtLib.title_font())
-	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	title.add_theme_color_override("font_outline_color", Color(0.3, 0.05, 0.02, 0.9))
-	title.add_theme_constant_override("outline_size", 10)
-	ribbon.add_child(title)
-	holder.add_child(ribbon)
-	return holder
+	var title := ribbon.find_child("RibbonText", true, false) as Label
+	if title != null:
+		title.name = "Title"
+	box.add_child(ribbon)
+	var stage := Panel.new()
+	stage.name = "Stage"
+	stage.custom_minimum_size = Vector2(0, STAGE_HEIGHT)
+	stage.clip_contents = true
+	stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stage.add_theme_stylebox_override("panel", QKit.cut_box("well_teal", 0, 0) if ArtLib.qui("well_teal") != null else QSkin.custom(Color("cfeefa"), Color(0, 0, 0, 0), 0, 36, 0, 0, 0))
+	box.add_child(stage)
+	var anchor := Control.new()
+	anchor.name = "StageAnchor"
+	anchor.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	anchor.anchor_left = 0.5
+	anchor.anchor_right = 0.5
+	anchor.offset_top = STAGE_HEIGHT - 40.0
+	anchor.offset_bottom = STAGE_HEIGHT - 40.0
+	stage.add_child(anchor)
+	var fx := QFx.make(QFx.BREAKTHROUGH) as Node2D
+	if fx != null:
+		fx.name = "BreakFx"
+		fx.scale = Vector2.ONE * 0.8
+		var banner := fx.get_node_or_null("Front/Title") as CanvasItem
+		if banner != null:
+			banner.visible = false  # 标题已在上面的绶带里
+		anchor.add_child(fx)
+		QFx.play(fx, "idle")
+	if ArtLib.has_q("sprites/lotus_platform.png"):
+		var lotus := TextureRect.new()
+		lotus.texture = ArtLib.q("sprites/lotus_platform")
+		lotus.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		lotus.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		lotus.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		lotus.position = Vector2(-184, -133)
+		lotus.size = Vector2(368, 179)
+		anchor.add_child(lotus)
+	var hero := QHero.new(true, false)
+	hero.name = "Hero"
+	hero.position = Vector2(-160, -313)
+	hero.size = Vector2(320, 313)
+	anchor.add_child(hero)
+	return box
 
 
 func _stat_row(row: Dictionary) -> Control:
@@ -154,3 +181,8 @@ static func _icon_of(key: String) -> String:
 func close_popup() -> void:
 	visible = false
 	closed.emit()
+
+
+## 顶部绶带「突破成功」（测试用）。
+func title_label() -> Label:
+	return _body.find_child("Title", true, false) as Label

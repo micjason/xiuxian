@@ -115,7 +115,7 @@ OFL 允许商用、嵌入游戏、修改和再发布，不得单独出售字体�
 
 ## 8. Q 版美术交付（2026-10-20，/workspace/art_out_q/，已并入 `art/q/`）
 
-逐文件清单照抄美术的 `license_q.csv` → `art_q_license_list.csv`（229 行：美术 228 行 + 2026-10-20 补交的开箱图 1 行）。入库脚本 `tools/art/install_q_art.py`：`art/q/ui/` 保持美术原名，`art/q/{icons,items,sprites,bg}` 按 ArtLib 的 id 改名（对应表在脚本 `MAP` 里，可反查美术原文件名）。**不确定的一律“待确认”。**
+逐文件清单照抄美术的 `license_q.csv` → `art_q_license_list.csv`（322 行：美术 244 行（含 2026-10-20 第二批补充：提示条、开箱宝箱、头像、8 只新怪物）+ `tools/art/q_license_extra.csv` 补的 78 行：开箱拆层图 1 行、动画交付 `anim_q/` 77 个文件、站酷庆科黄油体子集 1 行）。入库脚本 `tools/art/install_q_art.py`：`art/q/ui/` 保持美术原名，`art/q/{icons,items,sprites,bg}` 按 ArtLib 的 id 改名（对应表在脚本 `MAP` 里，可反查美术原文件名）。**不确定的一律“待确认”。**
 
 | 类别 | 仓库文件 | 制作方式（美术自述） | 授权状态 | 要做的事 |
 |---|---|---|---|---|
@@ -123,10 +123,23 @@ OFL 允许商用、嵌入游戏、修改和再发布，不得单独出售字体�
 | B. 代码绘制 | `art/q/ui/` 的九宫格、按钮、底栏、突破球、进度条、品质格、开关、红点、角标等；`art/q/bg/dots_tile.png`、`scene_fade_*.png`；`art/q/sprites/fx_*.png` | HTML/CSS/SVG 无头 Chrome 渲染，无第三方图片 | 原创，可商用 | 无 |
 | B+字体 | `art/q/ui/` 里烘焙了字的 15 张（`orb_normal`、`orb_pressed`、`float_word_*`、`digits_*.png/.fnt` 等，见清单） | 字形来自 ZCOOL QingKe HuangYou / ZCOOL KuaiLe | SIL OFL 1.1，字体可用于图片 | 致谢页列出字体 |
 | 字体 | `fonts/ZCOOLKuaiLe-Regular.subset.woff2`（Q 版标题/按钮字，按用到的字子集化） | Copyright 2018 The ZCOOL KuaiLe Project Authors | SIL OFL 1.1，可商用、可嵌入，不得单独出售 | 全文 `fonts/OFL-ZCOOLKuaiLe.txt` |
+| 字体 | `fonts/ZCOOLQingKeHuangYou-Regular.subset.woff2`（动画飘字、「突破成功」横幅用；按 ZCOOLKuaiLe 子集的字表 + ASCII 子集化，原 8 MB → 约 0.9 MB） | Copyright 2018 The ZCOOL QingKe HuangYou Project Authors | SIL OFL 1.1，可商用、可嵌入，不得单独出售 | 全文 `fonts/OFL-ZCOOLQingKeHuangYou.txt` |
+| A. AI 生成 + 代码后处理（2026-10-20 第二批） | `art/q/sprites/mon_ghost、mon_bone_golem、mon_bat、mon_ghost_elder、mon_lava_lizard、mon_fire_crow、mon_lava_golem、mon_fire_jiao.png`（幽冥古道 / 赤炎火山怪物）；`sprites/chest_open.png`（换成美术新交的开箱图）、`sprites/chest_closed_hd.png`；`ui/avatar_player*.png`（头像，`icons/avatar.png` 也换成它） | 同上 A 类 | **商用/再授权条款尚未确认** | 同上 |
+| B. 代码绘制（2026-10-20 第二批） | `art/q/ui/toast_bg.png`、`toast_bg_lock.png`（「功能暂未开放」提示条） | 同上 B 类 | 原创，可商用 | 无 |
 
 备注：
 - 九宫格边距由脚本从美术 `checklist_q.csv` 生成到 `scripts/ui/art/q_nine.gd`；入库时校验了尺寸和“宽 > 左+右、高 > 上+下”，结果写在 `art/q/CHECK.txt`。
 - 美术的 PNG 版背景（几 MB）没有入库，只用 webp。旧版墨色美术（第 7 节）仍在仓库里，Q 版没有的切图回退到它。
+
+### 8.1 动画交付（2026-10-20，/workspace/anim_out_q/，已并入 `game/anim_q/`）
+
+成鹏确认的 5 个动画（主角打坐、按钮 / 弹窗 / 突破圆钮、飘字与掉落、突破特效、开箱）。逐文件见 `art_q_license_list.csv` 里 `anim_q/` 开头的 77 行。入库脚本 `tools/art/install_q_art.py --anim`：整夹拷贝，但**不拷交付里自带的字体**（每个文件夹各带一份 8 MB 庆科黄油体 + 1.5 MB 快乐体），场景里的字体引用改指 `assets/fonts/` 的共用子集。
+
+| 类别 | 文件 | 制作方式 | 授权状态 | 要做的事 |
+|---|---|---|---|---|
+| A. AI 生成 + 代码后处理 | `anim_q/hero_meditate/art/*`（主角拆层图，美术 `anim_layers/char/`）、`hero_meditate/hero_glow.png`（由主角图模糊出的外发光）、`chest_open/art/*`（宝箱拆层图和金币 / 灵石 / 元宝，美术 `anim_layers/chest/`）、`float_drop/art/drop_crown.png、drop_stone.png`（示例掉落图标） | 同第 8 节 A 类 | **商用/再授权条款尚未确认** | 同第 8 节 A 类 |
+| B. 代码绘制 | `anim_q/*/fx/*`（光点、光环、光柱、法阵、水波纹、星光等，`anim_out_q/_work/gen_tex.py` 程序生成）；`ui_fx/art/*`、`breakthrough/art/*`、`float_drop/art/tab_bag_normal.png`（与 `art/q/ui/` 同名切图相同）；`ui_fx/art/orb_*.png`（突破圆钮拆层，美术 `anim_layers/orb/`，`orb_text` 含烘焙字形） | 程序生成 / HTML 渲染，无第三方素材 | 原创，可商用 | 无（可让美术换成同名同尺寸图） |
+| 自有代码 | `anim_q/**/*.tscn`、`float_number.gd`、`drop_fly.gd`、`number_roll.gd` | 动画交付生成 | 自有 | 无 |
 
 ## 如何替换
 

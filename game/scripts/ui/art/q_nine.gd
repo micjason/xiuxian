@@ -72,6 +72,8 @@ const TABLE := {
 	"strip_cream_96": [52, 48, 52, 50, true],
 	"tab_filter_normal": [34, 39, 34, 42, true],
 	"tabbar_bg": [52, 57, 52, 8, true],
+	"toast_bg": [72, 60, 72, 60, true],
+	"toast_bg_lock": [124, 60, 72, 60, true],
 	"well_apricot": [32, 36, 32, 32, false],
 	"well_bag_grid": [30, 30, 30, 30, false],
 	"well_teal": [32, 32, 32, 32, false],

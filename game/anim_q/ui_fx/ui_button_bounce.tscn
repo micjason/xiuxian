@@ -1,0 +1,217 @@
+[gd_scene format=3]
+
+[ext_resource type="Texture2D" path="res://anim_q/ui_fx/art/btn_orange_124_normal.png" id="1_hu72q"]
+[ext_resource type="FontFile" path="res://assets/fonts/ZCOOLKuaiLe-Regular.subset.woff2" id="2_cu6xb"]
+[ext_resource type="Texture2D" path="res://anim_q/ui_fx/art/btn_orange_124_pressed.png" id="3_rr3bi"]
+
+[sub_resource type="LabelSettings" id="LabelSettings_v2dqe"]
+font = ExtResource("2_cu6xb")
+font_size = 54
+outline_size = 16
+outline_color = Color(0.41960785, 0.2901961, 0.22745098, 1)
+
+[sub_resource type="Animation" id="Animation_7u07r"]
+length = 0.001
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath(".:scale")
+tracks/0/interp = 0
+tracks/0/loop_wrap = false
+tracks/0/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [Vector2(1, 1)]
+}
+tracks/1/type = "value"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath("Bg:texture")
+tracks/1/interp = 0
+tracks/1/loop_wrap = false
+tracks/1/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [ExtResource("1_hu72q")]
+}
+tracks/2/type = "value"
+tracks/2/imported = false
+tracks/2/enabled = true
+tracks/2/path = NodePath("Text:position")
+tracks/2/interp = 0
+tracks/2/loop_wrap = false
+tracks/2/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [Vector2(0, 0)]
+}
+
+[sub_resource type="Animation" id="Animation_laegr"]
+length = 0.44
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath(".:scale")
+tracks/0/interp = 2
+tracks/0/loop_wrap = false
+tracks/0/keys = {
+"times": PackedFloat32Array(0, 0.08, 0.12, 0.22, 0.33, 0.44),
+"transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1),
+"update": 0,
+"values": [Vector2(1, 1), Vector2(0.93, 0.93), Vector2(0.93, 0.93), Vector2(1.07, 1.07), Vector2(0.98, 0.98), Vector2(1, 1)]
+}
+tracks/1/type = "value"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath("Bg:texture")
+tracks/1/interp = 0
+tracks/1/loop_wrap = false
+tracks/1/keys = {
+"times": PackedFloat32Array(0, 0.12),
+"transitions": PackedFloat32Array(1, 1),
+"update": 1,
+"values": [ExtResource("3_rr3bi"), ExtResource("1_hu72q")]
+}
+tracks/2/type = "value"
+tracks/2/imported = false
+tracks/2/enabled = true
+tracks/2/path = NodePath("Text:position")
+tracks/2/interp = 0
+tracks/2/loop_wrap = false
+tracks/2/keys = {
+"times": PackedFloat32Array(0, 0.12),
+"transitions": PackedFloat32Array(1, 1),
+"update": 1,
+"values": [Vector2(0, 6), Vector2(0, 0)]
+}
+
+[sub_resource type="Animation" id="Animation_fnn8b"]
+length = 0.08
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath(".:scale")
+tracks/0/interp = 2
+tracks/0/loop_wrap = false
+tracks/0/keys = {
+"times": PackedFloat32Array(0, 0.08),
+"transitions": PackedFloat32Array(1, 1),
+"update": 0,
+"values": [Vector2(1, 1), Vector2(0.93, 0.93)]
+}
+tracks/1/type = "value"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath("Bg:texture")
+tracks/1/interp = 0
+tracks/1/loop_wrap = false
+tracks/1/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [ExtResource("3_rr3bi")]
+}
+tracks/2/type = "value"
+tracks/2/imported = false
+tracks/2/enabled = true
+tracks/2/path = NodePath("Text:position")
+tracks/2/interp = 0
+tracks/2/loop_wrap = false
+tracks/2/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [Vector2(0, 6)]
+}
+
+[sub_resource type="Animation" id="Animation_2ke4o"]
+length = 0.34
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath(".:scale")
+tracks/0/interp = 2
+tracks/0/loop_wrap = false
+tracks/0/keys = {
+"times": PackedFloat32Array(0, 0.12, 0.23, 0.34),
+"transitions": PackedFloat32Array(1, 1, 1, 1),
+"update": 0,
+"values": [Vector2(0.93, 0.93), Vector2(1.07, 1.07), Vector2(0.98, 0.98), Vector2(1, 1)]
+}
+tracks/1/type = "value"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath("Bg:texture")
+tracks/1/interp = 0
+tracks/1/loop_wrap = false
+tracks/1/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [ExtResource("1_hu72q")]
+}
+tracks/2/type = "value"
+tracks/2/imported = false
+tracks/2/enabled = true
+tracks/2/path = NodePath("Text:position")
+tracks/2/interp = 0
+tracks/2/loop_wrap = false
+tracks/2/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [Vector2(0, 0)]
+}
+
+[sub_resource type="AnimationLibrary" id="AnimationLibrary_mf4nu"]
+_data = {
+&"RESET": SubResource("Animation_7u07r"),
+&"click": SubResource("Animation_laegr"),
+&"press": SubResource("Animation_fnn8b"),
+&"release": SubResource("Animation_2ke4o")
+}
+
+[node name="BounceButton" type="Control" unique_id=1299631497]
+layout_mode = 3
+anchors_preset = 0
+offset_right = 400.0
+offset_bottom = 130.0
+pivot_offset = Vector2(200, 65)
+
+[node name="Bg" type="NinePatchRect" parent="." unique_id=1056080710]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+pivot_offset = Vector2(200, 65)
+texture = ExtResource("1_hu72q")
+patch_margin_left = 66
+patch_margin_top = 64
+patch_margin_right = 66
+patch_margin_bottom = 64
+
+[node name="Text" type="Label" parent="." unique_id=898588191]
+layout_mode = 0
+offset_right = 400.0
+offset_bottom = 122.0
+pivot_offset = Vector2(200, 61)
+text = "领 取"
+label_settings = SubResource("LabelSettings_v2dqe")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Hit" type="Button" parent="." unique_id=1802241331]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+pivot_offset = Vector2(200, 65)
+focus_mode = 0
+flat = true
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="." unique_id=1246489950]
+libraries/ = SubResource("AnimationLibrary_mf4nu")
+
+[connection signal="button_down" from="Hit" to="AnimationPlayer" method="play" binds= ["press"]]
+[connection signal="button_up" from="Hit" to="AnimationPlayer" method="play" binds= ["release"]]

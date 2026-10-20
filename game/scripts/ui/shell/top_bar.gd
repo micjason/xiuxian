@@ -76,14 +76,10 @@ func _build_identity() -> void:
 	face.name = "Face"
 	face.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	face.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	## 美术没交单独的头像：取打坐小人 hero_meditate 的头部（680×665 图里 190,26 起 300×300）。
-	if ArtLib.has_q("sprites/hero_meditate.png"):
-		var head := AtlasTexture.new()
-		head.atlas = ArtLib.q("sprites/hero_meditate")
-		head.region = Rect2(190, 26, 300, 300)
-		face.texture = head
-	else:
-		face.texture = ArtLib.icon("avatar_meditate")
+	## 主角头像：美术 2026-10-20 补交的 avatar_player_round（已裁圆、浅青渐变底，SPEC_Q 12.3），上盖 avatar_frame。
+	var round := ArtLib.qui("avatar_player_round@2x")
+	face.name = "Face"
+	face.texture = round if round != null else ArtLib.icon("avatar_meditate")
 	_place(face, 6, 6, 124, 124)
 	face.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var mask := ShaderMaterial.new()

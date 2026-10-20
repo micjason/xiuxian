@@ -85,7 +85,7 @@ func _run_play(scene: Node) -> void:
 	await get_tree().create_timer(2.0).timeout
 	await _shot("03_main.png")
 	var state: Dictionary = scene.get("_state") if scene.get("_state") is Dictionary else {}
-	print("LIVE play realm=%s cultivation=%s" % [str(state.get("realmName", "?")), str(state.get("cultivation", "?"))])
+	print("LIVE play realm=%s cultivation=%s spiritStones=%s" % [str(state.get("realmName", "?")), str(state.get("cultivation", "?")), str(state.get("spiritStones", "<missing>"))])
 	scene.call("_show_page", "adventure")
 	await get_tree().create_timer(1.5).timeout
 	await _shot("04_adventure.png")

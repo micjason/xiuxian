@@ -11,6 +11,11 @@ signal retry_requested(stage_slug: String)
 
 enum Phase { READY, RUNNING, SUBMITTING, RESULT }
 
+## 首领战特效（anim_q/battle_boss）：登场、飞剑/大招、受击闪白、震屏、伤害数字、血条白色残影、胜负表现。
+const BossBattleFx := preload("res://anim_q/battle_boss/boss_battle.tscn")
+const HpTrail := preload("res://anim_q/battle_boss/hp_trail.gd")
+var _fx: Node2D
+
 var phase := Phase.READY
 var fight: BossFight
 var speed := 1.0
@@ -139,6 +144,9 @@ func _build_arena() -> void:
 	_float_layer.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_float_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_arena.add_child(_float_layer)
+	_fx = BossBattleFx.instantiate()
+	_arena.add_child(_fx)
+	_fx.attach(_arena, _arena.get_node_or_null("BattleHero") if _hero_art == null else _hero_art, _boss_art)
 	_start_button = UiKit.cta_button("开始挑战", "限时 45 秒", MainTheme.VAR_PRIMARY, 150)
 	_start_button.name = "StartButton"
 	_start_button.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
@@ -261,6 +269,7 @@ func open_stage(state: Dictionary, content: Dictionary, stage: Dictionary, gate:
 		_boss_art.texture = ArtLib.icon(ArtLib.boss_icon_name(_boss_name))
 		_boss_art.modulate = UiTokens.rarity_color(4).lightened(0.25)
 		_boss_art.flip_h = false
+	_fx.set_boss_from_art()
 	_refresh_bars()
 	_refresh_ult()
 	_refresh_time()
@@ -293,6 +302,8 @@ func _on_start() -> void:
 	phase = Phase.RUNNING
 	_clock = 0.0
 	_start_button.visible = false
+	# 先播「首领来袭」登场（约 1.75 秒）；登场期间 _process 不推进战斗时钟
+	_fx.play_intro()
 	_append_info("战斗开始")
 	if bool(_gate.get("full", false)):
 		_append_info(GateNotice.text(_gate))
@@ -309,6 +320,8 @@ func _on_ult_tapped() -> void:
 func _process(delta: float) -> void:
 	if phase != Phase.RUNNING or fight == null or not is_visible_in_tree():
 		return
+	if _fx.is_intro_playing():
+		return
 	_clock += delta * speed
 	fight.advance_to(_clock)
 	_consume_events()
@@ -318,6 +331,7 @@ func _process(delta: float) -> void:
 		phase = Phase.SUBMITTING
 		_subtitle.text = "战斗结束，正在结算……"
 		_ult.enabled = false
+		_fx.play_result(fight.win, fight.reason)
 		submit_requested.emit(stage_slug, fight.upload_taps())
 
 
@@ -333,6 +347,7 @@ func step(seconds: float) -> void:
 	if fight.finished:
 		phase = Phase.SUBMITTING
 		_ult.enabled = false
+		_fx.play_result(fight.win, fight.reason)
 		submit_requested.emit(stage_slug, fight.upload_taps())
 
 
@@ -343,7 +358,7 @@ func _consume_events() -> void:
 	for event in events:
 		var line := BattleReportBuilder.live_line(event, _boss_name, _ult_name)
 		_append_report(int(line.kind), str(line.text))
-		_float_damage(event)
+		_fx.on_event(event)
 	_refresh_bars()
 
 
@@ -366,10 +381,22 @@ func _refresh_bars() -> void:
 
 
 func _set_bar(host: Control, ratio: float, fill: String, text: String) -> void:
-	UiKit.clear(host)
+	# 白色残影（HpTrail）常驻，不跟着清；顺序：血条 → 残影 → 气血文字
+	var trail := host.get_node_or_null("HpTrail") as Control
+	for child in host.get_children():
+		if child != trail:
+			host.remove_child(child)
+			child.queue_free()
 	var bar := UiKit.ratio_bar(clampf(ratio, 0.0, 1.0), fill, 52)
 	bar.set_anchors_preset(Control.PRESET_FULL_RECT)
 	host.add_child(bar)
+	if trail == null:
+		trail = HpTrail.new()
+		trail.name = "HpTrail"
+		host.add_child(trail)
+	else:
+		host.move_child(trail, -1)
+	trail.set_ratio(clampf(ratio, 0.0, 1.0))
 	var label := UiKit.label(text, UiTokens.FS_MICRO, UiTokens.TEXT, HORIZONTAL_ALIGNMENT_CENTER)
 	label.set_anchors_preset(Control.PRESET_FULL_RECT)
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -475,6 +502,7 @@ func show_submit_error(message: String) -> void:
 	_start_button.disabled = false
 	_subtitle.text = message
 	_report.add_line(BattleReport.Kind.LOSE, "结算失败：%s" % message, 0)
+	_fx.set_boss_from_art()
 
 
 ## 服务器结算返回后显示结果：完整战报换成服务器的版本，再弹出结算面板。
@@ -523,6 +551,12 @@ func show_result(result: Dictionary, name_of: Callable) -> void:
 	again.pressed.connect(func() -> void: retry_requested.emit(stage_slug))
 	buttons.add_child(again)
 	_result_body.add_child(buttons)
+	_ult.enabled = false
+	# 结算内容先准备好；等胜负表现（首领溶解 / 主角变灰 + 横幅，约 1.9 秒）播完再切到结算面板
+	if _fx.is_result_playing() and is_visible_in_tree():
+		await _fx.result_finished
+		if phase != Phase.RESULT:
+			return
 	_result_panel.visible = true
 	_arena.visible = false
 	_controls.visible = false

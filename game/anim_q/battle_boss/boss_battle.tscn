@@ -1,0 +1,485 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://anim_q/battle_boss/boss_battle.gd" id="1_4hgkb"]
+[ext_resource type="Texture2D" path="res://anim_q/battle_boss/fx/fx_vignette.png" id="2_6tiky"]
+[ext_resource type="Texture2D" path="res://anim_q/battle_boss/fx/fx_land_circle.png" id="3_uom80"]
+[ext_resource type="Texture2D" path="res://anim_q/battle_boss/fx/fx_magic_circle.png" id="4_ixtwh"]
+[ext_resource type="PackedScene" path="res://anim_q/battle_idle/monster_rig.tscn" id="5_7feud"]
+[ext_resource type="Script" path="res://anim_q/battle_idle/monster_rig.gd" id="6_onyxg"]
+[ext_resource type="Texture2D" path="res://anim_q/battle_boss/fx/fx_line.png" id="7_anphd"]
+[ext_resource type="Texture2D" path="res://anim_q/battle_boss/fx/fx_dot.png" id="8_vdkgg"]
+[ext_resource type="Texture2D" path="res://anim_q/battle_boss/fx/fx_glow.png" id="9_u338w"]
+[ext_resource type="Texture2D" path="res://anim_q/battle_boss/art/sword.png" id="10_dky62"]
+[ext_resource type="Texture2D" path="res://anim_q/battle_boss/fx/fx_crescent.png" id="11_nib8v"]
+[ext_resource type="Texture2D" path="res://anim_q/battle_boss/fx/fx_ring.png" id="12_675wp"]
+[ext_resource type="Texture2D" path="res://anim_q/battle_boss/fx/fx_slash.png" id="13_0eciv"]
+[ext_resource type="Texture2D" path="res://anim_q/battle_boss/fx/fx_star.png" id="14_icpp2"]
+[ext_resource type="FontFile" path="res://anim_q/battle_boss/art/digits_dmg.fnt" id="15_440si"]
+[ext_resource type="FontFile" path="res://anim_q/battle_boss/art/digits_crit.fnt" id="16_ytpg1"]
+[ext_resource type="Texture2D" path="res://anim_q/battle_boss/art/alert_bubble.png" id="17_pywkm"]
+[ext_resource type="Texture2D" path="res://anim_q/battle_boss/art/banner_warning.png" id="18_2kky7"]
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_jrgq5"]
+blend_mode = 1
+
+[sub_resource type="Curve" id="Curve_ix586"]
+_data = [Vector2(0, 1), 0.0, 0.0, 0, 0, Vector2(1, 0.2), 0.0, 0.0, 0, 0]
+point_count = 2
+
+[sub_resource type="Gradient" id="Gradient_j3y6j"]
+colors = PackedColorArray(1, 1, 1, 0.9, 1, 1, 1, 0)
+
+[sub_resource type="Gradient" id="Gradient_7ephb"]
+colors = PackedColorArray(1, 1, 1, 1, 1, 1, 1, 0)
+
+[sub_resource type="Gradient" id="Gradient_viad1"]
+offsets = PackedFloat32Array(0, 0.1, 1)
+colors = PackedColorArray(1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0)
+
+[node name="BossBattleFx" type="Node2D" unique_id=1442642814]
+script = ExtResource("1_4hgkb")
+
+[node name="Back" type="Node2D" parent="." unique_id=1102235917]
+
+[node name="Dim" type="ColorRect" parent="Back" unique_id=416700685]
+offset_right = 1032.0
+offset_bottom = 800.0
+mouse_filter = 2
+color = Color(0.03, 0.02, 0.06, 0)
+
+[node name="Vignette" type="TextureRect" parent="Back" unique_id=954879406]
+offset_right = 1032.0
+offset_bottom = 800.0
+mouse_filter = 2
+texture = ExtResource("2_6tiky")
+expand_mode = 1
+
+[node name="LandCircle" type="Sprite2D" parent="Back" unique_id=1656497562]
+modulate = Color(1, 0.35, 0.3, 1)
+material = SubResource("CanvasItemMaterial_jrgq5")
+position = Vector2(780, 580)
+scale = Vector2(0.95, 0.26)
+texture = ExtResource("3_uom80")
+
+[node name="Telegraph" type="Sprite2D" parent="Back" unique_id=552453423]
+modulate = Color(1, 0.3, 0.25, 1)
+material = SubResource("CanvasItemMaterial_jrgq5")
+position = Vector2(150, 560)
+scale = Vector2(0.62, 0.18)
+texture = ExtResource("3_uom80")
+
+[node name="MagicCircle" type="Node2D" parent="Back" unique_id=465082059]
+position = Vector2(150, 560)
+scale = Vector2(0.9, 0.27)
+
+[node name="Disc" type="Sprite2D" parent="Back/MagicCircle" unique_id=619919733]
+modulate = Color(0.6, 0.92, 1, 0.9)
+material = SubResource("CanvasItemMaterial_jrgq5")
+texture = ExtResource("4_ixtwh")
+
+[node name="Boss" type="Node2D" parent="Back" unique_id=526995341 instance=ExtResource("5_7feud")]
+script = ExtResource("6_onyxg")
+box = Vector2(460, 380)
+bob_height = 4.0
+
+[node name="Front" type="Node2D" parent="." unique_id=2062789326]
+
+[node name="SpeedLines" type="Node2D" parent="Front" unique_id=1083984732]
+
+[node name="L0" type="Sprite2D" parent="Front/SpeedLines" unique_id=1828178666]
+modulate = Color(0.75, 0.95, 1, 0)
+material = SubResource("CanvasItemMaterial_jrgq5")
+scale = Vector2(1.1, 1)
+texture = ExtResource("7_anphd")
+
+[node name="L1" type="Sprite2D" parent="Front/SpeedLines" unique_id=993929876]
+modulate = Color(0.75, 0.95, 1, 0)
+material = SubResource("CanvasItemMaterial_jrgq5")
+scale = Vector2(1.1, 1)
+texture = ExtResource("7_anphd")
+
+[node name="L2" type="Sprite2D" parent="Front/SpeedLines" unique_id=687748854]
+modulate = Color(0.75, 0.95, 1, 0)
+material = SubResource("CanvasItemMaterial_jrgq5")
+scale = Vector2(1.1, 1)
+texture = ExtResource("7_anphd")
+
+[node name="L3" type="Sprite2D" parent="Front/SpeedLines" unique_id=1756843582]
+modulate = Color(0.75, 0.95, 1, 0)
+material = SubResource("CanvasItemMaterial_jrgq5")
+scale = Vector2(1.1, 1)
+texture = ExtResource("7_anphd")
+
+[node name="L4" type="Sprite2D" parent="Front/SpeedLines" unique_id=626548464]
+modulate = Color(0.75, 0.95, 1, 0)
+material = SubResource("CanvasItemMaterial_jrgq5")
+scale = Vector2(1.1, 1)
+texture = ExtResource("7_anphd")
+
+[node name="L5" type="Sprite2D" parent="Front/SpeedLines" unique_id=1290456803]
+modulate = Color(0.75, 0.95, 1, 0)
+material = SubResource("CanvasItemMaterial_jrgq5")
+scale = Vector2(1.1, 1)
+texture = ExtResource("7_anphd")
+
+[node name="L6" type="Sprite2D" parent="Front/SpeedLines" unique_id=1006984073]
+modulate = Color(0.75, 0.95, 1, 0)
+material = SubResource("CanvasItemMaterial_jrgq5")
+scale = Vector2(1.1, 1)
+texture = ExtResource("7_anphd")
+
+[node name="L7" type="Sprite2D" parent="Front/SpeedLines" unique_id=682102312]
+modulate = Color(0.75, 0.95, 1, 0)
+material = SubResource("CanvasItemMaterial_jrgq5")
+scale = Vector2(1.1, 1)
+texture = ExtResource("7_anphd")
+
+[node name="L8" type="Sprite2D" parent="Front/SpeedLines" unique_id=1876634235]
+modulate = Color(0.75, 0.95, 1, 0)
+material = SubResource("CanvasItemMaterial_jrgq5")
+scale = Vector2(1.1, 1)
+texture = ExtResource("7_anphd")
+
+[node name="L9" type="Sprite2D" parent="Front/SpeedLines" unique_id=1901324234]
+modulate = Color(0.75, 0.95, 1, 0)
+material = SubResource("CanvasItemMaterial_jrgq5")
+scale = Vector2(1.1, 1)
+texture = ExtResource("7_anphd")
+
+[node name="Sword" type="Node2D" parent="Front" unique_id=948146838]
+scale = Vector2(0.5, 0.5)
+
+[node name="Trail" type="CPUParticles2D" parent="Front/Sword" unique_id=1408589332]
+show_behind_parent = true
+material = SubResource("CanvasItemMaterial_jrgq5")
+emitting = false
+amount = 16
+texture = ExtResource("8_vdkgg")
+lifetime = 0.3
+gravity = Vector2(0, 0)
+scale_amount_min = 1.6
+scale_amount_max = 2.3
+scale_amount_curve = SubResource("Curve_ix586")
+color = Color(0.72, 0.96, 1, 1)
+color_ramp = SubResource("Gradient_j3y6j")
+
+[node name="Glow" type="Sprite2D" parent="Front/Sword" unique_id=777158807]
+modulate = Color(0.6, 0.93, 1, 0.55)
+material = SubResource("CanvasItemMaterial_jrgq5")
+scale = Vector2(1.6, 1.6)
+texture = ExtResource("9_u338w")
+
+[node name="Blade" type="Sprite2D" parent="Front/Sword" unique_id=1492276882]
+scale = Vector2(1.12, 1.12)
+texture = ExtResource("10_dky62")
+
+[node name="UltSwords" type="Node2D" parent="Front" unique_id=1266987864]
+
+[node name="U0" type="Node2D" parent="Front/UltSwords" unique_id=762891933]
+scale = Vector2(0.5, 0.5)
+
+[node name="Glow" type="Sprite2D" parent="Front/UltSwords/U0" unique_id=936850094]
+modulate = Color(1, 0.86, 0.45, 0.6)
+material = SubResource("CanvasItemMaterial_jrgq5")
+scale = Vector2(1.6, 1.6)
+texture = ExtResource("9_u338w")
+
+[node name="Blade" type="Sprite2D" parent="Front/UltSwords/U0" unique_id=631216005]
+scale = Vector2(1.12, 1.12)
+texture = ExtResource("10_dky62")
+
+[node name="U1" type="Node2D" parent="Front/UltSwords" unique_id=85663992]
+scale = Vector2(0.5, 0.5)
+
+[node name="Glow" type="Sprite2D" parent="Front/UltSwords/U1" unique_id=741334234]
+modulate = Color(1, 0.86, 0.45, 0.6)
+material = SubResource("CanvasItemMaterial_jrgq5")
+scale = Vector2(1.6, 1.6)
+texture = ExtResource("9_u338w")
+
+[node name="Blade" type="Sprite2D" parent="Front/UltSwords/U1" unique_id=1139098671]
+scale = Vector2(1.12, 1.12)
+texture = ExtResource("10_dky62")
+
+[node name="U2" type="Node2D" parent="Front/UltSwords" unique_id=740050193]
+scale = Vector2(0.5, 0.5)
+
+[node name="Glow" type="Sprite2D" parent="Front/UltSwords/U2" unique_id=1922535590]
+modulate = Color(1, 0.86, 0.45, 0.6)
+material = SubResource("CanvasItemMaterial_jrgq5")
+scale = Vector2(1.6, 1.6)
+texture = ExtResource("9_u338w")
+
+[node name="Blade" type="Sprite2D" parent="Front/UltSwords/U2" unique_id=959838337]
+scale = Vector2(1.12, 1.12)
+texture = ExtResource("10_dky62")
+
+[node name="U3" type="Node2D" parent="Front/UltSwords" unique_id=1973889112]
+scale = Vector2(0.5, 0.5)
+
+[node name="Glow" type="Sprite2D" parent="Front/UltSwords/U3" unique_id=392588241]
+modulate = Color(1, 0.86, 0.45, 0.6)
+material = SubResource("CanvasItemMaterial_jrgq5")
+scale = Vector2(1.6, 1.6)
+texture = ExtResource("9_u338w")
+
+[node name="Blade" type="Sprite2D" parent="Front/UltSwords/U3" unique_id=1075570543]
+scale = Vector2(1.12, 1.12)
+texture = ExtResource("10_dky62")
+
+[node name="U4" type="Node2D" parent="Front/UltSwords" unique_id=1130015350]
+scale = Vector2(0.5, 0.5)
+
+[node name="Glow" type="Sprite2D" parent="Front/UltSwords/U4" unique_id=123015230]
+modulate = Color(1, 0.86, 0.45, 0.6)
+material = SubResource("CanvasItemMaterial_jrgq5")
+scale = Vector2(1.6, 1.6)
+texture = ExtResource("9_u338w")
+
+[node name="Blade" type="Sprite2D" parent="Front/UltSwords/U4" unique_id=1428836933]
+scale = Vector2(1.12, 1.12)
+texture = ExtResource("10_dky62")
+
+[node name="U5" type="Node2D" parent="Front/UltSwords" unique_id=1267303280]
+scale = Vector2(0.5, 0.5)
+
+[node name="Glow" type="Sprite2D" parent="Front/UltSwords/U5" unique_id=276567849]
+modulate = Color(1, 0.86, 0.45, 0.6)
+material = SubResource("CanvasItemMaterial_jrgq5")
+scale = Vector2(1.6, 1.6)
+texture = ExtResource("9_u338w")
+
+[node name="Blade" type="Sprite2D" parent="Front/UltSwords/U5" unique_id=887169540]
+scale = Vector2(1.12, 1.12)
+texture = ExtResource("10_dky62")
+
+[node name="Crescent" type="Sprite2D" parent="Front" unique_id=1184161456]
+modulate = Color(0.8, 0.96, 1, 1)
+material = SubResource("CanvasItemMaterial_jrgq5")
+texture = ExtResource("11_nib8v")
+
+[node name="Hit" type="Node2D" parent="Front" unique_id=655019134]
+
+[node name="Ring" type="Sprite2D" parent="Front/Hit" unique_id=1938800793]
+modulate = Color(1, 0.95, 0.75, 0.9)
+material = SubResource("CanvasItemMaterial_jrgq5")
+texture = ExtResource("12_675wp")
+
+[node name="SlashA" type="Sprite2D" parent="Front/Hit" unique_id=1220872276]
+modulate = Color(1, 1, 0.92, 1)
+material = SubResource("CanvasItemMaterial_jrgq5")
+rotation = -0.4886922
+texture = ExtResource("13_0eciv")
+
+[node name="SlashB" type="Sprite2D" parent="Front/Hit" unique_id=40001132]
+modulate = Color(1, 0.96, 0.8, 1)
+material = SubResource("CanvasItemMaterial_jrgq5")
+rotation = 1.0821041
+texture = ExtResource("13_0eciv")
+
+[node name="Star" type="Sprite2D" parent="Front/Hit" unique_id=147816191]
+modulate = Color(1, 0.97, 0.8, 1)
+material = SubResource("CanvasItemMaterial_jrgq5")
+texture = ExtResource("14_icpp2")
+
+[node name="Sparks" type="CPUParticles2D" parent="Front/Hit" unique_id=842912725]
+material = SubResource("CanvasItemMaterial_jrgq5")
+emitting = false
+amount = 10
+texture = ExtResource("14_icpp2")
+lifetime = 0.42
+one_shot = true
+explosiveness = 0.95
+spread = 180.0
+gravity = Vector2(0, 300)
+initial_velocity_min = 220.0
+initial_velocity_max = 420.0
+damping_min = 300.0
+damping_max = 420.0
+scale_amount_min = 0.18
+scale_amount_max = 0.36
+color = Color(1, 0.93, 0.6, 1)
+color_ramp = SubResource("Gradient_7ephb")
+
+[node name="HeroHit" type="Sprite2D" parent="Front" unique_id=1894973437]
+modulate = Color(1, 0.85, 0.85, 1)
+material = SubResource("CanvasItemMaterial_jrgq5")
+texture = ExtResource("14_icpp2")
+
+[node name="Burst" type="CPUParticles2D" parent="Front" unique_id=198776380]
+material = SubResource("CanvasItemMaterial_jrgq5")
+emitting = false
+amount = 24
+texture = ExtResource("8_vdkgg")
+lifetime = 0.7
+one_shot = true
+explosiveness = 0.9
+emission_shape = 1
+emission_sphere_radius = 60.0
+direction = Vector2(0, -1)
+spread = 160.0
+gravity = Vector2(0, 120)
+initial_velocity_min = 180.0
+initial_velocity_max = 380.0
+damping_min = 380.0
+damping_max = 520.0
+scale_amount_min = 0.5
+scale_amount_max = 1.2
+color = Color(1, 0.88, 0.55, 1)
+color_ramp = SubResource("Gradient_viad1")
+
+[node name="Dust" type="Sprite2D" parent="Front" unique_id=2057454924]
+modulate = Color(1, 0.85, 0.7, 0.9)
+material = SubResource("CanvasItemMaterial_jrgq5")
+texture = ExtResource("12_675wp")
+
+[node name="BossNumbers" type="Node2D" parent="Front" unique_id=311765967]
+
+[node name="N0" type="Node2D" parent="Front/BossNumbers" unique_id=1748369392]
+
+[node name="Label" type="Label" parent="Front/BossNumbers/N0" unique_id=584411074]
+offset_left = -260.0
+offset_top = -48.0
+offset_right = 260.0
+offset_bottom = 48.0
+theme_override_fonts/font = ExtResource("15_440si")
+theme_override_font_sizes/font_size = 84
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_shadow_color = Color(0.93, 0.5, 0.16, 1)
+theme_override_constants/shadow_offset_x = 0
+theme_override_constants/shadow_offset_y = 6
+text = "-128"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="N1" type="Node2D" parent="Front/BossNumbers" unique_id=1486856961]
+
+[node name="Label" type="Label" parent="Front/BossNumbers/N1" unique_id=311516819]
+offset_left = -260.0
+offset_top = -48.0
+offset_right = 260.0
+offset_bottom = 48.0
+theme_override_fonts/font = ExtResource("15_440si")
+theme_override_font_sizes/font_size = 84
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_shadow_color = Color(0.93, 0.5, 0.16, 1)
+theme_override_constants/shadow_offset_x = 0
+theme_override_constants/shadow_offset_y = 6
+text = "-128"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="N2" type="Node2D" parent="Front/BossNumbers" unique_id=1076819702]
+
+[node name="Label" type="Label" parent="Front/BossNumbers/N2" unique_id=745655735]
+offset_left = -260.0
+offset_top = -48.0
+offset_right = 260.0
+offset_bottom = 48.0
+theme_override_fonts/font = ExtResource("15_440si")
+theme_override_font_sizes/font_size = 84
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_shadow_color = Color(0.93, 0.5, 0.16, 1)
+theme_override_constants/shadow_offset_x = 0
+theme_override_constants/shadow_offset_y = 6
+text = "-128"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="N3" type="Node2D" parent="Front/BossNumbers" unique_id=62500513]
+
+[node name="Label" type="Label" parent="Front/BossNumbers/N3" unique_id=310046030]
+offset_left = -260.0
+offset_top = -48.0
+offset_right = 260.0
+offset_bottom = 48.0
+theme_override_fonts/font = ExtResource("15_440si")
+theme_override_font_sizes/font_size = 84
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_shadow_color = Color(0.93, 0.5, 0.16, 1)
+theme_override_constants/shadow_offset_x = 0
+theme_override_constants/shadow_offset_y = 6
+text = "-128"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="HeroNumbers" type="Node2D" parent="Front" unique_id=248402160]
+
+[node name="N0" type="Node2D" parent="Front/HeroNumbers" unique_id=531340961]
+
+[node name="Label" type="Label" parent="Front/HeroNumbers/N0" unique_id=1589675863]
+modulate = Color(1, 0.72, 0.72, 1)
+offset_left = -260.0
+offset_top = -48.0
+offset_right = 260.0
+offset_bottom = 48.0
+theme_override_fonts/font = ExtResource("15_440si")
+theme_override_font_sizes/font_size = 84
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_shadow_color = Color(0.8, 0.16, 0.12, 1)
+theme_override_constants/shadow_offset_x = 0
+theme_override_constants/shadow_offset_y = 6
+text = "-128"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="N1" type="Node2D" parent="Front/HeroNumbers" unique_id=1774916837]
+
+[node name="Label" type="Label" parent="Front/HeroNumbers/N1" unique_id=1632446095]
+modulate = Color(1, 0.72, 0.72, 1)
+offset_left = -260.0
+offset_top = -48.0
+offset_right = 260.0
+offset_bottom = 48.0
+theme_override_fonts/font = ExtResource("15_440si")
+theme_override_font_sizes/font_size = 84
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_shadow_color = Color(0.8, 0.16, 0.12, 1)
+theme_override_constants/shadow_offset_x = 0
+theme_override_constants/shadow_offset_y = 6
+text = "-128"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="N2" type="Node2D" parent="Front/HeroNumbers" unique_id=1084204570]
+
+[node name="Label" type="Label" parent="Front/HeroNumbers/N2" unique_id=2093237355]
+modulate = Color(1, 0.72, 0.72, 1)
+offset_left = -260.0
+offset_top = -48.0
+offset_right = 260.0
+offset_bottom = 48.0
+theme_override_fonts/font = ExtResource("15_440si")
+theme_override_font_sizes/font_size = 84
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_shadow_color = Color(0.8, 0.16, 0.12, 1)
+theme_override_constants/shadow_offset_x = 0
+theme_override_constants/shadow_offset_y = 6
+text = "-128"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="BigNumber" type="Node2D" parent="Front" unique_id=393671214]
+visible = false
+
+[node name="Label" type="Label" parent="Front/BigNumber" unique_id=1788453140]
+offset_left = -260.0
+offset_top = -48.0
+offset_right = 260.0
+offset_bottom = 48.0
+theme_override_fonts/font = ExtResource("16_ytpg1")
+theme_override_font_sizes/font_size = 84
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+text = "-128"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Alert" type="Sprite2D" parent="Front" unique_id=1245118050]
+texture = ExtResource("17_pywkm")
+
+[node name="Banner" type="Node2D" parent="Front" unique_id=168905313]
+rotation = -0.06981317
+
+[node name="Band" type="Sprite2D" parent="Front/Banner" unique_id=691359437]
+scale = Vector2(0.82, 0.82)
+texture = ExtResource("18_2kky7")

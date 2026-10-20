@@ -1,0 +1,17 @@
+[remap]
+
+importer="font_data_bmfont"
+type="FontFile"
+uid="uid://1yrwsfar3oxm"
+path="res://.godot/imported/digits_dmg.fnt-87068f1b1e2d700b1c91a7710b3b28f5.fontdata"
+
+[deps]
+
+source_file="res://anim_q/battle_boss/art/digits_dmg.fnt"
+dest_files=["res://.godot/imported/digits_dmg.fnt-87068f1b1e2d700b1c91a7710b3b28f5.fontdata"]
+
+[params]
+
+fallbacks=[]
+compress=true
+scaling_mode=2

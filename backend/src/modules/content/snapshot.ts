@@ -103,6 +103,7 @@ export async function loadDraftSnapshot(db: Db | Tx): Promise<ContentSnapshot> {
     items: items.map((row) => ({
       slug: row.slug,
       displayName: row.displayName,
+      description: row.description,
       kind: row.kind,
       slot: row.slot,
       skillSlug: row.skillSlug,

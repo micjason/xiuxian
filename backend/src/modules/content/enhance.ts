@@ -59,9 +59,9 @@ export type EnhanceRules = {
 
 /** 起始突破材料：后台“填入建议起始值”时如果物品里还没有，会一并创建。数字和名称都只是起始值。 */
 export const STARTING_BREAK_MATERIALS = [
-  { slug: "enh_stone_low", displayName: "突破石·下品", description: "装备强化到突破节点时消耗的材料。（起始值，可在后台修改）", quality: "green" },
-  { slug: "enh_stone_mid", displayName: "突破石·中品", description: "装备强化到较高突破节点时消耗的材料。（起始值，可在后台修改）", quality: "blue" },
-  { slug: "enh_stone_high", displayName: "突破石·上品", description: "装备强化到高阶突破节点时消耗的材料。（起始值，可在后台修改）", quality: "purple" },
+  { slug: "enh_stone_low", displayName: "突破石·下品", description: "装备强化到突破节点时消耗的材料。", quality: "green" },
+  { slug: "enh_stone_mid", displayName: "突破石·中品", description: "装备强化到较高突破节点时消耗的材料。", quality: "blue" },
+  { slug: "enh_stone_high", displayName: "突破石·上品", description: "装备强化到高阶突破节点时消耗的材料。", quality: "purple" },
 ] as const;
 
 /** 起始值，全部可在后台改。红（仙品）的数字是新增的起始值，没有平衡过。 */

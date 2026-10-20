@@ -162,6 +162,13 @@
       "when": 1792990000000,
       "tag": "0022_drop_rate_5pct_stones_x2_daily5",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1793080000000,
+      "tag": "0023_item_desc_fixes",
+      "breakpoints": true
     }
   ]
 }

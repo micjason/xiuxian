@@ -93,6 +93,8 @@ export type ContentSnapshot = {
   items: {
     slug: string;
     displayName?: string;
+    /** 物品说明（玩家物品详情里显示；v14 起下发给客户端）。 */
+    description?: string;
     kind: string | null;
     slot: string | null;
     skillSlug: string | null;

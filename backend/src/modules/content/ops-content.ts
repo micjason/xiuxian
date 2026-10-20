@@ -497,6 +497,11 @@ export async function listOpsSkills(db: Db) {
   return rows.sort((left, right) => left.displayName.localeCompare(right.displayName, "zh")).map((row) => skillView(row, categories));
 }
 
+/** 功法书的默认说明（新建时写入；后台可以改）。和服务器 useItem 的规则一致：没学会→学会，学会了→升一层，7 层满后转修为。 */
+export function skillBookDescription(skillName: string): string {
+  return `使用后学会功法「${skillName}」；已学会时每用一本提升一层（最多 7 层），满层后再使用会转为修为。`;
+}
+
 export async function ensureSkillBook(db: Db, skill: { slug: string; displayName: string }, adminId: string | null) {
   const displayName = `${skill.displayName}技能书`;
   const [existing] = await db.select().from(contentItems).where(eq(contentItems.skillSlug, skill.slug)).limit(1);
@@ -516,7 +521,7 @@ export async function ensureSkillBook(db: Db, skill: { slug: string; displayName
     kind: "skill_book",
     skillSlug: skill.slug,
     stackable: false,
-    description: "",
+    description: skillBookDescription(skill.displayName),
     updatedAt: new Date(),
     updatedBy: adminId,
   });

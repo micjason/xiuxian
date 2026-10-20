@@ -97,6 +97,7 @@ sprites/mon_lava_golem.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 
 sprites/mon_lava_lizard.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
 sprites/mon_snake.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
 sprites/mon_wolf.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+ui/arrow_down_red.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/popup_item_build.py（SVG 与 q_design/src/p_popup_item_lib.py 共用）
 ui/arrow_dropdown.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
 ui/arrow_select.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
 ui/arrow_up_green.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
@@ -166,6 +167,7 @@ ui/chip_grey.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第
 ui/chip_level_mint_42.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
 ui/chip_mint.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
 ui/chip_orange.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/chip_purple.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/popup_item_build.py（SVG 与 q_design/src/p_popup_item_lib.py 共用）
 ui/chip_red.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
 ui/chip_redflat.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
 ui/chip_teal.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
@@ -183,6 +185,8 @@ ui/float_word_crit.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），
 ui/float_word_xiuwei.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材 ；含烘焙字形（ZCOOL QingKe HuangYou / ZCOOL KuaiLe，SIL OFL 1.1，可用于图片）,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
 ui/fx_star.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
 ui/icon_crown_svg.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/icon_enhance_exp.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/popup_item_build.py（SVG 与 q_design/src/p_popup_item_lib.py 共用）
+ui/icon_enhance_exp@2x.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/popup_item_build.py（SVG 与 q_design/src/p_popup_item_lib.py 共用）
 ui/icon_heart.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
 ui/icon_hourglass.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
 ui/icon_shield.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
@@ -211,6 +215,7 @@ ui/ribbon_title_104.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染）�
 ui/ribbon_title_78.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
 ui/row_cream_74.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
 ui/row_cream_r26.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
+ui/row_gold_74.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/popup_item_build.py（SVG 与 q_design/src/p_popup_item_lib.py 共用）
 ui/sheet_lower.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
 ui/side_entry.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py
 ui/slot_blue.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/ui_build.py / rest_build.py / bg_build.py

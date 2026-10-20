@@ -35,6 +35,7 @@ const HEARTBEAT_DEFAULT := 12.0
 
 ## 运行时主题由 MainTheme.make() 导出（scripts/dev/export_theme.gd），改令牌或美术后需重新导出。
 const APP_THEME: Theme = preload("res://resources/theme/xiuxian_theme.tres")
+const ITEM_POPUP_SCENE: PackedScene = preload("res://scenes/ui/item_detail_popup.tscn")
 
 ## 绘制层级：动画场景里的部件自带 z_index（主角最高 20、飘字 50、掉落 40），会盖过后面添加的普通控件，
 ## 所以外壳各层显式抬高：顶 / 底栏 < 特效层 < 突破弹窗 < 登录页 < 其它弹窗 < 提示条。点击顺序仍按节点顺序（和层级一致）。
@@ -56,6 +57,7 @@ var _page := PAGE_CULTIVATE
 var _mock := false
 var _flags: ItemFlags
 var _popup: GamePopup
+var _item_popup: ItemDetailPopup
 var _backdrop: Backdrop
 var _top_bar: TopBar
 var _tab_bar: TabBarView
@@ -283,6 +285,11 @@ func _build_shell() -> void:
 		add_child(_mock_tag)
 	_popup.z_index = Z_POPUP
 	add_child(_popup)
+	# 物品详情（Q 版设计稿 q_popup_*，可换皮的独立场景）；在通用弹层之后加，二次确认等仍可盖在它上面（它会先关）。
+	_item_popup = (ITEM_POPUP_SCENE.instantiate() as ItemDetailPopup)
+	_item_popup.z_index = Z_POPUP
+	add_child(_item_popup)
+	_bag_page.detail_popup = _item_popup
 	_offline_popup = OfflinePopup.new()
 	_offline_popup.acknowledged.connect(_on_offline_ack)
 	_offline_popup.z_index = Z_POPUP
@@ -312,6 +319,8 @@ func _apply_layout() -> void:
 	_toast.place_top(float(UiTokens.PAGE_MARGIN) + inset.x, inset.y + _top_bar.content_height() + float(UiTokens.SP_2), float(UiTokens.PAGE_MARGIN) + inset.z, 110.0)
 	_breakthrough_page.apply_safe_area(inset)
 	_offline_popup.apply_safe_area(inset)
+	if _item_popup != null:
+		_item_popup.set_safe_top(inset.y)
 	if _mock_tag != null:
 		_mock_tag.set_anchors_preset(Control.PRESET_TOP_LEFT)
 		_mock_tag.offset_left = float(UiTokens.PAGE_MARGIN) + inset.x

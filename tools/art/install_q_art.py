@@ -165,6 +165,18 @@ def copy(src, dst):
     shutil.copyfile(src, dst)
 
 
+# 物品详情弹窗（SPEC_Q 第 13 节，2026-10-20）用到的切图：新交 5 张 + 复用的。缺了记进 CHECK.txt。
+POPUP_ITEM_CUTS = [
+    'arrow_down_red', 'chip_purple', 'row_gold_74', 'icon_enhance_exp', 'icon_enhance_exp@2x',
+    'popup_frame', 'ribbon_title_104', 'btn_close', 'well_apricot', 'row_cream_74', 'plate_gold_r30',
+    'chip_grey', 'chip_green', 'chip_blue', 'chip_orange', 'chip_redflat', 'chip_cream', 'chip_mint', 'chip_dark',
+    'arrow_up_green', 'bar_bg_40', 'bar_fill_gold_32', 'bar_fill_mint_32', 'check_ok', 'check_no',
+    'btn_orange_100_normal', 'btn_orange_100_pressed', 'btn_orange_124_normal', 'btn_orange_124_pressed',
+    'btn_mint_100_normal', 'btn_mint_100_pressed', 'btn_mint_124_normal', 'btn_mint_124_pressed',
+    'btn_grey_disabled_100', 'btn_grey_disabled_124',
+] + [f'slot_{q}' for q in ('white', 'green', 'blue', 'purple', 'orange', 'red')]
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument('--from', dest='art', default='/workspace/art_out_q')
@@ -203,6 +215,9 @@ def main() -> int:
     for name in sorted(os.listdir(ui_src)):
         if name.endswith(('.png', '.fnt')):
             copy(os.path.join(ui_src, name), os.path.join(OUT, 'ui', name))
+    for cut in POPUP_ITEM_CUTS:
+        if not os.path.isfile(os.path.join(OUT, 'ui', cut + '.png')):
+            problems.append(f'物品详情弹窗缺切图 ui/{cut}.png（SPEC_Q 13.11）')
     # 九宫格表
     from PIL import Image
     rows = list(csv.DictReader(open(os.path.join(art, 'checklist_q.csv'), encoding='utf-8-sig')))

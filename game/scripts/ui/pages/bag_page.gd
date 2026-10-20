@@ -31,6 +31,8 @@ const TABS: Array[Dictionary] = [
 ]
 
 var popup: GamePopup
+## 物品详情弹窗（Q 版，scenes/ui/item_detail_popup.tscn）；没有时退回旧的 GamePopup 版（单独测试页面时）。
+var detail_popup: ItemDetailPopup
 var model: BagModel = BagModel.new()
 var flags: ItemFlags
 var category := "all"
@@ -490,6 +492,9 @@ func _on_slot(item: Dictionary) -> void:
 	var worn := {}
 	if str(item.get("category", "")) == "equip":
 		worn = EquipModel.worn_in(model, str(item.get("slot_id", "")))
+	if detail_popup != null:
+		detail_popup.show_view(ItemDetailView.build(item, worn, model, _content, _state), _handlers())
+		return
 	ItemDetail.show_item(popup, item, worn, _handlers(), model.enhance_exp)
 
 
@@ -539,6 +544,10 @@ func _on_equip_slot(slot_id: String) -> void:
 		return
 	var handlers := _handlers()
 	handlers["equip"] = func(_id: String) -> void: _show_picker(slot_id)
+	handlers["swap"] = func(_id: String) -> void: _show_picker(slot_id)
+	if detail_popup != null:
+		detail_popup.show_view(ItemDetailView.build(item, {}, model, _content, _state), handlers)
+		return
 	ItemDetail.show_item(popup, item, {}, handlers, model.enhance_exp)
 	var grid := _find_grid(popup.body)
 	if grid != null:

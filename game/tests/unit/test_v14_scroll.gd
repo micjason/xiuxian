@@ -86,8 +86,8 @@ func test_bag_grid_drag_on_slots_scrolls_and_does_not_open_the_popup() -> void:
 	var to := from - Vector2(0, minf(kit.max_scroll(), 160.0) + ScrollKit.DEADZONE + 4.0)
 	await TouchSim.drag(get_tree(), get_viewport(), from, to, 10, true)
 	assert_gt(grid.scroll_vertical, 40, "格子跟手滚动")
-	var popup := scene.get("_popup") as GamePopup
-	assert_false(popup.visible, "拖动后松手不弹物品详情")
+	assert_false((scene.get("_item_popup") as ItemDetailPopup).visible, "拖动后松手不弹物品详情")
+	assert_false((scene.get("_popup") as GamePopup).visible, "也不弹通用弹层")
 
 
 func test_bag_tap_on_slot_opens_detail_popup() -> void:
@@ -99,7 +99,7 @@ func test_bag_tap_on_slot_opens_detail_popup() -> void:
 	var slot := grid.find_children("*", "ItemSlot", true, false)[0] as Control
 	await TouchSim.tap(get_tree(), get_viewport(), slot.get_global_rect().get_center())
 	await get_tree().process_frame
-	assert_true((scene.get("_popup") as GamePopup).visible, "点一下格子打开物品详情")
+	assert_true((scene.get("_item_popup") as ItemDetailPopup).visible, "点一下格子打开物品详情")
 
 
 func test_stage_list_drag_on_cards_scrolls_without_selecting() -> void:

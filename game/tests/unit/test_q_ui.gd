@@ -124,6 +124,15 @@ func test_offline_claim_still_acknowledges_but_double_only_toasts() -> void:
 	assert_false(popup.visible, "领取后关掉弹窗")
 
 
+func test_offline_popup_shows_opened_chest() -> void:
+	var scene := await _boot("ready")
+	var popup := scene.get("_offline_popup") as OfflinePopup
+	var chest := popup.find_child("Chest", true, false) as TextureRect
+	assert_not_null(chest)
+	assert_true(ArtLib.has_q("sprites/chest_open.png"), "开箱图已入库")
+	assert_eq(chest.texture.resource_path, "res://assets/art/q/sprites/chest_open.png", "离线弹窗用打开的宝箱")
+
+
 func test_toast_is_one_shared_component() -> void:
 	var scene := await _boot("ready")
 	assert_eq(get_tree().get_nodes_in_group(LockedFeature.GROUP).size(), 1, "只有一个 Toast 接「功能暂未开放」")

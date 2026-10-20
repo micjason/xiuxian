@@ -149,7 +149,7 @@ func _stage() -> Control:
 	stage.add_child(burst)
 	var chest := TextureRect.new()
 	chest.name = "Chest"
-	chest.texture = ArtLib.q("sprites/chest_closed") if ArtLib.has_q("sprites/chest_closed.png") else ArtLib.icon("chest")
+	chest.texture = _chest_texture()
 	chest.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	chest.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	chest.set_anchors_preset(Control.PRESET_CENTER)
@@ -160,6 +160,14 @@ func _stage() -> Control:
 	chest.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	stage.add_child(chest)
 	return stage
+
+
+## 离线弹窗用打开的宝箱（美术 chest_open）；没有就退回 Q 版宝箱 / 旧图标。
+static func _chest_texture() -> Texture2D:
+	for cut in ["sprites/chest_open", "sprites/chest_closed"]:
+		if ArtLib.has_q(cut + ".png"):
+			return ArtLib.q(cut)
+	return ArtLib.icon("chest")
 
 
 func _duration_row() -> Control:

@@ -23,3 +23,8 @@
 - 新增 `tests/unit/test_q_ui.gd`：5 格顺序与圆钮居中、圆钮 ready / hint / max、所有锁定按钮都提示「功能暂未开放」、离线领取仍确认 / 双倍只提示、Toast 唯一。
 - 改：4 → 5 个页签、离线按钮「领取」、Q 版品质格 / 物品图 / 背景 / 九宫格 / 主题按 Q 版切图断言。GUT 198/198。
 - 截图：`/workspace/ui_preview_v12/q_*.png`，左右对比 `cmp_q_*.png`（`scripts/dev/capture_q.gd`）。
+
+## 补充（开箱图 + 0.12.0 上线）
+- 离线弹窗的宝箱换成美术补交的打开宝箱 `anim_layers/chest/chest_open.png` → `art/q/sprites/chest_open.png`（入库脚本 MAP 已加；授权登记：`art_q_license_list.csv` 加 1 行、来源 `tools/art/q_license_extra.csv`，ASSETS_LICENSES.md 第 8 节、credits.json 已更新）。修炼页挂机宝箱不变（功能暂未开放）。
+- 新增 GUT：离线弹窗用开箱图。
+- 已知：`test_main_screen_loop` 在本机会因 GUT 自带字体是 LFS 指针（`addons/gut/fonts/*.ttf` 只有 130 字节）报引擎字体错误而判失败，和本次改动无关（改动前 fd6e704 同样失败）；加 `-gfailure_error_types=gut,push_error` 后全部通过。

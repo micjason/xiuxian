@@ -46,7 +46,9 @@ MAP = {
         'mon_snake': 'sprites/mon_snake.png', 'mon_bear': 'sprites/mon_bear.png',
         'bd_field': 'sprites/bd_field.png', 'bd_alchemy': 'sprites/bd_alchemy.png',
         'bd_array': 'sprites/bd_array.png', 'bd_hut': 'sprites/bd_hut.png',
-        'chest_closed': 'sprites/chest_closed.png', 'lotus_platform': 'sprites/lotus_platform.png',
+        'chest_closed': 'sprites/chest_closed.png',
+        # 离线弹窗的开箱图（美术 2026-10-20 补交，动画分层里的整张打开宝箱）
+        'chest_open': 'anim_layers/chest/chest_open.png', 'lotus_platform': 'sprites/lotus_platform.png',
         'fx_aura_radial': 'sprites/fx_aura_radial.png', 'fx_ring_solid': 'sprites/fx_ring_solid.png',
         'fx_ring_dashed': 'sprites/fx_ring_dashed.png', 'fx_light_beam': 'sprites/fx_light_beam.png',
         'fx_ground_shadow': 'sprites/fx_ground_shadow.png', 'fx_sunburst': 'sprites/fx_sunburst.png',
@@ -124,6 +126,10 @@ def main() -> int:
             fh.write(f'\t"{key}": [{l}, {t}, {r}, {b}, {"true" if h_only else "false"}],\n')
         fh.write('}\n')
     shutil.copyfile(os.path.join(art, 'license_q.csv'), LICENSE_OUT)
+    # 美术清单之外补交、同样入库的文件（清单里没有单列），补一行授权登记
+    extra = open(os.path.join(REPO, 'tools/art/q_license_extra.csv'), encoding='utf-8').read()
+    with open(LICENSE_OUT, 'a', encoding='utf-8') as fh:
+        fh.write(extra if extra.endswith('\n') else extra + '\n')
     with open(LICENSE_OUT + '.import', 'w') as fh:  # 别让 Godot 当翻译表导入
         fh.write('[remap]\n\nimporter="keep"\n')
     with open(os.path.join(OUT, 'PLACEHOLDERS.txt'), 'w') as fh:

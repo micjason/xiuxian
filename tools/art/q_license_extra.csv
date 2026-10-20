@@ -1,0 +1,1 @@
+anim_layers/chest/chest_open.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/hr/chests.jpg → anim_layers/_src/build_chest2.py → art_out_q/anim_layers/chest/chest_open.png（入库为 art/q/sprites/chest_open.png）

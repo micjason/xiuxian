@@ -93,6 +93,8 @@ var _notices := NoticeQueue.new()
 var _announcement: AnnouncementPrompt
 ## 设置面板（点左上角头像）。_session 每次退出登录 +1：退出前发出去、退出后才回来的心跳结果直接丢掉。
 var _settings: SettingsView
+## 分解弹窗（第五批 SPEC_Q §17.2）：背包「分解」和历练页「行囊已满 · 去分解」都打开它。
+var _salvage: SalvageDialog
 var _session := 0
 var _manual_update_check := false
 ## 最近一次更新检查结果（设置弹窗版本号旁显示）："latest" / "new" / ""（还没查过或失败）。
@@ -238,6 +240,7 @@ func _build_shell() -> void:
 	_stage_page.challenge_requested.connect(_open_battle)
 	_stage_page.idle_stage_requested.connect(_on_idle_stage)
 	_stage_page.back_requested.connect(func() -> void: _show_page(PAGE_CULTIVATE))
+	_stage_page.salvage_requested.connect(open_salvage)
 	_battle_page = BattlePage.new()
 	_battle_page.submit_requested.connect(_on_battle_submit)
 	_battle_page.back_requested.connect(func() -> void: _show_page(PAGE_ADVENTURE))
@@ -342,6 +345,11 @@ func _build_shell() -> void:
 	_settings.credits_requested.connect(func() -> void: CreditsView.show_credits(_popup))
 	_settings.closed.connect(func() -> void: _maybe_show_notice.call_deferred())
 	add_child(_settings)
+	_salvage = SalvageDialog.new()
+	_salvage.z_index = Z_POPUP
+	_salvage.decompose_requested.connect(_on_salvage_decompose)
+	_salvage.toast_requested.connect(func(text: String, good: bool) -> void: _toast.say(text, good) if good else _toast.say_neutral(text))
+	add_child(_salvage)
 	_announcement = AnnouncementPrompt.new(_popup)
 	_announcement.acknowledged.connect(_on_notice_ack)
 	_popup.closed.connect(func() -> void: _maybe_show_notice.call_deferred())
@@ -366,6 +374,8 @@ func _apply_layout() -> void:
 	_offline_popup.apply_safe_area(inset)
 	if _settings != null:
 		_settings.apply_safe_area(inset)
+	if _salvage != null:
+		_salvage.apply_safe_area(inset)
 	if _item_popup != null:
 		_item_popup.set_safe_top(inset.y)
 	if _mock_tag != null:
@@ -682,6 +692,7 @@ func _update_dots() -> void:
 		if not bool(item.get("equipped", false)) and bool(item.get("is_new", false)) and _page != PAGE_BAG:
 			fresh = true
 	_tab_bar.set_dot(PAGE_BAG, fresh or not EquipModel.best_upgrades(bag).is_empty())
+	_tab_bar.set_full(PAGE_BAG, bag.is_full())  # 第五批 §17.5：满包时红点换 badge_full
 	_tab_bar.set_dot(PAGE_SKILL, false)
 
 
@@ -771,7 +782,7 @@ func _open_battle(slug: String) -> void:
 	if stage.is_empty():
 		return
 	var bag := BagModel.from_state(_state, _content, {})
-	var gate := bag.challenge_gate(bool(_state.get("autoDecompose", false)))
+	var gate := bag.challenge_gate()
 	_battle_page.open_stage(_state, _content, stage, gate, str(_state.get("realmName", "")))
 	_show_page(PAGE_BATTLE)
 
@@ -794,10 +805,6 @@ func _on_battle_retreat(running: bool) -> void:
 	_popup.open_popup("撤退", true)
 
 
-func _show_bag_full(used: int, capacity: int) -> void:
-	BagFullPrompt.show_prompt(_popup, used, capacity, func() -> void: _show_page(PAGE_BAG))
-
-
 ## 战斗画面打完就提交挑战（第四批起大招全自动，不再上报 ultTaps）；胜负和掉落以服务器返回为准。
 func _on_battle_submit(slug: String) -> void:
 	_busy = true
@@ -809,9 +816,7 @@ func _on_battle_submit(slug: String) -> void:
 	_enrich_drops(result.get("drops", []))
 	_apply_action_state(result)
 	_battle_page.show_result(result, _reward_name)
-	if bool(result.get("bagFull", false)):
-		var full_bag := BagModel.from_state(_state, _content, {})
-		_show_bag_full(full_bag.used_slots(), full_bag.capacity)
+	# 第五批 §17.5：背包满不再弹 BagFullPrompt（会打断挂机）；结算页的「行囊已满，装备未拾取」+ 历练页提示条 + 底栏 badge_full 代替。
 
 
 # ───────── 突破 ─────────
@@ -919,7 +924,7 @@ func _post(path: String, body: Dictionary = {}) -> Dictionary:
 	return await PlayerApi.post_action(path, body)
 
 
-## 行囊页、角色页发来的操作。服务器没有批量接口，批量分解是逐件调用后合计。
+## 行囊页、角色页发来的操作。分解（单件 / 分解弹窗多选）都走批量接口 POST /me/items/decompose。
 func _on_page_action(kind: String, ids: Array) -> void:
 	if _busy:
 		return
@@ -940,8 +945,10 @@ func _on_page_action(kind: String, ids: Array) -> void:
 			await _breakthrough(str(ids[0]))
 		"decompose":
 			await _decompose_many(ids)
-		"auto_decompose":
-			await _on_auto_decompose(bool(ids[0]))
+		"open_salvage":
+			open_salvage()
+		"toast":
+			_toast.say_neutral(str(ids[0]) if not ids.is_empty() else "")
 
 
 func _item_action(item_id: String, action: String) -> void:
@@ -970,7 +977,8 @@ func _enhance(item_id: String, to_max: bool) -> void:
 		_toast.say(PlayerApi.error_message(result), false)
 		return
 	var done: Dictionary = result.get("enhanced", {})
-	var message := "强化成功 +%d → +%d，消耗强化经验 %d" % [int(done.get("fromLevel", 0)), int(done.get("toLevel", 0)), int(done.get("spentExp", 0))]
+	var spent_essence := int(done.get("spentEssence", 0))
+	var message := ("强化成功 +%d → +%d，消耗炼器精粹 %d" % [int(done.get("fromLevel", 0)), int(done.get("toLevel", 0)), spent_essence]) if done.has("spentEssence") else ("强化成功 +%d → +%d，消耗强化经验 %d" % [int(done.get("fromLevel", 0)), int(done.get("toLevel", 0)), int(done.get("spentExp", 0))])
 	if done.get("blockedByBreakthrough", null) != null:
 		message += "。已到突破节点 +%d，需要先突破" % int(done.get("blockedByBreakthrough", 0))
 	_toast.say(message)
@@ -1013,39 +1021,47 @@ func _equip_many(ids: Array) -> void:
 		_toast.say("一键穿戴了 %d 件更强的装备" % worn)
 
 
-func _decompose_many(ids: Array) -> void:
-	var total := 0
-	var done := 0
-	var skipped := 0
-	for id in ids:
-		_busy = true
-		var result := await _post("/api/v1/me/items/%s/decompose" % str(id).uri_encode())
-		_busy = false
-		if int(result.get("code", 0)) != 200:
-			var error: Variant = result.get("error", {})
-			if typeof(error) == TYPE_DICTIONARY and str((error as Dictionary).get("code", "")) == "EQUIPPED_CANNOT_DECOMPOSE":
-				skipped += 1
-				continue
-			_toast.say("分解到第 %d 件时失败：%s" % [done + 1, PlayerApi.error_message(result)], false)
-			break
-		total += int(result.get("gainedEnhanceExp", 0))
-		done += 1
-		_apply_action_state(result)
-	if done > 0:
-		var tail := "（跳过 %d 件已穿戴的装备）" % skipped if skipped > 0 else ""
-		_toast.say("分解了 %d 件装备，得到强化经验 %d%s" % [done, total, tail])
-	elif skipped > 0:
-		_toast.say("已穿戴的装备不能分解，请先脱下", false)
-
-
-func _on_auto_decompose(enabled: bool) -> void:
+## 分解（一件或多件）：一次请求 POST /me/items/decompose {itemIds}。服务器全部校验通过才分解（已穿戴 / 不是装备会整单拒绝）。
+## 返回 {ok, gained}。
+func _decompose_many(ids: Array) -> Dictionary:
+	if ids.is_empty():
+		return {"ok": false, "gained": 0}
 	_busy = true
-	var result := await _post("/api/v1/me/auto-decompose", {"enabled": enabled})
+	var result := await _post("/api/v1/me/items/decompose", {"itemIds": ids})
 	_busy = false
 	if int(result.get("code", 0)) != 200:
-		_toast.say(PlayerApi.error_message(result), false)
-		return
+		var error: Variant = result.get("error", {})
+		if typeof(error) == TYPE_DICTIONARY and str((error as Dictionary).get("code", "")) == "EQUIPPED_CANNOT_DECOMPOSE":
+			_toast.say("已穿戴的装备不能分解，请先脱下", false)
+		else:
+			_toast.say(PlayerApi.error_message(result), false)
+		return {"ok": false, "gained": 0}
+	var gained := int(result.get("gainedEssence", result.get("gainedEnhanceExp", 0)))
 	_apply_action_state(result)
+	_toast.say(("获得 炼器精粹 ×%s" % QKit.grouped(gained)) if result.has("gainedEssence") else ("分解了 %d 件装备，得到强化经验 %d" % [ids.size(), gained]))
+	return {"ok": true, "gained": gained}
+
+
+## 打开分解弹窗（一件都不选）。
+func open_salvage() -> void:
+	if _salvage == null:
+		return
+	_salvage.open(BagModel.from_state(_state, _content, _flags.seen if _flags != null else {}))
+
+
+func salvage_dialog() -> SalvageDialog:
+	return _salvage
+
+
+## 分解弹窗确认后：调接口；成功了弹窗不关、换成新行囊（满包条该消失就消失）。
+func _on_salvage_decompose(ids: Array) -> void:
+	if _busy:
+		return
+	var done := await _decompose_many(ids)
+	if _salvage.visible:
+		_salvage.after_decompose(BagModel.from_state(_state, _content, _flags.seen if _flags != null else {}))
+	if not bool(done.ok):
+		_salvage.after_decompose(BagModel.from_state(_state, _content, _flags.seen if _flags != null else {}))
 
 
 func _set_status(message: String) -> void:

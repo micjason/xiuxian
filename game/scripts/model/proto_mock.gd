@@ -26,7 +26,9 @@ static func _dataset() -> Dictionary:
 
 
 static func content() -> Dictionary:
-	return (_dataset().get("content", {}) as Dictionary).duplicate(true)
+	var out := (_dataset().get("content", {}) as Dictionary).duplicate(true)
+	UiMock.add_essence(out)  # 第五批：数据集是老服务器导出的，补上炼器精粹规则和物品
+	return out
 
 
 static func realm_snapshot(slug: String) -> Dictionary:
@@ -69,12 +71,14 @@ static func state(scene: String = "") -> Dictionary:
 		for slug in ["gear_major1_weapon_blue", "gear_major1_weapon_white", "gear_major1_helmet_green", "gear_major1_helmet_white", "gear_major1_clothes_green", "gear_major1_gloves_green", "gear_major1_shoes_green", "gear_major1_accessory_blue", "gear_major1_shoes_white"]:
 			items.append(_row(slug))
 		items.append(_row("enh_stone_low", null, 0, 3, true))
+		items.append(_row("refine_essence", null, 0, 1286 if which != "full" else 260, true))
 		if which == "full":
-			for slug in ["gear_major1_weapon_white", "gear_major1_clothes_white", "gear_major1_clothes_blue", "gear_major1_helmet_blue", "gear_major1_gloves_white", "gear_major1_gloves_blue", "gear_major1_shoes_blue", "gear_major1_accessory_white", "gear_major1_accessory_green", "gear_major1_helmet_blue"]:
-				items.append(_row(slug))
+			# 满包 20/20（含 2 格材料堆叠）：几件紫 / 橙、带强化的，方便看分解界面和二次确认
+			for entry in [["gear_major1_weapon_white", 0], ["gear_major1_clothes_white", 0], ["gear_major1_clothes_blue", 2], ["gear_major1_helmet_purple", 3], ["gear_major1_gloves_white", 0], ["gear_major1_gloves_blue", 0], ["gear_major1_shoes_orange", 5], ["gear_major1_accessory_white", 0], ["gear_major1_accessory_purple", 0]]:
+				items.append(_row(str(entry[0]), null, int(entry[1])))
 	out["items"] = items
-	out["autoDecompose"] = which != "full"
-	out["enhanceExp"] = 340 if which != "fresh" else 0
+	out.erase("autoDecompose")
+	out["enhanceExp"] = 0
 	out["bagBonus"] = 0
 	out["bagCapacity"] = 20
 	out["spiritStones"] = 0
@@ -332,7 +336,7 @@ static func _breakthrough(state_data: Dictionary, content_data: Dictionary) -> D
 	if float(state_data.get("cultivation", 0)) < cost:
 		return {"code": 409, "error": {"code": "NOT_ENOUGH_CULTIVATION", "message": "修为不足"}}
 	var keep_cultivation := float(state_data.cultivation) - cost
-	var keep := {"items": state_data.get("items", []), "skills": state_data.get("skills", []), "autoDecompose": state_data.get("autoDecompose", false), "enhanceExp": state_data.get("enhanceExp", 0), "wave": state_data.get("wave", {}), "bagCapacity": 20}
+	var keep := {"items": state_data.get("items", []), "skills": state_data.get("skills", []), "enhanceExp": state_data.get("enhanceExp", 0), "wave": state_data.get("wave", {}), "bagCapacity": 20}
 	var bonus_bp := float((state_data.get("cultivationRate", {}) as Dictionary).get("bonusBp", 0))
 	var snapshot := realm_snapshot(next_slug)
 	for key in snapshot:

@@ -33,8 +33,12 @@ var capacity := DEFAULT_CAPACITY
 var weights: Dictionary = DEFAULT_WEIGHTS.duplicate()
 var items: Array[Dictionary] = []
 var enhance: EnhanceModel = EnhanceModel.new()
-## 强化经验池（分解装备得到，用来强化装备）。
+## 强化用的「池子」：第五批起 = 炼器精粹数量（state.essence.count；分解装备得到，用来强化装备）；
+## 老服务器没有精粹时 = 旧的强化经验（state.enhanceExp）。名字沿用 enhance_exp，调用方不用改。
 var enhance_exp := 0
+## 炼器精粹（有精粹规则时为真）。
+var uses_essence := false
+var essence_slug := ""
 ## 物品定义（slug → 定义），用来显示突破材料的名字。
 var defs: Dictionary = {}
 
@@ -48,7 +52,9 @@ static func from_state(state: Dictionary, content: Dictionary, seen: Dictionary 
 		cap = int(globals.get("bagCapacity", 0))
 	model.capacity = cap if cap > 0 else DEFAULT_CAPACITY
 	model.enhance = EnhanceModel.from_content(content)
-	model.enhance_exp = int(state.get("enhanceExp", 0))
+	model.uses_essence = model.enhance.uses_essence()
+	model.essence_slug = model.enhance.essence_slug()
+	model.enhance_exp = essence_count(state, model.essence_slug) if model.uses_essence else int(state.get("enhanceExp", 0))
 	var raw_weights: Variant = globals.get("powerWeights", null)
 	if typeof(raw_weights) == TYPE_DICTIONARY:
 		for key in STAT_KEYS:
@@ -185,13 +191,25 @@ static func normalize(row: Dictionary, def: Dictionary, weights: Dictionary, enh
 		## 正卡着的突破节点（没有就是空字典）和下一个还没突破的节点；材料够不够由 BagModel 实例补上 break_view。
 		"break_pending": pending,
 		"break_next": upcoming,
-		"decompose_exp": enhance_model.decompose_exp(rarity, level) if (is_gear and enhance_model != null) else 0,
+		"decompose_exp": enhance_model.decompose_exp(rarity, level, SlotConfig.id_from_server(server_slot)) if (is_gear and enhance_model != null) else 0,
 		"is_new": not seen.is_empty() and not seen.has(id),
 		"stats": stats,
 		"base_stats": base_stats,
 		"power": power_of(stats, weights) if is_gear else 0,
 		"required_realm_order": int(def.get("requiredRealmOrder", 0)),
 	}
+
+
+## 炼器精粹数量：state.essence.count；没有这一项时数行囊里的精粹堆叠。
+static func essence_count(state: Dictionary, slug: String) -> int:
+	var row: Variant = state.get("essence", null)
+	if typeof(row) == TYPE_DICTIONARY and (row as Dictionary).has("count"):
+		return int((row as Dictionary).get("count", 0))
+	var total := 0
+	for item in state.get("items", []):
+		if typeof(item) == TYPE_DICTIONARY and str((item as Dictionary).get("itemSlug", "")) == slug and not slug.is_empty():
+			total += int((item as Dictionary).get("quantity", 0))
+	return total
 
 
 func find(item_id: String) -> Dictionary:
@@ -214,21 +232,12 @@ func is_full() -> bool:
 	return used_slots() >= capacity
 
 
-## 自动分解能腾出格子的装备：没穿、白/绿、没强化过（与服务器 pickAutoDecomposeCandidate 一致）。
-func auto_decomposable_count() -> int:
-	var count := 0
-	for item in items:
-		if str(item.get("category", "")) == "equip" and not bool(item.get("equipped", false)) and int(item.get("rarity", 0)) <= 1 and int(item.get("enhance", 0)) == 0:
-			count += 1
-	return count
-
-
-## 挑战前的行囊状态。背包满不再拦挑战（服务器不会返回 BAG_FULL）：
-## 满包时新掉的装备不会入包（自动分解开着时白/绿会直接分解成强化经验），首通固定奖励可以超出容量。
-## 返回 {full, blocked(恒为 false，保留给旧调用方), used, capacity, will_free(恒为 false), auto_decompose}。
-func challenge_gate(auto_decompose: bool) -> Dictionary:
+## 挑战前的行囊状态。背包满不拦挑战（服务器不会返回 BAG_FULL）：
+## 第五批起满包时关卡掉落 / 首领装备都不发（不再自动分解），玩家在分解界面自己选（SPEC_Q §17.2 / 17.5）。
+## 返回 {full, blocked(恒为 false，保留给旧调用方), used, capacity, will_free(恒为 false), auto_decompose(恒为 false)}。
+func challenge_gate(_auto_decompose: bool = false) -> Dictionary:
 	var used := used_slots()
-	return {"full": used >= capacity, "blocked": false, "used": used, "capacity": capacity, "will_free": false, "auto_decompose": auto_decompose}
+	return {"full": used >= capacity, "blocked": false, "used": used, "capacity": capacity, "will_free": false, "auto_decompose": false}
 
 
 func category_count(category: String) -> int:

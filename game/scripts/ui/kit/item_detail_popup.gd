@@ -529,6 +529,8 @@ func _enhance_section(data: Dictionary) -> Control:
 		var note := "已到突破节点 +%d：交齐材料突破后才能继续强化（突破不会失败）" % level if ready else "材料不足，凑齐后才能突破"
 		_put(section, _label(note, ArtLib.bold_font(), 30, COLORS.muted if ready else COLORS.warn), Rect2(26, y + 20.0 + LAYOUT.enh_btn_h + 10.0, 848, 44))
 		return section
+	if bool(data.get("essence", false)):
+		return _essence_enhance(section, data, id)
 	var icon := QKit.cut_rect("icon_enhance_exp", Vector2(60, 60))
 	_put(section, icon, Rect2(22, 76, 60, 60))
 	_put(section, _label("强化经验", ArtLib.bold_font(), 32, COLORS.muted), Rect2(94, 80, 300, 52))
@@ -569,6 +571,59 @@ func _enhance_section(data: Dictionary) -> Control:
 	return section
 
 
+## 第五批（SPEC_Q §17.3，稿 q_enhance_cost）：强化消耗「炼器精粹」。消耗行 = 奶白胶囊（卡内 20,80，840×112）：
+## 左精粹图标 108 +「消耗」+「炼器精粹」；右「拥有 / 需要」+「拥有数 / 需要数」（拥有数够＝绿、不够＝红）。
+## 原来的强化经验进度条去掉。不够时按钮灰掉但能点，点了提示「炼器精粹不足，分解装备可获得」（不关详情）。
+const ESSENCE_SHORT := "炼器精粹不足，分解装备可获得"
+
+
+func _essence_enhance(section: Control, data: Dictionary, id: String) -> Control:
+	var enough := bool(data.get("enough", false))
+	var row := Panel.new()
+	row.name = "EssenceCost"
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_theme_stylebox_override("panel", ArtLib.q_nine("row_cream_r26") if ArtLib.qui("row_cream_r26") != null else QSkin.custom(UiTokens.Q_CREAM, UiTokens.Q_COCOA, 4, 56, 0, 0, 0))
+	_put(section, row, Rect2(30, 80, 840, 112))
+	var icon := TextureRect.new()
+	icon.texture = ArtLib.qui("icon_refine_essence@2x") if ArtLib.qui("icon_refine_essence@2x") != null else ArtLib.qui("icon_refine_essence")
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_put(row, icon, Rect2(8, 2, 108, 108))
+	_put(row, _label("消耗", ArtLib.bold_font(), 28, COLORS.muted), Rect2(124, 30, 70, 52))
+	_put(row, _label("炼器精粹", ArtLib.title_font(), 38, COLORS.text), Rect2(196, 26, 200, 60))
+	_put(row, _label("拥有 / 需要", ArtLib.bold_font(), 28, COLORS.muted), Rect2(400, 30, 150, 52))
+	var nums := UiKit.hbox(6)
+	nums.name = "Pool"
+	nums.alignment = BoxContainer.ALIGNMENT_END
+	nums.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var have := _label(QKit.grouped(int(data.pool)), ArtLib.title_font(), 46, Color("3c9a4e") if enough else Color("d93a3f"))
+	have.name = "Have"
+	nums.add_child(have)
+	nums.add_child(_label("/ %s" % QKit.grouped(int(data.cost)), ArtLib.bold_font(), 34, COLORS.muted))
+	_put(row, nums, Rect2(540, 22, 274, 68))
+	var one := _button("强 化", "m" if enough else "g", int(LAYOUT.enh_btn_h), 40)
+	one.name = "EnhanceOne"
+	one.pressed.connect(func() -> void: _enhance_or_short(enough, id, false))
+	_put(section, one, Rect2(26, 214, LAYOUT.enh_btn_w, LAYOUT.enh_btn_h))
+	var many := _button("一键强化", "m" if enough else "g", int(LAYOUT.enh_btn_h), 40)
+	many.name = "EnhanceMax"
+	many.pressed.connect(func() -> void: _enhance_or_short(enough, id, true))
+	_put(section, many, Rect2(465, 214, LAYOUT.enh_btn_w, LAYOUT.enh_btn_h))
+	var foot := str(data.get("next_text", ""))
+	_put(section, _label(foot, ArtLib.bold_font(), 30, COLORS.muted), Rect2(26, 322, 848, 44)).name = "EnhanceFoot"
+	return section
+
+
+func _enhance_or_short(enough: bool, id: String, to_max: bool) -> void:
+	if enough:
+		_fire("enhance", [id, to_max])
+		return
+	var callback: Variant = _handlers.get("toast", null)
+	if callback is Callable:
+		(callback as Callable).call(ESSENCE_SHORT)
+
+
 func _gear_buttons() -> void:
 	var id := str(view.id)
 	var decompose: Dictionary = view.get("decompose", {})
@@ -593,7 +648,7 @@ func _gear_buttons() -> void:
 		return
 	_buttons.custom_minimum_size = Vector2(LAYOUT.section_w, h + 6)
 	var w2: float = LAYOUT.btn2_w
-	var split2 := _button("分 解", "m" if blocked.is_empty() else "g", h, 46, ("+%d 强化经验" % int(decompose.get("exp", 0))) if blocked.is_empty() else blocked)
+	var split2 := _button("分 解", "m" if blocked.is_empty() else "g", h, 46, (("+%d 炼器精粹" if bool(decompose.get("essence", false)) else "+%d 强化经验") % int(decompose.get("exp", 0))) if blocked.is_empty() else blocked)
 	split2.disabled = not blocked.is_empty()
 	split2.pressed.connect(func() -> void: _fire("decompose", [id]))
 	_put(_buttons, split2, Rect2(10, 0, w2, h))

@@ -11,6 +11,8 @@ signal challenge_requested(slug: String)
 ## slug 为空串 = 恢复“自动（当前境界最高关卡）”。
 signal idle_stage_requested(slug: String)
 signal back_requested
+## 第五批（SPEC_Q §17.5）：点「行囊已满」提示条 / 「去分解」→ 直接打开分解弹窗（外壳管）。
+signal salvage_requested
 
 ## 页面区左上角在画布上的位置（紧凑顶栏 152 + 刘海 90 + 8，左右边距 24）。
 const ORIGIN := Vector2(24, 250)
@@ -57,6 +59,14 @@ var _stage_box: VBoxContainer
 ## 选中关卡卡上的挑战按钮（测试用）；全部卡的按钮按 slug。
 var _challenge_button: Button
 var _challenge_buttons := {}
+## 行囊已满提示条（§17.5）。
+var _bag_hint: Button
+var _bag_pulse: TextureRect
+var _bag_go: Button
+var _bag_tween: Tween
+var _bag_full := false
+## 远处小怪的原始位置（提示条出现时往下挪 70，避开 y366–494）。
+const MONSTER_FAR_Y := 450.0
 
 
 func _init() -> void:
@@ -162,6 +172,123 @@ func _build_scene() -> void:
 	_monster_hp.name = "MonsterHp"
 	_at(_monster_hp, Rect2(756, 444, 170, 30))
 	_build_preview()
+	_build_bag_hint()
+
+
+## 「行囊已满」提示条（稿 q_bag_full_hint，SPEC_Q §17.5）：hint_bagfull_bg（26,366）580×128；
+## 背包图标 96 + badge_full 52 +「行囊已满」/「装备不再掉落」+ 橙色「去分解」200×88（下垫 fx_btn_pulse 脉冲）。整条都能点。
+func _build_bag_hint() -> void:
+	_bag_hint = Button.new()
+	_bag_hint.name = "BagFullHint"
+	_bag_hint.focus_mode = Control.FOCUS_NONE
+	_bag_hint.visible = false
+	var bg: StyleBox = ArtLib.q_nine("hint_bagfull_bg") if ArtLib.qui("hint_bagfull_bg") != null else QSkin.custom(Color("ffe6dc"), Color("f3a08a"), 4, 40, 8, 0, 0)
+	for state in ["normal", "hover", "pressed", "disabled"]:
+		_bag_hint.add_theme_stylebox_override(state, bg)
+	_bag_hint.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+	_bag_hint.pressed.connect(func() -> void: salvage_requested.emit())
+	_at(_bag_hint, Rect2(26, 366, 580, 128))
+	var pouch := TextureRect.new()
+	pouch.texture = ArtLib.icon("tab_bag")
+	pouch.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	pouch.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	pouch.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pouch.position = Vector2(20, 12)
+	pouch.size = Vector2(96, 96)
+	_bag_hint.add_child(pouch)
+	var badge := TextureRect.new()
+	badge.name = "FullBadge"
+	badge.texture = ArtLib.qui("badge_full")
+	badge.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	badge.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	badge.position = Vector2(84, 4)
+	badge.size = Vector2(52, 52)
+	_bag_hint.add_child(badge)
+	var title := QKit.title("行囊已满", 40, Color("d93a3f"))
+	title.position = Vector2(132, 14)
+	title.size = Vector2(240, 56)
+	_bag_hint.add_child(title)
+	var sub := UiKit.label("装备不再掉落", 28, Color("9a8478"))
+	sub.position = Vector2(132, 70)
+	sub.size = Vector2(240, 40)
+	sub.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_bag_hint.add_child(sub)
+	_bag_pulse = TextureRect.new()
+	_bag_pulse.name = "Pulse"
+	_bag_pulse.texture = ArtLib.qui("fx_btn_pulse")
+	_bag_pulse.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_bag_pulse.stretch_mode = TextureRect.STRETCH_SCALE
+	_bag_pulse.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_bag_pulse.position = Vector2(326, -11)
+	_bag_pulse.size = Vector2(260, 150)
+	_bag_pulse.pivot_offset = Vector2(130, 75)
+	_bag_hint.add_child(_bag_pulse)
+	_bag_go = QKit.button("去分解", "o", 88, 40, 30)
+	_bag_go.name = "GoSalvage"
+	_bag_go.position = Vector2(356, 16)
+	_bag_go.size = Vector2(200, 88)
+	_bag_go.pivot_offset = Vector2(100, 44)
+	_bag_go.pressed.connect(func() -> void: salvage_requested.emit())
+	_bag_hint.add_child(_bag_go)
+
+
+## 背包满（未穿戴的格数 ≥ 容量，和服务器 bagUsed 一样算；有 state.bagUsed 就用它）。
+static func bag_is_full(state: Dictionary, content: Dictionary) -> bool:
+	var cap := int(state.get("bagCapacity", 0))
+	if cap <= 0:
+		var globals: Variant = content.get("globals", {})
+		cap = int((globals as Dictionary).get("bagCapacity", 0)) if typeof(globals) == TYPE_DICTIONARY else 0
+	if cap <= 0:
+		return false
+	var used := -1
+	if state.has("bagUsed") and state.get("bagUsed") != null:
+		used = int(state.get("bagUsed"))
+	if used < 0:
+		used = 0
+		for row in state.get("items", []):
+			if typeof(row) == TYPE_DICTIONARY and BagModel.plain((row as Dictionary).get("equippedSlot", null)).is_empty():
+				used += 1
+	return used >= cap
+
+
+func bag_hint() -> Button:
+	return _bag_hint
+
+
+func _render_bag_hint() -> void:
+	var full := bag_is_full(_state, _content)
+	_monster_far.position.y = MONSTER_FAR_Y + (70.0 if full else 0.0) - ORIGIN.y
+	if full == _bag_full and _bag_hint.visible == full:
+		return
+	_bag_full = full
+	if _bag_tween != null:
+		_bag_tween.kill()
+		_bag_tween = null
+	var home_x := 26.0 - ORIGIN.x
+	if not full:
+		if _bag_hint.visible and is_inside_tree():
+			var out := create_tween()
+			out.tween_property(_bag_hint, "position:x", -600.0, 0.2)
+			out.tween_callback(func() -> void: _bag_hint.visible = false)
+		else:
+			_bag_hint.visible = false
+		return
+	_bag_hint.visible = true
+	_bag_hint.position.x = home_x
+	if not is_inside_tree():
+		return
+	_bag_hint.position.x = -600.0
+	create_tween().tween_property(_bag_hint, "position:x", home_x, 0.3).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	# 脉冲：fx_btn_pulse scale 0.92↔1.08、alpha 0.5↔1，按钮 1.0↔1.04，周期 1.2s。
+	_bag_tween = create_tween().set_loops()
+	_bag_tween.set_parallel(true)
+	_bag_tween.tween_property(_bag_pulse, "scale", Vector2(1.08, 1.08), 0.6).from(Vector2(0.92, 0.92))
+	_bag_tween.tween_property(_bag_pulse, "modulate:a", 1.0, 0.6).from(0.5)
+	_bag_tween.tween_property(_bag_go, "scale", Vector2(1.04, 1.04), 0.6).from(Vector2.ONE)
+	_bag_tween.chain().tween_property(_bag_pulse, "scale", Vector2(0.92, 0.92), 0.6)
+	_bag_tween.parallel().tween_property(_bag_pulse, "modulate:a", 0.5, 0.6)
+	_bag_tween.parallel().tween_property(_bag_go, "scale", Vector2.ONE, 0.6)
 
 
 ## 精英预览小卡（SPEC_Q §14.5：884,630,170,230）：挂机所在关的精英 / 章末首领立绘 + 名牌 + 「战力 N」，点了 = 挑战。
@@ -337,6 +464,7 @@ func bind(state: Dictionary, content: Dictionary, selected_slug: String) -> void
 		_tab = StageAccessView.default_chapter(_chapters, str(_wave().get("stageSlug", "")))
 	_elapsed = 0.0
 	_render_scene()
+	_render_bag_hint()
 	_render_preview()
 	_render_stages_if_changed()
 

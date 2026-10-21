@@ -22,6 +22,31 @@ const ENHANCE_RULES := {
 	},
 }
 
+## 第五批：炼器精粹规则（backend STARTING_ESSENCE_RULES）。分解得精粹、强化花精粹。
+const ESSENCE_RULES := {
+	"itemSlug": "refine_essence",
+	"yields": {"white": 20, "green": 60, "blue": 150, "purple": 400, "orange": 1000},
+	"slotMultBp": {}, "slotOverrides": {}, "refundPerLevel": 40,
+	"costBase": 40, "costGrowth": 1.25, "costTable": {}, "migrationRatioBp": 7000,
+}
+const ESSENCE_ITEM := {"slug": "refine_essence", "displayName": "炼器精粹", "kind": "material", "quality": "orange", "stackable": true,
+	"iconKey": "refine_essence", "description": "分解装备得到，用来强化装备。", "enabled": true}
+
+
+## 给一份内容补上精粹规则和精粹物品（演示数据集是老服务器导出的，没有）。
+static func add_essence(content_data: Dictionary) -> void:
+	var globals: Dictionary = content_data.get("globals", {}) if typeof(content_data.get("globals", null)) == TYPE_DICTIONARY else {}
+	var enhance: Variant = globals.get("enhance", null)
+	if typeof(enhance) == TYPE_DICTIONARY and typeof((enhance as Dictionary).get("essence", null)) != TYPE_DICTIONARY:
+		(enhance as Dictionary)["essence"] = ESSENCE_RULES.duplicate(true)
+	var items: Array = content_data.get("items", [])
+	for def in items:
+		if typeof(def) == TYPE_DICTIONARY and str((def as Dictionary).get("slug", "")) == str(ESSENCE_ITEM.slug):
+			return
+	items.append(ESSENCE_ITEM.duplicate(true))
+	content_data["items"] = items
+
+
 ## 演示套装「青云套」的成员（武器 / 护手 / 鞋子 / 饰品）。
 const MOCK_SET_MEMBERS: Array[String] = ["sword_r", "glove_b", "shoe_b", "acc_o"]
 
@@ -57,8 +82,11 @@ static func content() -> Dictionary:
 	for row in [["pill_qi", "聚气丹", "consumable", "white"], ["pill_back", "回灵丹", "consumable", "green"], ["pill_break", "突破丹", "consumable", "purple"]]:
 		items.append({"slug": row[0], "displayName": row[1], "kind": row[2], "quality": row[3], "stackable": true, "description": "服用后见效。", "enabled": true})
 	items.append({"slug": "book1", "displayName": "吐纳心法残页", "kind": "skill_book", "quality": "blue", "skillSlug": "heart1", "enabled": true})
+	var enhance := ENHANCE_RULES.duplicate(true)
+	enhance["essence"] = ESSENCE_RULES.duplicate(true)
+	items.append(ESSENCE_ITEM.duplicate(true))
 	return {
-		"globals": {"bagCapacity": 20, "powerWeights": WEIGHTS, "enhance": ENHANCE_RULES.duplicate(true)},
+		"globals": {"bagCapacity": 20, "powerWeights": WEIGHTS, "enhance": enhance},
 		"realms": [{"slug": "mortal", "displayName": "凡人", "sortOrder": 1}, {"slug": "qi1", "displayName": "炼气初期", "sortOrder": 2}, {"slug": "qi2", "displayName": "炼气中期", "sortOrder": 3}, {"slug": "qi3", "displayName": "炼气后期", "sortOrder": 4}],
 		"stages": [
 			{"slug": "s1", "displayName": "青岚山·枯木林", "requiredRealmOrder": 1, "recommendedPower": 800, "bosses": [{"name": "枯木妖", "attack": 30, "defense": 20, "hp": 1200, "drops": [{"itemSlug": "sword_g", "chanceBp": 2500}, {"itemSlug": "herb", "chanceBp": 6000}]}]},
@@ -85,14 +113,14 @@ static func state() -> Dictionary:
 		["sword_p", "", 1, 5], ["sword_b", "", 1, 0], ["sword_w", "", 1, 0], ["helm_b", "", 1, 0], ["helm_g", "", 1, 0], ["robe_p", "", 1, 0], ["robe_g", "", 1, 0],
 		["glove_b", "", 1, 0], ["acc_o", "", 1, 4], ["sword_r", "", 1, 2],
 		["herb", "", 36, 0], ["ore", "", 12, 0], ["wood", "", 3, 0], ["enh_stone_low", "", 6, 0], ["enh_stone_mid", "", 2, 0],
-		["pill_qi", "", 8, 0], ["pill_break", "", 1, 0], ["book1", "", 1, 0],
+		["pill_qi", "", 8, 0], ["pill_break", "", 1, 0], ["book1", "", 1, 0], ["refine_essence", "", 1286, 0],
 	]:
 		_seq += 1
 		rows.append({"id": "m%d" % _seq, "itemSlug": row[0], "equippedSlot": null if str(row[1]).is_empty() else row[1], "isStack": int(row[2]) > 1, "quantity": row[2], "enhanceLevel": row[3], "breakLevel": int(row[4]) if row.size() > 4 else 0})
 	var out := {
 		"code": 200, "realmSlug": "qi2", "realmName": "炼气中期", "cultivation": 2380.0, "power": 0, "attack": 0, "defense": 0, "hp": 0, "speed": 0,
 		"breakthrough": {"cost": 2880, "nextSlug": "qi3", "rateBp": 7500}, "cultivationRate": {"gainPerTick": 6.0},
-		"challengeCooldownSeconds": null, "autoDecompose": false, "bagCapacity": 20, "bagBonus": 0, "enhanceExp": 380,
+		"challengeCooldownSeconds": null, "bagCapacity": 20, "bagBonus": 0, "enhanceExp": 0,
 		"items": rows,
 		"skills": [{"skillSlug": "heart1", "level": 2, "runningSlot": "heart"}, {"skillSlug": "art1", "level": 1, "runningSlot": null}],
 	}
@@ -122,6 +150,14 @@ static func recompute(state: Dictionary, content: Dictionary) -> void:
 	for key in BagModel.STAT_KEYS:
 		state[key] = total[key]
 	state["power"] = BagModel.power_of(total, weights)
+	# 第五批：和服务器 stateDto 一样带 essence {itemSlug, count} 和 bagUsed（未穿戴的格数）。
+	if enhance.uses_essence():
+		state["essence"] = {"itemSlug": enhance.essence_slug(), "count": _stack_count(state.get("items", []), enhance.essence_slug())}
+	var used := 0
+	for row in state.get("items", []):
+		if row.get("equippedSlot", null) == null:
+			used += 1
+	state["bagUsed"] = used
 
 
 ## 假动作：和真实接口返回同样的外形 {code, state, ...}。
@@ -129,7 +165,12 @@ static func handle(path: String, body: Dictionary, state: Dictionary, content: D
 	var parts := path.trim_prefix("/api/v1/me/").split("/")
 	var result := {"code": 200}
 	var items: Array = state.get("items", [])
-	if parts.size() >= 3 and parts[0] == "items":
+	if parts.size() == 2 and parts[0] == "items" and parts[1] == "decompose":
+		var batch := decompose_batch(body.get("itemIds", []), state, content)
+		if int(batch.get("code", 200)) != 200:
+			return batch
+		result.merge(batch, true)
+	elif parts.size() >= 3 and parts[0] == "items":
 		var id := String(parts[1])
 		var row := _row(items, id)
 		if row.is_empty():
@@ -150,12 +191,10 @@ static func handle(path: String, body: Dictionary, state: Dictionary, content: D
 				if row.get("equippedSlot", null) != null:
 					# 与服务器一致：409 + EQUIPPED_CANNOT_DECOMPOSE
 					return {"code": 409, "error": {"code": "EQUIPPED_CANNOT_DECOMPOSE", "message": "已穿戴的装备不能分解，请先脱下「%s」" % str(def.get("displayName", "这件装备"))}}
-				var rules := EnhanceModel.from_content(content)
-				var rarity := BagModel.rarity_of(def)
-				var gained := rules.decompose_exp(rarity, int(row.get("enhanceLevel", 0)))
-				items.erase(row)
-				result["gainedEnhanceExp"] = gained
-				state["enhanceExp"] = int(state.get("enhanceExp", 0)) + gained
+				var one := decompose_batch([id], state, content)
+				if int(one.get("code", 200)) != 200:
+					return one
+				result.merge(one, true)
 			"enhance":
 				var rules2 := EnhanceModel.from_content(content)
 				var rarity2 := BagModel.rarity_of(def)
@@ -168,9 +207,12 @@ static func handle(path: String, body: Dictionary, state: Dictionary, content: D
 					return {"code": 409, "error": {"code": "BREAKTHROUGH_REQUIRED", "message": "已到突破节点 +%d，需要先突破" % int(gate.level)}}
 				var from_level := level
 				var spent := 0
-				var pool := int(state.get("enhanceExp", 0))
+				var essence := rules2.uses_essence()
+				var pool := _stack_count(items, rules2.essence_slug()) if essence else int(state.get("enhanceExp", 0))
 				var wanted := rules2.levels_affordable(rarity2, level, pool, broken) if bool(body.get("toMax", false)) else level + 1
 				if wanted == level:
+					if essence:
+						return {"code": 409, "error": {"code": "ESSENCE_SHORT", "message": "炼器精粹不足，分解装备可获得", "details": {"need": rules2.cost(rarity2, level), "have": pool}}}
 					return {"code": 400, "error": {"message": "强化经验不足，还差 %d" % (rules2.cost(rarity2, level) - pool)}}
 				while level < wanted:
 					var need := rules2.cost(rarity2, level)
@@ -180,9 +222,14 @@ static func handle(path: String, body: Dictionary, state: Dictionary, content: D
 					spent += need
 					level += 1
 				row["enhanceLevel"] = level
-				state["enhanceExp"] = pool
+				if essence:
+					_take_stack(items, rules2.essence_slug(), spent)
+				else:
+					state["enhanceExp"] = pool
 				var stopped := rules2.pending_node(rarity2, level, broken)
-				result["enhanced"] = {"itemId": id, "fromLevel": from_level, "toLevel": level, "spentExp": spent, "blockedByBreakthrough": null if stopped.is_empty() else int(stopped.level)}
+				result["enhanced"] = {"itemId": id, "fromLevel": from_level, "toLevel": level, "spentExp": 0 if essence else spent, "blockedByBreakthrough": null if stopped.is_empty() else int(stopped.level)}
+				if essence:
+					result["enhanced"]["spentEssence"] = spent
 			"breakthrough":
 				var rules3 := EnhanceModel.from_content(content)
 				var rarity3 := BagModel.rarity_of(def)
@@ -220,10 +267,54 @@ static func handle(path: String, body: Dictionary, state: Dictionary, content: D
 		state["breakthrough"] = {"cost": cost * 1.6, "nextSlug": "", "rateBp": 6000}
 		result["result"] = {"success": true}
 	elif parts[0] == "auto-decompose":
-		state["autoDecompose"] = bool(body.get("enabled", false))
+		pass  # 第五批：自动分解去掉了，老接口不做事
 	recompute(state, content)
 	result["state"] = state
 	return result
+
+
+## 批量分解（和服务器 POST /me/items/decompose 一样）：任何一件穿着 / 不是装备就整单拒绝；
+## 有精粹规则 → 加精粹堆叠，返回 gainedEssence；否则老规则加 enhanceExp。
+static func decompose_batch(ids: Variant, state: Dictionary, content: Dictionary) -> Dictionary:
+	var items: Array = state.get("items", [])
+	if typeof(ids) != TYPE_ARRAY or (ids as Array).is_empty():
+		return {"code": 400, "error": {"code": "INVALID_INPUT", "message": "请先选择要分解的装备"}}
+	var rows: Array = []
+	for id in ids:
+		var row := _row(items, str(id))
+		if row.is_empty():
+			return {"code": 404, "error": {"message": "没有这件物品"}}
+		var def := _def(content, str(row.itemSlug))
+		if str(def.get("kind", "")) != "equipment":
+			return {"code": 409, "error": {"code": "NOT_EQUIPMENT", "message": "只有装备可以分解"}}
+		if row.get("equippedSlot", null) != null:
+			return {"code": 409, "error": {"code": "EQUIPPED_CANNOT_DECOMPOSE", "message": "已穿戴的装备不能分解，请先脱下「%s」" % str(def.get("displayName", "这件装备"))}}
+		rows.append([row, def])
+	var rules := EnhanceModel.from_content(content)
+	var gained := 0
+	var decomposed: Array = []
+	for pair in rows:
+		var row: Dictionary = pair[0]
+		var def: Dictionary = pair[1]
+		var got := rules.decompose_exp(BagModel.rarity_of(def), int(row.get("enhanceLevel", 0)), SlotConfig.id_from_server(str(def.get("slot", ""))))
+		gained += got
+		decomposed.append({"itemId": str(row.id), "itemSlug": str(row.itemSlug), "gained": got})
+		items.erase(row)
+	if rules.uses_essence():
+		var slug := rules.essence_slug()
+		var stack := {}
+		for row in items:
+			if str(row.get("itemSlug", "")) == slug:
+				stack = row
+		if stack.is_empty():
+			_seq += 1
+			items.append({"id": "m%d" % _seq, "itemSlug": slug, "equippedSlot": null, "isStack": true, "quantity": gained, "enhanceLevel": 0, "breakLevel": 0})
+		else:
+			stack["quantity"] = int(stack.get("quantity", 0)) + gained
+			stack["isStack"] = true
+		return {"code": 200, "decomposed": decomposed, "gainedEssence": gained, "essenceItemSlug": slug, "gainedEnhanceExp": 0}
+	state["enhanceExp"] = int(state.get("enhanceExp", 0)) + gained
+	return {"code": 200, "decomposed": decomposed, "gainedEnhanceExp": gained}
 
 
 static func _stack_count(items: Array, slug: String) -> int:

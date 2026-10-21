@@ -1,12 +1,13 @@
 class_name BagPage
 extends VBoxContainer
 ## 背包页（Q 版设计稿 q_bag）：纸娃娃（境界绶带 + 6 个部位 + 法宝/灵宠锁定位）、战力与四项属性、
-## 筛选页签（全部/装备/丹药/材料）+ 容量、自动分解开关、6 列格子（初始容量 20），底部 一键出售（未开放）/一键穿戴/批量/整理。
+## 筛选页签（全部/装备/丹药/材料）+ 容量、6 列格子（初始容量 20），底部 一键出售（未开放）/一键穿戴/分解/整理。
+## 第五批（SPEC_Q §17.2）：去掉「自动分解」开关和背包内批量多选；「分解」打开居中的分解弹窗（kit/salvage_dialog.gd，外壳管）。
 ## 点格子或装备栏部位弹出物品详情（强化 / 穿戴 / 脱下 / 分解；已穿戴的分解按钮灰掉并写「已穿戴，无法分解」）。
 ## 数据通过 bind(state, content, flags) 传入；操作通过 action_requested 发出，由外壳调接口，不直接访问网络。
 
-## kind: equip / unequip / use / enhance / enhance_max / breakthrough / decompose / auto_decompose / equip_many；
-## ids: 物品 id 数组（auto_decompose 时是 [bool]）。
+## kind: equip / unequip / use / enhance / enhance_max / breakthrough / decompose / open_salvage / equip_many / toast；
+## ids: 物品 id 数组（open_salvage 时为空；toast 时是 [文字]）。
 signal action_requested(kind: String, ids: Array)
 
 const COLUMNS := 6
@@ -37,7 +38,6 @@ var model: BagModel = BagModel.new()
 var flags: ItemFlags
 var category := "all"
 var sort_index := 0
-var auto_decompose := false
 
 var _state: Dictionary = {}
 var _content: Dictionary = {}
@@ -48,15 +48,8 @@ var _cells: Dictionary = {}
 var _capacity_label: Label
 var _wear_button: Button
 var _sort_button: Button
-var _batch_button: Button
-var _auto_label: Label
-var _auto_switch: Button
-var _auto_icon: TextureRect
-var _auto_text: Label
+var _salvage_button: Button
 var _grid: ItemGrid
-var _batch_bar: HBoxContainer
-var _selected_label: Label
-var _decompose_button: Button
 var _hint: Label
 var _empty: Label
 var _sell_button: Button
@@ -95,13 +88,10 @@ func _build() -> void:
 	frame.add_theme_stylebox_override("panel", QKit.cut_box("panel_cream", 22, 18))
 	var column := UiKit.vbox(10)
 	frame.add_child(column)
-	column.add_child(_build_auto_row())
 	_grid = ItemGrid.new()
 	_grid.name = "BagGrid"
 	_grid.set_columns(COLUMNS)
-	_grid.selectable = BagModel.selectable_for_batch
 	_grid.slot_pressed.connect(_on_slot)
-	_grid.selection_changed.connect(_on_selection)
 	var well := PanelContainer.new()
 	well.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	well.add_theme_stylebox_override("panel", QKit.cut_box("well_bag_grid", 16, 16) if ArtLib.qui("well_bag_grid") != null else ArtLib.nine("panel_inset"))
@@ -114,21 +104,6 @@ func _build() -> void:
 	_hint = UiKit.wrap_label("", UiTokens.FS_MICRO, UiTokens.Q_TEAL_DARK)
 	_hint.visible = false
 	add_child(_hint)
-	_batch_bar = UiKit.hbox(UiTokens.TAP_GAP)
-	_batch_bar.visible = false
-	add_child(_batch_bar)
-	_selected_label = UiKit.label("已选 0 件", UiTokens.FS_MICRO, UiTokens.TEXT)
-	_selected_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_batch_bar.add_child(_selected_label)
-	var all_button := QKit.button("全选", "m", 100, 34)
-	all_button.custom_minimum_size.x = 180
-	all_button.pressed.connect(func() -> void: _grid.select_all())
-	_batch_bar.add_child(all_button)
-	_decompose_button = QKit.button("分解所选", "o", 100, 34)
-	_decompose_button.custom_minimum_size.x = 280
-	_decompose_button.disabled = true
-	_decompose_button.pressed.connect(_confirm_batch)
-	_batch_bar.add_child(_decompose_button)
 	add_child(_build_capacity_row())
 	var orb_room := Control.new()
 	orb_room.name = "OrbRoom"
@@ -257,7 +232,7 @@ func _build_capacity_pill() -> Control:
 	return pill
 
 
-## 底部按钮：一键出售（没有出售功能 → 「功能暂未开放」）、一键穿戴、批量（分解）、整理。
+## 底部按钮：一键出售（没有出售功能 → 「功能暂未开放」）、一键穿戴、分解（打开分解弹窗）、整理。
 func _build_capacity_row() -> Control:
 	var row := UiKit.hbox(16)
 	row.name = "BagActions"
@@ -271,50 +246,17 @@ func _build_capacity_row() -> Control:
 	_wear_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_wear_button.pressed.connect(_on_wear_all)
 	row.add_child(_wear_button)
-	_batch_button = QKit.button("批量", "m", 100, 36)
-	_batch_button.name = "BatchButton"
-	_batch_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_batch_button.pressed.connect(_toggle_batch)
-	row.add_child(_batch_button)
+	_salvage_button = QKit.button("分 解", "m", 100, 36)
+	_salvage_button.name = "SalvageButton"
+	_salvage_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_salvage_button.pressed.connect(func() -> void: action_requested.emit("open_salvage", []))
+	row.add_child(_salvage_button)
 	_sort_button = QKit.button("整理", "o", 100, 36)
 	_sort_button.name = "SortButton"
 	_sort_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_sort_button.pressed.connect(_tidy)
 	row.add_child(_sort_button)
 	return row
-
-
-## 自动分解开关行：整行可点。文字固定为「自动分解（仅未强化的白、绿装备）」。
-func _build_auto_row() -> Control:
-	_auto_switch = Button.new()
-	_auto_switch.name = "AutoDecomposeRow"
-	_auto_switch.custom_minimum_size = Vector2(0, 72)
-	_auto_switch.focus_mode = Control.FOCUS_NONE
-	for state in ["normal", "hover", "pressed", "disabled", "focus"]:
-		_auto_switch.add_theme_stylebox_override(state, StyleBoxEmpty.new())
-	_auto_switch.pressed.connect(func() -> void: action_requested.emit("auto_decompose", [not auto_decompose]))
-	var row := UiKit.hbox(10)
-	row.set_anchors_preset(Control.PRESET_FULL_RECT)
-	row.offset_left = 6
-	row.offset_right = -6
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_auto_switch.add_child(row)
-	_auto_label = QKit.title("自动分解（仅未强化的白、绿装备）", 32, UiTokens.TEXT)
-	_auto_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_auto_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_auto_label.clip_text = true
-	row.add_child(_auto_label)
-	_auto_text = UiKit.label("关", UiTokens.FS_MICRO, UiTokens.TEXT_MUTED)
-	_auto_text.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	row.add_child(_auto_text)
-	_auto_icon = TextureRect.new()
-	_auto_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	_auto_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	_auto_icon.custom_minimum_size = Vector2(112, 64)
-	_auto_icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	_auto_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_child(_auto_icon)
-	return _auto_switch
 
 
 ## 下半薄荷底板的上沿跟着属性卡（设计稿 962）。
@@ -330,7 +272,6 @@ func bind(state: Dictionary, content: Dictionary, item_flags: ItemFlags) -> void
 	_state = state
 	_content = content
 	flags = item_flags
-	auto_decompose = bool(state.get("autoDecompose", false))
 	# 心跳每次都会 bind：和上次一样就不刷新（v14：原来每次都重建纸娃娃 8 格 + 背包全部格子，滚动被打断、卡顿）。
 	var sig := _bind_signature()
 	if sig == _bind_sig and is_same(content, _bound_content):
@@ -340,7 +281,7 @@ func bind(state: Dictionary, content: Dictionary, item_flags: ItemFlags) -> void
 
 
 func _bind_signature() -> int:
-	var keys := ["items", "power", "hp", "attack", "defense", "speed", "bagCapacity", "enhanceExp", "autoDecompose", "realmName"]
+	var keys := ["items", "power", "hp", "attack", "defense", "speed", "bagCapacity", "enhanceExp", "essence", "realmName"]
 	var parts: Array = []
 	for key in keys:
 		parts.append(_state.get(key, null))
@@ -363,10 +304,6 @@ func refresh() -> void:
 	for entry in TABS:
 		tabs.append({"id": entry.id, "name": entry.name})
 	_tabs.set_tabs(tabs, category)
-	_auto_text.text = "开" if auto_decompose else "关"
-	_auto_text.add_theme_color_override("font_color", UiTokens.Q_TEAL_DARK if auto_decompose else UiTokens.TEXT_MUTED)
-	var toggle_tex := ArtLib.qui("toggle_on" if auto_decompose else "toggle_off")
-	_auto_icon.texture = toggle_tex if toggle_tex != null else ArtLib.switch_tex(auto_decompose)
 	_render_doll()
 	_wear_button.disabled = EquipModel.best_upgrades(model).is_empty()
 	_render_grid()
@@ -408,8 +345,8 @@ func equip_cell(slot_id: String) -> EquipSlotCell:
 	return _cells.get(slot_id, null) as EquipSlotCell
 
 
-func auto_switch() -> Button:
-	return _auto_switch
+func salvage_button() -> Button:
+	return _salvage_button
 
 
 func show_hint(text: String) -> void:
@@ -435,9 +372,6 @@ func mark_visible_seen() -> void:
 
 func _on_tab(tab_id: String) -> void:
 	category = tab_id
-	if _grid.multi_select:
-		_grid.set_multi_select(false)
-		_leave_batch()
 	_render_grid()
 
 
@@ -455,39 +389,8 @@ func _on_wear_all() -> void:
 	action_requested.emit("equip_many", ids)
 
 
-func _toggle_batch() -> void:
-	var on := not _grid.multi_select
-	if on and category != "equip" and category != "all":
-		_tabs.select("equip", true)
-		category = "equip"
-		_render_grid()
-	_grid.set_multi_select(on)
-	_batch_bar.visible = on
-	_batch_button.text = "完成" if on else "批量"
-	QKit.style_button(_batch_button, "o" if on else "m", 36)
-	_on_selection([])
-
-
-func _leave_batch() -> void:
-	_batch_bar.visible = false
-	_batch_button.text = "批量"
-	QKit.style_button(_batch_button, "m", 36)
-
-
-func _on_selection(ids: Array) -> void:
-	var valid := model.batch_ids(ids)
-	var gain := 0
-	for id in valid:
-		gain += int(model.find(id).get("decompose_exp", 0))
-	_selected_label.text = "已选 %d 件" % valid.size() if valid.is_empty() else "已选 %d 件 · +%d 强化经验" % [valid.size(), gain]
-	_decompose_button.disabled = valid.is_empty()
-
-
 func _on_slot(item: Dictionary) -> void:
 	if popup == null:
-		return
-	if _grid.multi_select:
-		show_hint("「%s」不能批量分解：%s" % [str(item.get("name", "")), _why_not(item)])
 		return
 	var worn := {}
 	if str(item.get("category", "")) == "equip":
@@ -523,6 +426,7 @@ func _handlers() -> Dictionary:
 		"enhance": func(id: String, to_max: bool) -> void: action_requested.emit("enhance_max" if to_max else "enhance", [id]),
 		"breakthrough": func(id: String) -> void: action_requested.emit("breakthrough", [id]),
 		"decompose": func(id: String) -> void: _confirm_single(id),
+		"toast": func(text: String) -> void: action_requested.emit("toast", [text]),
 	}
 
 
@@ -599,26 +503,10 @@ func _confirm_single(id: String) -> void:
 	var item := model.find(id)
 	if item.is_empty():
 		return
-	var message := "分解「%s」会得到 %d 强化经验，物品将消失。此操作不能撤销。" % [str(item.name), int(item.get("decompose_exp", 0))]
+	var unit := "炼器精粹" if model.uses_essence else "强化经验"
+	var message := "分解「%s」会得到 %d %s，物品将消失。此操作不能撤销。" % [str(item.name), int(item.get("decompose_exp", 0)), unit]
 	if int(item.get("enhance", 0)) > 0:
-		message += "\n已投入的强化经验会按比例返还。"
+		message += ("\n含强化返还 +%d。" % (int(item.get("enhance", 0)) * model.enhance.refund_per_level())) if model.uses_essence else "\n已投入的强化经验会按比例返还。"
 	ItemDetail.show_confirm(popup, "确认分解", message, "确认分解", func() -> void: action_requested.emit("decompose", [id]))
 
 
-func _confirm_batch() -> void:
-	var ids := model.batch_ids(_grid.selected_ids())
-	if ids.is_empty():
-		return
-	var rare := 0
-	var gain := 0
-	for id in ids:
-		if int(model.find(id).get("rarity", 0)) >= 3:
-			rare += 1
-		gain += int(model.find(id).get("decompose_exp", 0))
-	var message := "将分解 %d 件装备，共得到 %d 强化经验，物品将消失，不能撤销。" % [ids.size(), gain]
-	if rare > 0:
-		message += "\n其中有 %d 件珍品及以上，请再确认。" % rare
-	ItemDetail.show_confirm(popup, "批量分解", message, "分解 %d 件" % ids.size(), func() -> void:
-		_grid.set_multi_select(false)
-		_leave_batch()
-		action_requested.emit("decompose", ids))

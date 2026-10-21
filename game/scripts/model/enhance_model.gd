@@ -7,6 +7,10 @@ extends RefCounted
 ##   分解得到 = 品质基础经验 + 已投入经验 × refundBp / 10000
 ##   突破节点：装备强化到节点等级后，要交齐材料「突破」才能继续升级（不会失败）。
 ## 强化经验池没有上限。已穿戴的装备不能分解（见 BagModel.can_decompose）。
+## 第五批（SPEC_Q §17.2 / 17.3）：规则里有 essence 时，分解得「炼器精粹」、强化消耗精粹（uses_essence() 为真）：
+##   分解得到 = 品质产出（× 部位倍数，或单独指定）+ 强化等级 × 每级返还
+##   升一级的精粹 = 单独指定的每级消耗表，没有就 round(基础消耗 × 增长倍数^等级 × 品质倍数)
+## 和服务器 enhance.ts 的 essenceYield / essenceCost 一致；cost() / decompose_exp() 在有精粹规则时返回精粹数。
 ## 规则缺失时 rules 为空，所有查询都会报错而不是用默认数字（和服务器同样的要求）。
 ## 这个文件里没有任何玩法数字；突破节点也只读配置。品质 5 档白→橙（红已去掉）。
 
@@ -54,9 +58,29 @@ func stat_growth_bp(rarity: int) -> float:
 	return float(row.get("statGrowthBp", rules.get("statGrowthBp", 0)))
 
 
-## 从 level 级升到 level+1 级要多少强化经验。
+## 有没有炼器精粹规则（第五批服务器都有；老服务器没有就按旧的强化经验算）。
+func uses_essence() -> bool:
+	return typeof(rules.get("essence", null)) == TYPE_DICTIONARY
+
+
+func _essence() -> Dictionary:
+	return rules.get("essence", {}) if uses_essence() else {}
+
+
+## 精粹对应的物品编号（默认 refine_essence）；没有精粹规则返回空串。
+func essence_slug() -> String:
+	return str(_essence().get("itemSlug", ""))
+
+
+## 从 level 级升到 level+1 级要多少（有精粹规则 = 精粹，否则 = 旧的强化经验）。
 func cost(rarity: int, level: int) -> int:
 	var row := _quality(rarity)
+	if uses_essence():
+		var essence := _essence()
+		var table: Variant = (essence.get("costTable", {}) as Dictionary).get(QUALITY_KEYS[clampi(rarity, 0, QUALITY_KEYS.size() - 1)], null) if typeof(essence.get("costTable", null)) == TYPE_DICTIONARY else null
+		if typeof(table) == TYPE_ARRAY and level < (table as Array).size() and (table as Array)[level] != null and float((table as Array)[level]) > 0:
+			return int((table as Array)[level])
+		return maxi(1, int(round(float(essence.get("costBase", 0)) * pow(float(essence.get("costGrowth", 1)), level) * float(row.get("costMult", 1)))))
 	return maxi(1, int(round(float(rules.get("expBase", 0)) * pow(exp_growth(rarity), level) * float(row.get("costMult", 1)))))
 
 
@@ -76,10 +100,42 @@ func stat(base: float, level: int, rarity: int = -1) -> float:
 	return round(base * (1.0 + float(level) * growth / 10000.0) * 100.0) / 100.0
 
 
-func decompose_exp(rarity: int, level: int) -> int:
+## 分解一件得到多少（有精粹规则 = 精粹，按部位；否则 = 旧的强化经验）。slot_id 是客户端部位 id（weapon/helmet/…）。
+func decompose_exp(rarity: int, level: int, slot_id: String = "") -> int:
 	if not supports(rarity):
 		return 0
+	if uses_essence():
+		return essence_yield(rarity, slot_id, level)
 	return int(_quality(rarity).get("decomposeExp", 0)) + int(floor(float(invested(rarity, level)) * float(rules.get("refundBp", 0)) / 10000.0))
+
+
+## 精粹产出的品质部分（不含强化返还）。
+func essence_base(rarity: int, slot_id: String = "") -> int:
+	var essence := _essence()
+	var key := QUALITY_KEYS[clampi(rarity, 0, QUALITY_KEYS.size() - 1)]
+	var server_slot := str(SlotConfig.find(slot_id).get("server", slot_id)) if not slot_id.is_empty() else ""
+	var overrides: Variant = essence.get("slotOverrides", {})
+	if typeof(overrides) == TYPE_DICTIONARY and typeof((overrides as Dictionary).get(key, null)) == TYPE_DICTIONARY:
+		var fixed: Variant = ((overrides as Dictionary)[key] as Dictionary).get(server_slot, null)
+		if fixed != null:
+			return int(fixed)
+	var mults: Variant = essence.get("slotMultBp", {})
+	var mult := float((mults as Dictionary).get(server_slot, 10000)) if typeof(mults) == TYPE_DICTIONARY else 10000.0
+	var yields: Variant = essence.get("yields", {})
+	var base := float((yields as Dictionary).get(key, 0)) if typeof(yields) == TYPE_DICTIONARY else 0.0
+	return int(round(base * mult / 10000.0))
+
+
+## 强化返还：每级多少精粹。
+func refund_per_level() -> int:
+	return int(_essence().get("refundPerLevel", 0))
+
+
+## 分解一件 +level 的装备得到的精粹 = 品质（部位）产出 + 等级 × 每级返还。
+func essence_yield(rarity: int, slot_id: String, level: int) -> int:
+	if not uses_essence():
+		return 0
+	return essence_base(rarity, slot_id) + maxi(0, level) * refund_per_level()
 
 
 ## 这个品质的全部突破节点（按等级从小到大）：[{level, materials:[{itemSlug, count}]}]。

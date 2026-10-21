@@ -23,9 +23,9 @@
             <ul v-if="row.fields.length > 0" class="fields">
               <li v-for="field in row.fields" :key="field.field">
                 <span class="f">{{ fieldLabel(field.field) }}</span>
-                <span class="before">{{ show(field.before) }}</span>
+                <span class="before">{{ field.beforeText ?? show(field.before) }}</span>
                 <span class="arrow">→</span>
-                <span class="after">{{ show(field.after) }}</span>
+                <span class="after">{{ field.afterText ?? show(field.after) }}</span>
               </li>
             </ul>
           </li>

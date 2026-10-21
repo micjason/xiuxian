@@ -1,3 +1,4 @@
+import { stageAutoPower } from "./stage-power.js";
 import type { ContentSnapshot } from "./validate.js";
 
 export type SnapshotChangeKind = "realm" | "stage" | "item" | "skill" | "dropTable" | "globals";
@@ -7,7 +8,8 @@ export type SnapshotChange = {
   slug: string;
   name: string;
   type: "added" | "removed" | "changed";
-  fields: { field: string; before: unknown; after: unknown }[];
+  /** beforeText / afterText：给人看的写法（目前只有关卡推荐战力：快照里 0 = 没手动覆盖、按公式自动算，显示成「自动 6406」） */
+  fields: { field: string; before: unknown; after: unknown; beforeText?: string; afterText?: string }[];
 };
 
 export type SnapshotDiff = {
@@ -55,6 +57,19 @@ function fieldChanges(before: Record<string, unknown>, after: Record<string, unk
   return fields;
 }
 
+/** 推荐战力的显示文字：快照里 >0 是手动覆盖；0 / 空 = 自动，按这份快照的首领 / 普通怪数值现算。 */
+export function stagePowerText(world: Partial<ContentSnapshot> | null, stage: Row): string {
+  const manual = Math.round(Number(stage.recommendedPower ?? 0));
+  if (manual > 0) {
+    return `${manual}（手动）`;
+  }
+  try {
+    return `自动 ${stageAutoPower(world as ContentSnapshot, stage as unknown as ContentSnapshot["stages"][number])}`;
+  } catch {
+    return "自动（暂时算不出）";
+  }
+}
+
 function nameOf(row: Row): string {
   return typeof row.displayName === "string" && row.displayName ? row.displayName : row.slug;
 }
@@ -72,6 +87,14 @@ export function diffSnapshots(from: Partial<ContentSnapshot> | null, to: Partial
         continue;
       }
       const fields = fieldChanges(old, row);
+      if (kind === "stage") {
+        for (const field of fields) {
+          if (field.field === "recommendedPower") {
+            field.beforeText = stagePowerText(from, old);
+            field.afterText = stagePowerText(to, row);
+          }
+        }
+      }
       if (fields.length > 0) {
         changes.push({ kind, slug, name: nameOf(row), type: "changed", fields });
       }

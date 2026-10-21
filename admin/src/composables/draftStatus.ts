@@ -7,7 +7,7 @@ export type SnapshotChange = {
   slug: string;
   name: string;
   type: "added" | "removed" | "changed";
-  fields: { field: string; before: unknown; after: unknown }[];
+  fields: { field: string; before: unknown; after: unknown; beforeText?: string; afterText?: string }[];
 };
 export type DiffResult = { from: string | number; to: string | number; total: number; added: number; removed: number; changed: number; changes: SnapshotChange[] };
 

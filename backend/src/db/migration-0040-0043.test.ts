@@ -15,7 +15,7 @@ import { validateContent } from "../modules/content/validate.js";
 import { withDb } from "../test/db.js";
 
 type TestDb = Parameters<Parameters<typeof withDb>[0]>[0];
-const TAGS = ["0040_chapters", "0041_boss_tier_art", "0042_boss_rules_defaults", "0043_unlock_backfill"];
+const TAGS = ["0040_chapters", "0041_boss_tier_art", "0042_boss_rules_defaults", "0043_unlock_backfill", "0044_elite_art_backfill"];
 const files = TAGS.map((tag) => readFileSync(new URL(`../../drizzle/${tag}.sql`, import.meta.url), "utf8"));
 const start = new Date("2026-10-08T03:00:00.000Z");
 
@@ -56,7 +56,7 @@ async function player(db: TestDb, app: Awaited<ReturnType<typeof buildApp>>, nam
 const progressOf = async (db: TestDb, playerId: string) =>
   (await db.select().from(playerStageProgress).where(eq(playerStageProgress.playerId, playerId))).map((row) => row.stageSlug).sort();
 
-describe("migrations 0040–0043 (第三批：章节、每关首领、首领规则、解锁补齐)", () => {
+describe("migrations 0040–0044 (第三批：章节、每关首领、首领规则、解锁补齐、精英立绘)", () => {
   it("are in the journal, in order, after everything else (when ≥ 1795000000000)", () => {
     const journal = JSON.parse(readFileSync(new URL("../../drizzle/meta/_journal.json", import.meta.url), "utf8")) as { entries: { idx: number; tag: string; when: number }[] };
     const ours = TAGS.map((tag) => journal.entries.find((row) => row.tag === tag));
@@ -104,6 +104,9 @@ describe("migrations 0040–0043 (第三批：章节、每关首领、首领规�
         }));
       expect(shape(once)).toEqual(shape(seed));
       expect((await db.select().from(contentStages).where(eq(contentStages.slug, "lianqi_2")))[0]).toMatchObject({ sortOrder: 2, bossName: "精英·赤眼狐妖", bossHp: 625 });
+      // 0044：精英的立绘写进库里（后台不再显示成「没配图」）；章末首领用自己的
+      const stored = new Map((await db.select().from(contentStages)).map((row) => [row.slug, row.bosses?.[0]?.artKey]));
+      expect(Object.fromEntries(stored)).toEqual({ lianqi_1: "wolf", lianqi_2: "fox", lianqi_3: "bear", zhuji_1: "ghost", zhuji_2: "bone_golem", zhuji_3: "ghost_elder", jindan_1: "lava_lizard", jindan_2: "fire_crow", jindan_3: "fire_jiao" });
       expect(validateContent(once).errors).toEqual([]);
 
       // 首领规则默认值；章末每日次数沿用原来的 4

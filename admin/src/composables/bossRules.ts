@@ -104,9 +104,22 @@ export function loadArtKeys(): Promise<ArtCatalog> {
   return artLoading;
 }
 /** 立绘缩略图（admin/public/art/mon_<key>.png，和游戏 res://assets/art/q/sprites/mon_<key>.png 同名） */
-export function monsterThumb(key: string | null | undefined): string {
-  return key ? `${import.meta.env.BASE_URL}art/mon_${key}.png` : "";
+export function monsterThumb(key: string | null | undefined, tier?: "elite" | "chief" | null): string {
+  if (!key) {
+    return "";
+  }
+  // 首领区按档次显示游戏里的样子：精英 = elite_<key>（金边），章末 = chief_<key>（红边）；没有预渲染图的用普通立绘
+  if (tier === "elite" && ELITE_ART.has(key)) {
+    return `${import.meta.env.BASE_URL}art/elite_${key}.png`;
+  }
+  if (tier === "chief" && CHIEF_ART.has(key)) {
+    return `${import.meta.env.BASE_URL}art/chief_${key}.png`;
+  }
+  return `${import.meta.env.BASE_URL}art/mon_${key}.png`;
 }
+/** admin/public/art 里有的预渲染首领缩略图（和 game/assets/art/q/sprites/elite_*、chief_* 对应） */
+const ELITE_ART: ReadonlySet<string> = new Set(["wolf", "fox", "snake", "ghost", "bone_golem", "bat", "lava_lizard", "fire_crow", "lava_golem"]);
+const CHIEF_ART: ReadonlySet<string> = new Set(["bear", "ghost_elder", "fire_jiao"]);
 /** 章节战斗区背景缩略图（admin/public/art/bg_<key>.webp；游戏里是 bg_<key>_1080x960） */
 export function chapterBgThumb(key: string | null | undefined): string {
   return key ? `${import.meta.env.BASE_URL}art/bg_${key}.webp` : "";

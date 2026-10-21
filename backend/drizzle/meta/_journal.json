@@ -225,6 +225,13 @@
       "when": 1795000300000,
       "tag": "0043_unlock_backfill",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1795000400000,
+      "tag": "0044_elite_art_backfill",
+      "breakpoints": true
     }
   ]
 }

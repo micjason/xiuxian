@@ -188,6 +188,8 @@ export async function applyPrototypeV12(db: Db): Promise<{ stageSlugs: string[];
       ? { ...bosses[stage.boss.slug]!, artKey: stage.boss.art }
       : {
           name: `精英·${stage.monster.name}`,
+          // 立绘写明（和本关小怪同一张，客户端按精英加金边 / 用 elite_<key> 图）；后台不再显示成「没配图」
+          artKey: stage.monster.art,
           attack: Math.round(stage.monster.attack * DEFAULT_BOSS_RULES.elite.statMul.attack),
           defense: Math.round(stage.monster.defense * DEFAULT_BOSS_RULES.elite.statMul.defense),
           hp: Math.round(stage.monster.hp * DEFAULT_BOSS_RULES.elite.statMul.hp),

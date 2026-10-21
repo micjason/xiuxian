@@ -9,10 +9,10 @@
     @update:model-value="(value: string) => emit('update:modelValue', value || null)"
   >
     <template #prefix>
-      <img v-if="modelValue || inheritKey" :src="monsterThumb(modelValue || inheritKey)" class="thumb" alt="" />
+      <img v-if="modelValue || inheritKey" :src="monsterThumb(modelValue || inheritKey, tier)" class="thumb" alt="" />
     </template>
     <el-option v-for="option in options" :key="option.key" :label="`${option.name} · ${option.key}`" :value="option.key">
-      <span class="option"><img :src="monsterThumb(option.key)" class="thumb big" alt="" />{{ option.name }}<span class="key">{{ option.key }}</span></span>
+      <span class="option"><img :src="monsterThumb(option.key, tier)" class="thumb big" alt="" />{{ option.name }}<span class="key">{{ option.key }}</span></span>
     </el-option>
   </el-select>
 </template>
@@ -22,7 +22,7 @@
 import { onMounted, ref } from "vue";
 import { loadArtKeys, monsterThumb, type ArtCatalog } from "../composables/bossRules";
 
-withDefaults(defineProps<{ modelValue: string | null | undefined; inheritKey?: string | null; width?: number; clearable?: boolean }>(), { width: 200, clearable: false });
+withDefaults(defineProps<{ modelValue: string | null | undefined; inheritKey?: string | null; tier?: "elite" | "chief" | null; width?: number; clearable?: boolean }>(), { width: 200, clearable: false, tier: null, inheritKey: null });
 const emit = defineEmits<{ "update:modelValue": [value: string | null] }>();
 const options = ref<ArtCatalog["monsters"]>([]);
 

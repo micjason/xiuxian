@@ -22,6 +22,7 @@ export const router = createRouter({
         { path: "config/realms", component: () => import("./views/config/RealmsView.vue") },
         { path: "config/items", component: () => import("./views/config/ItemsView.vue") },
         { path: "config/skills", component: () => import("./views/config/SkillsView.vue") },
+        { path: "config/chapters", component: () => import("./views/config/ChaptersView.vue") },
         { path: "config/stages", component: () => import("./views/config/StagesView.vue") },
         { path: "config/enhance", component: () => import("./views/config/EnhanceView.vue") },
         { path: "config/combat", component: () => import("./views/config/CombatView.vue") },

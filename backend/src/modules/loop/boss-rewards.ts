@@ -10,6 +10,7 @@ import type { ContentSnapshot } from "../content/validate.js";
 import { rewardDayKey } from "../progress/day.js";
 import { AppError } from "../../shared/errors.js";
 import { grantItem } from "./bag.js";
+import { grantEquipment, type GrantSource } from "../player/grant.js";
 
 type World = ContentSnapshot & { version: number };
 type Stage = ContentSnapshot["stages"][number];
@@ -42,36 +43,31 @@ export function dailyUsed(progress: { dailyRewardCount: number; dailyRewardDay: 
 }
 
 /** 「发放指定装备」的来源（ADMIN_SPEC §14）；首领这边只用这两个。 */
-export type BossGearSource = "boss_first" | "boss_repeat";
+export type BossGearSource = Extract<GrantSource, "boss_first" | "boss_repeat">;
 
 /**
- * 首领给装备都走这一个函数（抽中之后调用）。
- * TODO(第二批统一发放接口)：独立开发超级大师的 backend/src/modules/player/grant.ts 合入后，换成
- *   grantEquipment(tx, { playerId, itemId: itemSlug, count, source, sourceRef: stageSlug, requestId })
- * （source = boss_first | boss_repeat，requestId 用下面算好的可重放值），这里先用 grantItem 顶着，行为和以前一样。
+ * 一场首领胜利的「战斗报告 id」（可重放）：玩家 + 关卡 + 这条进度记录的解锁时间 + 第几次胜利。
+ * 带上解锁时间是因为后台「清空玩家」会删掉进度记录、clear_count 从 0 重来，不带的话清空后的胜利会撞上清空前的发放单号。
+ */
+export function bossBattleId(playerId: string, stageSlug: string, progress: { unlockedAt: Date; clearCount: number }): string {
+  return `boss:${playerId}:${stageSlug}:${progress.unlockedAt.getTime()}:${progress.clearCount + 1}`;
+}
+
+/**
+ * 首领给装备都走这一个函数（抽中之后调用）→ 统一发放接口 grantEquipment（ADMIN_SPEC §14）。
+ * requestId = 战斗报告 id + 序号，同一场胜利重放不会重复发；行囊满照发、不自动分解；写 equipment_grants 流水。
  */
 export async function grantBossEquipment(
   tx: Tx,
-  world: World,
-  input: {
-    playerId: string;
-    itemSlug: string;
-    count: number;
-    source: BossGearSource;
-    /** 关卡编号 */
-    sourceRef: string;
-    /** 幂等键：`${playerId}:${stageSlug}:${source}:${第几次胜利}:${第几件}`，同一次胜利重放不会重复发。 */
-    requestId: string;
-    now: Date;
-    autoDecompose: boolean;
-    capacity: number;
-    overflow: boolean;
-  },
+  input: { playerId: string; itemSlug: string; count: number; source: BossGearSource; stageSlug: string; battleId: string; index: number },
 ) {
-  return grantItem(tx, world, input.playerId, input.itemSlug, input.count, `drop:${input.sourceRef}`, input.now, {
-    autoDecompose: input.autoDecompose,
-    capacity: input.capacity,
-    overflow: input.overflow,
+  return grantEquipment(tx, {
+    playerId: input.playerId,
+    itemId: input.itemSlug,
+    count: input.count,
+    source: input.source,
+    sourceRef: input.stageSlug,
+    requestId: `${input.battleId}:${input.index}`,
   });
 }
 
@@ -79,7 +75,7 @@ export async function grantBossEquipment(
  * 首领胜利后的奖励（第三批，规则见 content/boss-rules.ts，按首领档次 + 单关覆盖生效）：
  * - 首通：首领的 firstClear 固定奖励（物品 / 功法书 / 修为 / 灵石 / 按「装备品质掉率」抽装备），允许暂时超出行囊容量；不占每日次数。
  * - 重打：规则「重打给奖励」开着、每日次数 > 0 且今天没用完时，给 repeat 奖励（装备按「装备品质掉率」抽 + 额外物品各自掷），
- *   走行囊规则（满包自动分解 / 腾格 / 不掉）。用完了（或不给重打奖励）仍可打，但没有奖励。
+ *   额外物品走行囊规则；装备走统一发放接口（行囊满照发、不自动分解）。用完了（或不给重打奖励）仍可打，但没有奖励。
  * 日期按北京时间、每天 dayStartHour 点换天。
  */
 export async function grantBossRewards(
@@ -89,7 +85,7 @@ export async function grantBossRewards(
   input: {
     stage: Stage;
     boss: Boss;
-    progress: { firstClearedAt: Date | null; clearCount: number; dailyRewardCount: number; dailyRewardDay: string | null };
+    progress: { unlockedAt: Date; firstClearedAt: Date | null; clearCount: number; dailyRewardCount: number; dailyRewardDay: string | null };
     rules: GameRules;
     bossRules: BossRuleSet;
     autoDecompose: boolean;
@@ -102,7 +98,7 @@ export async function grantBossRewards(
   const limit = bossRules.repeatRewards ? bossRules.dailyRewardLimit : 0;
   const outcome: BossRewardOutcome = { drops: [], cultivation: 0, spiritStones: 0, firstClear: !progress.firstClearedAt, rewarded: false, dailyRewardCount: 0, dailyRewardLimit: limit, bagFull: false };
   const source = `drop:${stage.slug}`;
-  const win = progress.clearCount + 1;
+  const battleId = bossBattleId(playerId, stage.slug, progress);
   const record = (drop: BossDrop, granted: Awaited<ReturnType<typeof grantItem>>) => {
     if (granted.decomposed > 0) {
       drop.decomposed = true;
@@ -135,7 +131,7 @@ export async function grantBossRewards(
   const majorKey = world.realms.find((row) => row.sortOrder === stage.requiredRealmOrder)?.majorKey;
   const multOf = dropMultsOf(world.items, world.realms);
   /** 按首领规则的装备品质掉率抽一件本境界阶装备并发放。 */
-  const rollAndGrant = async (kind: BossGearSource, index: number, overflow: boolean) => {
+  const rollAndGrant = async (kind: BossGearSource, index: number) => {
     if (!majorKey) {
       throw new AppError("INVALID_INPUT", `关卡「${stage.displayName ?? stage.slug}」的境界没有大境界编号，发不了装备`);
     }
@@ -146,19 +142,8 @@ export async function grantBossRewards(
     if (!world.items.some((item) => item.slug === piece.slug)) {
       throw new AppError("INVALID_INPUT", `装备 ${piece.slug} 不在后台，发不了`);
     }
-    const granted = await grantBossEquipment(tx, world, {
-      playerId,
-      itemSlug: piece.slug,
-      count: 1,
-      source: kind,
-      sourceRef: stage.slug,
-      requestId: `${playerId}:${stage.slug}:${kind}:${win}:${index}`,
-      now,
-      autoDecompose: input.autoDecompose,
-      capacity: input.capacity,
-      overflow,
-    });
-    record({ itemSlug: piece.slug, quantity: 1 }, granted);
+    const granted = await grantBossEquipment(tx, { playerId, itemSlug: piece.slug, count: 1, source: kind, stageSlug: stage.slug, battleId, index });
+    outcome.drops.push({ itemSlug: piece.slug, quantity: granted.length });
   };
 
   /** 指定掉落（首领首通 / 首领有奖励的重打）：每条单独按概率抽。 */
@@ -183,7 +168,7 @@ export async function grantBossRewards(
         outcome.spiritStones += entry.amount;
       } else if (entry.kind === "gear") {
         for (let n = 0; n < entry.count; n += 1) {
-          await rollAndGrant("boss_first", gearIndex, true);
+          await rollAndGrant("boss_first", gearIndex);
           gearIndex += 1;
         }
       } else {
@@ -212,7 +197,7 @@ export async function grantBossRewards(
     .set({ dailyRewardCount: used + 1, dailyRewardDay: rewardDayKey(now, rules.dayStartHour) })
     .where(and(eq(playerStageProgress.playerId, playerId), eq(playerStageProgress.stageSlug, stage.slug)));
   if (boss.repeat.gear && majorKey) {
-    await rollAndGrant("boss_repeat", 0, false);
+    await rollAndGrant("boss_repeat", 0);
   }
   const extras = rollDropTable(
     boss.repeat.extras.map((extra) => ({ itemSlug: extra.itemSlug, chanceBp: extra.chanceBp, minQty: extra.minQty, maxQty: extra.maxQty })),

@@ -4,8 +4,10 @@
 import { and, eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { buildApp } from "../app.js";
-import { contentStages, playerStageProgress, playerStates, players } from "../db/schema.js";
+import { contentStages, equipmentGrants, playerItems, playerStageProgress, playerStates, players } from "../db/schema.js";
 import { applyPrototypeV12 } from "../modules/content/prototype-v12.js";
+import { bossBattleId, grantBossEquipment } from "../modules/loop/boss-rewards.js";
+import { withTransaction } from "../db/tx.js";
 import { loadDraftSnapshot } from "../modules/content/snapshot.js";
 import { validateContent } from "../modules/content/validate.js";
 import { testAdmin } from "../test/admin.js";
@@ -205,6 +207,55 @@ describe("第三批：章节与每关首领", () => {
       at(140);
       at(150);
       expect((await state()).lastSettle.autoChallenge).toBeNull();
+      await app.close();
+    });
+  });
+});
+
+describe("第三批：首领装备走统一发放接口 grantEquipment", () => {
+  it("elite first-clear gear is one boss_first grant (requestId = battle id + index, sourceRef = stage); replaying the same request grants nothing new", async () => {
+    await withDb(async (db) => {
+      const { app, headers, playerId, monster, progress } = await boot(db, "b3_grant");
+      await monster("lianqi_1", { hp: 2, attack: 1, defense: 0 });
+      const before = await progress("lianqi_1");
+      const send = () => app.inject({ method: "POST", url: "/api/v1/me/stages/lianqi_1/challenge", headers: { ...headers, "idempotency-key": "b3-grant-replay-key-0001" }, payload: {} });
+      const first = await send();
+      expect(first.statusCode).toBe(200);
+      const grants = await db.select().from(equipmentGrants).where(eq(equipmentGrants.playerId, playerId));
+      expect(grants).toHaveLength(1);
+      expect(grants[0]).toMatchObject({ source: "boss_first", sourceRef: "lianqi_1", itemSlug: "gear_major1_weapon_green", count: 1, requestId: `${bossBattleId(playerId, "lianqi_1", before!)}:0` });
+      expect(grants[0]!.instanceIds).toHaveLength(1);
+      const [instance] = await db.select().from(playerItems).where(eq(playerItems.id, grants[0]!.instanceIds[0]!));
+      expect(instance).toMatchObject({ itemSlug: "gear_major1_weapon_green", source: "boss_first", isStack: false });
+      // 同一个请求重放：返回同样的结果，不再发
+      const replay = await send();
+      expect(replay.json()).toEqual(first.json());
+      expect(await db.select().from(equipmentGrants).where(eq(equipmentGrants.playerId, playerId))).toHaveLength(1);
+      expect((await db.select().from(playerItems).where(eq(playerItems.playerId, playerId))).filter((row) => row.itemSlug.startsWith("gear_"))).toHaveLength(1);
+      // 同一场胜利（同一个战斗报告 id + 序号）再调一次发放：返回原来的实例，不重复发
+      const again = await withTransaction(db, (tx) => grantBossEquipment(tx, { playerId, itemSlug: "gear_major1_weapon_green", count: 1, source: "boss_first", stageSlug: "lianqi_1", battleId: bossBattleId(playerId, "lianqi_1", before!), index: 0 }));
+      expect(again.map((row) => row.id)).toEqual(grants[0]!.instanceIds);
+      expect(await db.select().from(equipmentGrants)).toHaveLength(1);
+      await app.close();
+    });
+  });
+
+  it("after the admin wipes the player's progress the next first clear is a new battle id (no GRANT_REQUEST_CONFLICT)", async () => {
+    await withDb(async (db) => {
+      const { app, playerId, challenge, monster, at } = await boot(db, "b3_regrant");
+      await monster("lianqi_1", { hp: 2, attack: 1, defense: 0 });
+      expect((await challenge("lianqi_1")).statusCode).toBe(200);
+      // 清空玩家（player/service.ts resetPlayer）会删进度记录；重新解锁时间不同
+      await db.delete(playerStageProgress).where(eq(playerStageProgress.playerId, playerId));
+      at(5);
+      await db.insert(playerStageProgress).values({ playerId, stageSlug: "lianqi_1", unlockedAt: new Date(start.getTime() + 5000) });
+      await db.update(contentStages).set({ recommendedPower: 1_000_000 }).where(eq(contentStages.slug, "lianqi_1")); // 不让结算里自动打
+      const again = await challenge("lianqi_1");
+      expect(again.statusCode).toBe(200);
+      expect(again.json().reward.firstClear).toBe(true);
+      const grants = await db.select().from(equipmentGrants).where(eq(equipmentGrants.playerId, playerId));
+      expect(grants).toHaveLength(2);
+      expect(new Set(grants.map((row) => row.requestId)).size).toBe(2);
       await app.close();
     });
   });

@@ -1,7 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { buildApp } from "../app.js";
-import { contentGlobals, contentRealms, contentStages, playerItems, playerStageProgress, playerStates, players } from "../db/schema.js";
+import { contentGlobals, contentRealms, contentStages, equipmentGrants, playerItems, playerStageProgress, playerStates, players } from "../db/schema.js";
 import { simulateBossFight } from "../modules/combat/battle.js";
 import { DEFAULT_BOSS_RULES, type BossRules } from "../modules/content/boss-rules.js";
 import { applyPrototypeV12 } from "../modules/content/prototype-v12.js";
@@ -67,7 +67,7 @@ describe("boss first-clear fixed rewards", () => {
     });
   });
 
-  it("a full bag never refuses a boss challenge; first-clear rewards may exceed capacity, later equipment drops are simply not dropped", async () => {
+  it("a full bag never refuses a boss challenge; first-clear rewards may exceed capacity; boss gear is granted even when full (grantEquipment)", async () => {
     await withDb(async (db) => {
       const { app, challenge, bag, weakBear, playerId } = await boot(db, "boss_b");
       await weakBear();
@@ -82,17 +82,21 @@ describe("boss first-clear fixed rewards", () => {
       const afterFirst = await bag();
       expect(afterFirst.length).toBeGreaterThan(20); // 首通固定奖励允许超出容量
       expect(first.json().drops.some((row: { dropped?: boolean }) => row.dropped)).toBe(false);
-      // 重复挑战（关掉自动分解，否则新掉的白装会直接分解成强化经验）：奖励里的装备在满包时不掉落，并标记 bagFull 让客户端提示
-      await db.update(playerStates).set({ autoDecompose: false }).where(eq(playerStates.playerId, playerId));
+      // 重复挑战：首领装备走统一发放接口 grantEquipment（ADMIN_SPEC §14）—— 行囊满照发、不自动分解，记一条 boss_repeat 流水
+      await db.update(playerStates).set({ autoDecompose: true }).where(eq(playerStates.playerId, playerId));
       const again = await challenge("lianqi_3");
       expect(again.statusCode).toBe(200);
       const body = again.json();
       const gearBefore = afterFirst.filter((row) => row.itemSlug.startsWith("gear_")).length;
       const gearAfter = (await bag()).filter((row) => row.itemSlug.startsWith("gear_")).length;
-      expect(gearAfter).toBe(gearBefore);
-      expect(body.drops.filter((row: { itemSlug: string }) => row.itemSlug.startsWith("gear_")).every((row: { dropped?: boolean }) => row.dropped === true)).toBe(true);
-      expect(body.drops.some((row: { itemSlug: string; dropped?: boolean }) => row.itemSlug.startsWith("gear_") && row.dropped)).toBe(true);
-      expect(body.bagFull).toBe(true);
+      expect(gearAfter).toBe(gearBefore + 1);
+      const gearDrops = body.drops.filter((row: { itemSlug: string }) => row.itemSlug.startsWith("gear_"));
+      expect(gearDrops).toHaveLength(1);
+      expect(gearDrops[0].dropped).toBeUndefined();
+      expect(gearDrops[0].decomposed).toBeUndefined();
+      const grants = await db.select().from(equipmentGrants).where(eq(equipmentGrants.playerId, playerId));
+      // 黑风熊王的首通奖励是固定物品（不抽装备），所以只有这一次重打抽到的装备有流水
+      expect(grants.map((row) => [row.source, row.sourceRef, row.itemSlug, row.count])).toEqual([["boss_repeat", "lianqi_3", gearDrops[0].itemSlug, 1]]);
       await app.close();
     });
     await withDb(async (db) => {

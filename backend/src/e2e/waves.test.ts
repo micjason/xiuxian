@@ -38,7 +38,7 @@ describe("normal-monster waves (server-deterministic, online only)", () => {
       const { app, at, state } = await boot(db, "wave_a");
       const first = await state();
       const cycle = waveCycle({ hp: first.hp, attack: first.attack, defense: first.defense, interval: first.interval }, wolf, rules);
-      expect(first.wave).toMatchObject({ available: true, stageSlug: "lianqi_1", monster: { name: "青鬃狼", killCultivation: 3 }, waveSize: 3 });
+      expect(first.wave).toMatchObject({ available: true, stageSlug: "lianqi_1", monster: { name: "青鬃狼", artKey: "wolf", killCultivation: 3 }, waveSize: 3 });
       expect(first.wave.cycleSeconds).toBeCloseTo(cycle.cycleSeconds, 3);
       let kills = 0;
       let last = first;

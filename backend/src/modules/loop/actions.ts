@@ -621,7 +621,7 @@ function waveDto(world: World, settled: Awaited<ReturnType<typeof settleLocked>>
     available: Boolean(settled.stage && monster),
     stageSlug: settled.stage?.slug ?? null,
     stageName: settled.stage?.displayName ?? null,
-    monster: monster ? { name: monster.name, hp: monster.hp, attack: monster.attack, defense: monster.defense, interval: monster.interval, killCultivation: monster.killCultivation } : null,
+    monster: monster ? { name: monster.name, artKey: monster.artKey ?? null, hp: monster.hp, attack: monster.attack, defense: monster.defense, interval: monster.interval, killCultivation: monster.killCultivation } : null,
     waveSize: rules.waveSize,
     cycleSeconds: cycle ? Math.round(cycle.cycleSeconds * 1000) / 1000 : null,
     killsPerWave: cycle?.kills ?? 0,

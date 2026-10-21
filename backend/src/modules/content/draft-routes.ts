@@ -36,6 +36,7 @@ import { duelTrialPuppets } from "./puppet-duel.js";
 import { createTrialPuppet, deleteTrialPuppet, listTrialPuppets, updateTrialPuppet } from "./puppets.js";
 import { runTrial, type TrialInput } from "./trial.js";
 import { diffContent, listContentVersions } from "./versions.js";
+import { registerBossChapterRoutes } from "./boss-chapter-routes.js";
 
 function requiredPositive(value: unknown, label: string): number {
   if (value === undefined || value === null || value === "") {
@@ -140,6 +141,8 @@ async function realmExtras(db: Db, body: RealmExtras, current?: typeof contentRe
 }
 
 export async function registerDraftRoutes(app: FastifyInstance, deps: { db: Db; now: () => Date }): Promise<void> {
+  // 第三批：章节、首领规则、立绘清单（单独一个文件，少和别的改动撞车）
+  await registerBossChapterRoutes(app, deps);
   app.get("/admin/draft/realms", async () => {
     const rows = await deps.db.select().from(contentRealms);
     return rows

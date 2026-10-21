@@ -219,3 +219,13 @@ func test_admin_icon_key_is_tried_first_then_the_usual_chain() -> void:
 	assert_eq(ArtLib.item_icon(item, _only([base + "gear_qi_weapon.png"]))["source"], "gear_qi_weapon", "指定的图不存在就回到境界 + 部位")
 	item["icon_key"] = ""
 	assert_eq(ArtLib.item_icon_candidates(item)[0], "gear_major1_weapon_blue", "空 = 自动")
+
+
+func test_admin_icon_key_beats_the_generic_q_icon_with_real_files() -> void:
+	var item := _gear("gear_major1_weapon_blue", "weapon", 2)
+	item["icon_key"] = "gear_core_weapon"
+	assert_eq(ArtLib.item_icon(item)["source"], "gear_core_weapon", "旧版目录里的指定图也要压过 Q 版通用 gear_weapon")
+	item["icon_key"] = "mat_stone"
+	assert_eq(ArtLib.item_icon(item)["source"], "q/mat_stone")
+	item["icon_key"] = "no_such_icon"
+	assert_eq(ArtLib.item_icon(item)["source"], "q/gear_weapon", "指定的图不存在 = 按原规则")

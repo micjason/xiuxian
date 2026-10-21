@@ -430,6 +430,13 @@ static func item_icon_candidates(item: Dictionary) -> Array[String]:
 ## exists 只给测试用（传入自定义的存在判断）；平时用 ResourceLoader。
 static func item_icon(item: Dictionary, exists: Callable = Callable()) -> Dictionary:
 	if not exists.is_valid():
+		# 后台指定的图标（Q 版或旧版目录都认）先于 Q 版通用图
+		var icon_key := str(item.get("icon_key", "")).strip_edges()
+		if not icon_key.is_empty():
+			if ResourceLoader.exists(Q_DIR + "items/" + icon_key + ".png"):
+				return {"texture": _load(Q_DIR + "items/" + icon_key + ".png"), "tint": false, "source": "q/" + icon_key}
+			if ResourceLoader.exists(ITEM_DIR + icon_key + ".png"):
+				return {"texture": load(ITEM_DIR + icon_key + ".png") as Texture2D, "tint": false, "source": icon_key}
 		for name in item_icon_candidates(item):
 			var q_path := Q_DIR + "items/" + name + ".png"
 			if ResourceLoader.exists(q_path):

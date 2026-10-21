@@ -1,6 +1,8 @@
 import { breakMaterialProblems, enhanceRulesFromInput } from "./enhance.js";
 import { stagePowerErrors } from "./stage-power.js";
 import type { BossRepeatReward, BossRewardEntry, MonsterDropConfig, OptionalRuleValues, StageMonster } from "./combat-types.js";
+import { bossRuleProblems, type BossRuleOverride, type BossRuleSet, type BossStatKey, type BossTier } from "./boss-rules.js";
+import { CHAPTER_BG_KEY_SET, CHAPTER_BOSS_FX_SET, MONSTER_ART_KEY_SET } from "./art-keys.js";
 
 const SLUG = /^[a-z][a-z0-9_]{1,47}$/;
 
@@ -76,12 +78,41 @@ export type ContentSnapshot = {
       reward?: { major: string; stageIndex: number; nextMajor: string | null };
       firstClear?: BossRewardEntry[];
       repeat?: BossRepeatReward;
+      /** 立绘编号（精英没填时 = 本关普通怪的立绘，快照里已经填好）。 */
+      artKey?: string;
+      /** 小首领（精英）/ 大首领（章末），快照按章节算好。 */
+      tier?: BossTier;
+      /** 生效的首领规则（全局默认 + 单关覆盖，快照里已经合并好）。 */
+      rules?: BossRuleSet;
+      /** 单关覆盖（原样，后台和校验用）。 */
+      ruleOverride?: BossRuleOverride | null;
+      statsCustom?: BossStatKey[];
+      /** 属性是不是按普通怪 × 倍率自动算的（快照里 attack/defense/hp/interval 已经是算好的数）。 */
+      statsAuto?: boolean;
+      /** 自动属性但本关没有普通怪：算不出来（发布校验报错）。 */
+      statsProblem?: string;
     }[];
     monsters?: StageMonster[];
     monsterDrop?: MonsterDropConfig | null;
     /** 指定掉落（和随机掉落同时生效）。 */
     designatedDrops?: import("./combat-types.js").DesignatedDrop[];
     recommendedPower: number;
+    enabled: boolean;
+    /** 所属章节；null = 没有章节（发布校验报错；运行时这一关单独算一章，首领按章末规则）。 */
+    chapterSlug?: string | null;
+    /** 本关首领的档次（= bosses[0].tier）。 */
+    tier?: BossTier;
+  }[];
+  /** 章节（第三批）。chiefStageSlug 是算好的章末关（手动指定的，或本章 sortOrder 最大的一关）。 */
+  chapters?: {
+    slug: string;
+    displayName: string;
+    sortOrder: number;
+    bgKey: string;
+    bossFx: string;
+    /** 后台手动指定的章末关（null = 自动）。 */
+    chiefStageSlugSetting: string | null;
+    chiefStageSlug: string | null;
     enabled: boolean;
   }[];
   dropTables: {
@@ -335,6 +366,14 @@ export function validateContent(
           if (!Number.isInteger(entry.quantity) || entry.quantity < 1) {
             push("stage", stage.slug, "bosses", "首通奖励的数量要是不小于 1 的整数");
           }
+        } else if (entry.kind === "gear") {
+          if (!Number.isInteger(entry.count) || entry.count < 1 || entry.count > 10) {
+            push("stage", stage.slug, "bosses", "首通奖励的装备件数要是 1 到 10 的整数");
+          }
+        } else if (entry.kind === "spiritStones") {
+          if (!Number.isInteger(entry.amount) || entry.amount < 1) {
+            push("stage", stage.slug, "bosses", "首通灵石奖励要是不小于 1 的整数");
+          }
         } else if (!Number.isInteger(entry.amount) || entry.amount < 1) {
           push("stage", stage.slug, "bosses", "首通修为奖励要是不小于 1 的整数");
         }
@@ -348,6 +387,11 @@ export function validateContent(
         }
       }
     }
+  }
+
+  // 一个章节都没配 = 第三批之前的老内容（只在单元测试的小世界里出现；线上 0040 迁移后一定有章节），不做章节/首领档位检查
+  if (draft.chapters && draft.chapters.length > 0) {
+    chapterAndBossErrors(draft, push);
   }
 
   for (const problem of stagePowerErrors(draft)) {
@@ -492,5 +536,82 @@ function chainErrors(
   }
   if (seen.size !== rows.length) {
     push(kind, "", "next", "链条不能分叉");
+  }
+}
+
+/**
+ * 第三批的校验（快照里有 chapters 才做；手写的测试世界没有章节就跳过）：
+ * 章节字段、每个启用的关卡都要有章节和首领、立绘编号、首领规则合并后的问题、停用字段。
+ */
+function chapterAndBossErrors(draft: ContentSnapshot, push: (kind: string, slug: string, field: string, message: string) => void) {
+  const chapters = draft.chapters ?? [];
+  const chapterSlugs = new Set<string>();
+  for (const chapter of chapters) {
+    if (!SLUG.test(chapter.slug)) {
+      push("chapter", chapter.slug, "slug", "编号格式不正确");
+    }
+    if (chapterSlugs.has(chapter.slug)) {
+      push("chapter", chapter.slug, "slug", "编号重复");
+    }
+    chapterSlugs.add(chapter.slug);
+    if (!chapter.displayName.trim()) {
+      push("chapter", chapter.slug, "displayName", "请填写章节名称");
+    }
+    if (!CHAPTER_BG_KEY_SET.has(chapter.bgKey)) {
+      push("chapter", chapter.slug, "bgKey", `背景「${chapter.bgKey}」不在可选列表里`);
+    }
+    if (!CHAPTER_BOSS_FX_SET.has(chapter.bossFx)) {
+      push("chapter", chapter.slug, "bossFx", `首领特效只能是 ${[...CHAPTER_BOSS_FX_SET].join(" / ")}`);
+    }
+    if (chapter.chiefStageSlugSetting) {
+      const chief = draft.stages.find((row) => row.slug === chapter.chiefStageSlugSetting);
+      if (!chief || chief.chapterSlug !== chapter.slug) {
+        push("chapter", chapter.slug, "chiefStageSlug", "指定的章末关不存在或不属于这一章");
+      }
+    }
+    if (chapter.enabled && !draft.stages.some((row) => row.enabled && row.chapterSlug === chapter.slug)) {
+      push("chapter", chapter.slug, "slug", "这一章还没有启用的关卡");
+    }
+  }
+  for (const stage of draft.stages) {
+    if (!stage.enabled) {
+      continue;
+    }
+    if (!stage.chapterSlug) {
+      push("stage", stage.slug, "chapterSlug", "关卡没有所属章节");
+    } else if (!chapterSlugs.has(stage.chapterSlug)) {
+      push("stage", stage.slug, "chapterSlug", "所属章节不存在");
+    }
+    for (const monster of stage.monsters ?? []) {
+      if (!monster.artKey) {
+        push("stage", stage.slug, "monsters", `怪物「${monster.name}」还没选立绘`);
+      } else if (!MONSTER_ART_KEY_SET.has(monster.artKey)) {
+        push("stage", stage.slug, "monsters", `怪物「${monster.name}」的立绘「${monster.artKey}」不在可选列表里`);
+      }
+    }
+    const boss = stage.bosses?.[0];
+    if (!boss) {
+      push("stage", stage.slug, "bosses", "每个关卡都要有首领");
+      continue;
+    }
+    if ((stage.bosses?.length ?? 0) > 1) {
+      push("stage", stage.slug, "bosses", "每个关卡只能有一个首领");
+    }
+    if (boss.artKey && !MONSTER_ART_KEY_SET.has(boss.artKey)) {
+      push("stage", stage.slug, "bosses", `首领「${boss.name}」的立绘「${boss.artKey}」不在可选列表里`);
+    } else if (!boss.artKey) {
+      push("stage", stage.slug, "bosses", `首领「${boss.name}」还没选立绘`);
+    }
+    if (boss.statsProblem) {
+      push("stage", stage.slug, "bosses", boss.statsProblem);
+    }
+    if (boss.rules) {
+      for (const message of bossRuleProblems(boss.rules)) {
+        push("stage", stage.slug, "bosses", `首领规则：${message}`);
+      }
+    }
+    if (boss.repeat?.orangeChanceBp !== undefined && boss.repeat?.orangeChanceBp !== null) {
+      push("stage", stage.slug, "bosses", "「重复奖励橙装概率」已停用，请改用首领规则里的装备品质掉率（橙）");
+    }
   }
 }

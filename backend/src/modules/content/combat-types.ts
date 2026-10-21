@@ -29,6 +29,8 @@ export type StageMonster = {
   interval: number;
   /** 每击杀一只得到的修为（整数，不吃功法加成）。 */
   killCultivation: number;
+  /** 立绘编号（art-keys.ts 的 MONSTER_ART_KEYS，例如 wolf → 客户端 sprites/mon_wolf.png）；客户端按它取图，不再按名字猜。 */
+  artKey?: string;
 };
 
 /** 普通怪的装备掉落：每只击杀 chanceBp 万分比掉 1 件本境界阶装备，品质按权重，6 个部位等概率。 */
@@ -44,14 +46,25 @@ export type MonsterDropOverride = {
   qualityWeights?: { [K in keyof QualityWeights]?: number | null };
 };
 
-export type BossRewardEntry = { kind: "item"; itemSlug: string; quantity: number } | { kind: "cultivation"; amount: number };
+/**
+ * 首领奖励条目：
+ * - item：物品（也可以填功法编号，会变成功法书）× quantity
+ * - cultivation：修为
+ * - spiritStones：灵石
+ * - gear：按首领规则的「装备品质掉率」抽 count 件本境界阶装备（部位按掉率倍数）
+ */
+export type BossRewardEntry =
+  | { kind: "item"; itemSlug: string; quantity: number }
+  | { kind: "cultivation"; amount: number }
+  | { kind: "spiritStones"; amount: number }
+  | { kind: "gear"; count: number };
 
 export type BossRepeatReward = {
-  /** 每次有奖励的胜利给 1 件本境界阶装备，品质权重取关卡的普通怪掉落权重，白色改为绿色。 */
+  /** 每次有奖励的胜利给 1 件本境界阶装备，品质按首领规则的「装备品质掉率」（boss-rules.ts）。 */
   gear: boolean;
   /** 额外物品，各自按万分比独立掷骰（例如突破石）。 */
   extras: { itemSlug: string; chanceBp: number; minQty: number; maxQty: number }[];
-  /** 给的装备直接是橙色的概率（万分比）；不填 = 配置概览的「首领橙装概率」。 */
+  /** 已停用（第三批起橙装概率是首领规则「装备品质掉率」里的橙色一档）；留着只为读老数据，发布校验会提示改掉。 */
   orangeChanceBp?: number | null;
 };
 

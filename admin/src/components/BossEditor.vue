@@ -38,8 +38,8 @@
         </div>
         <div class="rrow">
           <span class="rl">立绘<HelpTip title="首领立绘" text="游戏里首领用的怪物贴图（精英会自动放大 1.2 倍并加金边金光，章末首领加红边红光）。不选：精英跟随本关第一只普通怪，章末首领按名字匹配。" /></span>
-          <ArtKeySelect v-model="boss.artKey" :tier="tier" :inherit-key="tier === 'elite' ? monster?.artKey : null" :width="240" clearable />
-          <span v-if="!boss.artKey" class="side-note inline">{{ tier === "elite" ? (monster?.artKey ? "跟随本关普通怪" : "本关普通怪也没选立绘，按名字匹配") : "没选时游戏按名字匹配" }}</span>
+          <ArtKeySelect v-model="boss.artKey" boss :inherit-key="monster?.artKey ?? null" :width="260" clearable />
+          <span v-if="!boss.artKey" class="side-note inline">{{ monster?.artKey ? "跟随本关普通怪（游戏里现场描边）" : "本关普通怪也没选立绘，按名字匹配" }}</span>
         </div>
 
         <table class="grid">

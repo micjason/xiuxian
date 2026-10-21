@@ -3,6 +3,9 @@
     <PageHeader title="装备强化" desc="分解装备得到强化经验（经验池没有上限），经验用来给任意装备升强化等级，只升不失败、不掉级。每个品质有自己的等级上限、经验曲线、属性加成和突破节点；已穿戴的装备不能分解。下面所有数字都是起始值，可以随时调整。">
       <template #actions><el-button :icon="Refresh" :loading="loading" @click="load">刷新</el-button></template>
     </PageHeader>
+    <el-alert type="info" :closable="false" show-icon class="moved-banner">
+      <template #title>强化上限、经验倍数、分解经验和自动分解范围也能在「配置概览 → 强化与分解」里改（同一份数据）；突破节点和材料只在这一页。<el-button link type="primary" @click="$router.push('/config/overview#enhance')">去配置概览 ›</el-button></template>
+    </el-alert>
 
     <DataState :loading="loading && !loaded" :error="error" :has-data="loaded" empty-text="" @retry="load">
       <div class="savebar" :class="{ dirty }">
@@ -642,5 +645,8 @@ h2 {
 }
 .curve :deep(.node-row) {
   --el-table-tr-bg-color: var(--xx-warning-bg);
+}
+.moved-banner {
+  margin-bottom: 12px;
 }
 </style>

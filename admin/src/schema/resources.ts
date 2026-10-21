@@ -13,7 +13,7 @@ export const realmSchema: Schema = {
   ],
   fields: [
     {
-      key: "code", label: "编号", kind: "int", group: "base", required: true, min: 1, lockedAfterCreate: true,
+      key: "code", help: false, label: "编号", kind: "int", group: "base", required: true, min: 1, lockedAfterCreate: true,
       hint: "突破顺序，从小到大。不能重复。新建后不能改，要调整顺序请新建并删除。",
       affects: "突破顺序、关卡所需境界、装备可穿戴阶段", example: "1、2、3…", column: { width: 80 },
     },
@@ -40,19 +40,19 @@ export const realmSchema: Schema = {
       hint: "从本境界突破到下一境界要消耗的修为。最高境界不会用到。", affects: "突破节奏", column: { width: 110 },
     },
     {
-      key: "attack", label: "攻击", kind: "number", group: "stats", min: 0, step: 1, default: 0,
+      key: "attack", help: false, label: "攻击", kind: "number", group: "stats", min: 0, step: 1, default: 0,
       hint: "到达这个境界时增加的攻击。0 表示不增加。", affects: "面板攻击、战力", column: { width: 80 },
     },
     {
-      key: "defense", label: "防御", kind: "number", group: "stats", min: 0, step: 1, default: 0,
+      key: "defense", help: false, label: "防御", kind: "number", group: "stats", min: 0, step: 1, default: 0,
       hint: "到达这个境界时增加的防御。", affects: "面板防御、受到的伤害、战力", column: { width: 80 },
     },
     {
-      key: "hp", label: "气血", kind: "number", group: "stats", min: 0, step: 1, default: 0,
+      key: "hp", help: false, label: "气血", kind: "number", group: "stats", min: 0, step: 1, default: 0,
       hint: "到达这个境界时增加的气血。", affects: "面板气血、战力", column: { width: 80 },
     },
     {
-      key: "speed", label: "速度", kind: "number", group: "stats", min: 0, step: 1, default: 0,
+      key: "speed", help: false, label: "速度", kind: "number", group: "stats", min: 0, step: 1, default: 0,
       hint: "到达这个境界时增加的速度。速度越高出手越快，但有最短出手间隔。", affects: "出手间隔、战力", column: { width: 80 },
     },
     {
@@ -90,17 +90,21 @@ export const itemSchema: Schema = {
   title: "物品",
   fields: [
     { key: "displayName", label: "名称", kind: "text", required: true, hint: "玩家在行囊里看到的名字。", column: { minWidth: 160 } },
+    { key: "kind", label: "类型", kind: "select", required: true, default: "material", options: [{ label: "材料", value: "material" }, { label: "丹药", value: "pill" }], hint: "材料（例如突破石，强化突破要用）或丹药。保存时不会再清空原来的类型。", column: { width: 90 } },
+    { key: "quality", label: "品质", kind: "select", required: true, default: "white", options: [{ label: "白", value: "white" }, { label: "绿", value: "green" }, { label: "蓝", value: "blue" }, { label: "紫", value: "purple" }, { label: "橙", value: "orange" }], hint: "行囊里显示的品质颜色。", column: { width: 80 } },
+    { key: "stackable", label: "可叠加", kind: "bool", default: true, hint: "同种物品在行囊里叠成一格。", column: { width: 80 } },
     { key: "description", label: "描述", kind: "textarea", hint: "物品详情里的说明文字。", column: { minWidth: 260 } },
   ],
 };
 
-// ---------- 装备（单件，只能改名称/描述/图标，属性由预算公式算出） ----------
+// ---------- 装备（单件：名称 / 描述 / 图标 / 掉率倍数；属性由预算公式算出） ----------
 export const gearPieceSchema: Schema = {
   title: "装备",
   fields: [
     { key: "displayName", label: "名称", kind: "text", required: true, hint: "装备名称。属性由「装备预算 × 部位占比 × 品质系数」算出，不能手填。" },
     { key: "description", label: "描述", kind: "textarea", hint: "装备详情里的说明文字。" },
-    { key: "iconKey", label: "图标标识", kind: "text", hint: "客户端图标资源的 key。现在客户端还没有真实美术，可以先空着。", example: "gear_weapon_01" },
+    { key: "iconKey", label: "图标", kind: "text", help: true, hint: "空 = 游戏按「大境界 + 部位」自动选图标；选了就用选的这张（客户端 0.15 起生效）。", example: "gear_qi_weapon" },
+    { key: "dropMult", label: "掉率倍数", kind: "number", min: 0, max: 100, step: 0.1, precision: 2, unit: "倍", default: 1, hint: "同大境界、同品质 6 件按倍数分配被抽中的机会：本件占比 = 本件倍数 ÷ 6 件倍数之和。普通怪掉落和首领重复奖励都按这个规则。" },
   ],
 };
 
@@ -125,6 +129,10 @@ export const skillSchema: Schema = {
   fields: [
     { key: "displayName", label: "名称", kind: "text", group: "base", required: true, hint: "功法名称。", column: { minWidth: 140 } },
     { key: "categoryId", label: "分类", kind: "select", group: "base", required: true, hint: "技能所属分类，先在「分类」页建好。", options: [], column: { width: 120 } },
+    { key: "role", label: "功法类型", kind: "select", group: "base", options: [{ label: "心法", value: "heart" }, { label: "攻法", value: "attack" }, { label: "身法", value: "body" }, { label: "步法", value: "step" }], hint: "功法类型。保存时不会再清空。" },
+    { key: "rank", label: "品阶", kind: "select", group: "base", required: true, default: "yellow", options: [{ label: "黄阶", value: "yellow" }, { label: "玄阶", value: "xuan" }, { label: "地阶", value: "earth" }, { label: "天阶", value: "heaven" }], hint: "功法品阶，影响多余功法书折算修为。", column: { width: 80 } },
+    { key: "requiredRealmCode", label: "所需境界", kind: "select", group: "base", options: [], hint: "达到这个境界才能学。" },
+    { key: "prerequisiteIds", label: "前置功法", kind: "multiselect", group: "base", options: [], hint: "要先学会的功法。不能选自己。" },
     { key: "description", label: "描述", kind: "textarea", group: "base", hint: "功法说明。", column: { minWidth: 220 } },
     { key: "attack", label: "攻击加成", kind: "number", group: "bonus", min: 0, max: 100, step: 0.01, unit: "%", default: 0, hint: "运转时给境界基础攻击增加的百分比。实际值 = 基础百分比 × 层数系数。", affects: "面板攻击、战力", column: { width: 90 } },
     { key: "defense", label: "防御加成", kind: "number", group: "bonus", min: 0, max: 100, step: 0.01, unit: "%", default: 0, hint: "给境界基础防御增加的百分比。", affects: "面板防御、战力", column: { width: 90 } },
@@ -144,7 +152,7 @@ export const stageSchema: Schema = {
   fields: [
     { key: "displayName", label: "关卡名称", kind: "text", required: true, hint: "关卡名，玩家在历练页看到。", column: { minWidth: 160 } },
     { key: "realmCode", label: "所需境界", kind: "select", required: true, hint: "到达这个境界才能挑战。选项来自「境界」页。", options: [], affects: "关卡解锁" },
-    { key: "recommendedPower", label: "推荐战力", kind: "int", min: 0, max: 10000000, default: 0, unit: "战力", hint: "玩家在关卡页和战斗页看到的“推荐战力”，由你手填，服务器不会改它。设计表 2.3 的值是参考配置总战力 × 0.95：黑风岭·三 900、幽冥古道·三 2450、赤炎火山·三 6590。填 0 表示没有手填，按首领自身数值 × 「推荐战力倍数」自动算。", affects: "关卡页提示、战斗页提示" },
+    { key: "recommendedPower", label: "推荐战力", kind: "int", min: 0, max: 10000000, unit: "战力", hint: "默认按公式自动算：首领战力 × 推荐战力倍数（没有首领时用普通怪）；点「手动覆盖」才能填，玩家在历练页看到这个值。", affects: "关卡页提示、战斗页提示" },
   ],
 };
 
@@ -152,9 +160,9 @@ export const bossSchema: Schema = {
   title: "首领",
   fields: [
     { key: "name", label: "名称", kind: "text", required: true, hint: "首领名称。" },
-    { key: "attack", label: "攻击", kind: "number", min: 0, step: 1, default: 0, required: true, hint: "首领攻击。" },
-    { key: "defense", label: "防御", kind: "number", min: 0, step: 1, default: 0, required: true, hint: "首领防御。" },
-    { key: "hp", label: "气血", kind: "number", min: 0, step: 1, default: 0, required: true, hint: "首领气血，必须大于 0。" },
+    { key: "attack", label: "攻击", kind: "number", help: false, min: 0, step: 1, default: 0, required: true, hint: "首领攻击。" },
+    { key: "defense", label: "防御", kind: "number", help: false, min: 0, step: 1, default: 0, required: true, hint: "首领防御。" },
+    { key: "hp", label: "气血", kind: "number", help: false, min: 0, step: 1, default: 0, required: true, hint: "首领气血，必须大于 0。" },
     { key: "interval", label: "出手间隔", kind: "number", min: 0, step: 0.1, precision: 2, unit: "秒", default: 1.5, required: true, hint: "首领多少秒出手一次，必须大于 0。" },
   ],
 };
@@ -189,7 +197,7 @@ export const rulesSchema: Schema = {
     { key: "waveSize", label: "每波怪物数", kind: "int", group: "battle", min: 1, max: 10, step: 1, unit: "只", default: 3, hint: "普通怪一波有几只，依次上前，一次只和一只交战，中间不回血。", affects: "普通怪击杀速度" },
     { key: "waveTransitionSeconds", label: "波次转场秒数", kind: "number", group: "battle", min: 0, max: 60, step: 0.5, precision: 1, unit: "秒", default: 2, hint: "一波打完到下一波之间的转场时间，转场时主角回满血。", affects: "普通怪击杀速度" },
     { key: "reviveSeconds", label: "阵亡复活秒数", kind: "number", group: "battle", min: 0, max: 60, step: 0.5, precision: 1, unit: "秒", default: 3, hint: "普通怪打输（阵亡）后原地复活、回满血所需的秒数，无其他惩罚。", affects: "普通怪击杀速度" },
-    { key: "bagCapacity", label: "行囊容量", kind: "int", group: "world", required: true, min: 1, step: 10, unit: "格", default: 20, hint: "玩家行囊最多放多少件（已穿戴的不占格）。满了无法挑战拿掉落。", affects: "行囊、掉落", warning: "调小不会清掉玩家已有物品，但已超出的玩家会无法挑战。" },
+    { key: "bagCapacity", label: "行囊容量", kind: "int", help: false, group: "world", required: true, min: 1, step: 10, unit: "格", default: 20, hint: "玩家行囊最多放多少件（已穿戴的不占格）。满了无法挑战拿掉落。", affects: "行囊、掉落", warning: "调小不会清掉玩家已有物品，但已超出的玩家会无法挑战。" },
     { key: "offlineCapSeconds", label: "离线收益上限", kind: "int", group: "world", required: true, min: 1, step: 3600, unit: "秒", default: 28800, hint: "离线最多按多少秒结算修为，28800 = 8 小时。", affects: "离线收益" },
   ],
 };
@@ -255,8 +263,8 @@ const extraLabels: Record<string, string> = {
   sortOrder: "排序", nextRealmSlug: "下一境界", baseAttack: "基础攻击", baseDefense: "基础防御", baseHp: "基础气血", baseSpeed: "基础速度",
   baseInterval: "基础出手间隔", powerWeights: "战力权重", combat: "战斗参数", requiredRealmOrder: "所需境界编号", quality: "品质", slot: "部位",
   kind: "类型", stackable: "可叠加", enabled: "启用", bosses: "首领与掉落", entries: "掉落条目", recommendedPower: "推荐战力", rank: "品阶",
-  role: "功法类型", cultivateBonusBp: "修炼加成（万分比）", prerequisiteSkillSlugs: "前置功法", minRateBp: "最低成功率", baseRateBp: "基础成功率",
-  maxRateBp: "最高成功率", failLossBp: "失败损失", pityStepBp: "保底步长", powerFactorBp: "战力系数", requiredStageSlug: "所需通关关卡", requiredStageId: "突破前要先通关", ultName: "大招名称", ultMultiplier: "大招伤害倍数", ultCooldownSeconds: "大招冷却", ultFirstCooldownSeconds: "开战首次冷却",
+  role: "功法类型", cultivateBonusBp: "修炼加成（万分比）", prerequisiteSkillSlugs: "前置功法",
+  requiredStageSlug: "所需通关关卡", requiredStageId: "突破前要先通关", ultName: "大招名称", ultMultiplier: "大招伤害倍数", ultCooldownSeconds: "大招冷却", ultFirstCooldownSeconds: "开战首次冷却",
   skillSlug: "对应功法", bossName: "首领名称", bossAttack: "首领攻击", bossDefense: "首领防御", bossHp: "首领气血", bossInterval: "首领出手间隔",
   tickSeconds: "修炼间隔", gainPerTick: "每次获得修为", breakthroughCost: "突破消耗修为", starterItems: "新手物品", startingRealmSlug: "初始境界",
   artSlotRules: "功法栏位规则", idleKillCap: "挂机击杀上限", minClientVersionCode: "最低客户端版本号", bagCapacity: "行囊容量",

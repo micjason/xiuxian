@@ -17,6 +17,8 @@ export const router = createRouter({
         { path: "", redirect: "/dashboard" },
         { path: "dashboard", component: () => import("./views/dashboard/DashboardView.vue") },
         { path: "players", component: () => import("./views/players/PlayersView.vue") },
+        { path: "config/overview", component: () => import("./views/config/ConfigOverviewView.vue") },
+        { path: "config/gear", component: () => import("./views/config/GearView.vue") },
         { path: "config/realms", component: () => import("./views/config/RealmsView.vue") },
         { path: "config/items", component: () => import("./views/config/ItemsView.vue") },
         { path: "config/skills", component: () => import("./views/config/SkillsView.vue") },

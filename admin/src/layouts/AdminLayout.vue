@@ -13,6 +13,7 @@
           </template>
           <el-menu-item v-for="item in group.items" :key="item.path" :index="item.path">
             <span>{{ item.label }}</span>
+            <em v-if="item.isNew" class="new-tag">新</em>
           </el-menu-item>
         </el-sub-menu>
       </el-menu>
@@ -25,11 +26,19 @@
 
     <el-container class="body">
       <el-header class="header">
-        <el-breadcrumb separator="/" class="crumb">
-          <el-breadcrumb-item v-if="current"><span>{{ current.group }}</span></el-breadcrumb-item>
-          <el-breadcrumb-item v-if="current"><router-link :to="current.path">{{ current.label }}</router-link></el-breadcrumb-item>
-          <el-breadcrumb-item v-if="crumbTail"><strong>{{ crumbTail }}</strong></el-breadcrumb-item>
-        </el-breadcrumb>
+        <!-- 面包屑只按菜单层级生成；每一级都能点（一级跳组首页，二级跳列表页），最后一级是当前页 -->
+        <nav class="crumb" aria-label="面包屑">
+          <template v-if="current">
+            <router-link class="crumb-link" :to="groupHome(current.group) ?? current.path">{{ current.group }}</router-link>
+            <span class="sep">/</span>
+            <router-link v-if="crumbTail" class="crumb-link" :to="current.path">{{ current.label }}</router-link>
+            <strong v-else class="crumb-here">{{ current.label }}</strong>
+            <template v-if="crumbTail">
+              <span class="sep">/</span>
+              <strong class="crumb-here">{{ crumbTail }}</strong>
+            </template>
+          </template>
+        </nav>
         <div class="tools">
           <el-button class="search-btn" @click="searchOpen = true"><el-icon><Search /></el-icon><span>搜索</span><kbd>Ctrl K</kbd></el-button>
           <el-tooltip :content="draftTip" placement="bottom">
@@ -51,8 +60,15 @@
           </el-dropdown>
         </div>
       </el-header>
+      <TabsBar :active-path="activePath" />
       <el-main class="app-main">
-        <div class="content"><router-view :key="route.fullPath.split('?')[0]" /></div>
+        <div class="content">
+          <router-view v-slot="{ Component, route: viewRoute }">
+            <keep-alive :include="cachedNames" :max="16">
+              <component :is="wrap(Component, viewRoute.path)" v-if="Component && refreshingPath !== viewRoute.path" :key="viewRoute.path" />
+            </keep-alive>
+          </router-view>
+        </div>
       </el-main>
     </el-container>
     <GlobalSearch v-model="searchOpen" />
@@ -61,13 +77,15 @@
 
 <script setup lang="ts">
 import { ArrowDown, Odometer, Present, Promotion, Search, Setting, SetUp, User } from "@element-plus/icons-vue";
-import { computed, onMounted, ref } from "vue";
+import { computed, defineComponent, h, markRaw, onMounted, ref, watch, type Component as VueComponent, type VNode } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import TabsBar from "../components/TabsBar.vue";
+import { tailFor } from "../composables/crumbs";
+import { cachedNames, openTab, refreshingPath } from "../composables/tabs";
 import { adminName, clearSession } from "../api";
 import GlobalSearch from "../components/GlobalSearch.vue";
-import { crumbTail } from "../composables/crumbs";
 import { draft, refreshDraftStatus } from "../composables/draftStatus";
-import { navOf, navTree, plannedFeatures } from "../nav";
+import { groupHome, navOf, navTree, plannedFeatures } from "../nav";
 import { applyTheme, isDark } from "../theme";
 
 const icons: Record<string, unknown> = { Odometer, User, SetUp, Promotion, Present, Setting };
@@ -80,6 +98,33 @@ const searchOpen = ref(false);
 const openGroups = navTree.map((group) => group.key);
 
 const current = computed(() => navOf(route.path));
+const crumbTail = computed(() => tailFor(route.path));
+
+// 每个页面包一层按路径命名的组件，<keep-alive :include> 才能按标签缓存 / 释放
+const wrappers = new Map<string, VueComponent>();
+function wrap(view: VNode, path: string): VueComponent {
+  let wrapper = wrappers.get(path);
+  if (!wrapper || (wrapper as { __inner?: unknown }).__inner !== view.type) {
+    const inner = view.type as VueComponent;
+    wrapper = markRaw(
+      Object.assign(
+        defineComponent({
+          name: path,
+          setup: () => () => h(inner),
+        }),
+        { __inner: inner },
+      ),
+    );
+    wrappers.set(path, wrapper);
+  }
+  return wrapper;
+}
+
+watch(
+  () => route.fullPath,
+  () => openTab(route.path, route.fullPath),
+  { immediate: true },
+);
 const activePath = computed(() => current.value?.path ?? route.path);
 const errorCount = computed(() => draft.problems.filter((item) => item.level === "error").length);
 const draftTip = computed(() => `线上内容版本：${draft.contentVersion ?? "未发布"}。点击进入发布中心。`);
@@ -240,7 +285,34 @@ onMounted(() => void refreshDraftStatus());
   background: var(--xx-bg-surface);
 }
 .crumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-size: var(--xx-fs-base);
+}
+.crumb-link {
+  color: var(--xx-text-secondary);
+  text-decoration: none;
+}
+.crumb-link:hover {
+  color: var(--xx-jade-600);
+  text-decoration: underline;
+}
+.crumb-here {
+  color: var(--xx-text-primary);
+}
+.sep {
+  color: var(--xx-text-placeholder);
+}
+.new-tag {
+  margin-left: 6px;
+  padding: 0 5px;
+  border-radius: 3px;
+  background: var(--xx-cinnabar-600);
+  color: #fff;
+  font-size: 11px;
+  font-style: normal;
+  line-height: 16px;
 }
 .tools {
   display: flex;

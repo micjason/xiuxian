@@ -39,6 +39,7 @@
         v-loading="loading"
         :data="pageRows"
         :row-key="idKey"
+        :row-class-name="({ row }: { row: Row }) => (drawer && String(row[idKey]) === editingId ? 'editing-row' : '')"
         class="grid"
         @selection-change="(value: Row[]) => (selection = value)"
         @row-click="(row: Row, column: { type?: string; property?: string }) => column.type !== 'selection' && column.property !== '__actions' && openEdit(row)"
@@ -92,7 +93,17 @@
       />
     </DataState>
 
-    <EditDrawer v-model="drawer" :title="drawerTitle" :dirty="dirty || mode === 'create'" :saving="saving" :size="drawerSize" @save="save">
+    <EditDrawer
+      v-model="drawer"
+      :title="drawerTitle"
+      :subtitle="drawerSubtitle ? drawerSubtitle(form) : undefined"
+      :dirty="dirty || mode === 'create'"
+      :change-count="changeCount"
+      :error-count="showAllErrors ? Object.keys(errors).length : 0"
+      :saving="saving"
+      :size="drawerSize"
+      @save="save"
+    >
       <slot name="form" :form="form" :errors="errors" :mode="mode" :show-all-errors="showAllErrors" :original="originalValues">
         <SchemaForm
           ref="schemaForm"
@@ -118,7 +129,7 @@ import { ElMessage } from "element-plus";
 import { computed, onBeforeUnmount, reactive, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { confirmAction, confirmDanger } from "../composables/confirm";
-import { setCrumbTail } from "../composables/crumbs";
+import { useCrumbTail } from "../composables/crumbs";
 import { refreshDraftStatus } from "../composables/draftStatus";
 import { downloadText, toCsv } from "../composables/format";
 import type { FieldOption, FormValues, Schema } from "../schema/types";
@@ -168,6 +179,10 @@ const props = withDefaults(
     /** 保存后是否刷新草稿状态（草稿类数据 true；演示数据 false） */
     refreshDraft?: boolean;
     exportName?: string;
+    /** 抽屉标题后的灰色副标题，例如「炼气 · 第 1 关 · 无首领」 */
+    drawerSubtitle?: (form: Row) => string;
+    /** 抽屉标题，例如「编辑关卡：黑风岭·一」（不传按 entityName + 名称） */
+    titleOf?: (form: Row, mode: "create" | "edit") => string;
   }>(),
   { drawerSize: 800, pageSize: 20, savedMessage: "已保存到草稿", refreshDraft: true, exportName: "export" },
 );
@@ -175,6 +190,7 @@ const emit = defineEmits<{ reload: [] }>();
 
 const route = useRoute();
 const router = useRouter();
+const setCrumbTail = useCrumbTail();
 const table = ref<{ clearSelection: () => void } | null>(null);
 const schemaForm = ref<{ touchAll: () => void } | null>(null);
 
@@ -243,7 +259,33 @@ watch([query, filterValues, () => props.rows], () => {
 
 const errors = computed(() => validateSchema(props.schema, form.value, props.optionsMap));
 const dirty = computed(() => JSON.stringify(form.value) !== original.value);
+/** 和打开时相比改了几处（按顶层字段 + 列表里每一行算） */
+const changeCount = computed(() => {
+  if (!dirty.value) return 0;
+  const before = JSON.parse(original.value || "{}") as Row;
+  let count = 0;
+  for (const key of new Set([...Object.keys(before), ...Object.keys(form.value)])) {
+    const left = before[key];
+    const right = form.value[key];
+    if (Array.isArray(left) && Array.isArray(right)) {
+      const length = Math.max(left.length, right.length);
+      for (let index = 0; index < length; index += 1) {
+        if (JSON.stringify(left[index]) !== JSON.stringify(right[index])) count += 1;
+      }
+    } else if (left && right && typeof left === "object" && typeof right === "object") {
+      for (const sub of new Set([...Object.keys(left as Row), ...Object.keys(right as Row)])) {
+        if (JSON.stringify((left as Row)[sub]) !== JSON.stringify((right as Row)[sub])) count += 1;
+      }
+    } else if (JSON.stringify(left) !== JSON.stringify(right)) {
+      count += 1;
+    }
+  }
+  return count;
+});
 const drawerTitle = computed(() => {
+  if (props.titleOf) {
+    return props.titleOf(form.value, mode.value);
+  }
   const name = String(form.value[props.nameKey ?? "displayName"] ?? "");
   return mode.value === "create" ? `新建${props.entityName}` : `编辑${props.entityName}：${name || "未命名"}`;
 });
@@ -455,6 +497,9 @@ defineExpose({ openCreate, openEdit });
 }
 .grid :deep(.el-table__row) {
   cursor: pointer;
+}
+.grid :deep(.el-table__row.editing-row > td.el-table__cell) {
+  background: #eef5f1;
 }
 .muted {
   color: var(--xx-text-placeholder);

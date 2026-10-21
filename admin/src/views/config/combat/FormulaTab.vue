@@ -210,7 +210,6 @@
           </dl>
         </section>
       </div>
-      <FieldCard :field="active" :value="active ? form[active.key] : undefined" @reset="resetField" />
     </div>
   </div>
 </template>
@@ -219,7 +218,6 @@
 import { ElMessage } from "element-plus";
 import { computed, onMounted, ref, watch } from "vue";
 import { api } from "../../../api";
-import FieldCard from "../../../components/FieldCard.vue";
 import SchemaForm from "../../../components/SchemaForm.vue";
 import { useDirtyGuard } from "../../../composables/dirty";
 import { refreshDraftStatus } from "../../../composables/draftStatus";
@@ -320,12 +318,6 @@ function globalText(key: string): string {
   return typeof value === "object" ? JSON.stringify(value) : String(value);
 }
 
-function resetField(key: string): void {
-  const field = rulesSchema.fields.find((item) => item.key === key);
-  if (field && field.default !== undefined) {
-    form.value[key] = field.default;
-  }
-}
 
 function revert(): void {
   form.value = JSON.parse(original.value) as FormValues;
@@ -517,7 +509,7 @@ onMounted(load);
 }
 .layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 232px;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--xx-space-4);
 }
 .main {

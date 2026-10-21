@@ -12,7 +12,7 @@
           entity-name="技能"
           :search-keys="['displayName', 'description', 'categoryName']"
           :filters="skillFilters"
-          :options-map="{ categoryId: categoryOptions }"
+          :options-map="{ categoryId: categoryOptions, requiredRealmCode: realmOptions, prerequisiteIds: skillOptions }"
           :hidden-keys="['categoryName', 'categoryMissing', 'speed']"
           creatable
           deletable
@@ -75,6 +75,9 @@ const loading = ref(false);
 const error = ref("");
 
 const categoryOptions = computed(() => categories.value.map((row) => ({ label: row.displayName, value: row.id })));
+const realms = ref<{ code: number; displayName: string }[]>([]);
+const realmOptions = computed(() => [{ label: "不限", value: 0 }, ...realms.value.map((row) => ({ label: `${row.code} ${row.displayName}`, value: row.code }))]);
+const skillOptions = computed(() => skills.value.map((row) => ({ label: String(row.displayName), value: String(row.id) })));
 const skillFilters = computed(() => [{ key: "categoryId", label: "分类", options: categoryOptions.value }]);
 
 async function reload(): Promise<void> {
@@ -83,6 +86,7 @@ async function reload(): Promise<void> {
   try {
     skills.value = await api<Skill[]>("/admin/draft/skills");
     categories.value = await api<Category[]>("/admin/draft/skill-categories");
+    realms.value = await api<{ code: number; displayName: string }[]>("/admin/draft/realms");
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : "加载失败";
   } finally {
@@ -108,6 +112,10 @@ async function saveSkill(values: Record<string, unknown>, mode: "create" | "edit
     hp: values.hp,
     speed: values.speed ?? 0,
     cultivateBonus: values.cultivateBonus,
+    role: values.role || undefined,
+    rank: values.rank || undefined,
+    requiredRealmCode: values.requiredRealmCode ?? undefined,
+    prerequisiteIds: Array.isArray(values.prerequisiteIds) ? values.prerequisiteIds : undefined,
   });
   if (mode === "create") {
     await api("/admin/draft/skills", { method: "POST", body });

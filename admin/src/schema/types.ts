@@ -34,6 +34,11 @@ export type FieldDef = {
   /** 列表里是否作为一列显示，以及列宽 */
   column?: boolean | { width?: number; minWidth?: number };
   placeholder?: string;
+  /**
+   * 标签旁要不要显示「?」说明（后台改版规范第 4 节）。
+   * 不填时：数值字段显示、文字/下拉/开关不显示。名称、境界、攻击/防御/气血这类一看就懂的填 false。
+   */
+  help?: boolean;
 };
 
 export type FieldGroup = { key: string; title: string; desc?: string };

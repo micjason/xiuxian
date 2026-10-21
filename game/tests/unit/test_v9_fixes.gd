@@ -96,7 +96,8 @@ func test_battle_report_view_height_is_a_whole_number_of_lines() -> void:
 
 func test_bag_full_prompt_is_a_centered_small_popup_without_close_button() -> void:
 	var scene := await _boot("ready")
-	scene.call("_show_bag_full", 20, 20)
+	# 第五批起外壳不再自动弹（§17.5），组件本身保留
+	BagFullPrompt.show_prompt(scene.get("_popup") as GamePopup, 20, 20, func() -> void: pass)
 	await get_tree().process_frame
 	await get_tree().process_frame
 	var popup := scene.get("_popup") as GamePopup

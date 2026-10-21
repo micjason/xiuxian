@@ -112,7 +112,7 @@ describe("enhance rules: configurable, red quality, break-through nodes", () => 
 });
 
 describe("enhance loop", () => {
-  it("decomposes gear into a pool, spends it with no failures, and raises worn stats", async () => {
+  it("decomposes gear into 炼器精粹, spends it with no failures, and raises worn stats", async () => {
     await withDb(async (db) => {
       await db.insert(contentRealms).values({
         slug: "1",
@@ -135,6 +135,7 @@ describe("enhance loop", () => {
         { slug: "sword", displayName: "剑", kind: "equipment", slot: "weapon", quality: "white", attack: 10, defense: 0, hp: 0, speed: 0 },
         { slug: "fodder", displayName: "废剑", kind: "equipment", slot: "weapon", quality: "white", attack: 1, defense: 0, hp: 0, speed: 0 },
         { slug: "glove", displayName: "护手", kind: "equipment", slot: "gloves", quality: "blue", attack: 2, defense: 3, hp: 0, speed: 0 },
+        { slug: "refine_essence", displayName: "炼器精粹", kind: "material", quality: "orange", stackable: true },
       ]);
       const now = new Date("2026-10-10T12:00:00.000Z");
       const player = await registerPlayer(db, { username: "smith", password: "correct-horse", now });
@@ -151,32 +152,35 @@ describe("enhance loop", () => {
         throw new Error("准备数据失败");
       }
       const attackBefore = (await readState(db, player.playerId, now)).attack;
-      // 没有强化经验：不能强化
-      await expect(withTransaction(db, (tx) => enhanceItem(tx, world, player.playerId, sword.id, now))).rejects.toThrow(/强化经验不足/);
-      // 分解 3 件白装 = 90 经验（含不比身上差的也能分解）
+      const essence = async () => (await db.select().from(playerItems).where(eq(playerItems.playerId, player.playerId))).filter((row) => row.itemSlug === "refine_essence").reduce((sum, row) => sum + row.quantity, 0);
+      // 没有炼器精粹：不能强化
+      await expect(withTransaction(db, (tx) => enhanceItem(tx, world, player.playerId, sword.id, now))).rejects.toMatchObject({ code: "ESSENCE_SHORT", message: expect.stringMatching(/炼器精粹不足/) });
+      // 分解 3 件白装 = 3 × 20 精粹（第五批：白 20 / 绿 60 / 蓝 150 / 紫 400 / 橙 1000）
       for (const spare of spares) {
         await withTransaction(db, (tx) => decomposeItem(tx, world, player.playerId, spare.id, now));
       }
-      const [pool] = await db.select().from(playerStates).where(eq(playerStates.playerId, player.playerId));
-      expect(pool?.enhanceExp).toBe(90);
+      expect(await essence()).toBe(60);
       // 身上的不能分解
       await expect(withTransaction(db, (tx) => decomposeItem(tx, world, player.playerId, sword.id, now))).rejects.toMatchObject({ code: "EQUIPPED_CANNOT_DECOMPOSE", message: expect.stringMatching(/已穿戴.*不能分解/) });
-      // 强化一级：花 60，剩 30，攻击 +6%
+      // 强化一级：花 40 精粹（40 × 1.25^0 × 1），剩 20，攻击 +6%
       const one = await withTransaction(db, (tx) => enhanceItem(tx, world, player.playerId, sword.id, now));
-      expect(one.enhanced).toEqual({ itemId: sword.id, fromLevel: 0, toLevel: 1, spentExp: 60, blockedByBreakthrough: null });
-      expect(one.state.enhanceExp).toBe(30);
+      expect(one.enhanced).toEqual({ itemId: sword.id, fromLevel: 0, toLevel: 1, spentEssence: 40, spentExp: 0, blockedByBreakthrough: null });
+      expect(one.state.essence).toEqual({ itemSlug: "refine_essence", count: 20 });
       expect(one.state.attack).toBeCloseTo(attackBefore + 0.6, 5);
-      // 30 不够下一级（75）
-      await expect(withTransaction(db, (tx) => enhanceItem(tx, world, player.playerId, sword.id, now))).rejects.toThrow(/需要 75/);
-      // 加经验后 toMax：一直升到上限 +5 或经验用完
+      // 20 不够下一级（50）
+      await expect(withTransaction(db, (tx) => enhanceItem(tx, world, player.playerId, sword.id, now))).rejects.toThrow(/需要 50/);
+      // 旧的强化经验：下次结算按 0.7 换成精粹（向上取整），只换一次
       await db.update(playerStates).set({ enhanceExp: 100000 }).where(eq(playerStates.playerId, player.playerId));
+      expect((await readState(db, player.playerId, now)).essence?.count).toBe(20 + 70000);
+      expect((await readState(db, player.playerId, now)).essence?.count).toBe(20 + 70000);
       const max = await withTransaction(db, (tx) => enhanceItem(tx, world, player.playerId, sword.id, now, { toMax: true }));
       expect(max.enhanced.toLevel).toBe(5);
+      expect(max.enhanced.spentEssence).toBe(50 + 63 + 78 + 98);
       await expect(withTransaction(db, (tx) => enhanceItem(tx, world, player.playerId, sword.id, now))).rejects.toThrow(/上限/);
-      // 分解已强化装备会返还经验：先脱下再分解
+      // 分解已强化装备：品质产出 + 等级 × 40 返还；先脱下再分解
       await db.update(playerItems).set({ equippedSlot: null }).where(eq(playerItems.id, sword.id));
       const refunded = await withTransaction(db, (tx) => decomposeItem(tx, world, player.playerId, sword.id, now));
-      expect(refunded.gainedEnhanceExp).toBe(30 + Math.floor(((60 + 75 + 94 + 117 + 146) * 8000) / 10000));
+      expect(refunded.gainedEssence).toBe(20 + 5 * 40);
     });
   });
 });

@@ -112,7 +112,6 @@ func test_chain3_breakthrough_needs_the_gate_boss_then_succeeds_and_shows_before
 func test_bag_full_does_not_block_the_fight_and_the_result_shows_the_prompt() -> void:
 	var scene := await _boot("full")
 	var state: Dictionary = scene.get("_state")
-	state["autoDecompose"] = false
 	scene.call("_render")
 	scene.call("_open_battle", _gate_slug(scene))
 	var page := scene.get("_battle_page") as BattlePage
@@ -126,7 +125,8 @@ func test_bag_full_does_not_block_the_fight_and_the_result_shows_the_prompt() ->
 	assert_true(bool(view.win))
 	assert_true((view.notes as Array).any(func(n: String) -> bool: return n.begins_with("行囊已满")))
 	assert_true((view.loot as Array).any(func(l: Dictionary) -> bool: return str(l.text).contains("背包已满，没有掉落")))
-	assert_true((scene.get("_popup") as GamePopup).visible, "结果里有没掉落的装备：弹背包已满提示")
+	assert_false((scene.get("_popup") as GamePopup).visible, "第五批 §17.5：不再弹背包已满提示（改为历练页提示条 + 底栏已满角标）")
+	assert_true((scene.get("_tab_bar") as TabBarView).is_full("bag"), "底栏背包换成 badge_full")
 
 
 func test_four_tabs_and_heartbeat_interval_follow_server_window() -> void:

@@ -42,7 +42,7 @@ func test_equipped_items_do_not_use_bag_slots() -> void:
 func test_items_are_split_into_the_four_categories() -> void:
 	var model := _model()
 	assert_eq(model.category_count("equip"), 10)
-	assert_eq(model.category_count("material"), 5)
+	assert_eq(model.category_count("material"), 6, "含炼器精粹")
 	assert_eq(model.category_count("pill"), 2)
 	assert_eq(model.category_count("other"), 1)
 	var total := 0
@@ -173,21 +173,21 @@ func test_enhanced_gear_has_scaled_stats_cap_and_next_cost() -> void:
 	assert_eq(BagModel.shown(float(enhanced.stats["attack"])), 7)
 	assert_almost_eq(float(enhanced.base_stats["attack"]), 6.0, 0.0001)
 	assert_true(BagModel.can_enhance(enhanced))
-	assert_eq(model.enhance_exp, 380)
+	assert_true(model.uses_essence)
+	assert_eq(model.enhance_exp, 1286, "第五批：强化池 = 炼器精粹数量（state.essence.count）")
 	for item in model.items:
 		if item.category != "equip":
 			assert_false(BagModel.can_enhance(item))
 			assert_eq(item.enhance_cap, 0)
 
 
-func test_decompose_exp_includes_refund_of_invested_exp() -> void:
+func test_decompose_essence_includes_refund_per_level() -> void:
 	var model := _model()
 	for item in model.items:
 		if item.slug == "acc_o":
-			var invested := model.enhance.invested(4, 4)
-			assert_eq(item.decompose_exp, 480 + int(floor(invested * 0.8)))
+			assert_eq(item.decompose_exp, 1000 + 4 * 40, "橙 1000 + 强化 +4 × 40")
 		if item.slug == "sword_w":
-			assert_eq(item.decompose_exp, 30, "白色未强化：只有基础经验")
+			assert_eq(item.decompose_exp, 20, "白色未强化：只有品质产出")
 
 
 func _by_slug(model: BagModel, slug: String) -> Dictionary:

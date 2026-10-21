@@ -4,7 +4,7 @@ import type { Db } from "../operations/record.js";
 import { tryBreakthrough } from "../player/service.js";
 import { loadCurrentWorld } from "../content/snapshot.js";
 import { setWaveRandom } from "./waves.js";
-import { ackOfflineReport, advanceRealm, challengeStage, breakthroughItem, decomposeItem, enhanceItem, equipItem, readState, runSkill, setAutoDecompose, setIdleStage, stopSkill, unequipItem, unequipSlot, useItem, withIdempotency } from "./actions.js";
+import { ackOfflineReport, advanceRealm, challengeStage, breakthroughItem, decomposeItem, decomposeItems, enhanceItem, equipItem, readState, runSkill, setAutoDecompose, setIdleStage, stopSkill, unequipItem, unequipSlot, useItem, withIdempotency } from "./actions.js";
 
 type RandomInt = (min: number, max: number) => number;
 
@@ -80,6 +80,19 @@ export async function registerLoopRoutes(
     const params = request.params as { itemId: string };
     return withIdempotency(deps.db, playerId, idempotencyKey(request.headers["idempotency-key"]), "decompose", deps.now(), (tx, world) =>
       decomposeItem(tx, world, playerId, params.itemId, deps.now()),
+    );
+  });
+
+  // 第五批：分解界面批量分解（玩家勾选的装备，SPEC_Q §17.2）。body: { itemIds: string[] }
+  app.post("/me/items/decompose", async (request) => {
+    const playerId = request.actor!.actorId;
+    const body = (request.body ?? {}) as { itemIds?: unknown };
+    if (!Array.isArray(body.itemIds) || body.itemIds.length === 0 || body.itemIds.length > 500 || body.itemIds.some((id) => typeof id !== "string" || !/^[0-9a-f-]{36}$/i.test(id))) {
+      throw new AppError("INVALID_INPUT", "请先选择装备");
+    }
+    const itemIds = body.itemIds as string[];
+    return withIdempotency(deps.db, playerId, idempotencyKey(request.headers["idempotency-key"]), "decompose-batch", deps.now(), (tx, world) =>
+      decomposeItems(tx, world, playerId, itemIds, deps.now()),
     );
   });
 

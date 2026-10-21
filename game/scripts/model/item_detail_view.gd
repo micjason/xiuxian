@@ -68,8 +68,8 @@ static func build(item: Dictionary, worn: Dictionary, model: BagModel, content: 
 			else:
 				view["attrs"] = attrs_view(item)
 			view["set"] = set_view(item, content, model)
-			view["enhance_block"] = enhance_view(item, model.enhance_exp if model != null else 0)
-			view["decompose"] = {"exp": int(item.get("decompose_exp", 0)), "blocked": BagModel.decompose_block_reason(item)}
+			view["enhance_block"] = enhance_view(item, model.enhance_exp if model != null else 0, model != null and model.uses_essence)
+			view["decompose"] = {"exp": int(item.get("decompose_exp", 0)), "essence": model != null and model.uses_essence, "blocked": BagModel.decompose_block_reason(item)}
 		"book":
 			view["info"] = "持有 %d · %s" % [int(item.get("qty", 1)), "可叠加" if bool(item.get("stackable", false)) else "不可叠加"]
 			view["skill"] = skill_view(item, model, content, state)
@@ -213,7 +213,8 @@ static func attrs_view(item: Dictionary) -> Dictionary:
 
 
 ## 强化分区：mode = none（品质没有强化规则）/ max / break（卡在节点）/ normal。
-static func enhance_view(item: Dictionary, pool: int) -> Dictionary:
+## essence = 真：pool / cost 是炼器精粹（第五批，SPEC_Q §17.3）；否则是旧的强化经验。
+static func enhance_view(item: Dictionary, pool: int, essence: bool = false) -> Dictionary:
 	var cap := int(item.get("enhance_cap", 0))
 	var level := int(item.get("enhance", 0))
 	if cap <= 0:
@@ -225,7 +226,7 @@ static func enhance_view(item: Dictionary, pool: int) -> Dictionary:
 	var upcoming: Dictionary = view.get("next", {})
 	var cost := int(item.get("enhance_cost", 0))
 	var out := {"mode": "break" if not pending.is_empty() else "normal", "cap": cap, "level": level, "cost": cost, "pool": pool,
-		"enough": pool >= cost, "ratio": clampf(float(pool) / float(maxi(cost, 1)), 0.0, 1.0), "pending": pending, "next": upcoming}
+		"enough": pool >= cost, "ratio": clampf(float(pool) / float(maxi(cost, 1)), 0.0, 1.0), "pending": pending, "next": upcoming, "essence": essence}
 	out["next_text"] = ("下个突破节点 +%d：%s" % [int(upcoming.level), materials_text(upcoming)]) if not upcoming.is_empty() else ""
 	return out
 

@@ -23,6 +23,7 @@ const TAB_CUTS := {"cultivate": "tab_cultivate", "adventure": "tab_adventure", "
 var _tabs: Array[Dictionary] = []
 var _buttons: Dictionary = {}
 var _dots: Dictionary = {}
+var _full_badges: Dictionary = {}
 var _bgs: Dictionary = {}
 var _icons: Dictionary = {}
 var _labels: Dictionary = {}
@@ -96,6 +97,7 @@ func set_tabs(tabs: Array[Dictionary], selected: String) -> void:
 		_center = null
 	_buttons.clear()
 	_dots.clear()
+	_full_badges.clear()
 	_bgs.clear()
 	_icons.clear()
 	_labels.clear()
@@ -168,6 +170,21 @@ func set_tabs(tabs: Array[Dictionary], selected: String) -> void:
 		dot.visible = false
 		button.add_child(dot)
 		_dots[id] = dot
+		# 第五批（SPEC_Q §17.5）：行囊满时「背包」红点换成 badge_full 64（中心对准原红点）。
+		var full := TextureRect.new()
+		full.name = "FullBadge"
+		full.texture = ArtLib.qui("badge_full")
+		full.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		full.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		full.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		full.set_anchors_preset(Control.PRESET_CENTER_TOP)
+		full.offset_left = 17
+		full.offset_right = 81
+		full.offset_top = -3
+		full.offset_bottom = 61
+		full.visible = false
+		button.add_child(full)
+		_full_badges[id] = full
 	current = selected
 	_refresh()
 
@@ -242,6 +259,18 @@ func set_dot(id: String, on: bool) -> void:
 		return  # 中间钮的红点跟着 set_center 的 ready 状态走
 	if _dots.has(id):
 		(_dots[id] as CanvasItem).visible = on
+
+
+## 「已满」角标（盖住红点的位置）；开着时红点不显示。
+func set_full(id: String, on: bool) -> void:
+	if _full_badges.has(id):
+		(_full_badges[id] as CanvasItem).visible = on and (_full_badges[id] as TextureRect).texture != null
+	if on and _dots.has(id):
+		(_dots[id] as CanvasItem).visible = false
+
+
+func is_full(id: String) -> bool:
+	return _full_badges.has(id) and (_full_badges[id] as CanvasItem).visible
 
 
 func has_dot(id: String) -> bool:

@@ -5,7 +5,14 @@ var _rules: EnhanceModel
 
 
 func before_each() -> void:
-	_rules = EnhanceModel.from_content(UiMock.content())
+	# 这里测的是旧的强化经验公式（老服务器没有 essence 时客户端仍按它算）；精粹规则见 test_salvage.gd。
+	_rules = EnhanceModel.from_content(_exp_content())
+
+
+func _exp_content() -> Dictionary:
+	var content := UiMock.content()
+	(content.globals.enhance as Dictionary).erase("essence")
+	return content
 
 
 func test_rules_come_from_content_and_missing_rules_mean_unsupported() -> void:
@@ -75,7 +82,7 @@ func test_orange_is_the_top_quality_and_uses_its_own_configured_rules() -> void:
 
 
 func test_per_quality_growth_overrides_the_general_values() -> void:
-	var content := UiMock.content()
+	var content := _exp_content()
 	var orange: Dictionary = content["globals"]["enhance"]["qualities"]["orange"]
 	orange["expGrowth"] = 2.0
 	orange["statGrowthBp"] = 1000
@@ -88,7 +95,7 @@ func test_per_quality_growth_overrides_the_general_values() -> void:
 
 
 func test_every_number_follows_the_content_not_the_code() -> void:
-	var content := UiMock.content()
+	var content := _exp_content()
 	var enhance: Dictionary = content["globals"]["enhance"]
 	enhance["expBase"] = 10
 	enhance["expGrowth"] = 1.0

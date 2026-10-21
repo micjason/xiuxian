@@ -46,10 +46,10 @@ func test_battle_result_view_win_and_loss_texts() -> void:
 func test_bag_gate_never_blocks_a_challenge_even_when_full() -> void:
 	var full := BagModel.from_state(ProtoMock.state("full"), ProtoMock.content(), {})
 	assert_true(full.is_full())
-	assert_gt(full.auto_decomposable_count(), 0, "满包里有未强化的白/绿装备")
 	for auto in [true, false]:
 		var gate := full.challenge_gate(auto)
 		assert_true(gate.full)
+		assert_false(bool(gate.auto_decompose), "第五批：没有自动分解")
 		assert_false(gate.blocked, "背包满不再拦挑战")
 		assert_string_contains(GateNotice.text(gate), "新掉的装备不会入包")
 	var ready := BagModel.from_state(ProtoMock.state("ready"), ProtoMock.content(), {})
@@ -131,8 +131,7 @@ func test_mock_challenge_with_a_full_bag_is_not_refused_and_the_drop_is_not_drop
 	var content := ProtoMock.content()
 	var state := ProtoMock.state("full")
 	var slug := str(state.breakthrough.requiredStage.slug)
-	for auto in [false, true]:
-		state["autoDecompose"] = auto
+	for _round in 2:
 		var ok := ProtoMock.handle("/api/v1/me/stages/%s/challenge" % slug, {"ultTaps": []}, state, content)
 		assert_eq(int(ok.code), 200, "满包也能挑战")
 		assert_false(ok.has("freedBeforeFight"))

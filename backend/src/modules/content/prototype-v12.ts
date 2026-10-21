@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { contentChapters, contentDropTables, contentGlobals, contentItems, contentRealms, contentSkillCategories, contentSkills, contentStages, type StageBoss } from "../../db/schema.js";
 import type { Db } from "../operations/record.js";
 import { DEFAULT_OPTIONAL_RULES, type QualityWeights } from "./combat-types.js";
-import { STARTING_BREAK_MATERIALS, STARTING_ENHANCE_RULES } from "./enhance.js";
+import { STARTING_BREAK_MATERIALS, STARTING_ENHANCE_RULES, STARTING_ESSENCE_ITEM } from "./enhance.js";
 import { syncGear } from "./gear.js";
 import { ensureSkillBook } from "./ops-content.js";
 import { gearPieceSlug } from "./gear.js";
@@ -113,8 +113,8 @@ export async function applyPrototypeV12(db: Db): Promise<{ stageSlugs: string[];
     { slug: "proto_idle", displayName: "原型挂机掉落" },
     { slug: "proto_first", displayName: "原型首通掉落" },
   ]);
-  // 突破石
-  for (const stone of STARTING_BREAK_MATERIALS) {
+  // 突破石 + 炼器精粹（第五批）
+  for (const stone of [...STARTING_BREAK_MATERIALS, STARTING_ESSENCE_ITEM]) {
     const [exists] = await db.select().from(contentItems).where(eq(contentItems.slug, stone.slug)).limit(1);
     if (!exists) {
       await db.insert(contentItems).values({ slug: stone.slug, displayName: stone.displayName, description: stone.description, kind: "material", quality: stone.quality, stackable: true });

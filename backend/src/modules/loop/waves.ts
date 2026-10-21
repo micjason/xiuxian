@@ -110,7 +110,6 @@ export async function settleWaves(
     progress: number;
     deathsInRow: number;
     consumedSeconds: number;
-    autoDecompose: boolean;
     capacity: number;
     now: Date;
   },
@@ -134,7 +133,6 @@ export async function settleWaves(
         continue;
       }
       const granted = await grantItem(tx, world, playerId, rolled.slug, 1, `wave:${input.stage.slug}`, input.now, {
-        autoDecompose: input.autoDecompose,
         capacity: input.capacity,
       });
       drops.push({
@@ -160,7 +158,6 @@ export async function settleWaves(
         }
         const definition = world.items.find((item) => item.slug === row.itemSlug);
         const granted = await grantItem(tx, world, playerId, row.itemSlug, row.count, `wave:${input.stage.slug}`, input.now, {
-          autoDecompose: input.autoDecompose,
           capacity: input.capacity,
           grant: { source: "stage_drop", sourceRef: input.stage.slug },
         });

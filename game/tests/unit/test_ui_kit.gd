@@ -169,40 +169,22 @@ func test_bag_page_merges_equipment_slots_and_a_5x4_grid() -> void:
 	assert_eq((page.find_child("Stat_attack", true, false) as Label).text, QKit.grouped(float(ProtoMock.state("ready").get("attack", 0))), "属性取自玩家状态")
 	assert_eq(page._cells.size(), SlotConfig.all().size(), "6 个核心部位 + 2 个预留")
 	assert_eq(page._grid.slot_count(), 20, "空格补到容量 20（6 列）")
-	assert_eq(page._grid.filled_count(), 10, "背包里 10 件（已穿戴的不占格）")
-	assert_string_contains(page._capacity_label.text, "10 / 20")
+	assert_eq(page._grid.filled_count(), 11, "背包里 11 格（已穿戴的不占格；含炼器精粹一格）")
+	assert_string_contains(page._capacity_label.text, "11 / 20")
 	assert_false(page._wear_button.disabled, "背包里有更强的装备可一键穿戴")
 	page._tabs.select("material", true)
-	assert_eq(page._grid.filled_count(), 1)
+	assert_eq(page._grid.filled_count(), 2, "突破石 + 炼器精粹")
 
 
-func test_bag_page_auto_decompose_row_uses_the_spec_wording() -> void:
+func test_bag_page_has_no_auto_decompose_row_and_salvage_opens_the_dialog() -> void:
 	var page := _bag_page()
-	assert_eq(page._auto_label.text, "自动分解（仅未强化的白、绿装备）")
-	assert_eq(page._auto_text.text, "开")
-	var off := _bag_page("full")
-	assert_eq(off._auto_text.text, "关")
-	assert_string_contains(off._capacity_label.text, "20 / 20")
-
-
-func test_bag_page_batch_mode_selects_only_decomposable_and_confirms() -> void:
-	var page := _bag_page()
-	page._toggle_batch()
-	assert_true(page._batch_bar.visible)
+	assert_null(page.find_child("AutoDecomposeRow", true, false), "第五批：自动分解开关去掉了")
+	assert_null(page.find_child("BatchButton", true, false), "背包内批量多选去掉了")
+	var full := _bag_page("full")
+	assert_string_contains(full._capacity_label.text, "20 / 20")
 	watch_signals(page)
-	var current := page.model.visible_items("equip", str(BagModel.SORTS[page.sort_index].id))
-	for item in current:
-		page._grid._on_slot(item)
-	assert_eq(page._grid.selected_ids().size(), current.size())
-	assert_false(page._decompose_button.disabled)
-	page._confirm_batch()
-	assert_true(page.popup.visible)
-	var confirm := page.popup.actions.get_child(1) as Button
-	confirm.pressed.emit()
-	assert_signal_emitted(page, "action_requested")
-	var params: Array = get_signal_parameters(page, "action_requested")
-	assert_eq(params[0], "decompose")
-	assert_eq((params[1] as Array).size(), current.size())
+	page.salvage_button().pressed.emit()
+	assert_signal_emitted_with_parameters(page, "action_requested", ["open_salvage", []])
 
 
 func test_bag_page_equip_slots_open_a_picker_that_requests_equip() -> void:

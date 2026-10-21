@@ -64,7 +64,8 @@ describe("migrations 0040–0045 (第三批：章节、每关首领、首领规�
     const whens = ours.map((row) => row!.when);
     expect(whens.every((when) => when >= 1795000000000)).toBe(true);
     expect([...whens].sort((a, b) => a - b)).toEqual(whens);
-    const others = journal.entries.filter((row) => !TAGS.includes(row.tag));
+    // 第五批起的迁移（when ≥ 1796000000000）排在它们后面
+    const others = journal.entries.filter((row) => !TAGS.includes(row.tag) && row.when < 1796000000000);
     expect(Math.max(...others.map((row) => row.when))).toBeLessThan(whens[0]!);
   });
 

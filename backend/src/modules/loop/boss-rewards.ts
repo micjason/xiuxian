@@ -112,7 +112,6 @@ export async function grantBossRewards(
     mode: "manual" | "idle";
     /** 挂机首领的战斗编号（同一次结算里第几只），requestId 用；手动的不传。 */
     battleId?: string;
-    autoDecompose: boolean;
     capacity: number;
     now: Date;
     randomInt: RandomInt;
@@ -148,7 +147,7 @@ export async function grantBossRewards(
     if (!world.items.some((item) => item.slug === itemSlug)) {
       throw new AppError("INVALID_INPUT", "有一件奖励已经不在后台");
     }
-    const granted = await grantItem(tx, world, playerId, itemSlug, quantity, source, now, { autoDecompose: input.autoDecompose, capacity: input.capacity, overflow });
+    const granted = await grantItem(tx, world, playerId, itemSlug, quantity, source, now, { capacity: input.capacity, overflow });
     record(designated ? { itemSlug, quantity, designated: true } : { itemSlug, quantity }, granted);
   };
   const majorKey = world.realms.find((row) => row.sortOrder === stage.requiredRealmOrder)?.majorKey;

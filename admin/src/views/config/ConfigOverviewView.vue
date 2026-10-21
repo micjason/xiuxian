@@ -70,25 +70,28 @@
 
           <SectionCard title="强化与分解" anchor="enhance">
             <template #extra><el-button link type="primary" @click="router.push('/config/enhance')">突破节点与材料在「装备强化」 ›</el-button></template>
-            <FormRow label="行囊满时自动分解" help="行囊放不下新掉的装备时，自动分解哪些品质的（只分解没穿戴、没强化的）。">
-              <el-checkbox-group v-model="tuning.autoDecomposeQualities">
-                <el-checkbox v-for="quality in QUALITIES" :key="quality.key" :value="quality.key">{{ quality.name }}</el-checkbox>
+            <FormRow label="行囊满时不发装备的来源" help="行囊满时，这些来源的装备直接不发（挂机 / 离线同样），游戏端在历练页显示「行囊已满」提示，玩家点开自己选装备分解。没勾的来源满包照发（可以超出容量）。不再有自动分解。" :help-meta="`出厂值 ${(data.tuningDefaults.bagFullSkipSources ?? []).map((key) => GRANT_SOURCE_NAMES[key] ?? key).join(' / ')}`">
+              <el-checkbox-group v-model="tuning.bagFullSkipSources">
+                <el-checkbox v-for="(label, key) in GRANT_SOURCE_NAMES" :key="key" :value="key">{{ label }}</el-checkbox>
               </el-checkbox-group>
             </FormRow>
             <template v-if="enhance">
               <div class="two-col row-gap">
-                <FormRow label="强化基础经验" help="强化 0→1 级所需经验（经验倍数为 1 时）。"><NumInput v-model="enhance.expBase" unit="经验" :precision="0" :min="1" /></FormRow>
-                <FormRow label="经验增长倍数" help="每升一级，所需经验乘以这个倍数。"><NumInput v-model="enhance.expGrowth" unit="倍" :precision="2" :min="1" /></FormRow>
+
                 <FormRow label="每级属性加成" help="每级强化给装备基础属性增加的百分比。"><NumInput :model-value="enhance.statGrowthBp / 100" unit="%" :precision="2" @update:model-value="(value: number | null) => enhance && (enhance.statGrowthBp = Math.round((value ?? 0) * 100))" /></FormRow>
-                <FormRow label="分解经验返还" help="分解已强化装备时，返还已投入经验的百分比。"><NumInput :model-value="enhance.refundBp / 100" unit="%" :precision="2" :max="100" @update:model-value="(value: number | null) => enhance && (enhance.refundBp = Math.round((value ?? 0) * 100))" /></FormRow>
+                <template v-if="enhance.essence">
+                  <FormRow label="每级强化返还" help="分解 +N 的装备额外得到 N × 这个数的炼器精粹。"><NumInput v-model="enhance.essence.refundPerLevel" unit="精粹" :precision="0" :min="0" /></FormRow>
+                  <FormRow label="强化基础消耗" help="强化 0→1 级消耗的炼器精粹（品质倍数为 1 时）；每级再乘「消耗增长倍数」。"><NumInput v-model="enhance.essence.costBase" unit="精粹" :precision="0" :min="1" /></FormRow>
+                  <FormRow label="消耗增长倍数" help="每升一级，精粹消耗乘以这个倍数。按级单独指定在「装备强化」页。"><NumInput v-model="enhance.essence.costGrowth" unit="倍" :precision="2" :min="1" /></FormRow>
+                </template>
               </div>
               <table class="grid row-gap">
                 <thead>
                   <tr>
                     <th>品质</th>
                     <th class="num">强化上限<HelpTip title="强化上限" text="这个品质的装备最多强化到几级。" /></th>
-                    <th class="num">经验倍数<HelpTip title="经验倍数" text="这个品质每一级所需经验再乘以它。" /></th>
-                    <th class="num">分解经验<HelpTip title="分解经验" text="分解这个品质的装备（未强化）得到的基础经验。" /></th>
+                    <th class="num">品质倍数<HelpTip title="品质倍数" text="这个品质每一级的精粹消耗再乘以它。" /></th>
+                    <th class="num">分解产出<HelpTip title="分解产出" text="分解这个品质的装备（未强化）得到的炼器精粹。部位倍数 / 单独指定在「装备强化」页。" /></th>
                     <th>突破节点</th>
                   </tr>
                 </thead>
@@ -98,7 +101,10 @@
                       <td><i class="dot" :style="{ background: quality.color }" /> {{ quality.name }}</td>
                       <td class="num"><NumInput v-model="enhance.qualities[quality.key]!.cap" :width="120" unit="级" :precision="0" /></td>
                       <td class="num"><NumInput v-model="enhance.qualities[quality.key]!.costMult" :width="120" unit="倍" :precision="2" /></td>
-                      <td class="num"><NumInput v-model="enhance.qualities[quality.key]!.decomposeExp" :width="120" unit="经验" :precision="0" /></td>
+                      <td class="num">
+                        <NumInput v-if="enhance.essence" v-model="enhance.essence.yields[quality.key]" :width="120" unit="精粹" :precision="0" />
+                        <span v-else class="muted small">先在「装备强化」填精粹规则</span>
+                      </td>
                       <td class="muted small">{{ breakText(enhance.qualities[quality.key]!.breakthroughs) }}</td>
                     </template>
                   </tr>
@@ -187,7 +193,7 @@ type Tuning = {
   slotShares: Record<string, number>;
   skillLayerFactors: [number, number, number, number];
   skillMaxLayers: number;
-  autoDecomposeQualities: Quality[];
+  bagFullSkipSources: string[];
   bookOverflowSeconds: number;
   bookOverflowRankFactors: Record<Rank, number>;
   monsterDropChanceBp: number;
@@ -195,7 +201,8 @@ type Tuning = {
   bossRules: BossRules;
 };
 type EnhanceQuality = { cap: number; costMult: number; decomposeExp: number; breakthroughs: { level: number; materials: { itemSlug: string; count: number }[] }[] };
-type Enhance = { expBase: number; expGrowth: number; statGrowthBp: number; refundBp: number; qualities: Record<string, EnhanceQuality | undefined> };
+type Essence = { itemSlug: string; yields: Record<Quality, number>; refundPerLevel: number; costBase: number; costGrowth: number; migrationRatioBp: number; [key: string]: unknown };
+type Enhance = { expBase: number; expGrowth: number; statGrowthBp: number; refundBp: number; qualities: Record<string, EnhanceQuality | undefined>; essence?: Essence };
 type StageRow = { id: string; displayName: string; realmCode: number; customCount: number; override: { chanceBp?: number; qualityWeights?: Record<string, number> } | null; effective: { chanceBp: number; qualityWeights: Record<string, number> } };
 type Overview = {
   rules: FormValues;
@@ -216,6 +223,8 @@ const QUALITIES: { key: Quality; name: string; color: string }[] = [
   { key: "purple", name: "紫", color: "#8a5bb8" },
   { key: "orange", name: "橙", color: "#d9822b" },
 ];
+/** 装备发放来源（和后台「发放流水」同名）。 */
+const GRANT_SOURCE_NAMES: Record<string, string> = { stage_drop: "关卡掉落", boss_first: "首领首通", boss_repeat: "首领重复", admin_grant: "后台补发", mail: "邮件", event: "活动" };
 // 品质统一白→橙 5 档（红已去掉）
 const ENHANCE_QUALITIES = QUALITIES;
 const RANKS: { key: Rank; name: string }[] = [

@@ -2,8 +2,11 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { sql } from "drizzle-orm";
 import { contentDropTables, contentGlobals, contentItems } from "../db/schema.js";
-import { breakMaterialProblems, enhanceRulesFromInput, STARTING_ENHANCE_RULES } from "../modules/content/enhance.js";
+import { breakMaterialProblems, enhanceRulesFromInput, STARTING_ENHANCE_RULES as STARTING_WITH_ESSENCE } from "../modules/content/enhance.js";
 import { withDb } from "../test/db.js";
+
+// 0017 只管强化规则本身；精粹（essence）是第五批 0050 才加的，这里比较时去掉。
+const { essence: _essence, ...STARTING_ENHANCE_RULES } = STARTING_WITH_ESSENCE;
 
 const V3_RULES = {
   expBase: 60,

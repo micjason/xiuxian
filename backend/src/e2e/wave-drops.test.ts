@@ -2,7 +2,7 @@
 import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { buildApp } from "../app.js";
-import { playerItems, playerStageProgress, playerStates, players } from "../db/schema.js";
+import { equipmentGrants, playerItems, playerStageProgress, playerStates, players } from "../db/schema.js";
 import { applyPrototypeV12 } from "../modules/content/prototype-v12.js";
 import { withDb } from "../test/db.js";
 
@@ -123,54 +123,34 @@ describe("monster kill drops (5% per kill, regional quality weights, equal 6-slo
     });
   });
 
-  it("full bag + auto-decompose ON: a new white/green is decomposed into enhance EXP and not stored", async () => {
+  it("full bag (第五批): no gear drops at all, whatever the quality — nothing is decomposed, no grant is written, bagFull is reported; freeing a slot lets drops resume", async () => {
     await withDb(async (db) => {
       const { app, control, state, bag, fill, playerId } = await boot(db, "drop_e");
       await fill("gear_major1_weapon_white", 20);
       control.chance = 0;
-      control.quality = 0; // 白
-      control.slot = 1;
-      const before = (await db.select().from(playerStates).where(eq(playerStates.playerId, playerId)))[0]!.enhanceExp;
-      const result = await state(30);
-      const kills = result.lastSettle.kills;
-      expect(kills).toBeGreaterThan(0);
-      expect(result.lastSettle.drops.every((drop: { decomposed: boolean; dropped: boolean }) => drop.decomposed && !drop.dropped)).toBe(true);
-      expect(result.lastSettle.bagFull).toBe(false);
-      expect(await bag()).toHaveLength(20);
-      expect(result.enhanceExp).toBeGreaterThan(before);
-      await app.close();
-    });
-  });
-
-  it("full bag + auto-decompose ON: a new blue frees one unenhanced white/green first; with nothing to free it does not drop and bagFull is reported", async () => {
-    await withDb(async (db) => {
-      const { app, control, state, bag, fill } = await boot(db, "drop_f");
-      await fill("gear_major1_weapon_white", 19);
-      await fill("gear_major1_weapon_purple", 1); // 紫不会被自动分解
-      control.chance = 0;
-      control.quality = 95000; // 蓝
-      control.slot = 0;
-      const first = await state(12);
-      expect(first.lastSettle.kills).toBeGreaterThanOrEqual(1);
-      const dropsWithFree = first.lastSettle.drops.filter((drop: { freed: unknown[] }) => drop.freed.length > 0);
-      expect(dropsWithFree.length).toBeGreaterThan(0);
-      expect(dropsWithFree[0]).toMatchObject({ itemSlug: "gear_major1_weapon_blue", dropped: false });
-      const rows = await bag();
-      expect(rows.filter((row) => row.itemSlug === "gear_major1_weapon_blue").length).toBeGreaterThan(0);
-      expect(rows).toHaveLength(20);
-      // 把包换成：全是蓝（不能自动分解）→ 再来一个蓝：不掉，提示行囊已满
-      await db.delete(playerItems);
-      await fill("gear_major1_weapon_blue", 20);
-      const second = await state(80);
-      expect(second.lastSettle.kills).toBeGreaterThan(0);
-      expect(second.lastSettle.drops.every((drop: { dropped: boolean }) => drop.dropped)).toBe(true);
-      expect(second.lastSettle.bagFull).toBe(true);
+      for (const quality of [0, 95000]) {
+        control.quality = quality; // 白 / 蓝
+        const result = await state(quality === 0 ? 30 : 60);
+        expect(result.lastSettle.kills).toBeGreaterThan(0);
+        expect(result.lastSettle.drops.length).toBeGreaterThan(0);
+        expect(result.lastSettle.drops.every((drop: { decomposed: boolean; dropped: boolean; freed: unknown[] }) => drop.dropped && !drop.decomposed && drop.freed.length === 0)).toBe(true);
+        expect(result.lastSettle.bagFull).toBe(true);
+        expect(result.enhanceExp).toBe(0);
+        expect(result.bagUsed).toBe(20);
+        expect(await bag()).toHaveLength(20);
+      }
+      expect(await db.select().from(equipmentGrants).where(eq(equipmentGrants.playerId, playerId))).toEqual([]);
+      // 玩家自己分解一件 → 有空格了，下一件照常掉
+      const [one] = await bag();
+      await db.delete(playerItems).where(eq(playerItems.id, one!.id));
+      const resumed = await state(90);
+      expect(resumed.lastSettle.drops.some((drop: { dropped: boolean }) => !drop.dropped)).toBe(true);
       expect(await bag()).toHaveLength(20);
       await app.close();
     });
   });
 
-  it("enhanced white/green are protected from auto-decompose; with the switch OFF a full bag drops nothing and says so", async () => {
+  it("a full bag drops nothing and says so, with or without the old auto-decompose switch; enhanced gear is never touched", async () => {
     await withDb(async (db) => {
       const { app, control, state, bag, fill, playerId } = await boot(db, "drop_g");
       await fill("gear_major1_weapon_white", 20, 1); // 全部强化过

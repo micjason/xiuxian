@@ -450,3 +450,23 @@ anim_q/battle_hero/hero_fight.gdshader,自有代码（Godot 场景 / 脚本，�
 anim_q/battle_hero/qi_ring.gdshader,自有代码（Godot 场景 / 脚本，动画交付 anim_out_q 生成）,自有,无,/workspace/anim_out_q/battle_hero/qi_ring.gdshader
 anim_q/battle_hero/art/player_fight.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/镜像/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,Grok Bot 图像生成原图 /workspace/q_src/char_fight.jpg（1024x1024，2026-10-21 生成）→ _src/r0121/v2/cut_fight.py（抠图 + 剑气转半透明 + 4px 描边 + 水平镜像 + 缩放 0.66）→ art_out_q/sprites/player_fight.png（同 sprites/player_fight.png 的副本，hero_battle.tscn 默认图）
 ui/icon_set_thanks.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/r0121b_build.py
+ui/check_box_off.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/r0121_build.py
+ui/check_box_on.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/r0121_build.py
+ui/qchip_off_72.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/r0121_build.py
+ui/qchip_on_white.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/r0121_build.py
+ui/qchip_on_green.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/r0121_build.py
+ui/qchip_on_blue.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/r0121_build.py
+ui/qchip_on_purple.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/r0121_build.py
+ui/qchip_on_orange.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/r0121_build.py
+ui/qdot_white.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/r0121_build.py
+ui/qdot_green.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/r0121_build.py
+ui/qdot_blue.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/r0121_build.py
+ui/qdot_purple.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/r0121_build.py
+ui/qdot_orange.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/r0121_build.py
+ui/hint_bagfull_bg.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/r0121_build.py
+ui/badge_full.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/r0121_build.py
+ui/fx_btn_pulse.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/r0121_build.py
+ui/icon_refine_essence.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（白底抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,Grok Bot 图像生成原图 /workspace/q_src/icon_refine_essence.jpg（2026-10-21 生成）→ _src/r0121/cut_essence.py（白底抠图+去外光+描边+缩放）→ art_out_q/ui/icon_refine_essence.png
+ui/icon_refine_essence@2x.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（白底抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,Grok Bot 图像生成原图 /workspace/q_src/icon_refine_essence.jpg（2026-10-21 生成）→ _src/r0121/cut_essence.py（白底抠图+去外光+描边+缩放）→ art_out_q/ui/icon_refine_essence@2x.png
+ui/ring_set_current.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/set_build.py
+items/refine_essence.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（白底抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,Grok Bot 图像生成原图 /workspace/q_src/icon_refine_essence.jpg（2026-10-21 生成）→ _src/r0121/cut_essence.py（白底抠图+去外光+描边+缩放）→ art_out_q/icons/item_refine_essence.png

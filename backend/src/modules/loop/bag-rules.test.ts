@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
-import { contentDropTables, contentGlobals, contentItems, contentRealms, contentStages, playerItems, playerStates } from "../../db/schema.js";
+import { contentDropTables, contentGlobals, contentItems, contentRealms, contentStages, equipmentGrants, playerItems, playerStates } from "../../db/schema.js";
 import { withTransaction } from "../../db/tx.js";
 import { withDb } from "../../test/db.js";
 import { registerPlayer } from "../auth/service.js";
@@ -8,6 +8,9 @@ import { STARTING_ENHANCE_RULES } from "../content/enhance.js";
 import { loadCurrentWorld } from "../content/snapshot.js";
 import { challengeStage } from "./actions.js";
 import { grantItem } from "./bag.js";
+import { readGrantResult } from "./boss-rewards.js";
+import { grantEquipment } from "../player/grant.js";
+import { tuningOf } from "../content/tuning.js";
 
 const now = new Date("2026-10-10T12:00:00.000Z");
 type TestDb = Parameters<Parameters<typeof withDb>[0]>[0];
@@ -46,91 +49,92 @@ async function fill(db: TestDb, playerId: string, rows: { itemSlug: string; enha
 }
 
 const bagOf = async (db: TestDb, playerId: string) => (await db.select().from(playerItems).where(eq(playerItems.playerId, playerId))).map((row) => row.itemSlug).sort();
-const options = (patch: Partial<Parameters<typeof grantItem>[7]> = {}) => ({ autoDecompose: true, capacity: 3, ...patch });
+const options = (patch: Partial<Parameters<typeof grantItem>[7]> = {}) => ({ capacity: 3, ...patch });
 
-describe("bag capacity and auto-decompose (table 2.6 / 3.7)", () => {
-  it("new players have the switch on by default", async () => {
-    await withDb(async (db) => {
-      const { player } = await seed(db);
-      const [state] = await db.select().from(playerStates).where(eq(playerStates.playerId, player.playerId));
-      expect(state?.autoDecompose).toBe(true);
-    });
-  });
-
+describe("bag capacity (第五批：满包不发装备，不再自动分解；SPEC_Q §17.5)", () => {
   it("puts the item in the bag while there is a free slot", async () => {
     await withDb(async (db) => {
       const { player, world } = await seed(db);
-      const result = await withTransaction(db, (tx) => grantItem(tx, world, player.playerId, "blue_a", 1, "test", now, options()));
+      const result = await withTransaction(db, (tx) => grantItem(tx, world, player.playerId, "blue_a", 1, "wave:s1", now, options()));
       expect(result).toMatchObject({ added: 1, decomposed: 0, dropped: 0 });
       expect(await bagOf(db, player.playerId)).toEqual(["blue_a"]);
     });
   });
 
-  it("full bag, switch on: a new white/green piece is decomposed straight into enhancement exp", async () => {
+  it("full bag: stage drops and boss gear (first / repeat) are not granted, whatever the quality; nothing is decomposed", async () => {
     await withDb(async (db) => {
       const { player, world } = await seed(db);
-      await fill(db, player.playerId, [{ itemSlug: "blue_a" }, { itemSlug: "blue_a" }, { itemSlug: "purple_a" }]);
-      const white = await withTransaction(db, (tx) => grantItem(tx, world, player.playerId, "white_a", 1, "test", now, options()));
-      expect(white).toMatchObject({ added: 0, decomposed: 1, dropped: 0, enhanceExp: 30 });
-      const green = await withTransaction(db, (tx) => grantItem(tx, world, player.playerId, "green_a", 1, "test", now, options()));
-      expect(green).toMatchObject({ decomposed: 1, enhanceExp: 60 });
-      expect((await bagOf(db, player.playerId)).length).toBe(3);
+      await fill(db, player.playerId, [{ itemSlug: "white_a" }, { itemSlug: "green_a" }, { itemSlug: "purple_a" }]);
+      for (const [slug, source, overflow] of [["white_a", "wave:s1", false], ["blue_a", "wave:s1", false], ["purple_a", "drop:s1", true], ["green_a", "drop:s1", false]] as const) {
+        const result = await withTransaction(db, (tx) => grantItem(tx, world, player.playerId, slug, 1, source, now, options({ overflow })));
+        expect(result).toMatchObject({ added: 0, dropped: 1, reason: "BAG_FULL", decomposed: 0, enhanceExp: 0, freed: [] });
+      }
+      expect(await bagOf(db, player.playerId)).toEqual(["green_a", "purple_a", "white_a"]);
       const [state] = await db.select().from(playerStates).where(eq(playerStates.playerId, player.playerId));
-      expect(state?.enhanceExp).toBe(90);
+      expect(state?.enhanceExp).toBe(0);
     });
   });
 
-  it("full bag, switch on: a new blue/purple piece decomposes one unenhanced white to free a slot", async () => {
+  it("grantEquipment returns skipped bag_full for stage_drop / boss_first / boss_repeat, while admin_grant / mail / event still overflow", async () => {
     await withDb(async (db) => {
-      const { player, world } = await seed(db);
-      await fill(db, player.playerId, [{ itemSlug: "green_a" }, { itemSlug: "white_a" }, { itemSlug: "purple_a" }]);
-      const result = await withTransaction(db, (tx) => grantItem(tx, world, player.playerId, "blue_a", 1, "test", now, options()));
-      expect(result).toMatchObject({ added: 1, dropped: 0, decomposed: 0, enhanceExp: 30 });
-      expect(result.freed).toEqual([{ itemSlug: "white_a", enhanceExp: 30 }]);
-      // 先白后绿：白的被分解，绿的还在
-      expect(await bagOf(db, player.playerId)).toEqual(["blue_a", "green_a", "purple_a"]);
+      const { player } = await seed(db);
+      await fill(db, player.playerId, [{ itemSlug: "white_a" }, { itemSlug: "green_a" }, { itemSlug: "purple_a" }]);
+      const bag = { capacity: 3, skipSources: ["stage_drop", "boss_first", "boss_repeat"] };
+      for (const source of ["stage_drop", "boss_first", "boss_repeat"] as const) {
+        const result = await withTransaction(db, (tx) => grantEquipment(tx, { playerId: player.playerId, itemId: "blue_a", count: 1, source, requestId: `full-${source}`, bag }));
+        expect(result).toHaveLength(0);
+        expect(result.skipped).toBe("bag_full");
+        expect(result.bagFull).toBe(true);
+        expect(readGrantResult(result)).toEqual({ count: 0, skipped: "bag_full" });
+      }
+      // 被跳过的不写流水、不占单号
+      expect(await db.select().from(equipmentGrants)).toEqual([]);
+      for (const source of ["admin_grant", "mail", "event"] as const) {
+        const result = await withTransaction(db, (tx) => grantEquipment(tx, { playerId: player.playerId, itemId: "blue_a", count: 1, source, requestId: `over-${source}`, bag }));
+        expect(result).toHaveLength(1);
+        expect(result.skipped).toBeUndefined();
+      }
+      expect((await bagOf(db, player.playerId)).length).toBe(6);
+      // 不传 bag：按当前内容（bagCapacity 3 + bagBonus）和配置概览的来源现算
+      const self = await withTransaction(db, (tx) => grantEquipment(tx, { playerId: player.playerId, itemId: "blue_a", count: 1, source: "stage_drop", requestId: "self-policy" }));
+      expect(self.skipped).toBe("bag_full");
     });
   });
 
-  it("full bag: never decomposes blue, purple, worn or enhanced pieces; the new drop is lost with a prompt", async () => {
+  it("the skip list comes from 配置概览 (tuning.bagFullSkipSources); old tuning with autoDecomposeQualities is still read", async () => {
     await withDb(async (db) => {
-      const { player, world } = await seed(db);
-      await fill(db, player.playerId, [{ itemSlug: "blue_a" }, { itemSlug: "purple_a" }, { itemSlug: "white_a", enhanceLevel: 2 }, { itemSlug: "white_b", equippedSlot: "helmet" }]);
-      const result = await withTransaction(db, (tx) => grantItem(tx, world, player.playerId, "purple_a", 1, "test", now, options()));
-      expect(result).toMatchObject({ added: 0, dropped: 1, reason: "BAG_FULL", enhanceExp: 0 });
-      expect((await bagOf(db, player.playerId)).length).toBe(4);
+      const { player } = await seed(db);
+      await db.update(contentGlobals).set({ tuning: { autoDecomposeQualities: ["white", "green"], bagFullSkipSources: ["boss_first"] } as never });
+      const world = (await loadCurrentWorld(db))!;
+      expect(tuningOf(world.globals.tuning).bagFullSkipSources).toEqual(["boss_first"]);
+      await fill(db, player.playerId, [{ itemSlug: "white_a" }, { itemSlug: "green_a" }, { itemSlug: "purple_a" }]);
+      const wave = await withTransaction(db, (tx) => grantItem(tx, world, player.playerId, "blue_a", 1, "wave:s1", now, options()));
+      expect(wave).toMatchObject({ added: 1, dropped: 0 });
+      const first = await withTransaction(db, (tx) => grantItem(tx, world, player.playerId, "blue_a", 1, "drop:s1", now, options({ overflow: true })));
+      expect(first).toMatchObject({ added: 0, dropped: 1 });
+      // 老数据只有 autoDecomposeQualities（没有新字段）：用默认三种来源
+      await db.update(contentGlobals).set({ tuning: { autoDecomposeQualities: ["white"] } as never });
+      expect(tuningOf((await loadCurrentWorld(db))!.globals.tuning).bagFullSkipSources).toEqual(["stage_drop", "boss_first", "boss_repeat"]);
     });
   });
 
-  it("full bag, switch off: nothing is dropped into the bag and nothing is decomposed", async () => {
-    await withDb(async (db) => {
-      const { player, world } = await seed(db);
-      await fill(db, player.playerId, [{ itemSlug: "white_a" }, { itemSlug: "white_b" }, { itemSlug: "green_a" }]);
-      const result = await withTransaction(db, (tx) => grantItem(tx, world, player.playerId, "blue_a", 1, "test", now, options({ autoDecompose: false })));
-      expect(result).toMatchObject({ added: 0, dropped: 1, reason: "BAG_FULL", enhanceExp: 0 });
-      const white = await withTransaction(db, (tx) => grantItem(tx, world, player.playerId, "white_a", 1, "test", now, options({ autoDecompose: false })));
-      expect(white).toMatchObject({ dropped: 1, decomposed: 0 });
-      expect((await bagOf(db, player.playerId)).length).toBe(3);
-    });
-  });
-
-  it("stackable materials join an existing stack without needing a slot", async () => {
+  it("stackable materials join an existing stack and are never refused, even past the capacity", async () => {
     await withDb(async (db) => {
       const { player, world } = await seed(db);
       await withTransaction(db, (tx) => grantItem(tx, world, player.playerId, "stone", 2, "test", now, options()));
       await fill(db, player.playerId, [{ itemSlug: "blue_a" }, { itemSlug: "blue_a" }]);
-      const result = await withTransaction(db, (tx) => grantItem(tx, world, player.playerId, "stone", 3, "test", now, options({ autoDecompose: false })));
+      const result = await withTransaction(db, (tx) => grantItem(tx, world, player.playerId, "stone", 3, "test", now, options()));
       expect(result).toMatchObject({ added: 1, dropped: 0 });
       const [row] = await db.select().from(playerItems).where(eq(playerItems.itemSlug, "stone"));
       expect(row?.quantity).toBe(5);
     });
   });
 
-  it("first-clear rewards may temporarily exceed the capacity", async () => {
+  it("event sources (e.g. the starter kit) may temporarily exceed the capacity", async () => {
     await withDb(async (db) => {
       const { player, world } = await seed(db);
       await fill(db, player.playerId, [{ itemSlug: "blue_a" }, { itemSlug: "blue_a" }, { itemSlug: "purple_a" }]);
-      const result = await withTransaction(db, (tx) => grantItem(tx, world, player.playerId, "blue_a", 1, "test", now, options({ overflow: true })));
+      const result = await withTransaction(db, (tx) => grantItem(tx, world, player.playerId, "blue_a", 1, "starter", now, options({ overflow: true })));
       expect(result).toMatchObject({ added: 1, dropped: 0 });
       expect((await bagOf(db, player.playerId)).length).toBe(4);
     });
@@ -160,7 +164,7 @@ describe("challenge with a full bag", () => {
     return { ...base, world: (await loadCurrentWorld(db))! };
   }
 
-  it("full bag never refuses the challenge and the bag is left alone before the fight (switch on)", async () => {
+  it("full bag never refuses the challenge and the bag is left alone before the fight", async () => {
     await withDb(async (db) => {
       const { player, world } = await seedStage(db);
       await fill(db, player.playerId, [{ itemSlug: "white_a" }, { itemSlug: "blue_a" }, { itemSlug: "purple_a" }]);
@@ -171,7 +175,7 @@ describe("challenge with a full bag", () => {
     });
   });
 
-  it("full bag with nothing to decompose, or the switch off: still fights (no BAG_FULL refusal)", async () => {
+  it("full bag: still fights (no BAG_FULL refusal), with or without the old switch", async () => {
     await withDb(async (db) => {
       const { player, world } = await seedStage(db);
       await fill(db, player.playerId, [{ itemSlug: "blue_a" }, { itemSlug: "blue_a" }, { itemSlug: "purple_a" }]);

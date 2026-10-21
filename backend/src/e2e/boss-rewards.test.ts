@@ -67,42 +67,45 @@ describe("boss first-clear fixed rewards", () => {
     });
   });
 
-  it("a full bag never refuses a boss challenge; first-clear rewards may exceed capacity; boss gear is granted even when full (grantEquipment)", async () => {
+  it("a full bag never refuses a boss challenge; non-gear first-clear rewards may exceed capacity; boss gear is skipped when full (grantEquipment bag_full)", async () => {
     await withDb(async (db) => {
       const { app, challenge, bag, weakBear, playerId } = await boot(db, "boss_b");
       await weakBear();
       for (let index = 0; index < 20; index += 1) {
         await db.insert(playerItems).values({ playerId, itemSlug: "gear_major1_weapon_blue", isStack: false, quantity: 1, source: "test", acquiredAt: new Date(start.getTime() - 1000 * (index + 1)) });
       }
-      // 20/20 且没有可自动分解的白/绿：以前会被拒绝，现在照常打
+      // 20/20：照常打，不在挑战前腾格
       const first = await challenge("lianqi_3");
       expect(first.statusCode).toBe(200);
       expect(first.json().battle.win).toBe(true);
       expect(first.json().freedBeforeFight).toBeUndefined();
       const afterFirst = await bag();
-      expect(afterFirst.length).toBeGreaterThan(20); // 首通固定奖励允许超出容量
-      expect(first.json().drops.some((row: { dropped?: boolean }) => row.dropped)).toBe(false);
-      // 重复挑战：首领装备走统一发放接口 grantEquipment（ADMIN_SPEC §14）—— 行囊满照发、不自动分解，记一条 boss_repeat 流水
-      await db.update(playerStates).set({ autoDecompose: true }).where(eq(playerStates.playerId, playerId));
+      // 第五批：首通的非装备奖励（材料 / 功法书）照常入包、可以超出容量；首通装备（boss_first）行囊满不发
+      expect(afterFirst.length).toBeGreaterThan(20);
+      const firstGear = first.json().drops.filter((row: { itemSlug: string }) => row.itemSlug.startsWith("gear_"));
+      expect(firstGear.length).toBeGreaterThan(0);
+      expect(firstGear.every((row: { dropped?: boolean }) => row.dropped)).toBe(true);
+      expect(first.json().bagFull).toBe(true);
+      expect(afterFirst.filter((row) => row.itemSlug.startsWith("gear_"))).toHaveLength(20);
+      // 重复挑战：抽到的装备同样不发（boss_repeat 在「行囊满时不发装备的来源」里），没有发放流水
       const again = await challenge("lianqi_3");
       expect(again.statusCode).toBe(200);
       const body = again.json();
-      const gearBefore = afterFirst.filter((row) => row.itemSlug.startsWith("gear_")).length;
-      const gearAfter = (await bag()).filter((row) => row.itemSlug.startsWith("gear_")).length;
-      expect(gearAfter).toBe(gearBefore + 1);
+      expect((await bag()).filter((row) => row.itemSlug.startsWith("gear_"))).toHaveLength(20);
       const gearDrops = body.drops.filter((row: { itemSlug: string }) => row.itemSlug.startsWith("gear_"));
       expect(gearDrops).toHaveLength(1);
-      expect(gearDrops[0].dropped).toBeUndefined();
-      expect(gearDrops[0].decomposed).toBeUndefined();
-      // 现在的 grantEquipment 不返回 skipped / bagFull（主程序行囊满判断没上线）→ 当没跳过：照发，bagFull 是 false
-      expect(body.bagFull).toBe(false);
+      expect(gearDrops[0].dropped).toBe(true);
+      expect(body.bagFull).toBe(true);
       const grants = await db.select().from(equipmentGrants).where(eq(equipmentGrants.playerId, playerId));
-      // 批次②之后所有装备入包都记发放流水：首通的固定装备（饰品）记 boss_first，这次重打抽到的记 boss_repeat
-      const rows = grants.filter((row) => row.sourceRef === "lianqi_3").map((row) => [row.source, row.sourceRef, row.itemSlug, row.count]);
-      expect(rows).toEqual([
-        ["boss_first", "lianqi_3", "gear_major1_accessory_blue", 1],
-        ["boss_repeat", "lianqi_3", gearDrops[0].itemSlug, 1],
-      ]);
+      expect(grants.filter((row) => row.sourceRef === "lianqi_3")).toEqual([]);
+      // 行囊扩容后再打：重复奖励装备照常发，记一条 boss_repeat 流水
+      await db.update(playerStates).set({ bagBonus: 50 }).where(eq(playerStates.playerId, playerId));
+      const third = (await challenge("lianqi_3")).json();
+      const thirdGear = third.drops.filter((row: { itemSlug: string }) => row.itemSlug.startsWith("gear_"));
+      expect(thirdGear[0].dropped).toBeUndefined();
+      expect(third.bagFull).toBe(false);
+      const rows = (await db.select().from(equipmentGrants).where(eq(equipmentGrants.playerId, playerId))).map((row) => [row.source, row.sourceRef, row.count]);
+      expect(rows).toEqual([["boss_repeat", "lianqi_3", 1]]);
       await app.close();
     });
     await withDb(async (db) => {

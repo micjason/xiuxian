@@ -71,6 +71,12 @@ func test_every_scroll_container_in_the_game_hides_its_bars() -> void:
 
 func test_bag_grid_drag_on_slots_scrolls_and_does_not_open_the_popup() -> void:
 	var scene := await _boot("full")
+	# 第五批去掉了自动分解行，20 格正好放得下；扩到 40 格保证要滚
+	var st := scene.get("_state") as Dictionary
+	st["bagCapacity"] = 40
+	for i in 16:
+		(st["items"] as Array).append({"id": "extra%d" % i, "itemSlug": "gear_major1_weapon_white", "equippedSlot": null, "isStack": false, "quantity": 1, "enhanceLevel": 0, "breakLevel": 0})
+	scene.call("_render")
 	scene.call("_show_page", "bag")
 	await get_tree().process_frame
 	await get_tree().process_frame

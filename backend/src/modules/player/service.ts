@@ -16,7 +16,7 @@ import {
 import { AppError } from "../../shared/errors.js";
 import { getPublishedRealm } from "../content/service.js";
 import { writeOperation, type Db } from "../operations/record.js";
-import { rememberIncome, noticesForPlayer } from "../notices/service.js";
+import { noticesForPlayer } from "../notices/service.js";
 import { piecePower } from "./power.js";
 import { explainPlayerPower, openProgressWorld } from "../loop/actions.js";
 import { loadCurrentWorld } from "../content/snapshot.js";
@@ -97,13 +97,6 @@ async function openProgressLocked(db: Tx, playerId: string, now: Date, versionCo
       gainPerSecond: realm.gainPerSecond,
       realmSlug: state.realmSlug,
     },
-  });
-  await rememberIncome(db, playerId, {
-    countedSeconds: settled.countedSeconds,
-    gained: settled.gained,
-    hitCap: elapsedSeconds > settled.countedSeconds,
-    offlineCapSeconds: realm.offlineCapSeconds,
-    previousSettledAt,
   });
   const next = realm.nextSlug ? await getPublishedRealm(db, realm.nextSlug) : null;
   const notices = await noticesForPlayer(db, playerId, versionCode);

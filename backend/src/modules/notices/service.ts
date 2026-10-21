@@ -1,12 +1,11 @@
 import { eq } from "drizzle-orm";
-import { announcements, appReleases, noticeDismissals, playerNotices, popupTypes } from "../../db/schema.js";
+import { announcements, appReleases, noticeDismissals, popupTypes } from "../../db/schema.js";
 import type { Db } from "../operations/record.js";
-import { incomeNotice, orderNotices, type Notice } from "./rules.js";
+import { orderNotices, type Notice } from "./rules.js";
 
 const DEFAULT_TYPES = [
   { slug: "version_update", priority: 1, enabled: true, template: "confirm" },
   { slug: "announcement", priority: 2, enabled: true, template: "acknowledge" },
-  { slug: "income", priority: 3, enabled: true, template: "reward" },
 ];
 
 export async function ensurePopupTypes(db: Db) {
@@ -57,40 +56,6 @@ export async function saveAnnouncement(
   });
 }
 
-export async function rememberIncome(
-  db: Db,
-  playerId: string,
-  input: {
-    countedSeconds: number;
-    gained: number;
-    hitCap: boolean;
-    offlineCapSeconds: number;
-    previousSettledAt: Date;
-  },
-): Promise<void> {
-  const types = await ensurePopupTypes(db);
-  const incomeType = types.find((row) => row.slug === "income");
-  if (!incomeType?.enabled) {
-    return;
-  }
-  const notice = incomeNotice({ ...input, priority: incomeType.priority });
-  if (!notice) {
-    return;
-  }
-  await db
-    .insert(playerNotices)
-    .values({
-      playerId,
-      noticeId: notice.id,
-      type: notice.type,
-      priority: notice.priority,
-      template: notice.template,
-      triggeredAt: input.previousSettledAt,
-      payload: notice.payload,
-    })
-    .onConflictDoNothing();
-}
-
 export async function noticesForPlayer(db: Db, playerId: string, versionCode: number): Promise<Notice[]> {
   const types = await ensurePopupTypes(db);
   const enabled = new Map(types.filter((row) => row.enabled).map((row) => [row.slug, row]));
@@ -131,21 +96,6 @@ export async function noticesForPlayer(db: Db, playerId: string, versionCode: nu
       });
     }
   }
-  const stored = await db.select().from(playerNotices).where(eq(playerNotices.playerId, playerId));
-  for (const row of stored) {
-    const type = enabled.get(row.type);
-    if (!type || dismissed.has(row.noticeId)) {
-      continue;
-    }
-    notices.push({
-      id: row.noticeId,
-      type: row.type,
-      priority: type.priority,
-      template: type.template,
-      triggeredAt: row.triggeredAt.toISOString(),
-      payload: (row.payload ?? {}) as Record<string, unknown>,
-    });
-  }
   return orderNotices(notices);
 }
 
@@ -154,4 +104,31 @@ export async function dismissNotice(db: Db, playerId: string, noticeId: string, 
     .insert(noticeDismissals)
     .values({ playerId, noticeId, dismissedAt: now })
     .onConflictDoNothing();
+}
+
+/**
+ * 游戏端心跳（GET /me/state）带的公告：只有后台「公告」里启用、玩家没点过「知道了」的。
+ * 版本更新由客户端自己查 latest.json 弹窗，离线收益由「闭关归来」弹窗负责，这里都不带。
+ */
+export async function announcementNoticesForPlayer(db: Db, playerId: string): Promise<Notice[]> {
+  const types = await ensurePopupTypes(db);
+  const type = types.find((row) => row.slug === "announcement");
+  if (type && !type.enabled) {
+    return [];
+  }
+  const priority = type?.priority ?? 2;
+  const dismissed = new Set((await db.select().from(noticeDismissals).where(eq(noticeDismissals.playerId, playerId))).map((row) => row.noticeId));
+  const rows = await db.select().from(announcements).where(eq(announcements.enabled, true));
+  return orderNotices(
+    rows
+      .filter((row) => !dismissed.has(row.id))
+      .map((row) => ({
+        id: row.id,
+        type: "announcement",
+        priority,
+        template: "acknowledge",
+        triggeredAt: (row.enabledAt ?? new Date(0)).toISOString(),
+        payload: { title: row.title, body: row.body },
+      })),
+  );
 }

@@ -18,29 +18,3 @@ export function orderNotices(notices: Notice[]): Notice[] {
     return left.id < right.id ? -1 : left.id > right.id ? 1 : 0;
   });
 }
-
-export function incomeNotice(input: {
-  countedSeconds: number;
-  gained: number;
-  hitCap: boolean;
-  offlineCapSeconds: number;
-  previousSettledAt: Date;
-  priority?: number;
-}): Notice | null {
-  if (input.countedSeconds < 60 || input.gained <= 0) {
-    return null;
-  }
-  return {
-    id: `income-${input.previousSettledAt.toISOString()}`,
-    type: "income",
-    priority: input.priority ?? 3,
-    template: "reward",
-    triggeredAt: input.previousSettledAt.toISOString(),
-    payload: {
-      cultivationGained: input.gained,
-      countedSeconds: input.countedSeconds,
-      hitCap: input.hitCap,
-      offlineCapSeconds: input.offlineCapSeconds,
-    },
-  };
-}

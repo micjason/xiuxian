@@ -176,6 +176,13 @@
       "when": 1793170000000,
       "tag": "0024_config_overview_defaults",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1793180000000,
+      "tag": "0025_heart_category_notices",
+      "breakpoints": true
     }
   ]
 }

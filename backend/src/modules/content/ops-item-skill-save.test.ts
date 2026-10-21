@@ -39,7 +39,7 @@ describe("后台保存物品 / 功法不能清空原有字段（审计 #6）", (
   it("saving a 功法 keeps its type, rank, realm and prerequisites unless they are sent", async () => {
     await withDb(async (db) => {
       await applyPrototypeV12(db);
-      await db.insert(contentSkillCategories).values({ slug: "cat_heart", displayName: "心法" });
+      expect((await db.select().from(contentSkillCategories)).map((row) => row.slug)).toEqual(["cat_heart"]);
       const [first, second] = await db.select().from(contentSkills).orderBy(contentSkills.slug);
       await db.update(contentSkills).set({ prerequisiteSkillSlugs: [first!.slug], rank: "xuan", requiredRealmOrder: 4 }).where(eq(contentSkills.slug, second!.slug));
 

@@ -21,7 +21,7 @@ import { AppError } from "../../shared/errors.js";
 import type { Db } from "../operations/record.js";
 import { readGameRules } from "../content/rules.js";
 import { addEnhanceExp, grantItem } from "./bag.js";
-import { noticesForPlayer, rememberIncome } from "../notices/service.js";
+import { announcementNoticesForPlayer, noticesForPlayer } from "../notices/service.js";
 import { dailyUsed, grantBossRewards, usesRewardModel } from "./boss-rewards.js";
 import { acknowledgeOfflineReport, pendingOfflineReport, recordOfflineReport } from "./offline.js";
 import { EMPTY_WAVES, cycleFor, farmableStages, resolveFarmStage, settleWaves, type WaveSettlement } from "./waves.js";
@@ -606,20 +606,10 @@ export async function openProgressWorld(db: Db, playerId: string, now: Date, ver
     return null;
   }
   return withTransaction(db, async (tx) => {
-    const { state: before } = await lockedState(tx, playerId);
-    const previousSettledAt = before.lastSettledAt;
     const settled = await settleLocked(tx, playerId, world, now);
     const realm = realmOf(world, settled.state.realmSlug);
     const next = realm.nextRealmSlug ? world.realms.find((row) => row.slug === realm.nextRealmSlug) : undefined;
     const offlineCapSeconds = readGameRules(world).offlineCapSeconds;
-    const elapsed = Math.floor((now.getTime() - previousSettledAt.getTime()) / 1000);
-    await rememberIncome(tx, playerId, {
-      countedSeconds: settled.settled.countedSeconds,
-      gained: settled.settled.gained,
-      hitCap: elapsed > settled.settled.countedSeconds,
-      offlineCapSeconds,
-      previousSettledAt,
-    });
     return {
       realmSlug: settled.state.realmSlug,
       realmName: realm.displayName ?? settled.state.realmSlug,
@@ -642,7 +632,10 @@ export async function ackOfflineReport(db: Db, playerId: string, reportId: strin
 
 export async function readState(db: Db, playerId: string, now: Date) {
   const world = await worldOrThrow(db);
-  return withTransaction(db, async (tx) => stateDto(world, playerId, await settleLocked(tx, playerId, world, now)));
+  return withTransaction(db, async (tx) => ({
+    ...stateDto(world, playerId, await settleLocked(tx, playerId, world, now)),
+    notices: await announcementNoticesForPlayer(tx, playerId),
+  }));
 }
 
 /** 选择在哪个关卡刷普通怪；null = 回到默认（境界够得着的最高关卡）。切换后当前波次重新开始。 */

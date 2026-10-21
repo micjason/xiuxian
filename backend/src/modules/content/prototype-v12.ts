@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { contentDropTables, contentGlobals, contentItems, contentRealms, contentSkills, contentStages, type StageBoss } from "../../db/schema.js";
+import { contentDropTables, contentGlobals, contentItems, contentRealms, contentSkillCategories, contentSkills, contentStages, type StageBoss } from "../../db/schema.js";
 import type { Db } from "../operations/record.js";
 import { DEFAULT_OPTIONAL_RULES, type QualityWeights } from "./combat-types.js";
 import { STARTING_BREAK_MATERIALS, STARTING_ENHANCE_RULES } from "./enhance.js";
@@ -98,11 +98,16 @@ export async function applyPrototypeV12(db: Db): Promise<{ stageSlugs: string[];
       await db.insert(contentItems).values({ slug: stone.slug, displayName: stone.displayName, description: stone.description, kind: "material", quality: stone.quality, stackable: true });
     }
   }
-  // 功法 + 功法书
+  // 功法 + 功法书（三门都是心法，归在「心法」分类下，后台才能保存）
+  const [heartCategory] = await db.select().from(contentSkillCategories).where(eq(contentSkillCategories.displayName, "心法")).limit(1);
+  const heartSlug = heartCategory?.slug ?? "cat_heart";
+  if (!heartCategory) {
+    await db.insert(contentSkillCategories).values({ slug: heartSlug, displayName: "心法" });
+  }
   const bookSlugs: Record<string, string> = {};
   for (const skill of PROTOTYPE_SKILLS) {
     await db.delete(contentSkills).where(eq(contentSkills.slug, skill.slug));
-    await db.insert(contentSkills).values({ slug: skill.slug, displayName: skill.name, role: "heart", cultivateBonusBp: skill.bonusBp });
+    await db.insert(contentSkills).values({ slug: skill.slug, displayName: skill.name, role: "heart", cultivateBonusBp: skill.bonusBp, skillCategorySlug: heartSlug });
     bookSlugs[skill.slug] = await ensureSkillBook(db, { slug: skill.slug, displayName: skill.name }, null);
   }
   // 境界：累计面板相减得到每层增加的属性

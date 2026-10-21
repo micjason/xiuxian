@@ -278,7 +278,7 @@ type StageForm = {
   monsterDrop: DropForm;
   designatedDrops: DesignatedRow[];
 };
-type DropDefaults = { chancePercent: number; weights: Record<MonsterQuality, number>; orangeChancePercent: number };
+type DropDefaults = { chancePercent: number; weights: Record<MonsterQuality, number> };
 type ApiBoss = {
   name: string;
   attack: number;
@@ -355,7 +355,7 @@ const skills = ref<Named[]>([]);
 const trialOpen = ref(false);
 const trialBoss = ref<BossRow | null>(null);
 const rules = ref<Rules>({ attackWeight: 0, defenseWeight: 0, hpWeight: 0, speedWeight: 0, speedBase: 100, recommendedPowerMargin: 1.05 });
-const defaults = ref<DropDefaults>({ chancePercent: 5, weights: { white: 70, green: 25, blue: 5, purple: 0 }, orangeChancePercent: 2 });
+const defaults = ref<DropDefaults>({ chancePercent: 5, weights: { white: 70, green: 25, blue: 5, purple: 0 } });
 const viewWidth = ref(window.innerWidth);
 const drawerSize = computed(() => (viewWidth.value < 1400 ? "calc(100vw - 220px)" : 1080));
 const weights = computed(() => ({ attack: rules.value.attackWeight, defense: rules.value.defenseWeight, hp: rules.value.hpWeight, speed: rules.value.speedWeight }));

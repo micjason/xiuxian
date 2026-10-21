@@ -396,8 +396,15 @@ type StageDrop = {
   realmCode: number;
   monsters: unknown[];
   monsterDrop: { chancePercent: number | null; weights: Record<string, number | null> };
-  dropDefaults: { chancePercent: number; weights: Record<string, number>; orangeChancePercent: number };
-  bosses: { name: string; repeat: { gear: boolean; orangeChancePercent: number | null } | null }[];
+  dropDefaults: { chancePercent: number; weights: Record<string, number> };
+  // rules = 生效的首领规则（配置概览「首领规则」默认 + 本关覆盖，服务端算好）
+  bosses: {
+    name: string;
+    tier: "elite" | "chief" | null;
+    rules: { repeatRewards: boolean; dailyRewardLimit: number; gearQualityPct: Record<string, number> } | null;
+    firstClear: { kind: string; amount?: number }[];
+    repeat: { gear: boolean } | null;
+  }[];
 };
 
 const DEFAULT_RATIO = 0.55;
@@ -682,14 +689,19 @@ const dropRows = computed(() => {
         unit: "只",
       });
     }
+    // 首领给的装备按首领规则的「装备品质掉率」抽（配置概览 → 首领规则；关卡可单独覆盖），不再有单独的橙装概率
     const boss = stage.bosses[0];
-    if (boss?.repeat?.gear) {
-      const orange = (boss.repeat.orangeChancePercent ?? stage.dropDefaults.orangeChancePercent) / 100;
-      // 重复奖励：先判橙装，没中再按本关权重抽（白改为绿）
-      const repeatWeights: Record<string, number> = { white: 0, green: effective("white") + effective("green"), blue: effective("blue"), purple: effective("purple") };
-      const total = Object.values(repeatWeights).reduce((sum, value) => sum + value, 0);
-      const quality = row.quality === "orange" ? orange : total > 0 ? (1 - orange) * ((repeatWeights[row.quality] ?? 0) / total) : 0;
-      out.push({ stage: stage.displayName, source: `首领 ${boss.name} 重复奖励`, drop: 1, quality, unit: "次胜利" });
+    const pct = boss?.rules?.gearQualityPct;
+    if (boss && pct) {
+      const quality = (pct[row.quality] ?? 0) / 100;
+      const label = boss.tier === "chief" ? "章末首领" : "精英";
+      const firstGear = boss.firstClear.filter((entry) => entry.kind === "gear").reduce((sum, entry) => sum + (entry.amount ?? 0), 0);
+      if (firstGear > 0) {
+        out.push({ stage: stage.displayName, source: `${label} ${boss.name} 首通（${firstGear} 件）`, drop: 1, quality, unit: "次首通" });
+      }
+      if (boss.repeat?.gear && boss.rules?.repeatRewards && boss.rules.dailyRewardLimit > 0) {
+        out.push({ stage: stage.displayName, source: `${label} ${boss.name} 重复奖励（每天 ${boss.rules.dailyRewardLimit} 次）`, drop: 1, quality, unit: "次胜利" });
+      }
     }
   }
   return out.filter((item) => item.quality > 0);

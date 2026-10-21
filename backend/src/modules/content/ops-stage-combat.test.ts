@@ -43,7 +43,8 @@ describe("stage admin API: monsters, monster drop, boss first-clear and repeat r
       expect(listed.monsters).toEqual(monsters);
       expect(listed.monsterDrop).toEqual({ chancePercent: 4, weights: { white: 60, green: null, blue: null, purple: null } });
       expect(listed.dropCustomCount).toBe(2);
-      expect(listed.dropDefaults).toMatchObject({ chancePercent: 5, weights: { white: 70, green: 25, blue: 5, purple: 0 }, orangeChancePercent: 2 });
+      expect(listed.dropDefaults).toMatchObject({ chancePercent: 5, weights: { white: 70, green: 25, blue: 5, purple: 0 } });
+      expect(listed.dropDefaults).not.toHaveProperty("orangeChancePercent");
       expect(listed.bosses[0]?.firstClear[1]).toMatchObject({ kind: "item", itemId: "enh_stone_low", displayName: "突破石·下品" });
       // 只改首领数值：奖励、怪物、掉落都保持
       await updateOpsStage(db, created.id, { displayName: "试炼场", realmCode: 3, bosses: [{ name: "试炼熊", attack: 41, defense: 20, hp: 1700, interval: 1.5 }] }, null);

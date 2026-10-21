@@ -494,7 +494,6 @@ function stageView(
     dropDefaults: {
       chancePercent: tuning.monsterDropChanceBp / 100,
       weights: Object.fromEntries(MONSTER_QUALITIES.map((key) => [key, tuning.monsterQualityWeights[key]])),
-      orangeChancePercent: tuning.bossOrangeChanceBp / 100,
     },
     ...power,
   };

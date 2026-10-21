@@ -83,6 +83,8 @@ var _result_body: VBoxContainer
 var _report_lines := 0
 var _casts_seen := 0
 var _last_time_text := ""
+## 大招已经结算、但剑扇还没打到首领的伤害：血条先不扣，等特效 ult_landed 再扣（血条和剑同步）
+var _ult_pending := 0.0
 
 
 func _init() -> void:
@@ -239,6 +241,10 @@ func _build_arena() -> void:
 	_arena.add_child(_float_layer)
 	_fx = BossBattleFx.instantiate()
 	_arena.add_child(_fx)
+	if _fx.has_signal("ult_landed"):
+		_fx.ult_landed.connect(func(_d: int) -> void:
+			_ult_pending = 0.0
+			_refresh_bars(true))
 	_fx.attach(_arena, _arena.get_node_or_null("BattleHero") if _hero_art == null else _hero_art, _boss_art)
 	# 倍速：右下角 btn_speed_x1 / x2 两态，下方「倍速」
 	var speed_box := VBoxContainer.new()
@@ -390,6 +396,7 @@ func open_stage(state: Dictionary, content: Dictionary, stage: Dictionary, gate:
 	var ult_cfg: Variant = state.get("ult", {})
 	_ult_name = str((ult_cfg as Dictionary).get("name", "大招")) if typeof(ult_cfg) == TYPE_DICTIONARY and not (ult_cfg as Dictionary).is_empty() else "大招"
 	fight = BossFight.from_state(state, content, stage)
+	_ult_pending = 0.0
 	phase = Phase.READY
 	_clock = 0.0
 	_report_lines = 0
@@ -566,6 +573,7 @@ func abort() -> void:
 	_start_button.disabled = fight == null
 	if fight != null:
 		fight = BossFight.from_state(_state, _content, _stage)
+	_ult_pending = 0.0
 	_clock = 0.0
 	_casts_seen = 0
 	_fx.set_boss_from_art()
@@ -611,6 +619,8 @@ func _consume_events() -> void:
 		_report.add_line(int(line.kind) as BattleReport.Kind, str(line.text), 0)
 		_report_lines += 1
 		_append_feed(feed_kind(event), feed_text(event, _boss_name, _ult_name))
+		if str(event.get("kind", "")) == "ult" and _fx.has_signal("ult_landed"):
+			_ult_pending += float(event.get("damage", 0))
 		_fx.on_event(event)
 	_refresh_bars(true)
 
@@ -686,7 +696,7 @@ func _refresh_bars(animate: bool = true) -> void:
 		_boss_bar.set_hp(1.0, 1.0, false)
 		return
 	_set_me_bar(fight.player_hp / maxf(fight.player_max_hp, 1.0), "%s / %s" % [QKit.grouped(BagModel.shown(maxf(fight.player_hp, 0.0))), QKit.grouped(BagModel.shown(fight.player_max_hp))])
-	_boss_bar.set_hp(fight.boss_hp, fight.boss_max_hp, animate)
+	_boss_bar.set_hp(minf(fight.boss_hp + _ult_pending, fight.boss_max_hp), fight.boss_max_hp, animate)
 
 
 func _set_me_bar(ratio: float, text: String) -> void:
@@ -717,11 +727,14 @@ func _refresh_time() -> void:
 func _refresh_ult() -> void:
 	if fight == null or not fight.has_ult():
 		_ult_disc.set_charge(0.0, false)
+		_fx.set_ult_charge(0.0, false)
 		return
 	if fight.cast_count() > _casts_seen:
 		_casts_seen = fight.cast_count()
 		_ult_disc.flash_ready()
 	_ult_disc.set_charge(fight.ult_charge() if phase == Phase.RUNNING else 0.0, true)
+	# 主角脚下聚气环跟着圆盘一起填（蓄满时 BossFight 自动放大招，特效收到 ult 事件后主角蓄势 → 剑扇）
+	_fx.set_ult_charge(fight.ult_charge() if phase == Phase.RUNNING else 0.0, true)
 
 
 ## 飘字分「车道」：同一边的飘字依次占用不同高度（再左右错开），同时最多 FLOAT_MAX_PER_SIDE 条，

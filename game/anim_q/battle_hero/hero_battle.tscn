@@ -1,0 +1,133 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://anim_q/battle_hero/hero_battle.gd" id="1_1o6pb"]
+[ext_resource type="Texture2D" path="res://anim_q/battle_boss/fx/fx_glow.png" id="2_saiu0"]
+[ext_resource type="Texture2D" path="res://anim_q/battle_boss/fx/fx_shadow.png" id="3_bi1vn"]
+[ext_resource type="Shader" path="res://anim_q/battle_hero/qi_ring.gdshader" id="4_no1f5"]
+[ext_resource type="Shader" path="res://anim_q/battle_hero/hero_fight.gdshader" id="5_dsai6"]
+[ext_resource type="Texture2D" path="res://anim_q/battle_hero/art/player_fight.png" id="6_0cxwo"]
+[ext_resource type="Texture2D" path="res://anim_q/battle_boss/fx/fx_dot.png" id="7_ajss5"]
+[ext_resource type="Texture2D" path="res://anim_q/battle_boss/fx/fx_star.png" id="8_isiai"]
+[ext_resource type="Texture2D" path="res://anim_q/battle_boss/fx/fx_ring.png" id="9_8dvmt"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_fivqi"]
+shader = ExtResource("4_no1f5")
+shader_parameter/fill = null
+shader_parameter/ready = null
+shader_parameter/flare = null
+shader_parameter/alpha_k = null
+shader_parameter/half_mode = -1.0
+shader_parameter/c_low = null
+shader_parameter/c_full = null
+
+[sub_resource type="Gradient" id="Gradient_ksm5n"]
+colors = PackedColorArray(1, 1, 1, 1, 1, 1, 1, 1)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_7xaek"]
+gradient = SubResource("Gradient_ksm5n")
+width = 128
+height = 128
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_jwhx3"]
+shader = ExtResource("5_dsai6")
+shader_parameter/pad_px = null
+shader_parameter/sway = null
+shader_parameter/flutter_amp = null
+shader_parameter/flutter_speed = null
+shader_parameter/flutter_freq = null
+shader_parameter/flutter_on = null
+shader_parameter/flash = null
+shader_parameter/flash_color = null
+shader_parameter/gray = null
+shader_parameter/charge_glow = null
+shader_parameter/glow_color = null
+shader_parameter/glow_px = null
+shader_parameter/rigid_rect = null
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_jfke1"]
+blend_mode = 1
+
+[sub_resource type="Gradient" id="Gradient_qtn36"]
+offsets = PackedFloat32Array(0, 0.4, 1)
+colors = PackedColorArray(1, 0.95, 0.6, 0, 1, 0.95, 0.6, 1, 0.7, 1, 1, 0)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_dluhv"]
+shader = ExtResource("4_no1f5")
+shader_parameter/fill = null
+shader_parameter/ready = null
+shader_parameter/flare = null
+shader_parameter/alpha_k = null
+shader_parameter/half_mode = 1.0
+shader_parameter/c_low = null
+shader_parameter/c_full = null
+
+[sub_resource type="Gradient" id="Gradient_am7x0"]
+offsets = PackedFloat32Array(0, 0.2, 1)
+colors = PackedColorArray(0.6, 1, 1, 0, 0.6, 1, 1, 0.9, 1, 0.95, 0.7, 0)
+
+[node name="HeroBattle" type="Node2D" unique_id=1311099141]
+script = ExtResource("1_1o6pb")
+
+[node name="BackGlow" type="Sprite2D" parent="." unique_id=106424148]
+modulate = Color(0.59, 0.96, 1, 0.5)
+texture = ExtResource("2_saiu0")
+
+[node name="Shadow" type="Sprite2D" parent="." unique_id=1415218175]
+modulate = Color(0.12, 0.08, 0.04, 0.75)
+texture = ExtResource("3_bi1vn")
+
+[node name="Ring" type="Sprite2D" parent="." unique_id=810661493]
+material = SubResource("ShaderMaterial_fivqi")
+texture = SubResource("GradientTexture2D_7xaek")
+
+[node name="Body" type="Node2D" parent="." unique_id=926597545]
+
+[node name="Sprite" type="Sprite2D" parent="Body" unique_id=724708931]
+material = SubResource("ShaderMaterial_jwhx3")
+texture = ExtResource("6_0cxwo")
+
+[node name="Gather" type="CPUParticles2D" parent="." unique_id=1329515166]
+material = SubResource("CanvasItemMaterial_jfke1")
+emitting = false
+amount = 14
+texture = ExtResource("7_ajss5")
+lifetime = 0.3
+emission_shape = 2
+emission_sphere_radius = 120.0
+gravity = Vector2(0, 0)
+radial_accel_min = -900.0
+radial_accel_max = -700.0
+scale_amount_min = 0.4
+scale_amount_max = 0.9
+color_ramp = SubResource("Gradient_qtn36")
+
+[node name="RingFront" type="Sprite2D" parent="." unique_id=561065300]
+material = SubResource("ShaderMaterial_dluhv")
+texture = SubResource("GradientTexture2D_7xaek")
+
+[node name="Motes" type="CPUParticles2D" parent="." unique_id=1184601435]
+material = SubResource("CanvasItemMaterial_jfke1")
+emitting = false
+amount = 18
+texture = ExtResource("7_ajss5")
+lifetime = 1.3
+emission_shape = 3
+emission_rect_extents = Vector2(150, 10)
+direction = Vector2(0, -1)
+spread = 12.0
+gravity = Vector2(0, -40)
+initial_velocity_min = 50.0
+initial_velocity_max = 110.0
+scale_amount_min = 0.35
+scale_amount_max = 0.8
+color_ramp = SubResource("Gradient_am7x0")
+
+[node name="Glint" type="Sprite2D" parent="." unique_id=1426413526]
+modulate = Color(1, 1, 0.9, 1)
+material = SubResource("CanvasItemMaterial_jfke1")
+texture = ExtResource("8_isiai")
+
+[node name="Burst" type="Sprite2D" parent="." unique_id=1530191709]
+modulate = Color(1, 0.92, 0.6, 1)
+material = SubResource("CanvasItemMaterial_jfke1")
+texture = ExtResource("9_8dvmt")

@@ -4,6 +4,7 @@ extends Node
 ##   list：  历练页（章节页签 + 竖排关卡卡）→ <文件名>
 ##   scene： 历练页不滚动（场景区 + 右下角精英预览小卡）→ <文件名>
 ##   battle：点关卡卡上的按钮进首领战，点开始，登场后截图 → <文件名>（截完就退出，不提交战斗）
+##           XIUXIAN_SHOT_WAIT = 开打后几秒截（默认 6）；XIUXIAN_SHOT_ULT = 改成第一次自动大招后几秒截（飞剑大招）
 
 var _out := "/tmp/b4_shots"
 
@@ -58,7 +59,17 @@ func _ready() -> void:
 		battle.call("_on_start")
 		# 第四批：登场后再打一会儿，让大招圆盘有蓄力、战报有几行（XIUXIAN_SHOT_WAIT 秒，默认 6）
 		var wait := float(OS.get_environment("XIUXIAN_SHOT_WAIT")) if not OS.get_environment("XIUXIAN_SHOT_WAIT").is_empty() else 6.0
-		await get_tree().create_timer(wait).timeout
+		var ult_at := OS.get_environment("XIUXIAN_SHOT_ULT")
+		if ult_at.is_empty():
+			await get_tree().create_timer(wait).timeout
+		else:
+			# 大招截图：等第一次自动大招（BossFight cast_count 变 1），再过 XIUXIAN_SHOT_ULT 秒（剑扇飞行中）截
+			for i in 1200:
+				var fight: Variant = battle.get("fight")
+				if fight != null and int(fight.cast_count()) > 0:
+					break
+				await get_tree().create_timer(0.05).timeout
+			await get_tree().create_timer(float(ult_at)).timeout
 		await _shot(file)
 		var fx: Node = battle.get("_fx")
 		print("B4 battle stage=%s tier=%s fx=%s bg=%s" % [stage, str(fx.get("tier")), str((fx.get("boss") as Node).get("fx_variant")), str((scene.get("_backdrop") as Node).call("current_background"))])

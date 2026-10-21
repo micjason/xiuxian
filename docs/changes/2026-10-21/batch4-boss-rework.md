@@ -29,6 +29,9 @@
   战斗区用章节战斗背景，主角用 `player_fight.png`，首领用 `boss_*`；去掉大招按钮和自动开关，右下大招圆盘只显示蓄力、蓄满自动放；保留倍速（记住选择）和撤退；战报最近 4 条带类型胶囊。
 - 战斗中玩家只能点「倍速」和「撤退」（负责人）：大招圆盘整块不接收点击，下方「自动」是纯文字标签（不是按钮、没有按下 / 悬停态）；GUT 断言圆盘区域没有按钮、战斗中可点的只有这两个。
 - 主角战斗立绘整体抬高 60px（负责人定 40–90px），脚完整露出、踩在地面上，不被下方面板压住。
+- **主角战斗动画**（动画组 10/21 晚交付，`anim_q/battle_hero/`）：待机呼吸 / 普攻前冲 + 飞剑飞回 / 受击 / 脚下聚气环跟着大招圆盘蓄力 / 自动大招蓄势 → 剑扇 / 胜负。
+  `boss_battle.attach` 时自动把 `HeroArt`（player_fight）换成动画（框只用来定位，脚底 = 框底往上 5.5%）；页面只加了 `_fx.set_ult_charge(...)`，不调 `play_ult()`（蓄满由 BossFight 自动放）。
+  可选补丁：大招伤害等剑扇打中（`ult_landed`）才扣首领血条。`boss_battle.gd/.tscn`、`battle_idle/monster_rig.gd` 用动画组版本覆盖（对过 diff：b4 的 boss_* 直接用烘焙图保留，另加 mon_X 自动找 boss_X）。
 - 撤退：战斗中撤退先确认（「撤退将视为挑战失败」），确认后直接丢掉本地这场、不提交，服务端不记录也不扣次数。
 - 关卡列表统一「首领」卡片（§17.10）：挂机小怪 → 首领头像（boss_* + 金圈 + 皇冠 + 首领牌 + 光圈）。
 - 每日次数是全局的，**卡片上不再显示「今日 n/总」**（和 §17.10 稿不同，免得看成每个首领各有次数）；改成章节页签下一条「今日首领挑战 剩余/总数」
@@ -48,6 +51,6 @@
 
 ## 改到的共享文件（都只改了最少的地方）
 - 后端：`schema.ts`（player_states 每日总次数 / 日期，player_stage_progress.idle_waves，content_chapters.battle_bg_key）、`snapshot.ts`、`ops-content.ts`、`validate.ts`、`chapters.ts`、`actions.ts`、`routes.ts`。
-- 客户端：`play_screen.gd`（只动战斗 / 首领相关：撤退确认、提交、战斗背景、挂机首领提示）、`anim_q/battle_idle/monster_rig.gd`（boss_* 用烘焙图）、
+- 客户端：`anim_q/battle_boss/boss_battle.gd(.tscn)`（动画组覆盖）、`play_screen.gd`（只动战斗 / 首领相关：撤退确认、提交、战斗背景、挂机首领提示）、`anim_q/battle_idle/monster_rig.gd`（boss_* 用烘焙图）、
   `stage_page.gd` 挂机区右下首领预览卡（只换切图）、`q_nine.gd`（手加 3 行血条九宫格；文件头写着是生成的，下次重新生成要带上）、`art_q_license_list.csv`（追加授权行）。
 - 没动：`tuning.ts`、`main.tscn`、设置 / 分解弹窗、精粹 / 强化消耗、挂机页行囊已满提示（负责人）。

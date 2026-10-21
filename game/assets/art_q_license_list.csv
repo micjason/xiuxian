@@ -424,3 +424,9 @@ sprites/boss_ghost_elder.png,A. AI 生成（Grok Bot 内置图像生成模型）
 sprites/boss_lava_lizard.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/外光/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,art_out_q/sprites/mon_lava_lizard.png（AI 原图抠图）→ _src/r0121b_build.py（elite_fx.treat 描边/外光，纯代码）→ art_out_q/sprites/boss_lava_lizard.png
 sprites/boss_fire_crow.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/外光/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,art_out_q/sprites/mon_fire_crow.png（AI 原图抠图）→ _src/r0121b_build.py（elite_fx.treat 描边/外光，纯代码）→ art_out_q/sprites/boss_fire_crow.png
 sprites/boss_fire_jiao.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/外光/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,art_out_q/sprites/mon_fire_jiao.png（AI 原图抠图）→ _src/r0121b_build.py（elite_fx.treat 描边/外光，纯代码）→ art_out_q/sprites/boss_fire_jiao.png
+anim_q/battle_hero/README.md,自有代码（Godot 场景 / 脚本，动画交付 anim_out_q 生成）,自有,无,/workspace/anim_out_q/battle_hero/README.md
+anim_q/battle_hero/hero_battle.gd,自有代码（Godot 场景 / 脚本，动画交付 anim_out_q 生成）,自有,无,/workspace/anim_out_q/battle_hero/hero_battle.gd
+anim_q/battle_hero/hero_battle.tscn,自有代码（Godot 场景 / 脚本，动画交付 anim_out_q 生成）,自有,无,/workspace/anim_out_q/battle_hero/hero_battle.tscn
+anim_q/battle_hero/hero_fight.gdshader,自有代码（Godot 场景 / 脚本，动画交付 anim_out_q 生成）,自有,无,/workspace/anim_out_q/battle_hero/hero_fight.gdshader
+anim_q/battle_hero/qi_ring.gdshader,自有代码（Godot 场景 / 脚本，动画交付 anim_out_q 生成）,自有,无,/workspace/anim_out_q/battle_hero/qi_ring.gdshader
+anim_q/battle_hero/art/player_fight.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/镜像/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,Grok Bot 图像生成原图 /workspace/q_src/char_fight.jpg（1024x1024，2026-10-21 生成）→ _src/r0121/v2/cut_fight.py（抠图 + 剑气转半透明 + 4px 描边 + 水平镜像 + 缩放 0.66）→ art_out_q/sprites/player_fight.png（同 sprites/player_fight.png 的副本，hero_battle.tscn 默认图）

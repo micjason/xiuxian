@@ -99,6 +99,7 @@ var _src_tex: Texture2D        # 原图 mon_*.png（页面给的）
 var _baked: Texture2D          # 正在用的预渲染图（没有 = null）
 var _baked_pad := 0.0          # 预渲染图四周留白（精英 44 / 首领 56）
 var _baked_k := 1.0            # 预渲染图相对原图的放大（精英 1.2 / 首领 1.0）
+var _baked_unified := false    # 用的是 boss_*.png（统一首领图）
 
 var state := HIDDEN
 var _t := 0.0
@@ -139,17 +140,25 @@ func set_texture(tex: Texture2D, flip: bool) -> void:
 	_apply_tier()
 
 
-## mon_fox.png → 同目录 elite_fox.png（精英）/ chief_fox.png（首领）；没有返回 null。
+## mon_fox.png → 同目录的预渲染图；没有返回 null。
+## 首领：优先 boss_fox.png（SPEC_Q §17.10 统一首领图，已按章节配色烘焙；第 1、2 关 = 小怪 ×1.2，第 3 关 = ×1.0，四周留白 56），
+## 没有再找旧的 chief_fox(_chiyan).png。精英（已不再使用）：elite_fox(_chiyan).png。
 func _find_baked(tex: Texture2D) -> Texture2D:
+	_baked_unified = false
 	if tex == null or tier == Tier.NORMAL or not use_baked_outline:
 		return null
 	var path := tex.resource_path
 	var file := path.get_file()
-	# 第四批：统一首领立绘 boss_<怪>.png 本身就是预渲染好的首领描边图（SPEC_Q §17.10），直接用
-	if file.begins_with("boss_") and tier != Tier.NORMAL:
+	# 页面直接给统一首领立绘 boss_<怪>.png（本身就是预渲染好的首领描边图，SPEC_Q §17.10）：直接用
+	if file.begins_with("boss_"):
 		return tex
 	if not file.begins_with("mon_"):
 		return null
+	if tier == Tier.CHIEF:
+		var unified := path.get_base_dir().path_join("boss_" + file.trim_prefix("mon_"))
+		if ResourceLoader.exists(unified):
+			_baked_unified = true
+			return load(unified) as Texture2D
 	var base := ("elite_" if tier == Tier.ELITE else "chief_") + file.trim_prefix("mon_").get_basename()
 	if fx_variant != "default":
 		base += "_" + fx_variant
@@ -206,6 +215,9 @@ func _apply_tier() -> void:
 		_mat = _mat_normal
 		_baked_pad = 44.0 if tier == Tier.ELITE else 56.0
 		_baked_k = _tier_scale
+		if _baked_unified and _src_tex != null and _src_tex.get_height() > 0:
+			# boss_*.png 的放大倍数按尺寸反推（1.2 或 1.0）
+			_baked_k = (float(_baked.get_height()) - _baked_pad * 2.0) / float(_src_tex.get_height())
 	_spr.texture = _baked if _baked != null else _src_tex
 	_spr.material = _mat
 	_last_flash = -1.0

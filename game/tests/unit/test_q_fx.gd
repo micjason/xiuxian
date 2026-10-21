@@ -105,6 +105,14 @@ func test_boss_battle_has_no_manual_controls_besides_speed_and_retreat() -> void
 	var arena_bottom := arena.get_global_rect().end.y
 	assert_true(feet < arena_bottom - 40.0, "脚底 %.0f 离战斗区下沿 %.0f 至少 40px" % [feet, arena_bottom])
 	assert_true(hero.get_global_rect().end.y <= arena_bottom, "立绘整张在战斗区里，没被下方面板压住")
+	# 动画组的主角战斗动画（anim_q/battle_hero）接管 HeroArt：原点 = 脚底中心，和框的脚底同一点；本身不是按钮
+	var rig := page.find_child("HeroRig", true, false) as Node2D
+	assert_not_null(rig, "主角战斗动画已接上")
+	if rig != null:
+		var rig_feet := rig.global_position.y
+		assert_almost_eq(rig_feet, feet, 2.0, "动画主角脚底和框的脚底对齐")
+		assert_true(rig_feet < arena_bottom - 40.0, "动画主角脚底离战斗区下沿至少 40px")
+		assert_eq(_buttons(rig).size(), 0, "主角动画里没有按钮")
 
 
 func test_home_hero_sits_in_the_design_frame() -> void:

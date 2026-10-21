@@ -117,3 +117,7 @@ _monster_hp.visible = _battle_fx.monster_showing() and _monster_chip.get_parent(
 - 页面血条是连续往下掉的，特效出刀是一段一段的，所以血条会比数字略早一点掉；最后一刀和死亡之间，血条已经换成下一只的满血（可以用第 4 步的 `monster_showing()` 先把血条藏起来）。
 - 远处那只小怪（`_monster_far`）不动，保持原样。
 - 主角只有打坐一种姿势，出手是「打坐御剑」，用的是前倾加飞剑，不需要新画攻击动作。
+
+## 10/21 新增：怪物档次 `tier`（精英 / 章末首领）
+- `monster_rig` 新增导出属性 `tier`：0 普通（默认，和以前完全一样）/ 1 精英 / 2 章末首领；`use_baked_outline`（默认 true：有 `elite_X.png` / `chief_X.png` 预渲染图就用，没有就用实时描边 shader `monster_tier.gdshader`）；`plate_gap`、`show_plate`（名牌）。
+- 详细说明、要拷的文件和授权行见 `../battle_boss/README.md` 的「10/21 新增」一节。

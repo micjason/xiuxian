@@ -371,3 +371,37 @@ anim_q/battle_boss/fx/fx_slash.png,B. 代码生成（程序生成的占位特效
 anim_q/battle_boss/fx/fx_star.png,B. 代码生成（程序生成的占位特效图，numpy/PIL，无第三方素材）,自有（本项目代码生成）,无（可让美术替换为同名同尺寸图）,anim_out_q/_preview_project/tools/build_battle.gd（程序生成）→ anim_q/battle_idle/fx/fx_star.png（同一文件）→ /workspace/anim_out_q/battle_boss/fx/fx_star.png
 anim_q/battle_boss/fx/fx_vignette.png,B. 代码生成（程序生成的占位特效图，numpy/PIL，无第三方素材）,自有（本项目代码生成）,无（可让美术替换为同名同尺寸图）,PIL/numpy 程序生成 → /workspace/anim_out_q/battle_boss/fx/fx_vignette.png
 anim_q/battle_boss/hp_trail.gd,自有代码（Godot 场景 / 脚本，动画交付 anim_out_q 生成）,自有,无,/workspace/anim_out_q/battle_boss/hp_trail.gd（首领战特效交付，README.md；生成工具 _preview_project/tools/build_boss.gd）
+anim_q/battle_idle/monster_tier.gdshader,自有代码（Godot 场景 / 脚本，动画交付 anim_out_q 生成）,自有,无,/workspace/anim_out_q/battle_idle/monster_tier.gdshader（由 art_out_q/shaders/boss_outline.gdshader（美术手写 shader，自有）+ battle_idle/monster_fx.gdshader 合并）
+anim_q/battle_idle/art/boss_aura_elite.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/ui/boss_aura_elite.png（同一文件，art_out_q/_src/elite_build.py）→ /workspace/anim_out_q/battle_idle/art/boss_aura_elite.png
+anim_q/battle_idle/art/boss_aura_chief.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/ui/boss_aura_chief.png（同一文件，art_out_q/_src/elite_build.py）→ /workspace/anim_out_q/battle_idle/art/boss_aura_chief.png
+anim_q/battle_idle/art/plate_elite.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/ui/plate_elite.png（同一文件，art_out_q/_src/elite_build.py）→ /workspace/anim_out_q/battle_idle/art/plate_elite.png
+anim_q/battle_idle/art/plate_chief.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/ui/plate_chief.png（同一文件，art_out_q/_src/elite_build.py）→ /workspace/anim_out_q/battle_idle/art/plate_chief.png
+anim_q/battle_idle/art/badge_chief.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/ui/badge_chief.png（同一文件，art_out_q/_src/elite_build.py）→ /workspace/anim_out_q/battle_idle/art/badge_chief.png
+anim_q/battle_boss/art/banner_elite.png,B. 代码生成（PIL 绘制，无第三方图片素材）；含烘焙字形（ZCOOL QingKe HuangYou，SIL OFL 1.1，可用于图片）,自有（本项目代码生成）,无（可让美术替换为同名同尺寸图）,/workspace/anim_out_q/battle_boss/src/make_banner_elite.py → /workspace/anim_out_q/battle_boss/art/banner_elite.png
+sprites/chief_bear.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,art_out_q/sprites/mon_*.png → _src/elite_fx.py（描边/外光，纯代码）→ art_out_q/sprites/
+sprites/chief_fire_jiao.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,art_out_q/sprites/mon_*.png → _src/elite_fx.py（描边/外光，纯代码）→ art_out_q/sprites/
+sprites/chief_ghost_elder.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,art_out_q/sprites/mon_*.png → _src/elite_fx.py（描边/外光，纯代码）→ art_out_q/sprites/
+sprites/elite_bat.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,art_out_q/sprites/mon_*.png → _src/elite_fx.py（描边/外光，纯代码）→ art_out_q/sprites/
+sprites/elite_bone_golem.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,art_out_q/sprites/mon_*.png → _src/elite_fx.py（描边/外光，纯代码）→ art_out_q/sprites/
+sprites/elite_fire_crow.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,art_out_q/sprites/mon_*.png → _src/elite_fx.py（描边/外光，纯代码）→ art_out_q/sprites/
+sprites/elite_fox.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,art_out_q/sprites/mon_*.png → _src/elite_fx.py（描边/外光，纯代码）→ art_out_q/sprites/
+sprites/elite_ghost.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,art_out_q/sprites/mon_*.png → _src/elite_fx.py（描边/外光，纯代码）→ art_out_q/sprites/
+sprites/elite_lava_golem.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,art_out_q/sprites/mon_*.png → _src/elite_fx.py（描边/外光，纯代码）→ art_out_q/sprites/
+sprites/elite_lava_lizard.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,art_out_q/sprites/mon_*.png → _src/elite_fx.py（描边/外光，纯代码）→ art_out_q/sprites/
+sprites/elite_snake.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,art_out_q/sprites/mon_*.png → _src/elite_fx.py（描边/外光，纯代码）→ art_out_q/sprites/
+sprites/elite_wolf.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,art_out_q/sprites/mon_*.png → _src/elite_fx.py（描边/外光，纯代码）→ art_out_q/sprites/
+anim_q/battle_idle/art/boss_aura_elite_chiyan.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/chiyan_build.py
+anim_q/battle_idle/art/boss_aura_chief_chiyan.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/chiyan_build.py
+sprites/elite_lava_lizard_chiyan.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,art_out_q/sprites/mon_*.png → _src/chiyan_build.py（elite_fx 描边/外光，纯代码）→ art_out_q/sprites/
+sprites/elite_fire_crow_chiyan.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,art_out_q/sprites/mon_*.png → _src/chiyan_build.py（elite_fx 描边/外光，纯代码）→ art_out_q/sprites/
+sprites/elite_lava_golem_chiyan.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,art_out_q/sprites/mon_*.png → _src/chiyan_build.py（elite_fx 描边/外光，纯代码）→ art_out_q/sprites/
+sprites/chief_fire_jiao_chiyan.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,art_out_q/sprites/mon_*.png → _src/chiyan_build.py（elite_fx 描边/外光，纯代码）→ art_out_q/sprites/
+bg/bg_youming_1080x960.webp,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*
+ui/ring_elite_164.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/elite_build.py
+ui/ring_chief_204.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/elite_build.py
+ui/card_chief.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/elite_build.py
+ui/badge_elite.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/elite_build.py
+ui/plate_elite.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/elite_build.py
+ui/plate_chief.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/elite_build.py
+ui/badge_chief.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/elite_build.py
+bg/bg_chiyan_1080x960.webp,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,/workspace/q_src/*.jpg → cut.py/cut2.py → art_out_q/_src/*

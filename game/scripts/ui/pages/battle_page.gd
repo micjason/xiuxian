@@ -258,7 +258,8 @@ func open_stage(state: Dictionary, content: Dictionary, stage: Dictionary, gate:
 	UiKit.set_cta(_start_button, "开始挑战", "限时 %d 秒" % int(limit))
 	_me_name.text = "我 · %s" % my_realm_name
 	_boss_name_label.text = _boss_name
-	_boss_meta.text = "首领  推荐战力 %d" % int(stage.get("recommendedPower", 0)) if int(stage.get("recommendedPower", 0)) > 0 else "首领"
+	var tag := "精英" if _fx.tier_for_boss(boss) == 1 else "首领"
+	_boss_meta.text = ("%s  推荐战力 %d" % [tag, int(stage.get("recommendedPower", 0))]) if int(stage.get("recommendedPower", 0)) > 0 else tag
 	# 首领立绘：Q 版怪物图（按名字查，含幽冥古道 / 赤炎火山），朝左面向主角；认不出的首领退回旧剪影（染色）
 	var sprite := ArtLib.monster_sprite_id(_boss_name)
 	if not sprite.is_empty():
@@ -269,6 +270,8 @@ func open_stage(state: Dictionary, content: Dictionary, stage: Dictionary, gate:
 		_boss_art.texture = ArtLib.icon(ArtLib.boss_icon_name(_boss_name))
 		_boss_art.modulate = UiTokens.rarity_color(4).lightened(0.25)
 		_boss_art.flip_h = false
+	# 精英（每关首领）/ 章末大首领：外观和登场按首领类型切换
+	_fx.tier = _fx.tier_for_boss(boss)
 	_fx.set_boss_from_art()
 	_refresh_bars()
 	_refresh_ult()

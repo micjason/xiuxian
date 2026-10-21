@@ -17,6 +17,13 @@ func _id_of(slug: String) -> String:
 	return ""
 
 
+## 第五批：强化花的是行囊里的「炼器精粹」堆叠（演示数据 1286）。
+func _set_essence(count: int) -> void:
+	for row in _state.items:
+		if row.itemSlug == "refine_essence":
+			row["quantity"] = count
+
+
 func _post(path: String, body: Dictionary = {}) -> Dictionary:
 	return UiMock.handle(path, body, _state, _content)
 
@@ -29,8 +36,10 @@ func test_enhance_spends_exp_and_raises_level() -> void:
 	assert_eq(result.code, 200)
 	assert_eq(result.enhanced.fromLevel, 3)
 	assert_eq(result.enhanced.toLevel, 4)
-	assert_eq(result.enhanced.spentExp, cost)
-	assert_eq(int(result.state.enhanceExp), 380 - cost)
+	assert_eq(int(result.enhanced.spentEssence), cost)
+	assert_eq(int(result.enhanced.spentExp), 0)
+	assert_eq(int(result.state.essence.count), 1286 - cost)
+	assert_eq(cost, int(round(40 * pow(1.25, 3) * 1.1)), "精粹消耗 = 基础 40 × 1.25^等级 × 品质倍数")
 
 
 func test_enhance_to_max_stops_when_exp_runs_out() -> void:
@@ -39,15 +48,16 @@ func test_enhance_to_max_stops_when_exp_runs_out() -> void:
 	assert_eq(result.code, 200)
 	assert_gt(int(result.enhanced.toLevel), 4)
 	assert_lte(int(result.enhanced.toLevel), 8, "绿色上限 8")
-	assert_gte(int(result.state.enhanceExp), 0)
+	assert_gte(int(result.state.essence.count), 0)
 
 
 func test_enhance_refuses_without_exp_or_at_cap() -> void:
-	_state["enhanceExp"] = 0
+	_set_essence(0)
 	var broke := _post("/api/v1/me/items/%s/enhance" % _id_of("sword_g"))
-	assert_eq(broke.code, 400)
-	assert_string_contains(str(broke.error.message), "不足")
-	_state["enhanceExp"] = 100000
+	assert_eq(broke.code, 409)
+	assert_eq(str(broke.error.code), "ESSENCE_SHORT")
+	assert_eq(str(broke.error.message), "炼器精粹不足，分解装备可获得")
+	_set_essence(100000)
 	for row in _state.items:
 		if row.itemSlug == "acc_o":
 			row["enhanceLevel"] = 15
@@ -56,14 +66,18 @@ func test_enhance_refuses_without_exp_or_at_cap() -> void:
 	assert_string_contains(str(capped.error.message), "上限")
 
 
-func test_decompose_gives_enhance_exp_and_refuses_worn_gear() -> void:
-	var rules := EnhanceModel.from_content(_content)
+func test_decompose_gives_essence_and_refuses_worn_gear() -> void:
 	var id := _id_of("acc_o")
-	var expected := rules.decompose_exp(4, 4)
-	var result := _post("/api/v1/me/items/%s/decompose" % id)
+	var expected := 1000 + 4 * 40  # 橙 1000 + 强化 +4 × 每级返还 40
+	var result := _post("/api/v1/me/items/decompose", {"itemIds": [id]})
 	assert_eq(result.code, 200)
-	assert_eq(int(result.gainedEnhanceExp), expected)
-	assert_eq(int(result.state.enhanceExp), 380 + expected)
+	assert_eq(int(result.gainedEssence), expected)
+	assert_eq(int(result.state.essence.count), 1286 + expected)
+	var batch := _post("/api/v1/me/items/decompose", {"itemIds": [_id_of("sword_w"), _id_of("helm_g")]})
+	assert_eq(int(batch.gainedEssence), 20 + 60, "白 20 + 绿 60")
+	var mixed := _post("/api/v1/me/items/decompose", {"itemIds": [_id_of("sword_b"), _id_of("sword_g")]})
+	assert_eq(mixed.code, 409, "有一件穿着就整单拒绝")
+	assert_ne(_id_of("sword_b"), "", "整单拒绝时什么都不分解")
 	var worn := _post("/api/v1/me/items/%s/decompose" % _id_of("sword_g"))
 	assert_eq(worn.code, 409)
 	assert_eq(worn.error.code, "EQUIPPED_CANNOT_DECOMPOSE")
@@ -79,7 +93,7 @@ func _stack(slug: String) -> int:
 
 
 func test_gear_on_a_node_must_break_through_before_enhancing_more() -> void:
-	_state["enhanceExp"] = 1000000
+	_set_essence(1000000)
 	var id := _id_of("sword_p")  # 紫 +5，节点 +5 需要 下品突破石 ×8，有 6
 	var blocked := _post("/api/v1/me/items/%s/enhance" % id, {"toMax": true})
 	assert_eq(blocked.code, 409)

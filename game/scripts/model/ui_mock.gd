@@ -216,6 +216,8 @@ static func handle(path: String, body: Dictionary, state: Dictionary, content: D
 					return {"code": 400, "error": {"message": "强化经验不足，还差 %d" % (rules2.cost(rarity2, level) - pool)}}
 				while level < wanted:
 					var need := rules2.cost(rarity2, level)
+					if pool < need and essence:
+						return {"code": 409, "error": {"code": "ESSENCE_SHORT", "message": "炼器精粹不足，分解装备可获得", "details": {"need": need, "have": pool}}}
 					if pool < need:
 						return {"code": 400, "error": {"message": "强化经验不足，还差 %d" % (need - pool)}}
 					pool -= need

@@ -338,7 +338,7 @@ func _build_chips() -> void:
 		dot.name = "Dot"
 		dot.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		row.add_child(dot)
-		var word := QKit.title(QUALITY_WORDS[rarity], 38, UiTokens.rarity_color(rarity).darkened(0.25))
+		var word := QKit.title(str(QUALITY_WORDS[rarity]), 38, UiTokens.rarity_color(rarity).darkened(0.25))
 		word.name = "Word"
 		word.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		row.add_child(word)
@@ -347,7 +347,7 @@ func _build_chips() -> void:
 
 
 func _style_chip(chip: Button, rarity: int, on: bool, empty: bool) -> void:
-	var cut := ("qchip_on_" + QUALITY_KEYS[rarity]) if on else "qchip_off_72"
+	var cut: String = ("qchip_on_" + QUALITY_KEYS[rarity]) if on else "qchip_off_72"
 	for state in ["normal", "hover", "pressed", "disabled", "focus"]:
 		var box: StyleBox
 		if state == "focus":

@@ -10,6 +10,7 @@ import { registerAuthRoutes } from "./modules/auth/routes.js";
 import { registerContentRoutes } from "./modules/content/routes.js";
 import { registerDraftRoutes } from "./modules/content/draft-routes.js";
 import { registerNoticeRoutes } from "./modules/notices/routes.js";
+import { registerRevisionGuards, registerRevisionRoutes } from "./modules/content/revisions.js";
 import { registerOperationRoutes } from "./modules/operations/routes.js";
 import type { Db } from "./modules/operations/record.js";
 import { registerPlayerRoutes } from "./modules/player/routes.js";
@@ -76,11 +77,14 @@ export async function buildApp(
   await app.register(multipart, { limits: { fileSize: 200 * 1024 * 1024 } });
   const deps = { db, now, randomInt: options.randomInt ?? ((min: number, max: number) => cryptoRandomInt(min, max)) };
   await authPlugin(db, now)(app);
+  // 旧表单覆盖保护：要在 authPlugin 之后注册（onRoute 里排在 requireAdmin 后面）
+  registerRevisionGuards(app, db);
   await registerAuthRoutes(app, deps);
   await registerPlayerRoutes(app, deps);
   await registerContentRoutes(app, deps);
   await registerDraftRoutes(app, deps);
   await registerNoticeRoutes(app, deps);
+  await registerRevisionRoutes(app, deps);
   await registerOperationRoutes(app, deps);
   await registerRepairRoutes(app, deps);
   await registerReleaseRoutes(app, deps);
@@ -95,6 +99,7 @@ export async function buildApp(
     await registerContentRoutes(scope, deps);
     await registerDraftRoutes(scope, deps);
     await registerNoticeRoutes(scope, deps);
+    await registerRevisionRoutes(scope, deps);
     await registerOperationRoutes(scope, deps);
     await registerRepairRoutes(scope, deps);
     await registerReleaseRoutes(scope, deps);

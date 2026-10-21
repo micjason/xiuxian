@@ -91,8 +91,9 @@
 </template>
 
 <script setup lang="ts">
+import { isConflictAbort, type Revisions } from "../../../composables/conflict";
 import { ElMessage, ElMessageBox } from "element-plus";
-import { computed, reactive, ref, watch } from "vue";
+import { computed, nextTick, reactive, ref, watch } from "vue";
 import { api } from "../../../api";
 import DrawerAnchors from "../../../components/DrawerAnchors.vue";
 import EditDrawer from "../../../components/EditDrawer.vue";
@@ -103,7 +104,7 @@ import SectionCard from "../../../components/SectionCard.vue";
 import { iconUrl, useItemIcons } from "../../../composables/itemIcons";
 import { fmtStat, QUALITY_BG, STAT_KEYS, STAT_LABEL, type GearSet, type ManualPiece, type QualityRow, type SetTier, type SlotRow, type StatKey } from "./types";
 
-const props = defineProps<{ editing: GearSet | null; manual: ManualPiece[]; slots: SlotRow[]; qualities: QualityRow[]; size: string | number }>();
+const props = defineProps<{ editing: GearSet | null; manual: ManualPiece[]; slots: SlotRow[]; qualities: QualityRow[]; size: string | number; revisions?: Revisions; reloadFn?: (id: string) => Promise<void> }>();
 const open = defineModel<boolean>({ required: true });
 const emit = defineEmits<{ saved: [] }>();
 
@@ -170,6 +171,22 @@ function addTier(): void {
   form.tiers.push({ pieces, stats: [{ stat: "attack", mode: "pct", value: 5 }] });
 }
 
+/** 冲突保护参数：编辑已有的才带 */
+function guardOf(id: string, title: string) {
+  if (!props.revisions) return undefined;
+  return {
+    revisions: props.revisions,
+    id,
+    title,
+    reload: async () => {
+      await props.reloadFn?.(id);
+      await nextTick();
+      fill();
+    },
+    latest: async () => ((await api<{ sets?: { id: string }[] }>("/admin/draft/gear")).sets ?? []).find((row) => row.id === id),
+  };
+}
+
 function fill(): void {
   const row = props.editing;
   form.displayName = row?.displayName ?? "";
@@ -183,14 +200,16 @@ async function save(): Promise<void> {
   saving.value = true;
   try {
     const body = JSON.stringify({ displayName: form.displayName, description: form.description, tiers: form.tiers, members: form.members });
-    if (props.editing) await api(`/admin/draft/gear-sets/${props.editing.id}`, { method: "PUT", body });
+    if (props.editing) await api(`/admin/draft/gear-sets/${props.editing.id}`, { method: "PUT", body, guard: guardOf(props.editing.id, `套装「${props.editing.displayName}」`) });
     else await api("/admin/draft/gear-sets", { method: "POST", body });
     ElMessage.success("已保存到草稿");
     original.value = snapshot();
     open.value = false;
     emit("saved");
   } catch (cause) {
-    ElMessage.error(cause instanceof Error ? cause.message : "保存失败");
+    if (isConflictAbort(cause)) {
+      if (cause.action === "reload") ElMessage.info(cause.message);
+    } else ElMessage.error(cause instanceof Error ? cause.message : "保存失败");
   } finally {
     saving.value = false;
   }

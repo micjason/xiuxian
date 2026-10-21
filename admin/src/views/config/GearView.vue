@@ -215,9 +215,11 @@
       :next-id="nextManualId"
       :enhance="enhanceRules"
       :size="drawerSize"
+      :revisions="itemRev"
+      :reload-fn="reloadManual"
       @saved="reload"
     />
-    <GearSetDrawer v-model="setOpen" :editing="setEditing" :manual="manual" :slots="slots" :qualities="qualities" :size="drawerSize" @saved="reload" />
+    <GearSetDrawer v-model="setOpen" :editing="setEditing" :manual="manual" :slots="slots" :qualities="qualities" :size="drawerSize" :revisions="setRev" :reload-fn="reloadSet" @saved="reload" />
     <GrantDrawer v-model="grantOpen" :size="drawerSize" />
 
     <EditDrawer
@@ -323,6 +325,8 @@
 </template>
 
 <script setup lang="ts">
+import { useRevisions } from "../../composables/revisions";
+import { isConflictAbort } from "../../composables/conflict";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { useRefetchOnActivate } from "../../composables/dataVersion";
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
@@ -628,12 +632,15 @@ async function saveParams(): Promise<boolean> {
         qualityFactors: params.qualityFactors,
         slotShares: Object.fromEntries(slots.value.map((slot) => [slot.key, (shares[slot.key] ?? 0) / 100])),
       }),
+      guard: { revisions: globalRev, id: 1, reload, latest: async () => (await latestGear()).params, title: "装备生成参数" },
     });
     ElMessage.success("已保存到草稿，装备已按新参数重算");
     await reload();
     return true;
   } catch (cause) {
-    ElMessage.error(cause instanceof Error ? cause.message : "保存失败");
+    if (isConflictAbort(cause)) {
+      if (cause.action === "reload") ElMessage.info(cause.message);
+    } else ElMessage.error(cause instanceof Error ? cause.message : "保存失败");
     return false;
   } finally {
     savingParams.value = false;
@@ -737,13 +744,25 @@ async function savePiece(): Promise<void> {
         iconKey: form.iconKey || null,
         dropMult: form.dropMult,
       }),
+      guard: {
+        revisions: itemRev,
+        id: row.id,
+        reload: async () => {
+          await reload();
+          drawer.value = false;
+        },
+        latest: async () => (await latestGear()).majors.flatMap((major) => major.pieces).find((piece) => piece.id === row.id),
+        title: `装备「${row.displayName}」`,
+      },
     });
     ElMessage.success("已保存到草稿");
     formOriginal.value = JSON.stringify(form);
     drawer.value = false;
     await reload();
   } catch (cause) {
-    ElMessage.error(cause instanceof Error ? cause.message : "保存失败");
+    if (isConflictAbort(cause)) {
+      if (cause.action === "reload") ElMessage.info(cause.message);
+    } else ElMessage.error(cause instanceof Error ? cause.message : "保存失败");
   } finally {
     savingPiece.value = false;
   }
@@ -760,10 +779,27 @@ async function resetPiece(row: Row): Promise<void> {
   await reload();
 }
 
+const itemRev = useRevisions("item");
+const setRev = useRevisions("gearSet");
+const globalRev = useRevisions("globals");
+const latestGear = () => api<GearList>("/admin/draft/gear");
+
+/** 冲突时选「重新读取」：重读后把抽屉换成这一件 / 这一套的最新内容 */
+async function reloadManual(id: string): Promise<void> {
+  await reload();
+  manualEditing.value = manual.value.find((row) => row.id === id) ?? null;
+}
+async function reloadSet(id: string): Promise<void> {
+  await reload();
+  setEditing.value = sets.value.find((row) => row.id === id) ?? null;
+}
+
 async function reload(): Promise<void> {
   loading.value = true;
   error.value = "";
   try {
+    // 先取版本号再读数据（旧表单覆盖保护）
+    await Promise.all([itemRev.load(), setRev.load(), globalRev.load()]);
     const [list, realmList, stageList, enhance] = await Promise.all([
       api<GearList>("/admin/draft/gear"),
       api<{ code: number; displayName: string; majorName: string }[]>("/admin/draft/realms"),

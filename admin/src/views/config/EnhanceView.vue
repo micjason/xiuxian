@@ -157,6 +157,8 @@
 </template>
 
 <script setup lang="ts">
+import { useRevisions } from "../../composables/revisions";
+import { isConflictAbort } from "../../composables/conflict";
 import { Refresh } from "@element-plus/icons-vue";
 import { useRefetchOnActivate } from "../../composables/dataVersion";
 import { ElMessage } from "element-plus";
@@ -461,10 +463,13 @@ function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
+const rev = useRevisions("globals");
+
 async function load(): Promise<void> {
   loading.value = true;
   error.value = "";
   try {
+    await rev.load();
     const [view] = await Promise.all([api<View>("/admin/draft/enhance"), loadItems()]);
     starting.value = view.starting;
     startingMaterials.value = view.startingMaterials ?? [];
@@ -497,7 +502,11 @@ async function save(): Promise<void> {
   if (!ready.value) return;
   saving.value = true;
   try {
-    const view = await api<View>("/admin/draft/enhance", { method: "PUT", body: JSON.stringify(payload(form.value)) });
+    const view = await api<View>("/admin/draft/enhance", {
+      method: "PUT",
+      body: JSON.stringify(payload(form.value)),
+      guard: { revisions: rev, id: 1, reload: load, latest: async () => (await api<View>("/admin/draft/enhance")).rules, title: "装备强化规则" },
+    });
     hasSaved.value = view.rules !== null;
     if (view.rules) form.value = normalize(view.rules);
     original.value = JSON.stringify(form.value);
@@ -506,7 +515,9 @@ async function save(): Promise<void> {
     ElMessage.success(created.length > 0 ? `已保存到草稿，并创建了 ${created.length} 个突破材料物品；发布后玩家生效` : "已保存到草稿，发布后玩家生效");
     void refreshDraftStatus();
   } catch (cause) {
-    ElMessage.error(cause instanceof Error ? cause.message : "保存失败");
+    if (isConflictAbort(cause)) {
+      if (cause.action === "reload") ElMessage.info(cause.message);
+    } else ElMessage.error(cause instanceof Error ? cause.message : "保存失败");
   } finally {
     saving.value = false;
   }

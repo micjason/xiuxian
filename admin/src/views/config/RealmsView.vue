@@ -38,6 +38,7 @@
 </template>
 
 <script setup lang="ts">
+import { latestFrom, useRevisions } from "../../composables/revisions";
 import { computed, ref } from "vue";
 import { api } from "../../api";
 import ConfigListPage from "../../components/ConfigListPage.vue";
@@ -76,7 +77,9 @@ async function loadStages() {
 }
 loadStages().catch(() => undefined);
 
+const rev = useRevisions("realm");
 const { rows, loading, error, reload } = useList(async () => {
+  await rev.load();
   const list = await api<Realm[]>("/admin/draft/realms");
   return list.map((row) => ({ ...row, interval: row.interval ?? undefined })) as unknown as Realm[];
 });
@@ -113,7 +116,7 @@ async function save(values: Record<string, unknown>, mode: "create" | "edit", ed
   if (mode === "create") {
     await api("/admin/draft/realms", { method: "POST", body: bodyOf(values) });
   } else {
-    await api(`/admin/draft/realms/${editingId}`, { method: "PUT", body: bodyOf(values) });
+    await api(`/admin/draft/realms/${editingId}`, { method: "PUT", body: bodyOf(values), guard: { revisions: rev, id: editingId, reload, latest: () => latestFrom("/admin/draft/realms", "code", editingId), title: `境界「${String(values.displayName)}」` } });
   }
 }
 

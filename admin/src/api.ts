@@ -1,3 +1,4 @@
+import { askConflict, ConflictAbort, type ConflictDetails, type SaveGuard } from "./composables/conflict";
 import { noteRequest } from "./composables/dataVersion";
 
 const tokenKey = "xiuxian-admin-token";
@@ -50,13 +51,22 @@ export class ApiError extends Error {
     message: string,
     public status: number,
     public details?: unknown,
+    public code?: string,
   ) {
     super(message);
   }
 }
 
-export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
+export type ApiInit = RequestInit & { guard?: SaveGuard };
+
+export async function api<T>(path: string, options: ApiInit = {}): Promise<T> {
+  const { guard, ...init } = options;
   const headers = new Headers(init.headers);
+  // 旧表单覆盖保护：带上页面读数据时的版本号
+  const revision = guard?.revisions.of(guard.id);
+  if (revision) {
+    headers.set("if-match", revision);
+  }
   if (init.body) {
     headers.set("content-type", "application/json");
   }
@@ -73,8 +83,31 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
     throw new Error("需要重新登录");
   }
   if (!response.ok) {
-    const body = (await response.json().catch(() => ({}))) as { reason?: string; error?: { message?: string; details?: unknown } };
-    throw new ApiError(body.error?.message ?? body.reason ?? "请求失败", response.status, body.error?.details);
+    const body = (await response.json().catch(() => ({}))) as { reason?: string; error?: { code?: string; message?: string; details?: unknown } };
+    if (response.status === 409 && body.error?.code === "STALE_REVISION" && guard) {
+      const details = body.error.details as ConflictDetails;
+      let mine: unknown = null;
+      try {
+        mine = typeof init.body === "string" ? JSON.parse(init.body) : null;
+      } catch {
+        mine = null;
+      }
+      const choice = await askConflict({ title: guard.title, details, mine, latest: guard.latest });
+      if (choice === "overwrite") {
+        // 仍然覆盖 = 带上服务器现在的版本号再发一次（期间又有人保存会再弹一次）
+        guard.revisions.set(guard.id, details.revision);
+        return api<T>(path, options);
+      }
+      if (choice === "reload") {
+        await guard.reload?.();
+      }
+      throw new ConflictAbort(choice === "reload" ? "reload" : "cancel");
+    }
+    throw new ApiError(body.error?.message ?? body.reason ?? "请求失败", response.status, body.error?.details, body.error?.code);
+  }
+  const fresh = response.headers.get("x-revision");
+  if (guard && fresh) {
+    guard.revisions.set(guard.id, fresh);
   }
   noteRequest(path, init.method);
   if (response.status === 204) {

@@ -94,6 +94,8 @@
 </template>
 
 <script setup lang="ts">
+import { latestFrom, useRevisions } from "../../composables/revisions";
+import { isConflictAbort } from "../../composables/conflict";
 /** 章节列表 + 编辑（第三批，ADMIN_SPEC §8）：名称、顺序、背景（缩略图）、首领特效、章末首领关、启用。 */
 import { ElMessage, ElMessageBox } from "element-plus";
 import { useRefetchOnActivate } from "../../composables/dataVersion";
@@ -139,16 +141,27 @@ function stageName(row: ChapterRow, slug: string | null): string {
   return row.stages.find((stage) => stage.id === slug)?.displayName ?? "—";
 }
 
+const rev = useRevisions("chapter");
+
 async function reload(): Promise<void> {
   loading.value = true;
   error.value = "";
   try {
+    await rev.load();
     [rows.value, art.value] = await Promise.all([loadChapters(), loadArtKeys()]);
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : "加载失败";
   } finally {
     loading.value = false;
   }
+}
+
+/** 冲突时选「重新读取」：重读列表，用最新内容重新打开这一章 */
+async function reopen(id: string): Promise<void> {
+  await reload();
+  const hit = rows.value.find((row) => row.id === id);
+  if (hit) openEdit(hit);
+  else drawer.value = false;
 }
 
 function openCreate(): void {
@@ -177,7 +190,8 @@ async function save(): Promise<void> {
     if (mode.value === "create") {
       await api("/admin/draft/chapters", { method: "POST", body: JSON.stringify({ ...body, slug: form.value.id || undefined }) });
     } else {
-      await api(`/admin/draft/chapters/${encodeURIComponent(form.value.id)}`, { method: "PUT", body: JSON.stringify(body) });
+      const id = form.value.id;
+      await api(`/admin/draft/chapters/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify(body), guard: { revisions: rev, id, reload: () => reopen(id), latest: () => latestFrom("/admin/draft/chapters", "id", id), title: `章节「${form.value.displayName}」` } });
     }
     baseline.value = JSON.stringify(form.value);
     drawer.value = false;
@@ -185,6 +199,10 @@ async function save(): Promise<void> {
     void refreshDraftStatus();
     await reload();
   } catch (cause) {
+    if (isConflictAbort(cause)) {
+      if (cause.action === "reload") ElMessage.info(cause.message);
+      return;
+    }
     ElMessage.error(cause instanceof Error ? cause.message : "保存失败");
   } finally {
     saving.value = false;

@@ -155,6 +155,8 @@
 </template>
 
 <script setup lang="ts">
+import { useRevisions } from "../../composables/revisions";
+import { isConflictAbort } from "../../composables/conflict";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { useRefetchOnActivate } from "../../composables/dataVersion";
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
@@ -318,10 +320,14 @@ function onScroll(): void {
   activeAnchor.value = current;
 }
 
+const rev = useRevisions("globals");
+
 async function reload(): Promise<void> {
   loading.value = true;
   error.value = "";
   try {
+    // 先取版本号再读数据（旧表单覆盖保护）
+    await rev.load();
     const [overview, realmList] = await Promise.all([api<Overview>("/admin/draft/config-overview"), api<{ code: number; displayName: string; slug: string }[]>("/admin/draft/realms")]);
     apply(overview);
     realms.value = realmList;
@@ -342,6 +348,12 @@ function apply(overview: Overview): void {
   original.value = snapshot();
 }
 
+/** 「查看差异」用：服务器上现在的配置概览，形状和保存的 body 一样 */
+async function latestOverview(): Promise<unknown> {
+  const fresh = await api<Overview>("/admin/draft/config-overview");
+  return { rules: fresh.rules, tuning: fresh.tuning, enhance: fresh.enhance?.rules, newbie: fresh.newbie, skillSlots: { rules: fresh.skillSlots?.rules } };
+}
+
 async function save(): Promise<boolean> {
   saving.value = true;
   try {
@@ -350,13 +362,19 @@ async function save(): Promise<boolean> {
     if (enhance.value && JSON.stringify(before.enhance) !== JSON.stringify(enhance.value)) body.enhance = enhance.value;
     if (JSON.stringify(before.newbie) !== JSON.stringify(newbie.value)) body.newbie = newbie.value;
     if (JSON.stringify(before.skillSlots.rules) !== JSON.stringify(skillSlots.value)) body.skillSlots = { rules: skillSlots.value };
-    const overview = await api<Overview>("/admin/draft/config-overview", { method: "PUT", body: JSON.stringify(body) });
+    const overview = await api<Overview>("/admin/draft/config-overview", {
+      method: "PUT",
+      body: JSON.stringify(body),
+      guard: { revisions: rev, id: 1, reload, latest: latestOverview, title: "配置概览" },
+    });
     apply(overview);
     void bossSection.value?.reloadUsage();
     ElMessage.success("已保存到草稿；跟随默认的关卡立即生效");
     return true;
   } catch (cause) {
-    ElMessage.error(cause instanceof Error ? cause.message : "保存失败（没有任何改动被保存）");
+    if (isConflictAbort(cause)) {
+      if (cause.action === "reload") ElMessage.info(cause.message);
+    } else ElMessage.error(cause instanceof Error ? cause.message : "保存失败（没有任何改动被保存）");
     return false;
   } finally {
     saving.value = false;

@@ -28,6 +28,7 @@
 </template>
 
 <script setup lang="ts">
+import { latestFrom, useRevisions } from "../../composables/revisions";
 import { computed } from "vue";
 import { useRouter } from "vue-router";
 import { useItemIcons } from "../../composables/itemIcons";
@@ -41,14 +42,18 @@ const router = useRouter();
 const icons = useItemIcons();
 // 材料、丹药、功法书的图（装备图在「装备配置」里选）
 const iconOptions = computed(() => [{ label: "自动（按编号）", value: "" }, ...icons.value.filter((icon) => !icon.key.startsWith("gear_") && !icon.key.startsWith("eq_")).map((icon) => ({ label: icon.key, value: icon.key }))]);
-const { rows, loading, error, reload } = useList(() => api<Record<string, unknown>[]>("/admin/draft/items"));
+const rev = useRevisions("item");
+const { rows, loading, error, reload } = useList(async () => {
+  await rev.load();
+  return api<Record<string, unknown>[]>("/admin/draft/items");
+});
 
 async function save(values: Record<string, unknown>, mode: "create" | "edit", editingId: string): Promise<void> {
   const body = JSON.stringify({ displayName: values.displayName, description: values.description, kind: values.kind || undefined, quality: values.quality || undefined, stackable: values.stackable, iconKey: values.iconKey ?? "" });
   if (mode === "create") {
     await api("/admin/draft/items", { method: "POST", body });
   } else {
-    await api(`/admin/draft/items/${editingId}`, { method: "PUT", body });
+    await api(`/admin/draft/items/${editingId}`, { method: "PUT", body, guard: { revisions: rev, id: editingId, reload, latest: () => latestFrom("/admin/draft/items", "id", editingId), title: `物品「${String(values.displayName)}」` } });
   }
 }
 

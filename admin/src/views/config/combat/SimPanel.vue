@@ -99,6 +99,7 @@
 </template>
 
 <script setup lang="ts">
+import { latestFrom, useRevisions } from "../../../composables/revisions";
 import { ElMessage } from "element-plus";
 import { useRefetchOnActivate } from "../../../composables/dataVersion";
 import { computed, onMounted, ref } from "vue";
@@ -274,10 +275,13 @@ async function runDuels(): Promise<void> {
   }
 }
 
+const rev = useRevisions("puppet");
+
 async function reload(): Promise<void> {
   loading.value = true;
   error.value = "";
   try {
+    await rev.load();
     const [list, realmList, weaponList, skillList] = await Promise.all([
       api<Puppet[]>("/admin/draft/puppets"),
       api<Realm[]>("/admin/draft/realms"),
@@ -307,7 +311,7 @@ async function save(values: Record<string, unknown>, mode: "create" | "edit", ed
   if (mode === "create") {
     await api("/admin/draft/puppets", { method: "POST", body: JSON.stringify(body) });
   } else {
-    await api(`/admin/draft/puppets/${editingId}`, { method: "PUT", body: JSON.stringify(body) });
+    await api(`/admin/draft/puppets/${editingId}`, { method: "PUT", body: JSON.stringify(body), guard: { revisions: rev, id: editingId, reload, latest: () => latestFrom("/admin/draft/puppets", "id", editingId), title: `木桩「${String(values.displayName)}」` } });
   }
 }
 

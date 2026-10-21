@@ -127,7 +127,8 @@
 <script setup lang="ts">
 import { Search } from "@element-plus/icons-vue";
 import { ElMessage } from "element-plus";
-import { computed, onBeforeUnmount, reactive, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from "vue";
+import { isConflictAbort } from "../composables/conflict";
 import { useRoute, useRouter } from "vue-router";
 import { confirmAction, confirmDanger } from "../composables/confirm";
 import { useCrumbTail } from "../composables/crumbs";
@@ -382,6 +383,20 @@ async function save(): Promise<void> {
       void refreshDraftStatus();
     }
   } catch (cause) {
+    if (isConflictAbort(cause)) {
+      // 旧表单覆盖保护：选了「重新读取」→ 用最新内容重新打开这一条；「取消」→ 表单留着不动
+      if (cause.action === "reload") {
+        await nextTick();
+        const hit = props.rows.find((row) => String(row[props.idKey]) === editingId.value);
+        if (hit && mode.value === "edit") {
+          openEdit(hit);
+        } else {
+          drawer.value = false;
+        }
+        ElMessage.info(cause.message);
+      }
+      return;
+    }
     ElMessage.error(cause instanceof Error ? cause.message : "保存失败");
   } finally {
     saving.value = false;

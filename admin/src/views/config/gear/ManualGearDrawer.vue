@@ -131,8 +131,9 @@
 </template>
 
 <script setup lang="ts">
+import { isConflictAbort, type Revisions } from "../../../composables/conflict";
 import { ElMessage } from "element-plus";
-import { computed, reactive, ref, watch } from "vue";
+import { computed, nextTick, reactive, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { api } from "../../../api";
 import CustomTag from "../../../components/CustomTag.vue";
@@ -154,6 +155,9 @@ const props = defineProps<{
   nextId: string;
   enhance: { qualities?: Record<string, { cap: number; costMult: number; decomposeExp: number; breakthroughs: { level: number; materials: { itemSlug: string; count: number }[] }[] }> } | null;
   size: string | number;
+  /** 旧表单覆盖保护：GearView 的版本号和「重新读取」 */
+  revisions?: Revisions;
+  reloadFn?: (id: string) => Promise<void>;
 }>();
 const open = defineModel<boolean>({ required: true });
 const emit = defineEmits<{ saved: [id: string] }>();
@@ -229,6 +233,22 @@ function onMajor(): void {
   form.requiredRealmOrder = majorRealms.value[0]?.code ?? null;
 }
 
+/** 冲突保护参数：编辑已有的才带 */
+function guardOf(id: string, title: string) {
+  if (!props.revisions) return undefined;
+  return {
+    revisions: props.revisions,
+    id,
+    title,
+    reload: async () => {
+      await props.reloadFn?.(id);
+      await nextTick();
+      fill();
+    },
+    latest: async () => ((await api<{ manual?: { id: string }[] }>("/admin/draft/gear")).manual ?? []).find((row) => row.id === id),
+  };
+}
+
 function fill(): void {
   Object.assign(form, blank());
   const row = props.editing;
@@ -263,7 +283,7 @@ async function save(again: boolean): Promise<void> {
   try {
     const body = JSON.stringify({ ...form, setSlug: form.setSlug || null, dropMult: form.randomDrop ? form.dropMult : 1 });
     const result = props.editing
-      ? await api<{ id: string }>(`/admin/draft/gear/manual/${props.editing.id}`, { method: "PUT", body })
+      ? await api<{ id: string }>(`/admin/draft/gear/manual/${props.editing.id}`, { method: "PUT", body, guard: guardOf(props.editing.id, `手动装备「${props.editing.displayName}」`) })
       : await api<{ id: string }>("/admin/draft/gear/manual", { method: "POST", body });
     ElMessage.success(props.editing ? "已保存到草稿" : `已创建 ${result.id}`);
     emit("saved", result.id);
@@ -276,7 +296,9 @@ async function save(again: boolean): Promise<void> {
       open.value = false;
     }
   } catch (cause) {
-    ElMessage.error(cause instanceof Error ? cause.message : "保存失败");
+    if (isConflictAbort(cause)) {
+      if (cause.action === "reload") ElMessage.info(cause.message);
+    } else ElMessage.error(cause instanceof Error ? cause.message : "保存失败");
   } finally {
     saving.value = false;
   }

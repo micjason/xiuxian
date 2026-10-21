@@ -55,6 +55,7 @@
 </template>
 
 <script setup lang="ts">
+import { latestFrom, useRevisions } from "../../composables/revisions";
 import { computed, onMounted, ref } from "vue";
 import { useRefetchOnActivate } from "../../composables/dataVersion";
 import { useRoute, useRouter } from "vue-router";
@@ -81,10 +82,14 @@ const realmOptions = computed(() => [{ label: "不限", value: 0 }, ...realms.va
 const skillOptions = computed(() => skills.value.map((row) => ({ label: String(row.displayName), value: String(row.id) })));
 const skillFilters = computed(() => [{ key: "categoryId", label: "分类", options: categoryOptions.value }]);
 
+const rev = useRevisions("skill");
+const catRev = useRevisions("skillCategory");
+
 async function reload(): Promise<void> {
   loading.value = true;
   error.value = "";
   try {
+    await Promise.all([rev.load(), catRev.load()]);
     skills.value = await api<Skill[]>("/admin/draft/skills");
     categories.value = await api<Category[]>("/admin/draft/skill-categories");
     realms.value = await api<{ code: number; displayName: string }[]>("/admin/draft/realms");
@@ -121,7 +126,7 @@ async function saveSkill(values: Record<string, unknown>, mode: "create" | "edit
   if (mode === "create") {
     await api("/admin/draft/skills", { method: "POST", body });
   } else {
-    await api(`/admin/draft/skills/${editingId}`, { method: "PUT", body });
+    await api(`/admin/draft/skills/${editingId}`, { method: "PUT", body, guard: { revisions: rev, id: editingId, reload, latest: () => latestFrom("/admin/draft/skills", "id", editingId), title: `功法「${String(values.displayName)}」` } });
   }
 }
 
@@ -134,7 +139,7 @@ async function saveCategory(values: Record<string, unknown>, mode: "create" | "e
   if (mode === "create") {
     await api("/admin/draft/skill-categories", { method: "POST", body });
   } else {
-    await api(`/admin/draft/skill-categories/${editingId}`, { method: "PUT", body });
+    await api(`/admin/draft/skill-categories/${editingId}`, { method: "PUT", body, guard: { revisions: catRev, id: editingId, reload, latest: () => latestFrom("/admin/draft/skill-categories", "id", editingId), title: `功法分类「${String(values.displayName)}」` } });
   }
 }
 

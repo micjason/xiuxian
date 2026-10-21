@@ -241,6 +241,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onBeforeUnmount, ref } from "vue";
 import { useRefetchOnActivate } from "../../composables/dataVersion";
+import { useRevisions } from "../../composables/revisions";
 import { useRouter } from "vue-router";
 import { api } from "../../api";
 import ArtKeySelect from "../../components/ArtKeySelect.vue";
@@ -345,6 +346,7 @@ const anchors = [
 ];
 
 const router = useRouter();
+const rev = useRevisions("stage");
 const rows = ref<Record<string, unknown>[]>([]);
 const loading = ref(false);
 const error = ref("");
@@ -461,10 +463,44 @@ function addMonster(form: StageForm): void {
   form.monsters.push({ name: "", attack: 0, defense: 0, hp: 100, interval: 1.5, killCultivation: 1, artKey: null });
 }
 
+function toRow(stage: ApiStage, chapterName: Map<string, string>): Record<string, unknown> {
+  return {
+      ...stage,
+      chapterName: stage.chapterSlug ? (chapterName.get(stage.chapterSlug) ?? stage.chapterSlug) : "未分章节",
+      bossText: stage.bosses.length === 0 ? "—" : stage.bosses.map((boss) => boss.name).join("、"),
+      bosses: stage.bosses.map((boss) => ({
+        name: boss.name,
+        attack: boss.attack,
+        defense: boss.defense,
+        hp: boss.hp,
+        interval: boss.interval,
+        drops: boss.drops.map((drop) => ({ itemId: drop.itemId, chancePercent: drop.chancePercent })),
+        firstClear: boss.firstClear.map((entry) => ({ ...entry })),
+        repeat: boss.repeat ? { gear: boss.repeat.gear, extras: boss.repeat.extras.map((extra) => ({ itemId: extra.itemId, chancePercent: extra.chancePercent, minQty: extra.minQty, maxQty: extra.maxQty })) } : null,
+        artKey: boss.artKey ?? null,
+        rules: boss.ruleOverride ? cloneRules(boss.ruleOverride) : null,
+        statsCustom: [...(boss.statsCustom ?? [])],
+      })),
+      monsters: stage.monsters.map((monster) => ({ ...monster, artKey: monster.artKey ?? null })),
+      monsterDrop: { chancePercent: stage.monsterDrop.chancePercent, weights: { white: stage.monsterDrop.weights.white ?? null, green: stage.monsterDrop.weights.green ?? null, blue: stage.monsterDrop.weights.blue ?? null, purple: stage.monsterDrop.weights.purple ?? null } },
+  };
+}
+
+/** 服务器上这一关现在的内容，形状和保存的 body 一样（冲突弹窗「查看差异」用） */
+async function latestStage(id: string): Promise<unknown> {
+  const stages = await api<ApiStage[]>("/admin/draft/stages");
+  const hit = stages.find((stage) => stage.id === id);
+  if (!hit) throw new Error("这一关已经被删除");
+  const chapterName = new Map(chapters.value.map((chapter) => [chapter.id, chapter.displayName]));
+  return bodyOf(toRow(hit, chapterName) as unknown as StageForm);
+}
+
 async function reload(): Promise<void> {
   loading.value = true;
   error.value = "";
   try {
+    // 先取版本号再读数据（旧表单覆盖保护）
+    await rev.load();
     const [stages, realmList, itemList, weaponList, skillList, ruleView, chapterList, bossRuleView] = await Promise.all([
       api<ApiStage[]>("/admin/draft/stages"),
       api<{ code: number; displayName: string; interval: number }[]>("/admin/draft/realms"),
@@ -484,26 +520,7 @@ async function reload(): Promise<void> {
     skills.value = skillList;
     rules.value = ruleView;
     if (stages[0]) defaults.value = stages[0].dropDefaults;
-    rows.value = stages.map((stage) => ({
-      ...stage,
-      chapterName: stage.chapterSlug ? (chapterName.get(stage.chapterSlug) ?? stage.chapterSlug) : "未分章节",
-      bossText: stage.bosses.length === 0 ? "—" : stage.bosses.map((boss) => boss.name).join("、"),
-      bosses: stage.bosses.map((boss) => ({
-        name: boss.name,
-        attack: boss.attack,
-        defense: boss.defense,
-        hp: boss.hp,
-        interval: boss.interval,
-        drops: boss.drops.map((drop) => ({ itemId: drop.itemId, chancePercent: drop.chancePercent })),
-        firstClear: boss.firstClear.map((entry) => ({ ...entry })),
-        repeat: boss.repeat ? { gear: boss.repeat.gear, extras: boss.repeat.extras.map((extra) => ({ itemId: extra.itemId, chancePercent: extra.chancePercent, minQty: extra.minQty, maxQty: extra.maxQty })) } : null,
-        artKey: boss.artKey ?? null,
-        rules: boss.ruleOverride ? cloneRules(boss.ruleOverride) : null,
-        statsCustom: [...(boss.statsCustom ?? [])],
-      })),
-      monsters: stage.monsters.map((monster) => ({ ...monster, artKey: monster.artKey ?? null })),
-      monsterDrop: { chancePercent: stage.monsterDrop.chancePercent, weights: { white: stage.monsterDrop.weights.white ?? null, green: stage.monsterDrop.weights.green ?? null, blue: stage.monsterDrop.weights.blue ?? null, purple: stage.monsterDrop.weights.purple ?? null } },
-    }));
+    rows.value = stages.map((stage) => toRow(stage, chapterName));
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : "加载失败";
   } finally {
@@ -528,7 +545,20 @@ function newRow(): Record<string, unknown> {
 
 async function save(values: Record<string, unknown>, mode: "create" | "edit", editingId: string): Promise<void> {
   const form = values as unknown as StageForm;
-  const body = JSON.stringify({
+  const body = JSON.stringify(bodyOf(form));
+  if (mode === "create") {
+    await api("/admin/draft/stages", { method: "POST", body });
+  } else {
+    await api(`/admin/draft/stages/${editingId}`, {
+      method: "PUT",
+      body,
+      guard: { revisions: rev, id: editingId, reload, latest: () => latestStage(editingId), title: `关卡「${form.displayName}」` },
+    });
+  }
+}
+
+function bodyOf(form: StageForm): Record<string, unknown> {
+  return {
     displayName: form.displayName,
     realmCode: form.realmCode,
     chapterSlug: form.chapterSlug ?? "",
@@ -539,12 +569,7 @@ async function save(values: Record<string, unknown>, mode: "create" | "edit", ed
     monsters: form.monsters,
     monsterDrop: form.monsterDrop,
     designatedDrops: (form.designatedDrops ?? []).map(({ itemId, trigger, chancePercent, count }) => ({ itemId, trigger, chancePercent, count })),
-  });
-  if (mode === "create") {
-    await api("/admin/draft/stages", { method: "POST", body });
-  } else {
-    await api(`/admin/draft/stages/${editingId}`, { method: "PUT", body });
-  }
+  };
 }
 
 async function remove(row: Record<string, unknown>): Promise<void> {

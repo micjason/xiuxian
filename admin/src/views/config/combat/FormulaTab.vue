@@ -209,6 +209,8 @@
 </template>
 
 <script setup lang="ts">
+import { useRevisions } from "../../../composables/revisions";
+import { isConflictAbort } from "../../../composables/conflict";
 import { ElMessage } from "element-plus";
 import { useRefetchOnActivate } from "../../../composables/dataVersion";
 import { computed, onMounted, ref, watch } from "vue";
@@ -414,8 +416,11 @@ async function refreshPreview(): Promise<void> {
   }
 }
 
+const rev = useRevisions("globals");
+
 async function load(): Promise<void> {
   try {
+    await rev.load();
     const rules = await api<Record<string, number | null>>("/admin/draft/rules");
     const values: FormValues = {};
     for (const key of ruleKeys) {
@@ -445,13 +450,15 @@ async function save(): Promise<void> {
   for (const key of ruleKeys) body[key] = Number(form.value[key]);
   saving.value = true;
   try {
-    await api("/admin/draft/rules", { method: "PUT", body: JSON.stringify(body) });
+    await api("/admin/draft/rules", { method: "PUT", body: JSON.stringify(body), guard: { revisions: rev, id: 1, reload: load, latest: () => api("/admin/draft/rules"), title: "战斗公式与参数" } });
     original.value = JSON.stringify(form.value);
     await refreshPreview();
     ElMessage.success("已保存到草稿");
     void refreshDraftStatus();
   } catch (cause) {
-    ElMessage.error(cause instanceof Error ? cause.message : "保存失败");
+    if (isConflictAbort(cause)) {
+      if (cause.action === "reload") ElMessage.info(cause.message);
+    } else ElMessage.error(cause instanceof Error ? cause.message : "保存失败");
   } finally {
     saving.value = false;
   }

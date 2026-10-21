@@ -72,6 +72,7 @@
       </el-main>
     </el-container>
     <GlobalSearch v-model="searchOpen" />
+    <ConflictDialog />
   </el-container>
 </template>
 
@@ -84,6 +85,7 @@ import { tailFor } from "../composables/crumbs";
 import { cachedNames, openTab, refreshingPath } from "../composables/tabs";
 import { adminName, clearSession } from "../api";
 import GlobalSearch from "../components/GlobalSearch.vue";
+import ConflictDialog from "../components/ConflictDialog.vue";
 import { draft, refreshDraftStatus } from "../composables/draftStatus";
 import { groupHome, navOf, navTree, plannedFeatures } from "../nav";
 import { applyTheme, isDark } from "../theme";

@@ -130,7 +130,7 @@ func test_heartbeat_with_unchanged_state_does_not_rebuild_lists() -> void:
 	var stage := scene.get("_stage_page") as StagePage
 	var refreshes := bag.refresh_count
 	var rebuilds := grid.rebuilds
-	var detail := stage.find_child("StageDetailCard", true, false)
+	var detail := stage.find_child("StageCards", true, false)
 	var first_slot := grid.find_children("*", "ItemSlot", true, false)[0]
 	for i in 3:
 		scene.call("_render", true)
@@ -138,7 +138,7 @@ func test_heartbeat_with_unchanged_state_does_not_rebuild_lists() -> void:
 	assert_eq(bag.refresh_count, refreshes, "背包没变就不刷新")
 	assert_eq(grid.rebuilds, rebuilds, "格子不重建")
 	assert_same(grid.find_children("*", "ItemSlot", true, false)[0], first_slot, "格子节点还是原来那个（按住的格子不会消失）")
-	assert_same(stage.find_child("StageDetailCard", true, false), detail, "历练列表不重建")
+	assert_same(stage.find_child("StageCards", true, false), detail, "历练列表不重建")
 
 
 func test_bag_refreshes_when_items_change_and_reuses_slots() -> void:

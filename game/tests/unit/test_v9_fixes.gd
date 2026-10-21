@@ -127,7 +127,8 @@ func test_safe_area_debug_override_parses_and_clamps() -> void:
 	assert_null(UiSafeArea.debug_override())
 
 
-func test_stage_page_challenge_button_is_fixed_above_the_tab_bar() -> void:
+func test_stage_page_challenge_button_sits_on_the_selected_card() -> void:
+	# 第三批（SPEC_Q §14.5）：底部固定的挑战条拿掉了，按钮在每张关卡卡上（跟着列表滚动），选中的卡上那个就是「挑战」。
 	var scene := await _boot("ready")
 	scene.call("_show_page", "adventure")
 	await get_tree().process_frame
@@ -135,12 +136,10 @@ func test_stage_page_challenge_button_is_fixed_above_the_tab_bar() -> void:
 	var stage := scene.get("_stage_page") as StagePage
 	var button := stage.challenge_button()
 	assert_not_null(button, "选中关卡后就有挑战按钮")
-	assert_true(button.is_visible_in_tree())
+	var card := stage.find_child("Stage_%s" % stage.selected, true, false) as Control
+	assert_true(card.is_ancestor_of(button), "按钮在选中的关卡卡上")
 	var scroll := stage.get("_stage_view") as ScrollContainer
-	assert_false(scroll.is_ancestor_of(button), "按钮不在滚动区里")
-	var vp := scene.get_viewport().get_visible_rect().size
-	var rect := button.get_global_rect()
-	assert_lte(rect.end.y, vp.y - float(TabBarView.HEIGHT), "不盖标签栏")
-	assert_gte(rect.position.y, 0.0)
-	assert_gte(rect.position.y, scroll.get_global_rect().position.y, "在滚动区下面")
-	assert_gte(rect.size.y, 96.0, "触控尺寸")
+	assert_true(scroll.is_ancestor_of(button), "跟着列表滚动")
+	assert_gte(button.get_global_rect().size.y, 96.0, "触控尺寸")
+	assert_null(stage.find_child("ChallengeBar", true, false), "旧的底部挑战条没有了")
+	assert_null(stage.find_child("AutoChallengeToggle", true, false), "旧的自动挑战开关没有了")

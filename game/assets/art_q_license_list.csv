@@ -449,3 +449,4 @@ anim_q/battle_hero/hero_battle.tscn,自有代码（Godot 场景 / 脚本，动�
 anim_q/battle_hero/hero_fight.gdshader,自有代码（Godot 场景 / 脚本，动画交付 anim_out_q 生成）,自有,无,/workspace/anim_out_q/battle_hero/hero_fight.gdshader
 anim_q/battle_hero/qi_ring.gdshader,自有代码（Godot 场景 / 脚本，动画交付 anim_out_q 生成）,自有,无,/workspace/anim_out_q/battle_hero/qi_ring.gdshader
 anim_q/battle_hero/art/player_fight.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（抠图/描边/镜像/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,Grok Bot 图像生成原图 /workspace/q_src/char_fight.jpg（1024x1024，2026-10-21 生成）→ _src/r0121/v2/cut_fight.py（抠图 + 剑气转半透明 + 4px 描边 + 水平镜像 + 缩放 0.66）→ art_out_q/sprites/player_fight.png（同 sprites/player_fight.png 的副本，hero_battle.tscn 默认图）
+ui/icon_set_thanks.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/r0121b_build.py

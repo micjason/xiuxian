@@ -103,6 +103,18 @@ func test_avatar_opens_settings_and_logout_returns_to_login() -> void:
 	for gone in ["显示战斗记录", "满包：跳过掉落", "导出存档文本", "战报"]:
 		assert_does_not_have(texts, gone)
 	assert_true(texts.any(func(t: String) -> bool: return t.begins_with("v") and t.contains("（")), "显示版本号 v名（号）")
+	# 稿 v2：版本号旁的检查结果（演示数据算「已是最新版本」）+「致谢与版本」入口
+	assert_eq((settings.find_child("UpdateState", true, false) as Label).text, "已是最新版本")
+	assert_has(texts, "致谢与版本")
+	_press(settings, "CreditsRow")
+	await wait_frames(2)
+	var popup := scene.get("_popup") as GamePopup
+	assert_true(popup.visible, "打开致谢与版本")
+	assert_eq(popup.title_label.text, "致谢与版本")
+	assert_true(settings.visible, "叠在设置上面，设置不关")
+	assert_gt(popup.get_index(), settings.get_index(), "致谢页画在设置上面")
+	popup.close_popup()
+	assert_true(settings.visible, "关掉回到设置")
 	# 未开放：toast，弹窗不关
 	_press(settings, "Locked_兑换码")
 	assert_eq((scene.get("_toast") as Toast).text(), "功能暂未开放")
@@ -149,3 +161,19 @@ func test_close_by_button_and_texts() -> void:
 	assert_eq(SettingsView.mask_account("13812346612"), "138****6612")
 	assert_eq(SettingsView.mask_account("daoyou01"), "da****01")
 	assert_eq(SettingsView.mask_account("abc"), "abc")
+
+
+func test_update_state_shows_next_to_version() -> void:
+	var view := SettingsView.new()
+	add_child_autofree(view)
+	view.open({"version": "0.17.1", "versionCode": 39, "updateState": "new", "latestVersion": "0.17.2"})
+	var state := view.find_child("UpdateState", true, false) as Label
+	assert_eq(state.text, "发现新版本 v0.17.2")
+	view.open({"version": "0.17.1", "versionCode": 39, "updateState": ""})
+	assert_eq(state.text, "", "没查过不显示")
+	view.set_checking(true)
+	assert_eq((view.find_child("CheckUpdateButton", true, false) as Button).text, "检查中…")
+	assert_true((view.find_child("CheckUpdateButton", true, false) as Button).disabled)
+	view.show_latest()
+	assert_eq(state.text, "已是最新版本")
+	assert_false((view.find_child("CheckUpdateButton", true, false) as Button).disabled)

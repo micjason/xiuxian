@@ -13,6 +13,11 @@ func _initialize() -> void:
 	await _settle(20)
 	_shot(out, "1_settings")
 	var settings := scene.get("_settings") as Control
+	(settings.find_child("CreditsRow", true, false) as Button).pressed.emit()
+	await _settle(12)
+	_shot(out, "1b_credits")
+	(scene.get("_popup") as GamePopup).close_popup()
+	await _settle(6)
 	(settings.find_child("Locked_兑换码", true, false) as Button).pressed.emit()
 	await _settle(12)
 	_shot(out, "2_locked_toast")

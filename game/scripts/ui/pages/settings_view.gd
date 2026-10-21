@@ -3,7 +3,7 @@ extends Control
 ## 设置弹窗（设计稿 q_design/q_settings_popup + q_settings_states，SPEC_Q §17.4）：点左上角头像打开，居中盖在当前页上。
 ## 账号信息（头像、名字、境界、账号打码、服务器）/ 声音（音乐、音效开关，本机保存，LocalSettings）/
 ## 更多（5 个未开放入口：灰色可点，提示「功能暂未开放」，弹窗不关）/ 版本号 + 检查更新 / 退出登录（二次确认）。
-## 坐标按 1080×2340 设计稿、相对弹窗框左上角（稿上 60,513）；弹窗整体在可用高度里垂直居中。
+## 坐标按 1080×2340 设计稿 v2、相对弹窗框左上角（稿上 60,459）；弹窗整体在可用高度里垂直居中。
 ## 只管界面，动作发信号给外壳（play_screen）。
 
 signal logout_confirmed
@@ -12,7 +12,7 @@ signal locked_pressed(feature: String)
 signal credits_requested
 signal closed
 
-const FRAME_SIZE := Vector2(960, 1314)
+const FRAME_SIZE := Vector2(960, 1422)  # v2：版本块加高放「致谢与版本」入口（SPEC_Q 17.4 / 17.11）
 const FRAME_X := 60.0
 const LOCKED_TEXT := LockedFeature.TEXT
 ## 未开放入口：[名字, 图标, 列, 行, 宽]（稿上两行 3 列，最后一个跨 2 列）。
@@ -109,7 +109,7 @@ func _layout() -> void:
 	_hint.size = Vector2(400, 60)
 	_hint.position = Vector2(340, top + FRAME_SIZE.y + 22)
 	var box := _confirm.get_node("ConfirmFrame") as Control
-	box.position = Vector2(130, top + 377)
+	box.position = Vector2(130, top + 431)  # 稿 v2：确认框 (130,890)，设置框顶 459
 	var ribbon := _confirm.get_node("ConfirmRibbon") as Control
 	ribbon.size = ribbon.custom_minimum_size
 	ribbon.position = Vector2(540 - ribbon.custom_minimum_size.x / 2.0, box.position.y - 52)
@@ -117,7 +117,8 @@ func _layout() -> void:
 
 # ───────── 打开 / 关闭 ─────────
 
-## info: {username, realm, server, version, versionCode}
+## info: {username, realm, server, version, versionCode, updateState("latest" / "new" / ""), latestVersion}
+## updateState 是最近一次更新检查的结果（启动时静默检查或手动检查），稿上版本号旁的「已是最新版本」/「发现新版本 vX」。
 func open(info: Dictionary) -> void:
 	_info = info
 	var username := _text(info.get("username", ""), "道友")
@@ -128,8 +129,14 @@ func open(info: Dictionary) -> void:
 	(_music as QToggleSwitch).set_on(LocalSettings.music_on())
 	(_sfx as QToggleSwitch).set_on(LocalSettings.sfx_on())
 	_version.text = version_text(info)
-	set_update_state("", Color.WHITE)
 	set_checking(false)
+	match str(info.get("updateState", "")):
+		"latest":
+			show_latest()
+		"new":
+			show_new_version(str(info.get("latestVersion", "")))
+		_:
+			set_update_state("", Color.WHITE)
 	_confirm.visible = false
 	visible = true
 	move_to_front()
@@ -323,20 +330,12 @@ func _tile(text: String, icon: String, width: int) -> Button:
 
 
 func _build_version() -> void:
-	var well := _well(Rect2(26, 990, 908, 124), "SettingsVersion")
+	var well := _well(Rect2(26, 990, 908, 232), "SettingsVersion")
 	_at(well, UiKit.label("版本号", 28, LABEL_GREY), Vector2(28, 12))
 	_version = QKit.title("", 38, UiTokens.TEXT)
 	_version.name = "SettingsVersionText"
 	_at(well, _version, Vector2(28, 52))
-	# 稿上没有「素材致谢」入口：点版本号区域打开致谢页（CC BY 素材署名要能看到；用户协议页开放后挪过去，SPEC_Q 17.4）
-	var credits := Button.new()
-	credits.name = "CreditsArea"
-	credits.flat = true
-	credits.focus_mode = Control.FOCUS_NONE
-	for key in ["normal", "hover", "pressed", "focus", "disabled"]:
-		credits.add_theme_stylebox_override(key, StyleBoxEmpty.new())
-	credits.pressed.connect(func() -> void: credits_requested.emit())
-	_at(well, credits, Vector2(0, 0), Vector2(290, 124))
+	_build_credits_row(well)
 	_update_state = UiKit.label("", 26, OK_GREEN)
 	_update_state.name = "UpdateState"
 	_at(well, _update_state, Vector2(300, 64), Vector2(280, 40))
@@ -346,10 +345,30 @@ func _build_version() -> void:
 	_at(well, _check, Vector2(580, 12), Vector2(300, _check.custom_minimum_size.y))
 
 
+## 「致谢与版本」入口条（17.11，已开放）：strip_cream_96 852×92（版本块内 28,124）+ icon_set_thanks 64 + 标题 38 + 说明 26 + ›；
+## 点了按下压暗，打开原来的致谢与版本页（叠在设置上面，关掉回到设置）。
+func _build_credits_row(well: Control) -> void:
+	var row := Button.new()
+	row.name = "CreditsRow"
+	row.focus_mode = Control.FOCUS_NONE
+	var cut := "strip_cream_96"
+	var has_cut := ArtLib.qui(cut) != null
+	for key in ["normal", "hover", "disabled"]:
+		row.add_theme_stylebox_override(key, ArtLib.q_nine(cut) if has_cut else QSkin.custom(UiTokens.Q_CREAM, UiTokens.Q_COCOA, 3, 46, 4, 0, 0))
+	row.add_theme_stylebox_override("pressed", ArtLib.q_nine(cut, Color(0.88, 0.85, 0.83)) if has_cut else QSkin.custom(Color("efe4d6"), UiTokens.Q_COCOA, 3, 46, 2, 0, 0))
+	row.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+	_at(row, QKit.cut_rect("icon_set_thanks", Vector2(64, 64)), Vector2(22, 14), Vector2(64, 64))
+	_at(row, _v_label("致谢与版本", 38, Color("4a3a33"), true), Vector2(102, 0), Vector2(240, 88))
+	_at(row, _v_label("开发团队 · 素材致谢 · 更新日志", 26, Color("9a8478"), false), Vector2(346, 2), Vector2(440, 88))
+	_at(row, _v_label("›", 56, Color("c9875a"), true), Vector2(808, -4), Vector2(36, 88))
+	row.pressed.connect(func() -> void: credits_requested.emit())
+	_at(well, row, Vector2(28, 124), Vector2(852, 92))
+
+
 func _build_logout() -> void:
 	var button := QKit.button("", "r", 124, 50)
 	button.name = "LogoutButton"
-	_at(_frame, button, Vector2(40, 1144), Vector2(880, button.custom_minimum_size.y))
+	_at(_frame, button, Vector2(40, 1252), Vector2(880, button.custom_minimum_size.y))
 	var row := UiKit.hbox(14)
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -407,7 +426,7 @@ func _build_confirm() -> void:
 		visible = false
 		logout_confirmed.emit())
 	_at(box, ok, Vector2(430, 400), Vector2(340, ok.custom_minimum_size.y))
-	var ribbon := QKit.ribbon("退出登录", 44, 240, true)
+	var ribbon := QKit.ribbon("退出登录", 48, 260, true)
 	ribbon.name = "ConfirmRibbon"
 	_confirm.add_child(ribbon)
 	add_child(_confirm)

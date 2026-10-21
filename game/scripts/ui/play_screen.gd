@@ -95,6 +95,9 @@ var _announcement: AnnouncementPrompt
 var _settings: SettingsView
 var _session := 0
 var _manual_update_check := false
+## 最近一次更新检查结果（设置弹窗版本号旁显示）："latest" / "new" / ""（还没查过或失败）。
+var _update_state := ""
+var _latest_version := ""
 var _account: Dictionary = {}
 
 
@@ -149,12 +152,15 @@ func _setup_update_check() -> void:
 	_update_prompt = UpdatePrompt.new(_popup, _update_service)
 	_update_service.update_available.connect(func(info: Dictionary) -> void:
 		_manual_update_check = false
+		_update_state = "new"
+		_latest_version = str(info.get("version", ""))
 		if _settings != null and _settings.visible:
 			_settings.show_new_version(str(info.get("version", "")))
 			_settings.close()  # 更新弹窗和设置同层，先收起设置
 		_update_prompt.show_update(info, _update_service.get_current_version()))
 	# 设置页「检查更新」：没有新版本 / 失败时给个提示（启动时的静默检查不提示）。
 	_update_service.no_update.connect(func(version: String) -> void:
+		_update_state = "latest"
 		if _manual_update_check:
 			_manual_update_check = false
 			_settings.show_latest()
@@ -332,9 +338,8 @@ func _build_shell() -> void:
 	_settings.logout_confirmed.connect(logout)
 	_settings.check_update_requested.connect(_on_manual_update_check)
 	_settings.locked_pressed.connect(func(feature: String) -> void: _toast.say_locked(feature, true))
-	_settings.credits_requested.connect(func() -> void:
-		_settings.close()
-		CreditsView.show_credits(_popup))
+	# 致谢与版本叠在设置上面（通用弹层 open 时会 move_to_front），关掉回到设置
+	_settings.credits_requested.connect(func() -> void: CreditsView.show_credits(_popup))
 	_settings.closed.connect(func() -> void: _maybe_show_notice.call_deferred())
 	add_child(_settings)
 	_announcement = AnnouncementPrompt.new(_popup)
@@ -421,6 +426,8 @@ func settings_info() -> Dictionary:
 		"realm": _realm_name(str(_state.get("realmSlug", ""))),
 		"version": _update_service.get_current_version() if _update_service != null else str(ProjectSettings.get_setting("application/config/version", "")),
 		"versionCode": _update_service.get_version_code() if _update_service != null else 0,
+		"updateState": "latest" if _mock and _update_state.is_empty() else _update_state,
+		"latestVersion": _latest_version,
 		"server": "演示数据" if _mock else ServerAddress.current().trim_prefix("http://").trim_prefix("https://"),
 	}
 

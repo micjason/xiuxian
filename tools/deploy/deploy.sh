@@ -10,7 +10,7 @@
 #   rollback [--with-db --yes]   回到上一版（默认不动数据库）
 #   status                 健康检查（只读）
 #   inspect                服务器概况（只读：端口、服务、内存、磁盘）
-#   admin-password         显示服务器上保存的后台管理员账号和密码（root 才能读的文件）
+#   admin-password [文件]  把服务器上的后台管理员账号密码下载到本机 0600 文件（默认 $ADMIN_CRED_LOCAL），不显示密码
 #   reset-admin-password   重新生成后台管理员密码
 #   backup                 立刻备份一次数据库
 #   download-backup [目录]  把最新的一份备份下载到本机（默认 /workspace/.deploy/backups/）
@@ -94,7 +94,14 @@ case "$CMD" in
   inspect)
     check_connection
     rroot "uptime; free -m; df -h /; echo; ss -ltnp; echo; systemctl --no-pager --type=service --state=running list-units | grep -Ei 'xiuxian|postgres|nginx' || true" ;;
-  admin-password) check_connection; rroot "cat /etc/$APP_NAME/admin-credentials" ;;
+  admin-password)
+    # 只写文件、不回显：脚本按路径读（tools/deploy/admin_cred.mjs、redact.sh）
+    check_connection
+    dest="${1:-$ADMIN_CRED_LOCAL}"
+    mkdir -p "$(dirname "$dest")"
+    (umask 077; rroot "cat /etc/$APP_NAME/admin-credentials" | "$HERE/admin_cred_to_env.sh" >"$dest.tmp") || { rm -f "$dest.tmp"; oops "读取失败"; }
+    chmod 600 "$dest.tmp" && mv "$dest.tmp" "$dest"
+    say "已写入 $dest（0600，内容不显示）。用法：ADMIN_CRED_FILE=$dest node <脚本>" ;;
   reset-admin-password) check_connection; rroot "bash $TOOLS_REMOTE/server/reset_admin_password.sh $(qargs "$@")" ;;
   backup) check_connection; rroot "$TOOLS_REMOTE/backup_db.sh" ;;
   download-backup)

@@ -3,7 +3,8 @@ extends Node
 ## 用法：godot --path game res://scenes/dev/capture_live.tscn -- <输出目录> <模式>（用场景启动，自动加载的 ApiClient 才在）
 ##   batch2：登录后截背包（补发到账）、青云剑详情（套装块）、功法页（栏位）：10_bag.png 11_set_popup.png 12_skill_slots.png
 ##   update：假装是旧版本（XIUXIAN_FAKE_VERSION_CODE，默认 30），等「发现新版本」弹窗出现后截图 01_update_popup.png
-##   play：  先截登录页 02_login.png；用 XIUXIAN_TEST_USER / XIUXIAN_TEST_PASS 注册（已存在就登录），等真实数据进来后截主界面
+##   play：  先截登录页 02_login.png；用测试账号（XIUXIAN_TEST_ACCOUNT_FILE 指向的 0600 文件，里面 XIUXIAN_TEST_USER= / XIUXIAN_TEST_PASS=；
+##          没有文件时才读同名环境变量）注册（已存在就登录），等真实数据进来后截主界面
 ##          03_main.png 和历练页 04_adventure.png。不检查更新（XIUXIAN_UPDATE_CHECK=0）。
 ## 输出一行 LIVE … 供脚本检查。
 
@@ -67,8 +68,9 @@ func _run_play(scene: Node) -> void:
 		await get_tree().process_frame
 	await get_tree().create_timer(0.8).timeout
 	await _shot("02_login.png")
-	var user := OS.get_environment("XIUXIAN_TEST_USER")
-	var pass_word := OS.get_environment("XIUXIAN_TEST_PASS")
+	var account := _test_account()
+	var user := str(account.get("XIUXIAN_TEST_USER", ""))
+	var pass_word := str(account.get("XIUXIAN_TEST_PASS", ""))
 	var login := scene.find_children("*", "PlayerLogin", true, false)
 	if login.is_empty() or user.is_empty():
 		print("LIVE play MISSING login/user")
@@ -132,3 +134,16 @@ func _hide_popups(scene: Node) -> void:
 	var popup := _find_popup(scene)
 	if popup != null:
 		popup.hide()
+
+
+## 测试账号只按文件路径传（密码不进命令行、不打印）：XIUXIAN_TEST_ACCOUNT_FILE=/workspace/.deploy/dev2_test_account.env。
+func _test_account() -> Dictionary:
+	var out := {"XIUXIAN_TEST_USER": OS.get_environment("XIUXIAN_TEST_USER"), "XIUXIAN_TEST_PASS": OS.get_environment("XIUXIAN_TEST_PASS")}
+	var path := OS.get_environment("XIUXIAN_TEST_ACCOUNT_FILE")
+	if path.is_empty() or not FileAccess.file_exists(path):
+		return out
+	for line in FileAccess.get_file_as_string(path).split("\n"):
+		var at := line.find("=")
+		if at > 0:
+			out[line.substr(0, at).strip_edges()] = line.substr(at + 1).strip_edges().trim_prefix("\"").trim_suffix("\"")
+	return out

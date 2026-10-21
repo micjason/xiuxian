@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# 重置后台管理员密码：随机生成，只在这次终端输出里显示一次，同时写进 $ADMIN_CRED_FILE（root 才能读）。
+# 重置后台管理员密码：随机生成，只写进 $ADMIN_CRED_FILE（root 才能读），不在终端输出里显示。
+# 本机用 deploy.sh admin-password 下载成 0600 文件，脚本按文件路径读。
 # 用法：reset_admin_password.sh [用户名，默认 owner]
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -15,4 +16,5 @@ case "$RES" in created|reset) ;; *) die "没有成功（结果：$RES）" ;; esa
 PUBLIC_BASE_URL="$(env_get "$ENV_FILE" PUBLIC_BASE_URL)"
 (umask 077; printf '后台管理员账号：%s\n后台管理员密码：%s\n网址：%s/\n' "$USER_NAME" "$PASS" "$PUBLIC_BASE_URL" >"$ADMIN_CRED_FILE")
 chmod 600 "$ADMIN_CRED_FILE"
-printf '\n后台管理员 %s 的密码已%s，新密码只显示这一次：\n  %s\n也保存在 %s（root 才能读）。\n' "$USER_NAME" "$([ "$RES" = created ] && echo 创建 || echo 重置)" "$PASS" "$ADMIN_CRED_FILE"
+PASS=""
+printf '\n后台管理员 %s 的密码已%s，只写在 %s（root 才能读），不在这里显示。\n在盒子上运行 deploy.sh admin-password 下载到本机 0600 文件。\n' "$USER_NAME" "$([ "$RES" = created ] && echo 创建 || echo 重置)" "$ADMIN_CRED_FILE"

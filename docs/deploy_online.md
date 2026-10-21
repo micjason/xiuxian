@@ -39,8 +39,8 @@
 | 发布当前代码（首次会自动准备服务器） | `tools/deploy/deploy.sh` |
 | 看状态 | `tools/deploy/deploy.sh status` |
 | 回到上一个版本 | `tools/deploy/rollback.sh`（连库一起回：`rollback.sh --with-db --yes`） |
-| 看后台密码 | `tools/deploy/deploy.sh admin-password` |
-| 重置后台密码 | `tools/deploy/deploy.sh reset-admin-password` |
+| 取后台密码（写到本机 0600 文件，不显示） | `tools/deploy/deploy.sh admin-password [文件]`，默认 `/workspace/.deploy/admin-credentials.env`；脚本用 `ADMIN_CRED_FILE=<路径>` 读（`tools/deploy/admin_cred.mjs`） |
+| 重置后台密码（新密码只写服务器文件，不显示） | `tools/deploy/deploy.sh reset-admin-password`，然后 `admin-password` 下载 |
 | 立即备份 / 下载最新备份 | `deploy.sh backup` / `deploy.sh download-backup` |
 | 出新安装包并发布 | `tools/deploy/release_apk.sh --notes "这次改了什么"`（强制更新加 `--force`） |
 
@@ -80,3 +80,8 @@
 - 签名密钥和它的备份都在 box 的同一块磁盘上。
 - box 往服务器上传很慢（有时只有几十 KB/s），发一次 APK（87 MB）可能要几十分钟。玩家下载速度取决于服务器的出口带宽。
 - 旧的 jsdelivr 更新渠道 dev2 不再使用。第一次必须手动装测试版。
+
+## 凭据不进输出（2026-10-21 起）
+- 后台密码、测试账号密码只按**文件路径**传：`ADMIN_CRED_FILE`（后台）、`XIUXIAN_TEST_ACCOUNT_FILE`（游戏测试账号），文件 0600；脚本自己读，不打印。
+- `deploy.sh admin-password` 只写文件；`reset-admin-password` 和首次部署也不再在终端显示密码。
+- 万一要看日志里的东西，先过 `tools/deploy/redact.sh`（半角「:」「=」和全角「：」「＝」都处理）。

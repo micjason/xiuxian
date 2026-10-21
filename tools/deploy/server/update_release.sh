@@ -101,14 +101,7 @@ rm -rf "$INCOMING"
 
 log "完成：当前版本 $ID。$(curl -fsS -m 3 "$HEALTH")"
 if [ -n "$NEW_ADMIN_PASSWORD" ]; then
-  cat <<MSG
-
-==================== 后台管理员（只显示这一次）====================
-  账号：$ADMIN_USER
-  密码：$NEW_ADMIN_PASSWORD
-  网址：$PUBLIC_BASE_URL/
-  也保存在服务器 $ADMIN_CRED_FILE（只有 root 能读）：deploy.sh admin-password 可以再看。
-  不要发到任何聊天群里。
-====================================================================
-MSG
+  # 密码不进终端输出：只写在服务器 $ADMIN_CRED_FILE（root 可读），本机用 deploy.sh admin-password 下载成 0600 文件
+  log "已创建后台管理员 $ADMIN_USER，密码只写在服务器 $ADMIN_CRED_FILE。在盒子上运行 deploy.sh admin-password 下载到本机 0600 文件（不显示）。"
+  NEW_ADMIN_PASSWORD=""
 fi

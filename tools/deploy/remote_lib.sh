@@ -22,6 +22,8 @@ DB_NAME="${DB_NAME:-xiuxian_dev2}"
 DB_USER="${DB_USER:-xiuxian_dev2}"
 DEPLOY_PUBLIC_URL="${DEPLOY_PUBLIC_URL:-http://$DEPLOY_HOST:$APP_PORT}"
 DEPLOY_PUBLIC_URL="${DEPLOY_PUBLIC_URL%/}"
+# 本机保存后台管理员账号密码的文件（0600，KEY=VALUE；只按路径传给脚本，内容不进任何输出）
+ADMIN_CRED_LOCAL="${ADMIN_CRED_LOCAL:-/workspace/.deploy/admin-credentials.env}"
 
 say() { printf '\033[1;36m[部署]\033[0m %s\n' "$*"; }
 oops() { printf '\033[1;31m[出错]\033[0m %s\n' "$*" >&2; exit 1; }

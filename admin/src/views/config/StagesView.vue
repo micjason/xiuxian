@@ -106,7 +106,7 @@
             </div>
           </SectionCard>
 
-          <SectionCard title="普通怪" anchor="sec-monsters" desc="玩家在线时在这里刷怪，每只击杀给固定修为">
+          <SectionCard title="普通怪" anchor="sec-monsters" desc="玩家在线时在这里刷怪，每只击杀给固定修为；一关只有一只普通怪">
             <template #extra><span class="muted">每波 {{ rules.waveSize ?? 3 }} 只 · 取自配置概览</span></template>
             <table class="grid mon">
               <thead>
@@ -135,7 +135,8 @@
               </tbody>
             </table>
             <p v-if="(form as StageForm).monsters.length === 0" class="muted pad">没有普通怪：这个关卡不能刷怪（只有首领）。</p>
-            <button type="button" class="add-row" @click="addMonster(form as StageForm)">＋ 添加怪物</button>
+            <p v-if="(form as StageForm).monsters.length > 1" class="muted pad" style="color: var(--el-color-danger)">一关只能有一只普通怪，请删到一只再保存（游戏只用第一只）。</p>
+            <button v-if="(form as StageForm).monsters.length === 0" type="button" class="add-row" @click="addMonster(form as StageForm)">＋ 添加怪物</button>
           </SectionCard>
 
           <SectionCard title="装备掉落" anchor="sec-drop" desc="只对普通怪生效；首领的装备看下方「首领」">

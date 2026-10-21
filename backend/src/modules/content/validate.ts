@@ -340,6 +340,10 @@ export function validateContent(
         push("stage", stage.slug, "bossInterval", "Boss 出手间隔必须大于 0");
       }
     }
+    if ((stage.monsters?.length ?? 0) > 1) {
+      // 老数据可能存了多只；游戏只用第一只，所以只提醒不拦发布，后台保存这关时会要求删到一只
+      warn("stage", stage.slug, "monsters", `一关只能有一只普通怪，现有 ${stage.monsters!.length} 只，只会用第一只「${stage.monsters![0]!.name}」`);
+    }
     for (const monster of stage.monsters ?? []) {
       if (!(monster.hp > 0) || !(monster.interval > 0) || monster.attack < 0 || monster.defense < 0) {
         push("stage", stage.slug, "monsters", `怪物「${monster.name}」的气血、出手间隔必须大于 0，攻击防御不能为负`);

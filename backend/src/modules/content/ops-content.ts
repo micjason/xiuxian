@@ -98,6 +98,10 @@ function readMonsters(monsters: MonsterInput[] | undefined, current: StageMonste
   if (monsters === undefined) {
     return undefined;
   }
+  // 一关只有一只普通怪（游戏和客户端只用第一只）
+  if (monsters.length > 1) {
+    throw new AppError("INVALID_INPUT", "一关只能有一只普通怪");
+  }
   return monsters.map((monster, index) => {
     const name = textOf(monster.name);
     if (!name) {

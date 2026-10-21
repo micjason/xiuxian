@@ -456,8 +456,7 @@ export async function updateOpsStage(
       displayName,
       requiredRealmOrder: realmCode,
       ...(readRecommendedPower(input.recommendedPower) === undefined ? {} : { recommendedPower: readRecommendedPower(input.recommendedPower) }),
-      nextStageSlug: null,
-      sortOrder: 0,
+      // 关卡顺序 / 下一关不在这个接口里改，保持原值（以前会被清零；批次 3 分支有同样的修复）
       bossName: first?.name ?? "",
       bossAttack: first?.attack ?? 0,
       bossDefense: first?.defense ?? 0,

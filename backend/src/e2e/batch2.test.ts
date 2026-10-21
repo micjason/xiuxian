@@ -195,6 +195,9 @@ describe("batch ② designated drops", () => {
       expect(saved.status).toBe(200);
       const [row] = await db.select().from(contentStages).where(eq(contentStages.slug, "lianqi_1"));
       expect(row!.designatedDrops).toEqual([{ itemSlug: blade, trigger: "monster", chanceBp: 10000, count: 1 }]);
+      // 保存关卡不会清掉顺序 / 下一关
+      expect(row!.sortOrder).toBeGreaterThan(0);
+      expect(row!.nextStageSlug).toBe("lianqi_2");
       // 普通掉落 9999 ≥ 500 不掉；指定掉落 100% → 每只怪 1 件
       // 前台在线：每 5 秒轮询一次
       let kills = 0;

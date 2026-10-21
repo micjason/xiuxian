@@ -33,6 +33,18 @@ export function orderedStages<S extends Pick<Stage, "slug" | "sortOrder" | "requ
   return world.stages.filter((stage) => stage.enabled).sort((a, b) => rankOf(a) - rankOf(b) || compareInChapter(a, b));
 }
 
+/**
+ * 下一关编号按游戏顺序（章节 → 关卡 sortOrder）推出来，不再读库里的 next_stage_slug 列（改 sortOrder 后它会过时）。
+ * 停用的关也排进链里，发布校验的「连成一条链」照样成立；游戏里找下一关用 nextStageOf（只看启用的）。
+ */
+export function withDerivedNextStage<S extends Pick<Stage, "slug" | "sortOrder" | "requiredRealmOrder" | "chapterSlug"> & { nextStageSlug: string | null }>(stages: S[], chapters: ContentSnapshot["chapters"]): S[] {
+  const rank = chapterRank({ chapters });
+  const rankOf = (stage: S) => (stage.chapterSlug != null && rank.has(stage.chapterSlug) ? rank.get(stage.chapterSlug)! : Number.MAX_SAFE_INTEGER);
+  const ordered = [...stages].sort((a, b) => rankOf(a) - rankOf(b) || compareInChapter(a, b));
+  const next = new Map(ordered.map((stage, index) => [stage.slug, ordered[index + 1]?.slug ?? null]));
+  return stages.map((stage) => ({ ...stage, nextStageSlug: next.get(stage.slug) ?? null }));
+}
+
 /** 本章的章末关编号（手动指定优先，否则本章启用关卡里排最后的一关）；本章没有启用的关卡返回 null。 */
 export function chiefStageOf(chapter: Pick<Chapter, "slug" | "chiefStageSlugSetting">, stages: Pick<Stage, "slug" | "sortOrder" | "requiredRealmOrder" | "enabled" | "chapterSlug">[]): string | null {
   if (chapter.chiefStageSlugSetting) {

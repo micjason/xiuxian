@@ -23,7 +23,7 @@ import { tuningOf } from "./tuning.js";
 import { QUALITY_TABLE, SLOT_KEYS, SLOT_TABLE } from "./catalog.js";
 import { skillSlotRulesOf } from "./skill-slots.js";
 import { expandBossStats, resolveBossRules } from "./boss-rules.js";
-import { chiefStageOf } from "./stage-order.js";
+import { chiefStageOf, withDerivedNextStage } from "./stage-order.js";
 
 export async function loadDraftSnapshot(db: Db | Tx): Promise<ContentSnapshot> {
   const [globals] = await db.select().from(contentGlobals).limit(1);
@@ -82,7 +82,7 @@ export async function loadDraftSnapshot(db: Db | Tx): Promise<ContentSnapshot> {
       ultFirstCooldownSeconds: row.ultFirstCooldownSeconds,
       enabled: row.enabled,
     })),
-    stages: stages.map((row) => {
+    stages: withDerivedNextStage(stages.map((row) => {
       const chapter = row.chapterSlug ? chapterBySlug.get(row.chapterSlug) : undefined;
       // 没有章节（老数据）的关卡单独算一章：首领按章末规则（和第三批之前一样，发布校验会报「没有所属章节」）。
       const tier = chapter && chapter.chiefStageSlug !== row.slug ? ("elite" as const) : ("chief" as const);
@@ -128,7 +128,7 @@ export async function loadDraftSnapshot(db: Db | Tx): Promise<ContentSnapshot> {
       recommendedPower: row.recommendedPower ?? 0,
       enabled: row.enabled,
       };
-    }),
+    }), chapters),
     chapters,
     dropTables: tables.map((table) => ({
       slug: table.slug,

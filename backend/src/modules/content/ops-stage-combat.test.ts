@@ -4,6 +4,9 @@ import { contentStages } from "../../db/schema.js";
 import { withDb } from "../../test/db.js";
 import { createOpsStage, listOpsStages, updateOpsStage } from "./ops-content.js";
 import { applyPrototypeV12 } from "./prototype-v12.js";
+import { loadDraftSnapshot } from "./snapshot.js";
+import { orderedStages } from "./stage-order.js";
+import { validateContent } from "./validate.js";
 
 const monsters = [{ name: "青鬃狼", attack: 24, defense: 14, hp: 110, interval: 1.5, killCultivation: 3 }];
 // 和配置概览默认值（5%、70/25/5/0）只差白：只存白和掉率
@@ -79,12 +82,42 @@ describe("stage admin API: monsters, monster drop, boss first-clear and repeat r
       const make = (extra: Record<string, unknown>) => createOpsStage(db, { displayName: "坏的", realmCode: 1, ...extra } as never, null);
       await expect(make({ monsters: [{ name: "x", attack: 1, defense: 1, hp: 0, interval: 1, killCultivation: 3 }] })).rejects.toThrow("怪物气血和出手间隔必须大于 0");
       await expect(make({ monsters: [{ name: "x", attack: 1, defense: 1, hp: 5, interval: 1, killCultivation: 1.5 }] })).rejects.toThrow("击杀修为要填整数");
+      await expect(make({ monsters: [...monsters, { ...monsters[0]!, name: "第二只" }] })).rejects.toThrow("一关只能有一只普通怪");
       await expect(make({ monsterDrop: { chancePercent: 101, weights: { white: 1 } } })).rejects.toThrow("不能超过 100%");
       await expect(make({ monsterDrop: { chancePercent: 5, weights: { white: 0, green: 0, blue: 0, purple: 0 } } })).rejects.toThrow("品质权重至少有一档大于 0");
       await expect(make({ monsterDrop: { chancePercent: 5, weights: { orange: 1 } } })).rejects.toThrow("橙装只由首领掉");
       await expect(make({ bosses: [{ name: "b", attack: 1, defense: 1, hp: 5, interval: 1, firstClear: [{ kind: "item", itemId: "nope", quantity: 1 }] }] })).rejects.toThrow("不存在");
       await expect(make({ bosses: [{ name: "b", attack: 1, defense: 1, hp: 5, interval: 1, firstClear: [{ kind: "cultivation", amount: 0.5 }] }] })).rejects.toThrow("整数");
       await expect(make({ bosses: [{ name: "b", attack: 1, defense: 1, hp: 5, interval: 1, repeat: { gear: true, extras: [{ itemId: "enh_stone_low", chancePercent: 5, minQty: 3, maxQty: 1 }] } }] })).rejects.toThrow("数量区间");
+    });
+  });
+
+  it("derives nextStageSlug from game order: a new stage and a sortOrder change keep the chain valid", async () => {
+    await withDb(async (db) => {
+      await applyPrototypeV12(db);
+      const created = await createOpsStage(db, { displayName: "新关", realmCode: 3, monsters, bosses: [{ name: "新熊", attack: 40, defense: 20, hp: 1600, interval: 1.5, firstClear: [], repeat: null }] } as never, null);
+      const stages = await db.select().from(contentStages);
+      const first = stages.find((row) => row.sortOrder === Math.min(...stages.map((r) => r.sortOrder)))!;
+      // 把第一关挪到最后，库里的 next_stage_slug 不动（过时）
+      await db.update(contentStages).set({ sortOrder: 9999 }).where(eq(contentStages.slug, first.slug));
+      const draft = await loadDraftSnapshot(db);
+      const order = orderedStages(draft).map((row) => row.slug);
+      expect(order).toContain(created.id);
+      for (const [index, slug] of order.entries()) {
+        expect(draft.stages.find((row) => row.slug === slug)?.nextStageSlug ?? null).toBe(order[index + 1] ?? null);
+      }
+      expect(validateContent(draft).errors.filter((error) => error.kind === "stage" && error.field === "next")).toEqual([]);
+    });
+  });
+
+  it("publish check only warns about extra monsters left in old data", async () => {
+    await withDb(async (db) => {
+      await applyPrototypeV12(db);
+      const [stage] = await db.select().from(contentStages).limit(1);
+      await db.update(contentStages).set({ monsters: [...stage!.monsters!, { ...stage!.monsters![0]!, name: "第二只" }] }).where(eq(contentStages.slug, stage!.slug));
+      const checked = validateContent(await loadDraftSnapshot(db));
+      expect(checked.warnings.some((row) => row.slug === stage!.slug && row.message.includes("一关只能有一只普通怪"))).toBe(true);
+      expect(checked.errors.filter((row) => row.field === "monsters")).toEqual([]);
     });
   });
 });

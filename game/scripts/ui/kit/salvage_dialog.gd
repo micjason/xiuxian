@@ -392,9 +392,13 @@ func _build_grid() -> void:
 	_more_hint.name = "MoreHint"
 	_more_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var fade := TextureRect.new()
+	fade.name = "MoreFade"
 	var grad := Gradient.new()
 	grad.set_color(0, Color(0.988, 0.922, 0.816, 0.0))
 	grad.set_color(1, Color(0.988, 0.922, 0.816, 1.0))
+	# 稿：linear-gradient(透明, #FCEBD0 80%)：到 80% 已经不透明，盖住最后一行的品质字
+	grad.set_offset(1, 0.8)
+	grad.add_point(1.0, Color(0.988, 0.922, 0.816, 1.0))
 	var gtex := GradientTexture2D.new()
 	gtex.gradient = grad
 	gtex.fill_from = Vector2(0, 0)
@@ -460,10 +464,14 @@ func _cell(item: Dictionary) -> Button:
 	box.name = "Check"
 	box.position = Vector2(CELL - 44, -12)
 	cell.add_child(box)
-	var word := UiKit.label(str(item.get("rarity_name", "")), 24, UiTokens.rarity_color(int(item.get("rarity", 0))).darkened(0.3), HORIZONTAL_ALIGNMENT_CENTER)
-	word.position = Vector2(0, CELL - 20)
-	word.z_index = 1
-	word.size = Vector2(CELL, 30)
+	var rarity := int(item.get("rarity", 0))
+	var word_color := Color("#8E96A3") if rarity <= 0 else UiTokens.rarity_color(rarity).darkened(0.3)
+	# 稿 p_salvage：品质字在格子正下方 4px（x-10，宽 SZ+20），不再叠在格子上；最后一行被底部渐隐盖住（「下滑查看更多」）。
+	# 不设 z_index：要让底部渐隐 / 二次确认层盖得住。
+	var word := UiKit.label(str(item.get("rarity_name", "")), 24, word_color, HORIZONTAL_ALIGNMENT_CENTER)
+	word.name = "Quality"
+	word.position = Vector2(-10, CELL + 4)
+	word.size = Vector2(CELL + 20, 28)
 	word.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	cell.add_child(word)
 	return cell

@@ -205,3 +205,37 @@ func test_item_detail_shows_essence_cost_and_short_toast() -> void:
 	assert_false(bool(view.enough))
 	var rich := ItemDetailView.enhance_view(item, 1000000, true)
 	assert_true(bool(rich.enough))
+
+
+func test_quality_words_sit_under_the_slot_and_the_bottom_fade_covers_the_last_visible_row() -> void:
+	# 0.18.0 线上截图：最后一行的「凡品」叠在「↓ 下滑查看更多」上（品质字 z_index=1 压过渐隐，且叠在格子底边上）。按稿：字在格子下方 4px，渐隐 80% 处不透明。
+	var dialog := SalvageDialog.new()
+	dialog.animate = false
+	add_child_autofree(dialog)
+	var bag := _bag()
+	while SalvageModel.candidates(bag).size() <= 25:
+		var extra := (bag.items.filter(func(i: Dictionary) -> bool: return SalvageModel.candidates(bag).any(func(c: Dictionary) -> bool: return str(c.id) == str(i.id)))[0] as Dictionary).duplicate()
+		extra["id"] = "extra_%d" % bag.items.size()
+		bag.items.append(extra)
+	dialog.open(bag)
+	# 无头模式下字体报的引擎错误（FreeType）和这里无关，同 test_settings
+	gut.error_tracker.treat_engine_errors_as = GutUtils.TREAT_AS.NOTHING
+	await wait_frames(2)
+	var hint := dialog.find_child("MoreHint", true, false) as Control
+	var scroll := dialog.find_child("GridScroll", true, false) as Control
+	assert_true(hint.visible, "超过 4 行时显示「下滑查看更多」")
+	assert_gt(hint.get_index(), scroll.get_index(), "渐隐画在格子上面")
+	var fade := hint.find_child("MoreFade", true, false) as TextureRect
+	var grad := (fade.texture as GradientTexture2D).gradient
+	var cells := (dialog.find_child("Grid", true, false) as Control).get_children().filter(func(n: Node) -> bool: return n.name.begins_with("Cell_"))
+	assert_gt(cells.size(), 20)
+	for index in 20:
+		var cell := cells[index] as Control
+		var word := cell.find_child("Quality", false, false) as Control
+		var slot := cell.find_child("Slot", false, false) as Control
+		assert_eq(word.z_index, 0, "品质字不抬层")
+		assert_true(word.position.y >= slot.position.y + slot.size.y, "品质字在格子下面，不叠在格子上")
+		if index >= 15:
+			var center := word.get_global_rect().get_center() - hint.global_position
+			assert_between(center.y, 0.0, hint.size.y, "最后一行的字落在渐隐范围内")
+			assert_gt(grad.sample(center.y / hint.size.y).a, 0.95, "最后一行的品质字被渐隐盖住，不和提示字打架")

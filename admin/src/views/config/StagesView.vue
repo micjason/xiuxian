@@ -1,6 +1,6 @@
 <template>
   <div>
-    <PageHeader title="关卡与首领" desc="一个境界下可以有多个关卡。点一行在右侧抽屉里改：普通怪、装备掉落（默认跟随「配置概览」）、首领与奖励、试打。推荐战力默认按公式自动算。" />
+    <PageHeader title="关卡与首领" desc="每关都有首领：普通关卡是精英，每章最后一关是章末大首领。关卡按章节分组，章节顺序 + 关卡顺序 = 解锁顺序。点一行在右侧抽屉里改：普通怪、装备掉落（默认跟随「配置概览」）、首领与规则、试打。" />
     <ConfigListPage
       :schema="stageSchema"
       :rows="rows"
@@ -8,7 +8,7 @@
       :error="error"
       id-key="id"
       entity-name="关卡"
-      :search-keys="['displayName', 'realmName', 'bossText']"
+      :search-keys="['displayName', 'realmName', 'bossText', 'chapterName']"
       search-placeholder="搜索关卡、境界、首领"
       :filters="filters"
       :columns="columns"
@@ -24,8 +24,15 @@
       :drawer-subtitle="subtitleOf"
       :title-of="titleOf"
       export-name="关卡"
+      span-key="chapterName"
       @reload="reload"
     >
+      <template #cell-chapterName="{ row }">
+        <span class="chapter-cell">{{ row.chapterName }}</span>
+      </template>
+      <template #cell-bossText="{ row }">
+        <span class="boss-cell">{{ row.bossText }}<TierTag :tier="row.tier as BossTier" /></span>
+      </template>
       <template #cell-realmName="{ row }">
         <el-tag v-if="row.realmMissing" type="danger" effect="light" size="small">境界 {{ row.realmCode }} 不存在</el-tag>
         <span v-else>{{ row.realmCode }} {{ row.realmName }}</span>
@@ -83,9 +90,18 @@
                   <template v-else>自动值 {{ (form as StageForm).autoPower ?? "—" }}</template>
                 </template>
               </FormRow>
+              <FormRow label="所属章节" help="关卡按章节分组；章节顺序 + 章内顺序 = 解锁顺序。每章最后一关（或章节里指定的一关）是章末大首领。">
+                <el-select v-model="(form as StageForm).chapterSlug" class="w320" placeholder="选择章节" clearable>
+                  <el-option v-for="chapter in chapters" :key="chapter.id" :label="`${chapter.sortOrder} · ${chapter.displayName}`" :value="chapter.id" />
+                </el-select>
+              </FormRow>
+              <FormRow label="章内顺序" help="同一章里小的在前。新建时不填 = 排到本章最后。">
+                <NumInput v-model="(form as StageForm).sortOrder" :precision="0" :max="99999" />
+                <template #note>{{ tierNote(form as StageForm) }}</template>
+              </FormRow>
               <FormRow label="下一关">
                 <el-input :model-value="nextStageName(form as StageForm)" class="w320" disabled />
-                <template #note>按关卡顺序自动衔接，在这里不能改</template>
+                <template #note>按章节和章内顺序自动衔接</template>
               </FormRow>
             </div>
           </SectionCard>
@@ -96,6 +112,7 @@
               <thead>
                 <tr>
                   <th class="name">名称</th>
+                  <th class="art">立绘<HelpTip title="怪物立绘" text="游戏里用的怪物贴图（Q 版 sprites 目录下 mon_ 开头的图）。不选按名字匹配。本关精英默认也用第一只怪的立绘。" /></th>
                   <th class="num">攻击</th>
                   <th class="num">防御</th>
                   <th class="num">气血</th>
@@ -107,6 +124,7 @@
               <tbody>
                 <tr v-for="(monster, mIndex) in (form as StageForm).monsters" :key="mIndex">
                   <td class="name"><el-input v-model="monster.name" placeholder="名称" /></td>
+                  <td class="art"><ArtKeySelect v-model="monster.artKey" :width="120" clearable /></td>
                   <td class="num"><NumInput v-model="monster.attack" :width="120" /></td>
                   <td class="num"><NumInput v-model="monster.defense" :width="120" /></td>
                   <td class="num"><NumInput v-model="monster.hp" :width="120" :min="1" /></td>
@@ -192,9 +210,9 @@
             </FormRow>
           </SectionCard>
 
-          <SectionCard title="首领与掉落" anchor="sec-boss">
+          <SectionCard title="首领" anchor="sec-boss" :desc="tierOf(form as StageForm) === 'chief' ? '本章最后一关：章末大首领，属性默认手填' : '普通关卡：小首领（精英），属性默认 = 本关普通怪 × 倍率'">
             <template #extra>
-              <el-button v-if="(form as StageForm).bosses.length > 0" size="small" @click="openTrial((form as StageForm).bosses[0]!)">试打</el-button>
+              <TierTag :tier="tierOf(form as StageForm)" long />
             </template>
             <BossEditor
               v-model="(form as StageForm).bosses"
@@ -203,9 +221,11 @@
               :skills="skills"
               :power-of="(boss: BossRow) => bossPowerOf(boss, (form as StageForm).realmCode)"
               :weights="weights"
-              :daily-count="rules.bossDailyRewardCount ?? 5"
-              :orange-default="defaults.orangeChancePercent"
+              :tier="tierOf(form as StageForm)"
+              :defaults="bossRules[tierOf(form as StageForm)]"
+              :monster="(form as StageForm).monsters[0] ?? null"
               @trial="openTrial"
+              @open-overview="goOverviewBoss"
             />
           </SectionCard>
 
@@ -221,8 +241,11 @@
 import { computed, onMounted, onBeforeUnmount, ref } from "vue";
 import { useRouter } from "vue-router";
 import { api } from "../../api";
-import type { BossRow } from "../../components/BossEditor.vue";
+import ArtKeySelect from "../../components/ArtKeySelect.vue";
+import type { BossRow, BossStatKey, FirstClearRow } from "../../components/BossEditor.vue";
 import BossEditor from "../../components/BossEditor.vue";
+import TierTag from "../../components/TierTag.vue";
+import { cloneRules, loadBossRules, loadChapters, type BossRuleOverride, type BossRules, type BossTier, type ChapterRow } from "../../composables/bossRules";
 import ConfigListPage from "../../components/ConfigListPage.vue";
 import CustomTag from "../../components/CustomTag.vue";
 import DrawerAnchors from "../../components/DrawerAnchors.vue";
@@ -237,12 +260,15 @@ import { loadWeapons, type Named } from "../../composables/lookups";
 import { stageSchema } from "../../schema/resources";
 
 type MonsterQuality = "white" | "green" | "blue" | "purple";
-type MonsterRow = { name: string; attack: number; defense: number; hp: number; interval: number; killCultivation: number };
+type MonsterRow = { name: string; attack: number; defense: number; hp: number; interval: number; killCultivation: number; artKey?: string | null };
 type DropForm = { chancePercent: number | null; weights: Record<MonsterQuality, number | null> };
 type StageForm = {
   id?: string;
   displayName: string;
   realmCode: number | undefined;
+  chapterSlug: string | null;
+  sortOrder: number | null;
+  tier?: BossTier | null;
   recommendedPower: number | null;
   autoPower?: number | null;
   autoFormula?: string | null;
@@ -260,8 +286,11 @@ type ApiBoss = {
   hp: number;
   interval: number;
   drops: { itemId: string; chancePercent: number }[];
-  firstClear: ({ kind: "item"; itemId: string; quantity: number } | { kind: "cultivation"; amount: number })[];
-  repeat: { gear: boolean; orangeChancePercent: number | null; extras: { itemId: string; chancePercent: number; minQty: number; maxQty: number }[] } | null;
+  firstClear: FirstClearRow[];
+  repeat: { gear: boolean; extras: { itemId: string; chancePercent: number; minQty: number; maxQty: number }[] } | null;
+  artKey: string | null;
+  ruleOverride: BossRuleOverride | null;
+  statsCustom: BossStatKey[];
 };
 type ApiStage = {
   id: string;
@@ -269,6 +298,9 @@ type ApiStage = {
   realmCode: number;
   realmName: string;
   realmMissing: boolean;
+  chapterSlug: string | null;
+  sortOrder: number;
+  tier: BossTier | null;
   recommendedPower: number | null;
   effectivePower: number | null;
   autoPower: number | null;
@@ -287,7 +319,6 @@ type Rules = {
   speedWeight: number;
   speedBase: number;
   recommendedPowerMargin: number;
-  bossDailyRewardCount?: number;
   waveSize?: number;
 };
 
@@ -298,6 +329,11 @@ const QUALITIES = [
   { key: "purple", name: "紫", color: "#8a5bb8" },
   { key: "orange", name: "橙", color: "#d9822b" },
 ] as const;
+/** 读不到首领规则时的占位（和服务端 DEFAULT_BOSS_RULES 一样） */
+const FALLBACK_RULES: BossRules = {
+  elite: { statMode: "auto", statMul: { hp: 5, attack: 1.3, defense: 1.2 }, allowRepeat: true, repeatRewards: false, dailyRewardLimit: 0, gearQualityPct: { white: 0, green: 70, blue: 25, purple: 5, orange: 0 }, autoChallenge: true, autoChallengePowerPct: 100, autoChallengeRetrySeconds: 60, unlockNeedsBossWin: true, unlockNeedsRealm: true },
+  chief: { statMode: "manual", statMul: { hp: 8.5, attack: 1.15, defense: 1.2 }, allowRepeat: true, repeatRewards: true, dailyRewardLimit: 5, gearQualityPct: { white: 0, green: 50, blue: 35, purple: 13, orange: 2 }, autoChallenge: false, autoChallengePowerPct: 100, autoChallengeRetrySeconds: 60, unlockNeedsBossWin: true, unlockNeedsRealm: true },
+};
 const anchors = [
   { id: "sec-base", label: "基础信息" },
   { id: "sec-monsters", label: "普通怪" },
@@ -311,6 +347,8 @@ const rows = ref<Record<string, unknown>[]>([]);
 const loading = ref(false);
 const error = ref("");
 const realms = ref<{ code: number; displayName: string; interval: number }[]>([]);
+const chapters = ref<ChapterRow[]>([]);
+const bossRules = ref<BossRules>(cloneRules(FALLBACK_RULES));
 const items = ref<Named[]>([]);
 const weapons = ref<Named[]>([]);
 const skills = ref<Named[]>([]);
@@ -327,8 +365,13 @@ function onResize(): void {
 }
 
 const realmOptions = computed(() => realms.value.map((realm) => ({ label: `${realm.code} · ${realm.displayName}`, value: realm.code })));
-const filters = computed(() => [{ key: "realmCode", label: "境界", options: realmOptions.value }]);
+const chapterOptions = computed(() => chapters.value.map((chapter) => ({ label: chapter.displayName, value: chapter.id })));
+const filters = computed(() => [
+  { key: "chapterSlug", label: "章节", options: chapterOptions.value },
+  { key: "realmCode", label: "境界", options: realmOptions.value },
+]);
 const columns = [
+  { key: "chapterName", label: "章节", width: 120 },
   { key: "displayName", label: "关卡", minWidth: 160 },
   { key: "realmName", label: "所需境界", width: 150 },
   { key: "bossText", label: "首领", minWidth: 180 },
@@ -347,10 +390,26 @@ function titleOf(form: Record<string, unknown>, mode: "create" | "edit"): string
 function subtitleOf(form: Record<string, unknown>): string {
   const stage = form as unknown as StageForm;
   const realm = realmOf(stage.realmCode);
-  const sameRealm = rows.value.filter((row) => row.realmCode === stage.realmCode);
-  const index = sameRealm.findIndex((row) => row.id === stage.id);
+  const chapter = chapters.value.find((row) => row.id === stage.chapterSlug);
+  const index = chapter ? chapter.stages.findIndex((row) => row.id === stage.id) : -1;
   const boss = stage.bosses?.[0]?.name;
-  return [realm?.displayName ?? "未选境界", index >= 0 ? `第 ${index + 1} 关` : "新关卡", boss ? `首领 ${boss}` : "无首领"].join(" · ");
+  return [chapter?.displayName ?? "未分章节", index >= 0 ? `第 ${index + 1} 关` : "新关卡", realm?.displayName ?? "未选境界", boss ? `首领 ${boss}` : "无首领"].join(" · ");
+}
+
+/** 首领档次：已保存的关卡用服务端算的；换了章节 / 新关卡按「排在本章最后 = 章末」估算（保存后以服务端为准） */
+function tierOf(form: StageForm): BossTier {
+  const chapter = chapters.value.find((row) => row.id === form.chapterSlug);
+  const saved = rows.value.find((row) => row.id === form.id) as { chapterSlug?: string | null; sortOrder?: number; tier?: BossTier | null } | undefined;
+  if (saved && saved.chapterSlug === form.chapterSlug && saved.sortOrder === form.sortOrder && saved.tier) return saved.tier;
+  if (!chapter) return form.tier ?? "elite";
+  if (chapter.chiefStageSlug) return chapter.chiefStageSlug === form.id ? "chief" : "elite";
+  const others = chapter.stages.filter((row) => row.id !== form.id);
+  const last = others.reduce((max, row) => Math.max(max, row.sortOrder), Number.NEGATIVE_INFINITY);
+  return form.sortOrder == null || form.sortOrder > last ? "chief" : "elite";
+}
+
+function tierNote(form: StageForm): string {
+  return tierOf(form) === "chief" ? "本关是本章最后一关 → 章末大首领" : "本关是普通关卡 → 小首领（精英）";
 }
 
 function nextStageName(form: StageForm): string {
@@ -392,22 +451,31 @@ function goOverview(): void {
   void router.push("/config/overview#drop");
 }
 
+function goOverviewBoss(): void {
+  void router.push("/config/overview#boss");
+}
+
 function addMonster(form: StageForm): void {
-  form.monsters.push({ name: "", attack: 0, defense: 0, hp: 100, interval: 1.5, killCultivation: 1 });
+  form.monsters.push({ name: "", attack: 0, defense: 0, hp: 100, interval: 1.5, killCultivation: 1, artKey: null });
 }
 
 async function reload(): Promise<void> {
   loading.value = true;
   error.value = "";
   try {
-    const [stages, realmList, itemList, weaponList, skillList, ruleView] = await Promise.all([
+    const [stages, realmList, itemList, weaponList, skillList, ruleView, chapterList, bossRuleView] = await Promise.all([
       api<ApiStage[]>("/admin/draft/stages"),
       api<{ code: number; displayName: string; interval: number }[]>("/admin/draft/realms"),
       api<Named[]>("/admin/draft/items"),
       loadWeapons(),
       api<Named[]>("/admin/draft/skills"),
       api<Rules>("/admin/draft/rules"),
+      loadChapters(),
+      loadBossRules(),
     ]);
+    chapters.value = chapterList;
+    bossRules.value = bossRuleView.rules;
+    const chapterName = new Map(chapterList.map((chapter) => [chapter.id, chapter.displayName]));
     realms.value = realmList;
     items.value = itemList;
     weapons.value = weaponList;
@@ -416,6 +484,7 @@ async function reload(): Promise<void> {
     if (stages[0]) defaults.value = stages[0].dropDefaults;
     rows.value = stages.map((stage) => ({
       ...stage,
+      chapterName: stage.chapterSlug ? (chapterName.get(stage.chapterSlug) ?? stage.chapterSlug) : "未分章节",
       bossText: stage.bosses.length === 0 ? "—" : stage.bosses.map((boss) => boss.name).join("、"),
       bosses: stage.bosses.map((boss) => ({
         name: boss.name,
@@ -424,10 +493,13 @@ async function reload(): Promise<void> {
         hp: boss.hp,
         interval: boss.interval,
         drops: boss.drops.map((drop) => ({ itemId: drop.itemId, chancePercent: drop.chancePercent })),
-        firstClear: boss.firstClear.map((entry) => (entry.kind === "cultivation" ? { kind: "cultivation" as const, amount: entry.amount } : { kind: "item" as const, itemId: entry.itemId, quantity: entry.quantity })),
-        repeat: boss.repeat ? { gear: boss.repeat.gear, orangeChancePercent: boss.repeat.orangeChancePercent, extras: boss.repeat.extras.map((extra) => ({ itemId: extra.itemId, chancePercent: extra.chancePercent, minQty: extra.minQty, maxQty: extra.maxQty })) } : null,
+        firstClear: boss.firstClear.map((entry) => ({ ...entry })),
+        repeat: boss.repeat ? { gear: boss.repeat.gear, extras: boss.repeat.extras.map((extra) => ({ itemId: extra.itemId, chancePercent: extra.chancePercent, minQty: extra.minQty, maxQty: extra.maxQty })) } : null,
+        artKey: boss.artKey ?? null,
+        rules: boss.ruleOverride ? cloneRules(boss.ruleOverride) : null,
+        statsCustom: [...(boss.statsCustom ?? [])],
       })),
-      monsters: stage.monsters.map((monster) => ({ ...monster })),
+      monsters: stage.monsters.map((monster) => ({ ...monster, artKey: monster.artKey ?? null })),
       monsterDrop: { chancePercent: stage.monsterDrop.chancePercent, weights: { white: stage.monsterDrop.weights.white ?? null, green: stage.monsterDrop.weights.green ?? null, blue: stage.monsterDrop.weights.blue ?? null, purple: stage.monsterDrop.weights.purple ?? null } },
     }));
   } catch (cause) {
@@ -441,6 +513,8 @@ function newRow(): Record<string, unknown> {
   return {
     displayName: "",
     realmCode: realms.value[0]?.code,
+    chapterSlug: chapters.value.at(-1)?.id ?? null,
+    sortOrder: null,
     recommendedPower: null,
     autoPower: null,
     bosses: [] as BossRow[],
@@ -455,8 +529,11 @@ async function save(values: Record<string, unknown>, mode: "create" | "edit", ed
   const body = JSON.stringify({
     displayName: form.displayName,
     realmCode: form.realmCode,
+    chapterSlug: form.chapterSlug ?? "",
+    sortOrder: form.sortOrder ?? undefined,
     recommendedPower: form.recommendedPower,
-    bosses: form.bosses,
+    // 首领：rules 只放改过的项（null = 全部跟随默认）；单首领橙装概率已停用，不再发送
+    bosses: form.bosses.map((boss) => ({ ...boss, artKey: boss.artKey ?? null, rules: boss.rules && Object.keys(boss.rules).length ? boss.rules : null, statsCustom: boss.statsCustom ?? [] })),
     monsters: form.monsters,
     monsterDrop: form.monsterDrop,
     designatedDrops: (form.designatedDrops ?? []).map(({ itemId, trigger, chancePercent, count }) => ({ itemId, trigger, chancePercent, count })),
@@ -585,6 +662,18 @@ onBeforeUnmount(() => window.removeEventListener("resize", onResize));
   border-radius: 3px;
   overflow: hidden;
   background: var(--xx-bg-subtle);
+}
+.grid .art {
+  width: 136px;
+}
+.chapter-cell {
+  color: var(--xx-text-primary);
+  font-weight: 600;
+}
+.boss-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 .power-cell {
   display: inline-flex;

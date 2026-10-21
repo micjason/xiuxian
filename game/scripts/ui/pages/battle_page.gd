@@ -27,6 +27,9 @@ const HERO_POSE_HOOK := "player_fight"
 const HERO_SIZE := 390.0
 ## 外壳底栏中间按钮上凸的高度（战斗页保留外壳底栏，见第四批改动说明）。
 const TAB_OVERHANG := 64.0
+## 主角整体抬高（负责人：脚要完整露出、踩在地面上，40–90px）：战斗区下沿被下方面板的圆角 / 阴影压住一截，
+## 立绘脚底在图内 y≈600/635（SPEC_Q §17.8），抬 60px 后脚底离战斗区下沿约 80px。
+const HERO_RAISE := 60.0
 ## 战报最多显示几行（最新在最上，超出顶掉最旧，不滚动）。
 const REPORT_ROWS := 4
 const SPEED_PREF_PATH := "user://battle_prefs.cfg"
@@ -285,8 +288,8 @@ func _place_hero(node: Control) -> void:
 	var side := HERO_SIZE if node.name == "HeroArt" else 300.0
 	node.offset_left = -30
 	node.offset_right = side - 30.0
-	node.offset_top = -side
-	node.offset_bottom = 0
+	node.offset_top = -side - HERO_RAISE
+	node.offset_bottom = -HERO_RAISE
 
 
 func _hero_rect(tex: Texture2D, tint: Color) -> TextureRect:

@@ -53,6 +53,60 @@ func test_the_layered_hero_replaces_the_static_one_everywhere() -> void:
 	assert_eq(_static_hero_rects(scene).size(), 0, "没有地方再用旧的静态主角图")
 
 
+func _buttons(root: Node, out: Array[BaseButton] = []) -> Array[BaseButton]:
+	if root is BaseButton:
+		out.append(root)
+	for child in root.get_children():
+		_buttons(child, out)
+	return out
+
+
+func _controls(root: Node, out: Array[Control] = []) -> Array[Control]:
+	if root is Control:
+		out.append(root)
+	for child in root.get_children():
+		_controls(child, out)
+	return out
+
+
+## 第四批（负责人）：战斗中玩家除了倍速和撤退没有任何手动操作——大招圆盘区域没有按钮，「自动」只是标签，全部不接收点击；
+## 主角整体抬高 40–90px，脚完整露出、踩在地面上。
+func test_boss_battle_has_no_manual_controls_besides_speed_and_retreat() -> void:
+	var scene := await _boot("ready")
+	scene.call("_open_battle", str(((scene.get("_state") as Dictionary).breakthrough.requiredStage as Dictionary).slug))
+	var page := scene.get("_battle_page") as Control
+	page.call("_on_start")
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var disc := page.find_child("UltChargeDisc", true, false) as Control
+	assert_not_null(disc, "有大招蓄力圆盘")
+	var enabled_in_disc := _buttons(disc).filter(func(b: BaseButton) -> bool: return not b.disabled)
+	assert_eq(enabled_in_disc.size(), 0, "大招圆盘区域没有能点的按钮")
+	assert_eq(_buttons(disc).size(), 0, "大招圆盘里根本没有按钮")
+	for node in _controls(disc):
+		assert_eq(node.mouse_filter, Control.MOUSE_FILTER_IGNORE, "%s 不接收点击" % node.name)
+	var auto := disc.find_child("AutoLabel", true, false)
+	assert_true(auto is Label, "「自动」是纯文字标签")
+	assert_null(disc.find_child("AutoChip", true, false))
+	assert_null(page.find_child("UltButton", true, false))
+	assert_null(page.find_child("AutoToggle", true, false))
+	# 整页（战斗中）能点的只有倍速和撤退
+	var names: Array[String] = []
+	for button in _buttons(page):
+		if not button.disabled and button.is_visible_in_tree():
+			names.append(str(button.name))
+	names.sort()
+	assert_eq(names, ["RetreatButton", "SpeedButton"], "战斗中只能点倍速、撤退")
+	# 主角：抬高 40–90px，脚底（图内 y≈600/635）在战斗区里、离下沿至少 40px
+	var hero := page.find_child("HeroArt", true, false) as Control
+	assert_between(-hero.offset_bottom, 40.0, 90.0, "主角抬高 40–90px")
+	var arena := page.find_child("Arena", true, false) as Control
+	var feet := hero.get_global_rect().position.y + hero.size.y * 600.0 / 635.0
+	var arena_bottom := arena.get_global_rect().end.y
+	assert_true(feet < arena_bottom - 40.0, "脚底 %.0f 离战斗区下沿 %.0f 至少 40px" % [feet, arena_bottom])
+	assert_true(hero.get_global_rect().end.y <= arena_bottom, "立绘整张在战斗区里，没被下方面板压住")
+
+
 func test_home_hero_sits_in_the_design_frame() -> void:
 	var scene := await _boot("ready")
 	scene.call("_show_page", "cultivate")

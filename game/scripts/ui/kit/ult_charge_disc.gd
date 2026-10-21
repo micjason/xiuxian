@@ -1,7 +1,7 @@
 class_name UltChargeDisc
 extends Control
 ## 大招蓄力圆盘（SPEC_Q §17.1，**不是按钮**，mouse_filter=IGNORE）：radial_bg_176 + radial_fill_166（顺时针，value=蓄力%）
-## + radial_center_132 + 大招图标 80 + 蓄力 % 白字；下方「自动」胶囊。蓄满瞬间 ult_ready_glow 垫在下面放大淡出（0.45s），
+## + radial_center_132 + 大招图标 80 + 蓄力 % 白字；下方「自动」小字（纯标签）。蓄满瞬间 ult_ready_glow 垫在下面放大淡出（0.45s），
 ## 同一刻战斗自动施放；释放后归零重新蓄。本境界没学会大招：整体 modulate 0.6，% 处写「未学会」。
 
 const SIZE := 204.0
@@ -53,14 +53,25 @@ func _init() -> void:
 	_pct.size = Vector2(SIZE, 44)
 	_pct.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_pct)
-	var chip := QKit.tag("自动", "orange", 26, 26)
-	chip.name = "AutoChip"
-	chip.position = Vector2((SIZE - 116.0) / 2.0, 166)
-	chip.custom_minimum_size = Vector2(116, 44)
-	add_child(chip)
+	# 「自动」只是说明文字（负责人：除了倍速和撤退，玩家没有任何手动操作）——小字标签，不是按钮、不接收点击、没有按下 / 悬停态
+	var auto := QKit.outlined("自动", 26, UiTokens.Q_WHITE, UiTokens.Q_ORANGE_DARK, 6, HORIZONTAL_ALIGNMENT_CENTER, false)
+	auto.name = "AutoLabel"
+	auto.position = Vector2(0, 172)
+	auto.size = Vector2(SIZE, 36)
+	add_child(auto)
+	_ignore_mouse(self)
 	if _bar.texture_progress == null:
 		_bar.draw.connect(func() -> void:
 			_bar.draw_arc(Vector2(83, 83), 76, -PI / 2.0, -PI / 2.0 + TAU * charge, 64, UiTokens.Q_ORANGE, 12.0, true))
+
+
+## 圆盘里所有节点都不接收鼠标 / 触摸（点了也不会有任何反应）。
+static func _ignore_mouse(node: Node) -> void:
+	if node is Control:
+		(node as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
+		(node as Control).focus_mode = Control.FOCUS_NONE
+	for child in node.get_children():
+		_ignore_mouse(child)
 
 
 func _rect(tex: Texture2D, box: Vector2) -> TextureRect:

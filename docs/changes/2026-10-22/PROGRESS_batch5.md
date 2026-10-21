@@ -8,3 +8,7 @@
 - [x] Godot import + 全量 GUT 288/288（截图后再跑一次）
 - [x] 截图 /workspace/client_preview_v18b/ + compare_sheet.png（含后台 6_*、7_*）
 - [x] 变更说明 salvage-essence.md；最终全量测试后提交
+
+## 完成（2026-10-22 01:45 UTC+8 左右）
+- 最终：后端 vitest 350/350、tsc 通过、admin build 通过、Godot import + GUT 288/288（2967 断言）
+- 截图：/workspace/client_preview_v18b/（1_/1b_/2_/2b_/3_/3b_/4_/5_ 客户端，6_/6b_/7_ 后台，compare_sheet.png 对照设计稿）

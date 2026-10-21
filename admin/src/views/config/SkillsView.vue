@@ -56,6 +56,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
+import { useRefetchOnActivate } from "../../composables/dataVersion";
 import { useRoute, useRouter } from "vue-router";
 import { api } from "../../api";
 import ConfigListPage from "../../components/ConfigListPage.vue";
@@ -146,6 +147,7 @@ function categoryHint(row: Record<string, unknown>): string {
   return used > 0 ? `分类「${String(row.displayName)}」下还有 ${used} 个技能，删除后这些技能会显示「分类不存在」。确认删除？` : `删除分类「${String(row.displayName)}」？`;
 }
 
+useRefetchOnActivate(reload);
 onMounted(reload);
 </script>
 

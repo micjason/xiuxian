@@ -15,7 +15,7 @@
         @mouseenter="enter"
         @mouseleave="leave"
         @click.stop="pinned = !pinned"
-      >?</button>
+      >!</button>
     </template>
     <div class="body" @click.stop>
       <strong>{{ title }}</strong>
@@ -28,7 +28,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from "vue";
 
-/** 字段旁 14px 的圆形问号：悬停 200ms 出现，点击后固定不消失（再点或点别处关掉）。 */
+/** 字段旁 14px 的圆形「!」提示图标（表示有提示；鼠标保持普通箭头，不用问号光标）：悬停 200ms 出现，点击后固定不消失（再点或点别处关掉）。 */
 defineProps<{ title: string; text: string; meta?: string }>();
 const pinned = ref(false);
 const hovering = ref(false);
@@ -68,7 +68,7 @@ onBeforeUnmount(() => {
   font-weight: 700;
   line-height: 1;
   vertical-align: 1px;
-  cursor: help;
+  cursor: default;
 }
 .help:hover,
 .help.on {

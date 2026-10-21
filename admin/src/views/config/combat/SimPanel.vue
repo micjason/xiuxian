@@ -100,6 +100,7 @@
 
 <script setup lang="ts">
 import { ElMessage } from "element-plus";
+import { useRefetchOnActivate } from "../../../composables/dataVersion";
 import { computed, onMounted, ref } from "vue";
 import { api } from "../../../api";
 import ConfigListPage from "../../../components/ConfigListPage.vue";
@@ -314,6 +315,7 @@ async function remove(row: Record<string, unknown>): Promise<void> {
   await api(`/admin/draft/puppets/${String(row.id)}`, { method: "DELETE" });
 }
 
+useRefetchOnActivate(reload);
 onMounted(reload);
 </script>
 

@@ -106,6 +106,7 @@
 
 <script setup lang="ts">
 import { Refresh, Search } from "@element-plus/icons-vue";
+import { useRefetchOnActivate } from "../../composables/dataVersion";
 import { ElMessage } from "element-plus";
 import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
@@ -266,6 +267,7 @@ function exportCsv(list: PlayerRow[]): void {
   );
 }
 
+useRefetchOnActivate(reload);
 onMounted(reload);
 </script>
 

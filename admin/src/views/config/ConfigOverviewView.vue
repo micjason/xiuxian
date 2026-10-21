@@ -48,7 +48,7 @@
               <el-table-column label="改了" width="80"><template #default="{ row }"><CustomTag kind="custom">{{ row.customCount }} 项</CustomTag></template></el-table-column>
               <el-table-column label="操作" width="160" align="right">
                 <template #default="{ row }">
-                  <el-button link type="primary" @click="router.push('/config/stages')">编辑</el-button>
+                  <el-button link type="primary" @click="router.push({ path: '/config/stages', query: { open: row.id } })">编辑</el-button>
                   <el-button link type="primary" @click="resetStage(row)">恢复默认</el-button>
                 </template>
               </el-table-column>
@@ -156,6 +156,7 @@
 
 <script setup lang="ts">
 import { ElMessage, ElMessageBox } from "element-plus";
+import { useRefetchOnActivate } from "../../composables/dataVersion";
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { api } from "../../api";
@@ -376,6 +377,7 @@ async function resetStage(row: StageRow): Promise<void> {
   }
 }
 
+useRefetchOnActivate(reload);
 onMounted(async () => {
   window.addEventListener("scroll", onScroll, { passive: true, capture: true });
   await reload();

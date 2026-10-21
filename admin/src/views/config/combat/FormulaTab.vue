@@ -210,6 +210,7 @@
 
 <script setup lang="ts">
 import { ElMessage } from "element-plus";
+import { useRefetchOnActivate } from "../../../composables/dataVersion";
 import { computed, onMounted, ref, watch } from "vue";
 import { api } from "../../../api";
 import SchemaForm from "../../../components/SchemaForm.vue";
@@ -465,6 +466,7 @@ watch(
   { deep: true },
 );
 
+useRefetchOnActivate(load);
 onMounted(load);
 </script>
 

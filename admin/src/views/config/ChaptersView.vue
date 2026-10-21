@@ -96,6 +96,7 @@
 <script setup lang="ts">
 /** 章节列表 + 编辑（第三批，ADMIN_SPEC §8）：名称、顺序、背景（缩略图）、首领特效、章末首领关、启用。 */
 import { ElMessage, ElMessageBox } from "element-plus";
+import { useRefetchOnActivate } from "../../composables/dataVersion";
 import { computed, onMounted, ref } from "vue";
 import { api } from "../../api";
 import CustomTag from "../../components/CustomTag.vue";
@@ -206,6 +207,7 @@ async function remove(row: ChapterRow): Promise<void> {
   }
 }
 
+useRefetchOnActivate(reload);
 onMounted(reload);
 </script>
 

@@ -450,11 +450,13 @@ function exportCsv(list: Row[]): void {
   downloadText(`${props.exportName}.csv`, toCsv(list, columns));
 }
 
-// 从全局搜索、体检待办跳转过来：?open=<id> 直接打开编辑抽屉。
+// 从全局搜索、体检待办、配置概览「编辑」跳转过来：?open=<id> 直接打开编辑抽屉。
+// 页面被 <keep-alive> 缓存，别的页签的 ?open= 也会触发这里，所以只认自己这一页的路径。
+const ownPath = route.path;
 watch(
-  () => [props.rows, route.query.open] as const,
-  ([rows, open]) => {
-    if (typeof open !== "string" || rows.length === 0) {
+  () => [props.rows, route.query.open, route.path] as const,
+  ([rows, open, path]) => {
+    if (path !== ownPath || typeof open !== "string" || rows.length === 0) {
       return;
     }
     const hit = rows.find((row) => String(row[props.idKey]) === open);

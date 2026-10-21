@@ -1,4 +1,5 @@
 import { onMounted, ref, type Ref } from "vue";
+import { useRefetchOnActivate } from "./dataVersion";
 
 /** 统一的列表加载状态：loading / error / rows / reload。 */
 export function useList<T>(fetcher: () => Promise<T[]>): { rows: Ref<T[]>; loading: Ref<boolean>; error: Ref<string>; reload: () => Promise<void> } {
@@ -16,6 +17,7 @@ export function useList<T>(fetcher: () => Promise<T[]>): { rows: Ref<T[]>; loadi
       loading.value = false;
     }
   }
-  onMounted(reload);
+  useRefetchOnActivate(reload);
+onMounted(reload);
   return { rows, loading, error, reload };
 }

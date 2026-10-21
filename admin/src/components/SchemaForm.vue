@@ -126,7 +126,7 @@ const activeKey = ref("");
 const extras = computed(() => unregisteredFields(props.schema, model.value, props.hiddenKeys ?? []).map((field) => ({ ...field, readonly: true })));
 
 const errors = computed(() => validateSchema(props.schema, model.value, props.optionsMap));
-/** 规范第 4 节：数值字段默认带「?」，文字 / 下拉 / 开关默认不带；help 显式指定的以它为准。 */
+/** 规范第 4 节：数值字段默认带「!」提示图标，文字 / 下拉 / 开关默认不带；help 显式指定的以它为准。 */
 function showHelp(field: FieldDef): boolean {
   if (field.help !== undefined) {
     return field.help;

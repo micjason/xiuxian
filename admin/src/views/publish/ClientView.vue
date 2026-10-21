@@ -48,6 +48,7 @@
 
 <script setup lang="ts">
 import { ElMessage, type FormInstance, type FormRules, type UploadFile, type UploadInstance, type UploadRawFile, genFileId } from "element-plus";
+import { noteRequest, useRefetchOnActivate } from "../../composables/dataVersion";
 import { computed, onMounted, reactive, ref } from "vue";
 import { api, getToken } from "../../api";
 import DataState from "../../components/DataState.vue";
@@ -107,6 +108,7 @@ async function upload(): Promise<void> {
   try {
     const response = await fetch("/admin/releases", { method: "POST", headers: { authorization: `Bearer ${getToken()}` }, body });
     if (!response.ok) throw new Error("上传失败，请检查版本号是否重复");
+    noteRequest("/admin/releases", "POST");
     ElMessage.success("已设为当前版本");
     form.versionName = "";
     form.releaseNotes = "";
@@ -120,6 +122,7 @@ async function upload(): Promise<void> {
   }
 }
 
+useRefetchOnActivate(load);
 onMounted(load);
 </script>
 

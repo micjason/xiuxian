@@ -45,6 +45,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
+import { useRefetchOnActivate } from "../../composables/dataVersion";
 import { useRoute, useRouter } from "vue-router";
 import { api } from "../../api";
 import DataState from "../../components/DataState.vue";
@@ -134,6 +135,7 @@ watch(
     if (route.path === "/system/audit") tab.value = value === "grants" ? "grants" : "ops";
   },
 );
+useRefetchOnActivate(load);
 onMounted(load);
 </script>
 

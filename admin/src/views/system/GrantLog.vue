@@ -36,6 +36,7 @@
 
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
+import { useRefetchOnActivate } from "../../composables/dataVersion";
 import { api } from "../../api";
 import DataState from "../../components/DataState.vue";
 import GrantDrawer from "../../components/GrantDrawer.vue";
@@ -93,6 +94,7 @@ function reset(): void {
   void load(1);
 }
 
+useRefetchOnActivate(() => load(1));
 onMounted(() => load(1));
 </script>
 

@@ -79,6 +79,7 @@
 
 <script setup lang="ts">
 import { Refresh } from "@element-plus/icons-vue";
+import { useRefetchOnActivate } from "../../composables/dataVersion";
 import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { adminName, api } from "../../api";
@@ -168,6 +169,7 @@ async function load(): Promise<void> {
   loading.value = false;
 }
 
+useRefetchOnActivate(load);
 onMounted(load);
 </script>
 

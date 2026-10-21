@@ -61,7 +61,7 @@
         </div>
       </el-header>
       <TabsBar :active-path="activePath" />
-      <el-main class="app-main">
+      <el-main ref="mainRef" class="app-main">
         <div class="content">
           <router-view v-slot="{ Component, route: viewRoute }">
             <keep-alive :include="cachedNames" :max="16">
@@ -77,7 +77,7 @@
 
 <script setup lang="ts">
 import { ArrowDown, Odometer, Present, Promotion, Search, Setting, SetUp, User } from "@element-plus/icons-vue";
-import { computed, defineComponent, h, markRaw, onMounted, ref, watch, type Component as VueComponent, type VNode } from "vue";
+import { computed, defineComponent, h, markRaw, nextTick, onActivated, onBeforeUnmount, onMounted, ref, watch, type Component as VueComponent, type VNode } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import TabsBar from "../components/TabsBar.vue";
 import { tailFor } from "../composables/crumbs";
@@ -100,6 +100,29 @@ const openGroups = navTree.map((group) => group.key);
 const current = computed(() => navOf(route.path));
 const crumbTail = computed(() => tailFor(route.path));
 
+// 每个页签记住自己的滚动位置：离开前记下内容区 scrollTop，切回来（onActivated）再滚回去。
+// 内容区是 el-main 自己滚（不是整页），所以 keep-alive 本身不会保留滚动，要手动存取。
+const mainRef = ref<{ $el: HTMLElement } | null>(null);
+const scrollPos = new Map<string, number>();
+const scroller = (): HTMLElement | null => mainRef.value?.$el ?? null;
+const stopScrollGuard = router.beforeEach((to, from) => {
+  const el = scroller();
+  if (el && to.path !== from.path) scrollPos.set(from.path, el.scrollTop);
+});
+onBeforeUnmount(stopScrollGuard);
+function restoreScroll(path: string): void {
+  const target = scrollPos.get(path) ?? 0;
+  let tries = 0;
+  // 页面可能还在重新读取数据、高度不够，最多重试约 1 秒直到滚到位
+  const step = (): void => {
+    const el = scroller();
+    if (!el) return;
+    el.scrollTop = target;
+    if (Math.abs(el.scrollTop - target) > 1 && tries++ < 60) requestAnimationFrame(step);
+  };
+  void nextTick(step);
+}
+
 // 每个页面包一层按路径命名的组件，<keep-alive :include> 才能按标签缓存 / 释放
 const wrappers = new Map<string, VueComponent>();
 function wrap(view: VNode, path: string): VueComponent {
@@ -110,7 +133,10 @@ function wrap(view: VNode, path: string): VueComponent {
       Object.assign(
         defineComponent({
           name: path,
-          setup: () => () => h(inner),
+          setup: () => {
+            onActivated(() => restoreScroll(path));
+            return () => h(inner);
+          },
         }),
         { __inner: inner },
       ),

@@ -45,6 +45,7 @@
 
 <script setup lang="ts">
 import { Refresh } from "@element-plus/icons-vue";
+import { useRefetchOnActivate } from "../../composables/dataVersion";
 import { ElMessage } from "element-plus";
 import { computed, onMounted, ref } from "vue";
 import { api } from "../../api";
@@ -119,6 +120,7 @@ async function viewChanges(row: Version): Promise<void> {
   }
 }
 
+useRefetchOnActivate(load);
 onMounted(load);
 </script>
 

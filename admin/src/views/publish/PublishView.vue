@@ -80,6 +80,7 @@
 
 <script setup lang="ts">
 import { Refresh } from "@element-plus/icons-vue";
+import { useRefetchOnActivate } from "../../composables/dataVersion";
 import { ElMessage } from "element-plus";
 import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
@@ -126,6 +127,7 @@ async function publish(): Promise<void> {
   }
 }
 
+useRefetchOnActivate(refreshDraftStatus);
 onMounted(refreshDraftStatus);
 </script>
 

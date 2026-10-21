@@ -1,3 +1,5 @@
+import { noteRequest } from "./composables/dataVersion";
+
 const tokenKey = "xiuxian-admin-token";
 const nameKey = "xiuxian-admin-name";
 
@@ -74,6 +76,7 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
     const body = (await response.json().catch(() => ({}))) as { reason?: string; error?: { message?: string; details?: unknown } };
     throw new ApiError(body.error?.message ?? body.reason ?? "请求失败", response.status, body.error?.details);
   }
+  noteRequest(path, init.method);
   if (response.status === 204) {
     return undefined as T;
   }

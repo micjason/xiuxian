@@ -324,6 +324,7 @@
 
 <script setup lang="ts">
 import { ElMessage, ElMessageBox } from "element-plus";
+import { useRefetchOnActivate } from "../../composables/dataVersion";
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { api } from "../../api";
@@ -805,6 +806,7 @@ watch(manualOpen, (value) => {
   }
 });
 
+useRefetchOnActivate(reload);
 onMounted(() => {
   window.addEventListener("resize", onResize);
   void reload();

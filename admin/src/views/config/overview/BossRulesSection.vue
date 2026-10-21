@@ -101,6 +101,7 @@
  * 旧的「首领橙装概率」（tuning.bossOrangeChanceBp）已停用 → 橙装是「装备品质掉率」里的橙色一档。
  */
 import { computed, defineComponent, h, onMounted, ref } from "vue";
+import { useRefetchOnActivate } from "../../../composables/dataVersion";
 import CustomTag from "../../../components/CustomTag.vue";
 import HelpTip from "../../../components/HelpTip.vue";
 import NumInput from "../../../components/NumInput.vue";
@@ -136,6 +137,7 @@ async function reloadUsage(): Promise<void> {
     usage.value = null;
   }
 }
+useRefetchOnActivate(reloadUsage);
 onMounted(reloadUsage);
 defineExpose({ reloadUsage });
 </script>

@@ -240,6 +240,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onBeforeUnmount, ref } from "vue";
+import { useRefetchOnActivate } from "../../composables/dataVersion";
 import { useRouter } from "vue-router";
 import { api } from "../../api";
 import ArtKeySelect from "../../components/ArtKeySelect.vue";
@@ -555,6 +556,7 @@ function openTrial(boss: BossRow): void {
   trialOpen.value = true;
 }
 
+useRefetchOnActivate(reload);
 onMounted(() => {
   window.addEventListener("resize", onResize);
   void reload();

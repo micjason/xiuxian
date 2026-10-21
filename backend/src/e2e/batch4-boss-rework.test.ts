@@ -237,4 +237,13 @@ describe("第四批：装备发放的「行囊满」返回值（主程序 grantE
     expect(readGrantResult({ granted: [{ id: "a" }, { id: "b" }] })).toEqual({ count: 2, skipped: null });
     expect(readGrantResult(undefined)).toEqual({ count: 0, skipped: null });
   });
+
+  it("treats a missing / undefined skipped or bagFull as not skipped (the lead's bag-full check is not live yet)", () => {
+    expect(readGrantResult(null)).toEqual({ count: 0, skipped: null });
+    expect(readGrantResult(Object.assign([{ id: "a" }], { skipped: undefined, bagFull: undefined }))).toEqual({ count: 1, skipped: null });
+    expect(readGrantResult({ items: [{ id: "a" }], skipped: undefined, bagFull: undefined })).toEqual({ count: 1, skipped: null });
+    expect(readGrantResult({ items: [{ id: "a" }], skipped: null, bagFull: false })).toEqual({ count: 1, skipped: null });
+    expect(readGrantResult({ items: [{ id: "a" }], skipped: "" })).toEqual({ count: 1, skipped: null });
+    expect(readGrantResult({ items: [], bagFull: true })).toEqual({ count: 0, skipped: "bag_full" });
+  });
 });

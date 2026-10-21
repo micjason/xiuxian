@@ -61,7 +61,8 @@ export function bossBattleId(playerId: string, stageSlug: string, progress: { un
  * 首领给装备都走这一个函数（抽中之后调用）→ 统一发放接口 grantEquipment（ADMIN_SPEC §14）。
  * requestId = 战斗报告 id + 序号，同一场胜利重放不会重复发；写 equipment_grants 流水。
  * 第四批：主程序的 grantEquipment 行囊满时对 stage_drop / boss_first / boss_repeat 不发装备、返回 skipped: "bag_full"（不报错）。
- * 这里对返回值宽松读取：老版本返回发放的装备数组；新版本可能是数组上带 skipped，或 { items | granted, skipped } 对象。
+ * 这里对返回值宽松读取：老版本返回发放的装备数组；新版本可能是数组上带 skipped，或 { items | granted, skipped } 对象，也可能带 bagFull: true。
+ * 主程序的行囊满判断还没上线：skipped / bagFull 没有（undefined / null / 空串 / false）一律当「没跳过」，照常算发了。
  */
 export async function grantBossEquipment(
   tx: Tx,
@@ -80,9 +81,9 @@ export async function grantBossEquipment(
 
 /** grantEquipment 返回值 → 发了几件、有没有因为行囊满跳过（见上）。 */
 export function readGrantResult(result: unknown): { count: number; skipped: string | null } {
-  const record = (result ?? {}) as { skipped?: unknown; items?: unknown; granted?: unknown };
+  const record = (result ?? {}) as { skipped?: unknown; bagFull?: unknown; items?: unknown; granted?: unknown };
   const list = Array.isArray(result) ? result : Array.isArray(record.items) ? record.items : Array.isArray(record.granted) ? record.granted : [];
-  const skipped = typeof record.skipped === "string" && record.skipped ? record.skipped : null;
+  const skipped = typeof record.skipped === "string" && record.skipped ? record.skipped : record.bagFull === true ? "bag_full" : null;
   return { count: list.length, skipped };
 }
 

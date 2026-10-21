@@ -94,6 +94,8 @@ describe("boss first-clear fixed rewards", () => {
       expect(gearDrops).toHaveLength(1);
       expect(gearDrops[0].dropped).toBeUndefined();
       expect(gearDrops[0].decomposed).toBeUndefined();
+      // 现在的 grantEquipment 不返回 skipped / bagFull（主程序行囊满判断没上线）→ 当没跳过：照发，bagFull 是 false
+      expect(body.bagFull).toBe(false);
       const grants = await db.select().from(equipmentGrants).where(eq(equipmentGrants.playerId, playerId));
       // 批次②之后所有装备入包都记发放流水：首通的固定装备（饰品）记 boss_first，这次重打抽到的记 boss_repeat
       const rows = grants.filter((row) => row.sourceRef === "lianqi_3").map((row) => [row.source, row.sourceRef, row.itemSlug, row.count]);
@@ -248,8 +250,8 @@ describe("boss ultimate: fully automatic (第四批)", () => {
     const ctx = await boot(db, name);
     const state = await ctx.state();
     const fighter = { attack: state.attack, defense: state.defense, hp: state.hp, interval: state.interval };
-    const ult = { multBp: 40000, cooldownSeconds: 20, firstCooldownSeconds: 8, autoCastWindowSeconds: 2 };
-    expect(state.ult).toMatchObject({ name: "剑诀·破军", multBp: 40000, cooldownSeconds: 20, firstCooldownSeconds: 8, autoCastWindowSeconds: 2 });
+    const ult = { multBp: 40000, cooldownSeconds: 20, firstCooldownSeconds: 8, autoCastWindowSeconds: 0 };
+    expect(state.ult).toMatchObject({ name: "剑诀·破军", multBp: 40000, cooldownSeconds: 20, firstCooldownSeconds: 8, autoCastWindowSeconds: 0 });
     const config = { timeLimitSeconds: 45, defenseConstant: 1 };
     // 找到“带大招（全自动）刚好能赢、不带大招会超时”的最大气血
     const [boss0] = (await db.select().from(contentStages).where(eq(contentStages.slug, "lianqi_3")))[0]!.bosses;
@@ -273,7 +275,7 @@ describe("boss ultimate: fully automatic (第四批)", () => {
       const response = (await challenge("lianqi_3")).json();
       expect(response.battle.win).toBe(true);
       expect(response.battle.ultCasts.length).toBeGreaterThanOrEqual(1);
-      expect(response.battle.ultCasts[0]).toMatchObject({ t: 10, readyAt: 8, manual: false });
+      expect(response.battle.ultCasts[0]).toMatchObject({ t: 8, readyAt: 8, manual: false });
       expect(response.battle.ultCasts[0].damage).toBeGreaterThan(0);
       expect(response.battle.log.some((event: { kind?: string }) => event.kind === "ult")).toBe(true);
       expect(response.battle.durationSeconds).toBe(simulateBossFight(fighter, boss, config, ult, []).durationSeconds);
@@ -281,13 +283,13 @@ describe("boss ultimate: fully automatic (第四批)", () => {
     });
   });
 
-  it("taps / waits sent by old clients are ignored: every cast is automatic (ready + auto-cast window)", async () => {
+  it("taps / waits sent by old clients are ignored: every cast is automatic (ready + auto-cast window, default 0 = at once)", async () => {
     await withDb(async (db) => {
       const { app, challenge } = await tuned(db, "ult_b");
       for (const payload of [{ ultTaps: [8.5] }, { ultTaps: [8] }, { ultTaps: "hacked" }, { ultWaits: [0.25] }, {}]) {
         const response = await challenge("lianqi_3", payload);
         expect(response.statusCode).toBe(200);
-        expect(response.json().battle.ultCasts[0]).toMatchObject({ t: 10, readyAt: 8, manual: false });
+        expect(response.json().battle.ultCasts[0]).toMatchObject({ t: 8, readyAt: 8, manual: false });
       }
       await app.close();
     });

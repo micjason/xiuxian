@@ -22,6 +22,7 @@ import type { Db } from "../operations/record.js";
 import { readGameRules } from "../content/rules.js";
 import { addEnhanceExp, grantItem } from "./bag.js";
 import { applySetBonus, setBonusOf } from "../content/set-bonus.js";
+import { maxSkillSlots, nextSkillSlotRule, openSkillSlots } from "../content/skill-slots.js";
 import { announcementNoticesForPlayer, noticesForPlayer } from "../notices/service.js";
 import { dailyUsed, grantBossRewards, usesRewardModel } from "./boss-rewards.js";
 import { acknowledgeOfflineReport, pendingOfflineReport, recordOfflineReport } from "./offline.js";
@@ -54,12 +55,30 @@ async function loadPieces(tx: Tx, playerId: string) {
   return { items, skills, stages };
 }
 
+/** 这个境界开放的功法栏位数（配置概览「功法栏位」，按境界开放）。 */
+export function openSkillSlotsFor(world: ContentSnapshot, realmSlug: string): number {
+  const order = world.realms.find((row) => row.slug === realmSlug)?.sortOrder ?? 0;
+  return openSkillSlots(world.globals.artSlotRules, order);
+}
+
+/**
+ * 运转中的功法里，算属性 / 战力的那几门：最多「开放栏位数」门。
+ * 按栏位号 run_1、run_2… 排，旧数据里别的栏位名（例如 heart）排在后面；后台把栏位调少以后，多出来的不生效。
+ */
+export function countedSkills<T extends { skillSlug: string; runningSlot: string | null }>(world: ContentSnapshot, realmSlug: string, skills: T[]): T[] {
+  const index = (slot: string | null) => Number(slot?.match(/^run_(\d+)$/)?.[1] ?? Number.MAX_SAFE_INTEGER);
+  return skills
+    .filter((skill) => skill.runningSlot)
+    .sort((left, right) => index(left.runningSlot) - index(right.runningSlot) || left.skillSlug.localeCompare(right.skillSlug))
+    .slice(0, openSkillSlotsFor(world, realmSlug));
+}
+
 function statsOf(world: World, realmSlug: string, items: { itemSlug: string; equippedSlot: string | null; enhanceLevel: number }[], skills: { skillSlug: string; runningSlot: string | null; level: number }[]) {
   return combatStats(
     world,
     realmSlug,
     items.filter((item) => item.equippedSlot).map((item) => ({ slug: item.itemSlug, enhanceLevel: item.enhanceLevel })),
-    skills.filter((skill) => skill.runningSlot).map((skill) => ({ slug: skill.skillSlug, level: skill.level })),
+    countedSkills(world, realmSlug, skills).map((skill) => ({ slug: skill.skillSlug, level: skill.level })),
   );
 }
 
@@ -253,10 +272,11 @@ export function explainPlayerPower(
       })),
     realm.sortOrder as number,
   );
+  const counted = new Set(countedSkills(world, realmSlug, skills).map((skill) => skill.skillSlug));
   for (const skill of skills) {
     const definition = world.skills.find((row) => row.slug === skill.skillSlug);
     const level = skill.level;
-    const running = Boolean(skill.runningSlot);
+    const running = counted.has(skill.skillSlug);
     if (!Number.isInteger(level) || level < 1) {
       lines.push({
         group: "功法",
@@ -474,6 +494,9 @@ function stateDto(world: World, playerId: string, settled: Awaited<ReturnType<ty
     bagCapacity: readGameRules(world).bagCapacity + settled.state.bagBonus,
     items: settled.pieces.items,
     skills: settled.pieces.skills,
+    skillSlots: skillSlotsDto(world, settled.state.realmSlug),
+    // 套装：穿着的每个套装几件、哪些档位已生效（游戏端装备弹窗用；数值定义在 /content/current 的 gearSets）
+    activeSets: setBonusOf(world, settled.pieces.items.filter((item) => item.equippedSlot).map((item) => item.itemSlug)).sets,
     stages: settled.pieces.stages,
     wave: waveDto(world, settled),
     offlineReport: settled.offlineReport
@@ -507,6 +530,17 @@ function stateDto(world: World, playerId: string, settled: Awaited<ReturnType<ty
 }
 
 /** 突破后的样子（沿用现在穿的装备和运转的功法）：属性、战力、每秒修为、大招、新开放的关卡。突破流程界面用它显示“突破后”。 */
+/** 功法栏位：现在开放几个、最多几个、下一个在哪个境界开。 */
+function skillSlotsDto(world: World, realmSlug: string) {
+  const order = world.realms.find((row) => row.slug === realmSlug)?.sortOrder ?? 0;
+  const next = nextSkillSlotRule(world.globals.artSlotRules, order);
+  return {
+    open: openSkillSlots(world.globals.artSlotRules, order),
+    max: maxSkillSlots(world.globals.artSlotRules),
+    next: next ? { slots: next.slots, realmOrder: next.minRealmOrder, realmName: world.realms.find((row) => row.sortOrder === next.minRealmOrder)?.displayName ?? "" } : null,
+  };
+}
+
 function breakthroughPreview(world: World, next: World["realms"][number] | undefined, settled: Awaited<ReturnType<typeof settleLocked>>) {
   if (!next || next.sortOrder == null) {
     return null;
@@ -1181,15 +1215,15 @@ export async function runSkill(tx: Tx, world: World, playerId: string, skillSlug
   if (!skill) {
     throw new AppError("INVALID_INPUT", "这门功法已经不存在");
   }
-  const slots = ["run_1", "run_2", "run_3"];
-  const others = settled.pieces.skills.filter((row) => row.runningSlot && row.skillSlug !== skillSlug);
-  if (others.length >= slots.length) {
-    throw new AppError("SKILL_SLOT_INVALID", "最多同时运转 3 门功法");
-  }
+  const open = openSkillSlotsFor(world, settled.state.realmSlug);
+  const slots = Array.from({ length: open }, (_, index) => `run_${index + 1}`);
+  const others = settled.pieces.skills.filter((row) => row.runningSlot && slots.includes(row.runningSlot) && row.skillSlug !== skillSlug);
   const used = new Set(others.map((row) => row.runningSlot));
   const free = learned.runningSlot && slots.includes(learned.runningSlot) ? learned.runningSlot : slots.find((slot) => !used.has(slot));
   if (!free) {
-    throw new AppError("SKILL_SLOT_INVALID", "最多同时运转 3 门功法");
+    const next = nextSkillSlotRule(world.globals.artSlotRules, realmOf(world, settled.state.realmSlug).sortOrder ?? 0);
+    const nextName = next ? world.realms.find((row) => row.sortOrder === next.minRealmOrder)?.displayName : null;
+    throw new AppError("SKILL_SLOT_INVALID", open === 0 ? "当前境界还没有开放功法栏位" : `最多同时运转 ${open} 门功法${nextName ? `（${nextName}开放第 ${next!.slots} 个栏位）` : ""}`);
   }
   await tx
     .update(playerSkills)

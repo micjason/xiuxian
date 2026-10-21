@@ -4,8 +4,8 @@ import type { SkillSlotRule } from "./combat-types.js";
 /** 一个玩家最多能开的功法栏位（防止误填）。 */
 export const SKILL_SLOT_MAX = 6;
 
-/** 没配置时：一开始就 1 个栏位。 */
-export const DEFAULT_SKILL_SLOT_RULES: SkillSlotRule[] = [{ minRealmOrder: 1, slots: 1 }];
+/** 没配置时：和以前一样，一开始就 3 个栏位。 */
+export const DEFAULT_SKILL_SLOT_RULES: SkillSlotRule[] = [{ minRealmOrder: 0, slots: 3 }];
 
 /** 库里存的规则 → 干净的规则（按境界排序；坏数据丢掉）；空 = 默认。 */
 export function skillSlotRulesOf(raw: unknown): SkillSlotRule[] {

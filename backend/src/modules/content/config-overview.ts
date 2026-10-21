@@ -4,9 +4,59 @@
  * - 默认掉率 / 品质权重 / 首领橙装概率、功法层数系数、自动分解、多余功法书折算：content_globals.tuning（tuning.ts）
  * - 强化与分解：content_globals.enhance（enhance.ts）
  * - 装备生成参数（预算比例、速度比例、品质系数、部位占比）只读摘要，在「装备配置」里改。
+ * - 新手设置（初始境界、新手物品）：content_globals.starting_realm_slug / starter_items（批次②）
+ * - 功法栏位（按境界开放几个）：content_globals.art_slot_rules（批次②）
+ * - 部位表、品质表：只读，来自 catalog.ts（服务端统一下发，游戏端不再自己写名字）
  */
+
+export const STARTER_LIMITS = { maxRows: 20, maxQuantity: 9999 } as const;
+
+type StarterRow = { itemSlug: string; quantity: number };
+
+/** 新手设置校验：初始境界要存在；新手物品要存在、启用，件数 1–9999，同一物品只写一次。 */
+async function newbieFromInput(db: Db, input: { startingRealmSlug?: unknown; starterItems?: unknown }, row: typeof contentGlobals.$inferSelect) {
+  const realms = await db.select({ slug: contentRealms.slug }).from(contentRealms);
+  const startingRealmSlug = input.startingRealmSlug === undefined ? row.startingRealmSlug : String(input.startingRealmSlug ?? "");
+  if (!realms.some((realm) => realm.slug === startingRealmSlug)) {
+    throw new AppError("INVALID_INPUT", "请选择初始境界");
+  }
+  let starterItems = (row.starterItems as StarterRow[] | null) ?? [];
+  if (input.starterItems !== undefined) {
+    if (!Array.isArray(input.starterItems) || input.starterItems.length > STARTER_LIMITS.maxRows) {
+      throw new AppError("INVALID_INPUT", `新手物品最多 ${STARTER_LIMITS.maxRows} 行`);
+    }
+    const items = await db.select({ slug: contentItems.slug, displayName: contentItems.displayName, enabled: contentItems.enabled }).from(contentItems);
+    const seen = new Set<string>();
+    starterItems = input.starterItems.map((raw, index) => {
+      const itemSlug = String((raw as StarterRow)?.itemSlug ?? "").trim();
+      const quantity = Number((raw as StarterRow)?.quantity);
+      const item = items.find((candidate) => candidate.slug === itemSlug);
+      if (!item) {
+        throw new AppError("INVALID_INPUT", `新手物品第 ${index + 1} 行：请选择物品`);
+      }
+      if (!item.enabled) {
+        throw new AppError("INVALID_INPUT", `新手物品第 ${index + 1} 行：「${item.displayName}」已停用`);
+      }
+      if (seen.has(itemSlug)) {
+        throw new AppError("INVALID_INPUT", `新手物品第 ${index + 1} 行：「${item.displayName}」重复了`);
+      }
+      seen.add(itemSlug);
+      if (!Number.isInteger(quantity) || quantity < 1 || quantity > STARTER_LIMITS.maxQuantity) {
+        throw new AppError("INVALID_INPUT", `新手物品第 ${index + 1} 行：数量要在 1–${STARTER_LIMITS.maxQuantity} 之间`);
+      }
+      return { itemSlug, quantity };
+    });
+  }
+  return { startingRealmSlug, starterItems };
+}
+
+async function realmOrders(db: Db) {
+  return (await db.select({ sortOrder: contentRealms.sortOrder }).from(contentRealms)).map((row) => row.sortOrder);
+}
 import { eq } from "drizzle-orm";
-import { contentGlobals, contentStages } from "../../db/schema.js";
+import { contentGlobals, contentItems, contentRealms, contentStages } from "../../db/schema.js";
+import { QUALITY_TABLE, SLOT_TABLE } from "./catalog.js";
+import { SKILL_SLOT_MAX, skillSlotRulesFromInput, skillSlotRulesOf } from "./skill-slots.js";
 import { AppError } from "../../shared/errors.js";
 import type { Db } from "../operations/record.js";
 import { enhanceRulesFromInput, readEnhanceView, saveEnhanceRules } from "./enhance.js";
@@ -74,6 +124,13 @@ export async function readConfigOverview(db: Db) {
       qualityFactors: row ? await readGearQualityFactors(db) : null,
     },
     stages: await stageInheritance(db, tuning),
+    newbie: {
+      startingRealmSlug: row?.startingRealmSlug ?? "",
+      starterItems: (row?.starterItems as StarterRow[] | null) ?? [],
+      limits: STARTER_LIMITS,
+    },
+    skillSlots: { rules: skillSlotRulesOf(row?.artSlotRules), max: SKILL_SLOT_MAX },
+    catalog: { slots: SLOT_TABLE, qualities: QUALITY_TABLE },
   };
 }
 
@@ -83,13 +140,21 @@ export async function readConfigOverview(db: Db) {
  */
 export async function saveConfigOverview(
   db: Db,
-  input: { rules?: RulesInput; tuning?: Partial<Record<keyof Tuning, unknown>>; enhance?: unknown },
+  input: {
+    rules?: RulesInput;
+    tuning?: Partial<Record<keyof Tuning, unknown>>;
+    enhance?: unknown;
+    newbie?: { startingRealmSlug?: unknown; starterItems?: unknown };
+    skillSlots?: { rules?: unknown };
+  },
   adminId: string | null,
 ) {
   const row = await globalsRow(db);
   if (!row) {
     throw new AppError("INVALID_INPUT", "请先新建境界");
   }
+  const newbie = input.newbie ? await newbieFromInput(db, input.newbie, row) : null;
+  const slotRules = input.skillSlots ? skillSlotRulesFromInput(input.skillSlots.rules, await realmOrders(db)) : null;
   if (input.rules) {
     rulesFromInput(rulesForSave(input.rules, row));
   }
@@ -107,6 +172,12 @@ export async function saveConfigOverview(
   }
   if (input.rules) {
     await saveRules(db, input.rules, adminId);
+  }
+  if (newbie || slotRules) {
+    await db
+      .update(contentGlobals)
+      .set({ ...(newbie ?? {}), ...(slotRules ? { artSlotRules: slotRules } : {}), updatedAt: new Date(), updatedBy: adminId })
+      .where(eq(contentGlobals.id, 1));
   }
   return readConfigOverview(db);
 }

@@ -34,17 +34,9 @@ UPDATE "content_stages"
 SET "monster_drop" = jsonb_set("monster_drop", '{qualityWeights}', ("monster_drop"->'qualityWeights') - 'red')
 WHERE "monster_drop" IS NOT NULL AND ("monster_drop"->'qualityWeights') ? 'red';
 --> statement-breakpoint
--- 5) 功法栏位：通用 N 个，按境界开放（后台配置概览可改）。没配过的给默认：炼气一层 1 个、筑基一层 2 个、金丹一层 3 个（按大境界第一层的排序号）。
+-- 5) 功法栏位：通用 N 个，按境界开放（后台配置概览可改）。没配过的保持现在的玩法：从第一个境界起就开 3 个。
 UPDATE "content_globals" g
-SET "art_slot_rules" = COALESCE((
-  SELECT jsonb_agg(jsonb_build_object('minRealmOrder', r.first_order, 'slots', r.n) ORDER BY r.first_order)
-  FROM (
-    SELECT m.first_order, row_number() OVER (ORDER BY m.first_order) AS n
-    FROM (SELECT min("sort_order") AS first_order FROM "content_realms" GROUP BY COALESCE("major_key", "slug")) m
-    ORDER BY m.first_order
-    LIMIT 3
-  ) r
-), '[{"minRealmOrder": 1, "slots": 1}]'::jsonb)
+SET "art_slot_rules" = jsonb_build_array(jsonb_build_object('minRealmOrder', COALESCE((SELECT min("sort_order") FROM "content_realms"), 1), 'slots', 3))
 WHERE g."art_slot_rules" IS NULL OR jsonb_array_length(g."art_slot_rules") = 0;
 --> statement-breakpoint
 -- 6) 删掉没用的字段：挂机击杀上限（离线不打怪）、最低客户端版本号（强制更新统一走发布中心）、突破成功率 6 列（突破必定成功）。

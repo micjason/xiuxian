@@ -1,3 +1,4 @@
+import { startingRealm } from "../auth/service.js";
 import { eq } from "drizzle-orm";
 import { withTransaction, type Tx } from "../../db/tx.js";
 import {
@@ -178,7 +179,7 @@ export async function resetPlayer(db: Db, username: string, now: Date) {
   if (realms.length === 0) {
     throw new AppError("CONTENT_NOT_PUBLISHED", "还没有境界，不能清空");
   }
-  const start = realms.reduce((smallest, row) => (row.sortOrder < smallest.sortOrder ? row : smallest));
+  const start = await startingRealm(db, realms);
   await db.delete(idempotencyKeys).where(eq(idempotencyKeys.playerId, player.id));
   await db.delete(playerItems).where(eq(playerItems.playerId, player.id));
   await db.delete(playerSkills).where(eq(playerSkills.playerId, player.id));

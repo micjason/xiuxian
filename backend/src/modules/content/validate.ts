@@ -386,6 +386,21 @@ export function validateContent(
   for (const problem of equipmentPowerErrors(draft.items)) {
     push("item", problem.slug, "quality", problem.message);
   }
+  // 批次②：指定掉落的装备要存在、启用；套装成员要指向存在的套装
+  for (const stage of draft.stages) {
+    for (const drop of stage.designatedDrops ?? []) {
+      const item = draft.items.find((row) => row.slug === drop.itemSlug);
+      if (!item || !item.enabled || item.kind !== "equipment") {
+        push("stage", stage.slug, "designatedDrops", `指定掉落的装备 ${drop.itemSlug} 不存在或已停用`);
+      }
+    }
+  }
+  const setSlugs = new Set((draft.gearSets ?? []).map((set) => set.slug));
+  for (const item of draft.items) {
+    if (item.setSlug && !setSlugs.has(item.setSlug)) {
+      push("item", item.slug, "setSlug", "所属套装不存在");
+    }
+  }
   for (const starter of draft.globals.starterItems) {
     const item = draft.items.find((row) => row.slug === starter.itemSlug);
     if (!item || !item.enabled) {

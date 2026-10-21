@@ -2,7 +2,7 @@ import { createHash, randomBytes } from "node:crypto";
 import argon2 from "argon2";
 import { eq } from "drizzle-orm";
 import { withTransaction } from "../../db/tx.js";
-import { admins, contentRealms, playerStates, players, sessions } from "../../db/schema.js";
+import { admins, contentGlobals, contentRealms, playerStates, players, sessions } from "../../db/schema.js";
 import { AppError } from "../../shared/errors.js";
 import { writeOperation, type Db } from "../operations/record.js";
 import { initializeProgress } from "../loop/actions.js";
@@ -69,7 +69,7 @@ export async function registerPlayer(
       if (realms.length === 0) {
         throw new AppError("CONTENT_NOT_PUBLISHED", "还没有境界，不能注册");
       }
-      const start = realms.reduce((smallest, row) => (row.sortOrder < smallest.sortOrder ? row : smallest));
+      const start = await startingRealm(tx, realms);
       await tx.insert(playerStates).values({
         playerId: player.id,
         cultivation: 0,
@@ -142,6 +142,13 @@ export async function loginPlayer(
   });
   await db.update(players).set({ lastLoginAt: input.now }).where(eq(players.id, player.id));
   return { ok: true, playerId: player.id, token };
+}
+
+/** 新玩家的初始境界：配置概览「新手设置」选的境界；没选或已删除时用排序最小的境界。 */
+export async function startingRealm<T extends { slug: string; sortOrder: number }>(db: Pick<Db, "select">, realms: T[]): Promise<T> {
+  const [globals] = await db.select({ startingRealmSlug: contentGlobals.startingRealmSlug }).from(contentGlobals).where(eq(contentGlobals.id, 1)).limit(1);
+  const chosen = realms.find((row) => row.slug === globals?.startingRealmSlug);
+  return chosen ?? realms.reduce((smallest, row) => (row.sortOrder < smallest.sortOrder ? row : smallest));
 }
 
 export async function createAdmin(

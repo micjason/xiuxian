@@ -53,12 +53,8 @@ describe("migration 0028 (去掉红、默认功法栏位)", () => {
         const [globals] = await db.select().from(contentGlobals);
         expect(Object.keys((globals!.enhance as { qualities: object }).qualities).sort()).toEqual(["blue", "green", "orange", "purple", "white"]);
         expect(enhanceRulesFromInput(globals!.enhance)).toEqual(STARTING_ENHANCE_RULES);
-        // 默认功法栏位：前三个大境界的第一层各开一个
-        expect(globals!.artSlotRules).toEqual([
-          { minRealmOrder: 1, slots: 1 },
-          { minRealmOrder: 3, slots: 2 },
-          { minRealmOrder: 4, slots: 3 },
-        ]);
+        // 默认功法栏位：保持以前的玩法，第一个境界起就 3 个
+        expect(globals!.artSlotRules).toEqual([{ minRealmOrder: 1, slots: 3 }]);
         const [red] = await db.select().from(contentItems).where(eq(contentItems.slug, "red_blade"));
         expect(red!.quality).toBe("orange");
         const orangeCap = STARTING_ENHANCE_RULES.qualities.orange!.cap;

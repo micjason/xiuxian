@@ -68,6 +68,13 @@ func _ready() -> void:
 	_fit_card()
 
 
+## 退出登录后回到登录页：清掉密码和错误提示，用户名留着方便重登（也可以改成别的账号）。
+func reset_for_logout() -> void:
+	_password.text = ""
+	_error.text = ""
+	_server.text = ServerAddress.current()
+
+
 func _fit_card() -> void:
 	var inset := UiSafeArea.current(get_viewport())
 	_logo.offset_top = inset.y + LOGO_TOP
@@ -130,5 +137,7 @@ func _submit(is_register: bool) -> void:
 		_error.text = "账号或密码不正确" if not is_register else "注册失败，换一个用户名试试"
 		return
 	PlayerApi.save_token(str(result.get("token", "")))
+	PlayerApi.save_account(name, str(result.get("playerId", "")))
+	_password.text = ""
 	hide()
 	logged_in.emit()

@@ -51,6 +51,9 @@ export async function registerAuthRoutes(
     return { ok: true };
   });
 
+  // 客户端设置页的账号信息（/me 前缀走玩家鉴权；只读，只回账号名和 id）
+  app.get("/me/account", async (request) => ({ playerId: request.actor!.actorId, username: request.actor!.actorName }));
+
   app.post("/admin/auth/login", adminAuthLimit, async (request) => {
     const body = credentials(request.body);
     const result = await loginAdmin(deps.db, { ...body, now: deps.now() });

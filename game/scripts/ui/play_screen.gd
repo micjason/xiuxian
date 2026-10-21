@@ -91,11 +91,17 @@ var _update_prompt: UpdatePrompt
 ## 后台公告：心跳 /me/state.notices → 排队，一次弹一条（不打断战斗、突破和其他弹窗）。
 var _notices := NoticeQueue.new()
 var _announcement: AnnouncementPrompt
+## 设置面板（点左上角头像）。_session 每次退出登录 +1：退出前发出去、退出后才回来的心跳结果直接丢掉。
+var _settings: SettingsView
+var _session := 0
+var _manual_update_check := false
+var _account: Dictionary = {}
 
 
 func _ready() -> void:
 	theme = APP_THEME
 	_mock = UiMock.enabled()
+	LocalSettings.apply_audio()
 	_hide_legacy_nodes()
 	ScrollKit.install(self)  # v14：所有滚动区域隐藏滚动条 + 手指拖动 / 惯性（含之后新建的弹窗列表）
 	_build_shell()
@@ -142,7 +148,17 @@ func _setup_update_check() -> void:
 		add_child(_update_service)
 	_update_prompt = UpdatePrompt.new(_popup, _update_service)
 	_update_service.update_available.connect(func(info: Dictionary) -> void:
+		_manual_update_check = false
 		_update_prompt.show_update(info, _update_service.get_current_version()))
+	# 设置页「检查更新」：没有新版本 / 失败时给个提示（启动时的静默检查不提示）。
+	_update_service.no_update.connect(func(version: String) -> void:
+		if _manual_update_check:
+			_manual_update_check = false
+			_toast.say("当前已是最新版本 %s" % version))
+	_update_service.failed.connect(func(message: String) -> void:
+		if _manual_update_check:
+			_manual_update_check = false
+			_toast.say(message, false))
 	_check_update()
 
 
@@ -234,7 +250,7 @@ func _build_shell() -> void:
 		if key != PAGE_BREAKTHROUGH:
 			_page_host.add_child(_pages[key])
 	_top_bar = TopBar.new()
-	_top_bar.settings_pressed.connect(func() -> void: CreditsView.show_credits(_popup))
+	_top_bar.settings_pressed.connect(open_settings)
 	_top_bar.z_index = Z_BARS
 	add_child(_top_bar)
 	_tab_bar = TabBarView.new()
@@ -305,6 +321,11 @@ func _build_shell() -> void:
 		_show_page(PAGE_CULTIVATE))
 	_success_popup.z_index = Z_POPUP
 	add_child(_success_popup)
+	_settings = SettingsView.new(_popup)
+	_settings.logout_confirmed.connect(logout)
+	_settings.check_update_requested.connect(_on_manual_update_check)
+	_settings.locked_pressed.connect(func(feature: String) -> void: _toast.say_locked(feature))
+	_settings.credits_requested.connect(func() -> void: CreditsView.show_credits(_popup))
 	_announcement = AnnouncementPrompt.new(_popup)
 	_announcement.acknowledged.connect(_on_notice_ack)
 	_popup.closed.connect(func() -> void: _maybe_show_notice.call_deferred())
@@ -364,8 +385,87 @@ func _show_page(page: String) -> void:
 func _on_logged_in() -> void:
 	_login.hide()
 	_set_status("")
+	_account = PlayerApi.account()
 	_timer.start()
 	_refresh_state()
+
+
+# ───────── 设置 / 退出登录 ─────────
+
+## 点左上角头像：打开设置面板（账号、声音、版本、退出登录）。
+func open_settings() -> void:
+	_settings.open(settings_info())
+	if not _mock and not PlayerApi.token().is_empty():
+		_load_account()
+
+
+## 设置面板显示的账号信息：服务器 /me/account 拿到的优先，其次登录时本机记下的。
+func settings_info() -> Dictionary:
+	var account := _account if not _account.is_empty() else PlayerApi.account()
+	return {
+		"username": "演示账号" if _mock else account.get("username", ""),
+		"playerId": account.get("playerId", ""),
+		"realm": _realm_name(str(_state.get("realmSlug", ""))),
+		"version": _update_service.get_current_version() if _update_service != null else str(ProjectSettings.get_setting("application/config/version", "")),
+		"versionCode": _update_service.get_version_code() if _update_service != null else 0,
+		"server": "" if _mock else ServerAddress.current(),
+	}
+
+
+func _load_account() -> void:
+	var session := _session
+	var result := await PlayerApi.fetch_account()
+	if session != _session or int(result.get("code", 0)) != 200:
+		return
+	var fresh := {"username": str(result.get("username", "")), "playerId": str(result.get("playerId", ""))}
+	if fresh == _account:
+		return
+	_account = fresh
+	PlayerApi.save_account(fresh.username, fresh.playerId)
+	# 面板还开着（还在设置页）就刷新一下账号行
+	if _popup.visible and _popup.title_label.text == "设置":
+		_settings.open(settings_info())
+
+
+func _on_manual_update_check() -> void:
+	if _update_service == null:
+		return
+	_manual_update_check = true
+	_toast.say_neutral("正在检查更新…")
+	_update_service.check_for_update(false)
+
+
+## 退出登录：作废并清掉令牌和账号记录，停心跳、清空本账号的界面数据，回到登录页（可以登录别的账号）。
+func logout() -> void:
+	var session_token := PlayerApi.token()
+	PlayerApi.forget_session()
+	_session += 1
+	_timer.stop()
+	_busy = false
+	if _break_open:
+		_close_breakthrough()
+	_popup.close_popup()
+	_state = {}
+	_account = {}
+	_offline_shown_id = ""
+	_selected_stage = ""
+	_selected_realm = ""
+	_notices = NoticeQueue.new()
+	# 背包「新」标记记的是上一个账号的物品，换账号后重新按首次进入处理
+	var flags_path := "user://item_flags_mock.json" if _mock else "user://item_flags.json"
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(flags_path))
+	_flags = ItemFlags.at(flags_path)
+	if not _mock:
+		_content = {}  # 下次登录可能换了服务器地址，重新拉内容
+	_show_page(PAGE_CULTIVATE)
+	_login.reset_for_logout()
+	_login.show()
+	if not _mock and not session_token.is_empty():
+		await PlayerApi.revoke(session_token)  # 让服务器作废旧令牌；网络失败也不影响本机已退出
+
+
+func session_id() -> int:
+	return _session
 
 
 ## 心跳：拉 /me/state，服务器按“距上次请求不超过在线窗口”判在线并结算击杀、掉落。
@@ -385,7 +485,10 @@ func _refresh_state() -> void:
 		else:
 			_set_status("后台还没有发布内容，暂时不能修炼。")
 			return
+	var session := _session
 	var state := await PlayerApi.fetch_state()
+	if session != _session or PlayerApi.token().is_empty():
+		return  # 等结果期间退出登录了：旧账号的数据不要再画
 	if int(state.get("code", 0)) != 200:
 		_set_status(PlayerApi.error_message(state))
 		return

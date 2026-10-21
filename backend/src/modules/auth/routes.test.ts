@@ -49,6 +49,12 @@ describe("auth routes", () => {
       expect(wrong.json()).toEqual(wrongPassword.json());
       expect(wrong.json().error.code).toBe("INVALID_CREDENTIALS");
 
+      const account = await app.inject({ method: "GET", url: "/api/v1/me/account", headers: { authorization: `Bearer ${token}` } });
+      expect(account.statusCode).toBe(200);
+      expect(account.json()).toEqual({ playerId: created.json().playerId, username: "route_user" });
+      const anonymous = await app.inject({ method: "GET", url: "/api/v1/me/account" });
+      expect(anonymous.statusCode).toBe(401);
+
       const loggedOut = await app.inject({
         method: "POST",
         url: "/api/v1/auth/logout",
@@ -61,6 +67,8 @@ describe("auth routes", () => {
         headers: { authorization: `Bearer ${token}` },
       });
       expect(me.statusCode).toBe(401);
+      const accountAfter = await app.inject({ method: "GET", url: "/api/v1/me/account", headers: { authorization: `Bearer ${token}` } });
+      expect(accountAfter.statusCode).toBe(401);
       await app.close();
     });
   });

@@ -4,7 +4,7 @@ extends Control
 ## 第二行修为条（只在修炼、功法页显示，见 set_cultivation_visible）。
 ## 真实数据：境界名、战力（服务器 power，含装备）、灵石（state.spiritStones）、修为 / 突破所需。
 ## 还没有的东西照设计显示，点了统一提示「功能暂未开放」：灵石旁的「+」、葫芦货币（没有数值，显示 --）、邮件。
-## 点头像发 settings_pressed（致谢与版本）；点修为条右侧状态钮发 breakthrough_pressed（外壳决定开突破弹窗还是提示）。
+## 点头像发 settings_pressed（设置面板）；点修为条右侧状态钮发 breakthrough_pressed（外壳决定开突破弹窗还是提示）。
 
 signal settings_pressed
 signal breakthrough_pressed
@@ -62,7 +62,7 @@ func _build_identity() -> void:
 	_avatar = Button.new()
 	_avatar.name = "Avatar"
 	_avatar.focus_mode = Control.FOCUS_NONE
-	_avatar.tooltip_text = "致谢与版本"
+	_avatar.tooltip_text = "设置"
 	_place(_avatar, 26, 6, 136, 142)
 	var frame_tex := ArtLib.qui("avatar_frame")
 	for state in ["normal", "hover", "pressed", "disabled", "focus"]:

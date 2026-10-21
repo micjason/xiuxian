@@ -41,6 +41,12 @@ var _hero: Control
 var _last_kills := -1
 var _elapsed := 0.0
 
+var _preview: Button
+var _preview_art: TextureRect
+var _preview_plate: TextureRect
+var _preview_power: Label
+var _preview_slug := ""
+
 var _stage_view: ScrollContainer
 var _stages_sig := 0
 ## 本波圆点两种样式（亮 / 暗）只建一次；原来每帧给每个圆点新建 StyleBox，整页每帧重绘。
@@ -155,6 +161,88 @@ func _build_scene() -> void:
 	_monster_hp = QKit.bar(1.0, UiTokens.Q_RED, 30, 1, UiTokens.Q_TRACK, "red") as QBar
 	_monster_hp.name = "MonsterHp"
 	_at(_monster_hp, Rect2(756, 444, 170, 30))
+	_build_preview()
+
+
+## 精英预览小卡（SPEC_Q §14.5：884,630,170,230）：挂机所在关的精英 / 章末首领立绘 + 名牌 + 「战力 N」，点了 = 挑战。
+## 只在这关首领现在能打、而且打了有东西拿的时候显示（没首通，或还有今日奖励次数）。
+func _build_preview() -> void:
+	_preview = Button.new()
+	_preview.name = "ElitePreview"
+	_preview.focus_mode = Control.FOCUS_NONE
+	var box := QSkin.custom(Color(1.0, 0.973, 0.925, 0.94), UiTokens.Q_COCOA, 4, 28, 6, 0, 0)
+	for state in ["normal", "hover", "pressed", "disabled"]:
+		_preview.add_theme_stylebox_override(state, box)
+	_preview.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+	_at(_preview, Rect2(884, 630, 170, 230))
+	_preview_art = TextureRect.new()
+	_preview_art.name = "PreviewArt"
+	_preview_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_preview_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_preview_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_preview_art.position = Vector2(19, 8)
+	_preview_art.size = Vector2(132, 150)
+	_preview.add_child(_preview_art)
+	_preview_plate = TextureRect.new()
+	_preview_plate.name = "PreviewPlate"
+	_preview_plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_preview_plate.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_preview_plate.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_preview_plate.position = Vector2(19, 146)
+	_preview_plate.size = Vector2(132, 42)
+	_preview.add_child(_preview_plate)
+	_preview_power = QKit.title("", 24, UiTokens.Q_RED, HORIZONTAL_ALIGNMENT_CENTER)
+	_preview_power.name = "PreviewPower"
+	_preview_power.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_preview_power.position = Vector2(0, 190)
+	_preview_power.size = Vector2(170, 34)
+	_preview.add_child(_preview_power)
+	_preview.pressed.connect(func() -> void:
+		if not _preview_slug.is_empty() and not busy:
+			challenge_requested.emit(_preview_slug))
+	_preview.visible = false
+
+
+func _render_preview() -> void:
+	var idle := str(_wave().get("stageSlug", ""))
+	var card := {}
+	var fx := "default"
+	for chapter in _chapters:
+		for row in chapter.cards:
+			if str(row.slug) == idle:
+				card = row
+				fx = str(chapter.boss_fx)
+	_preview_slug = ""
+	var action := StageAccessView.button(card, _state) if not card.is_empty() else {}
+	var shown := not card.is_empty() and bool(action.get("enabled", false)) and str(action.get("kind", "")) == "o"
+	_preview.visible = shown
+	if not shown:
+		return
+	_preview_slug = str(card.slug)
+	var chief := str(card.tier) == "chief"
+	_preview_art.texture = preview_texture(str(card.boss_art), chief, fx, str(card.boss_name))
+	_preview_plate.texture = ArtLib.qui("plate_chief" if chief else "plate_elite")
+	_preview_power.text = "战力 %d" % int(card.recommended) if int(card.recommended) > 0 else ""
+	_preview.tooltip_text = "挑战%s「%s」" % ["章末首领" if chief else "精英", str(card.boss_name)]
+
+
+## 预览小卡的立绘：预渲染的 elite_<artKey> / chief_<artKey>（赤炎章节先找 *_chiyan），没有就用普通立绘。
+static func preview_texture(art_key: String, chief: bool, fx: String, boss_name: String) -> Texture2D:
+	var base := ("chief_" if chief else "elite_") + art_key
+	for name in ([base + "_" + fx, base] if fx != "default" else [base]):
+		if not art_key.is_empty() and ArtLib.has_q("sprites/%s.png" % name):
+			return ArtLib.q("sprites/" + name)
+	var sprite := ArtLib.monster_sprite_for({"artKey": art_key if not art_key.is_empty() else null, "name": boss_name})
+	return ArtLib.q("sprites/" + sprite) if not sprite.is_empty() else null
+
+
+## 供测试：预览小卡（不显示时 visible = false）和它对应的关卡。
+func preview_card() -> Button:
+	return _preview
+
+
+func preview_slug() -> String:
+	return _preview_slug
 
 
 ## 第三批：关卡列表按章节分组、能不能打看服务器 stageAccess（StageAccessView 算好每张卡）。
@@ -172,6 +260,7 @@ func bind(state: Dictionary, content: Dictionary, selected_slug: String) -> void
 		_tab = StageAccessView.default_chapter(_chapters, str(_wave().get("stageSlug", "")))
 	_elapsed = 0.0
 	_render_scene()
+	_render_preview()
 	_render_stages_if_changed()
 
 
@@ -222,6 +311,7 @@ func _stages_signature() -> int:
 
 func set_busy(value: bool) -> void:
 	busy = value
+	_preview.disabled = value
 	_render_stages()
 
 func _wave() -> Dictionary:

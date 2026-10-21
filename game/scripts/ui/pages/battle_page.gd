@@ -56,8 +56,22 @@ func _init() -> void:
 	size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_title_holder = UiKit.page_title("")
 	add_child(_title_holder)
-	_subtitle = UiKit.label("", UiTokens.FS_MICRO, UiTokens.TEXT_MUTED, HORIZONTAL_ALIGNMENT_CENTER)
-	add_child(_subtitle)
+	# 副标题（限时 / 已用 / 结算提示）放在奶油色胶囊里：亮背景（赤炎）上也看得清，和下面的血条卡隔开一点
+	_subtitle = UiKit.label("", UiTokens.FS_MICRO, UiTokens.TEXT, HORIZONTAL_ALIGNMENT_CENTER)
+	_subtitle.name = "Subtitle"
+	var sub_row := HBoxContainer.new()
+	sub_row.name = "SubtitleRow"
+	sub_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	sub_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var pill := QKit.pill(Color(1.0, 0.973, 0.925, 0.92), _subtitle, 3, 0, 24, 2)
+	pill.name = "SubtitlePill"
+	pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	sub_row.add_child(pill)
+	add_child(sub_row)
+	var gap := Control.new()
+	gap.custom_minimum_size = Vector2(0, 6)
+	gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(gap)
 	add_child(_build_hp_row())
 	_build_arena()
 	add_child(_result_panel)
@@ -253,7 +267,7 @@ func open_stage(state: Dictionary, content: Dictionary, stage: Dictionary, gate:
 	_controls.visible = true
 	_start_button.visible = true
 	_start_button.disabled = fight == null
-	_find_title().text = "%s  首领战" % str(stage.get("displayName", ""))
+	_find_title().text = "%s  %s" % [str(stage.get("displayName", "")), "精英战" if _fx.tier_for_boss(boss) == 1 else "首领战"]
 	var limit := fight.time_limit if fight != null else 45.0
 	UiKit.set_cta(_start_button, "开始挑战", "限时 %d 秒" % int(limit))
 	_me_name.text = "我 · %s" % my_realm_name
@@ -288,6 +302,11 @@ func open_stage(state: Dictionary, content: Dictionary, stage: Dictionary, gate:
 		_append_info("推荐战力 %d，我的战力 %d" % [int(stage.get("recommendedPower", 0)), int(state.get("power", 0))])
 	if fight.has_ult():
 		_append_info("「%s」%d 秒后冷却完毕，冷却完毕后 %d 秒内可点击释放，不点则自动释放" % [_ult_name, int(round(float(fight.ult.get("firstCooldownSeconds", 8.0)))), int(round(fight.auto_window()))])
+
+
+## 「精英战」/「首领战」（章末首领）。
+func _fight_word() -> String:
+	return "精英战" if int(_fx.tier) == 1 else "首领战"
 
 
 ## 这关所在章节的首领特效 key（content.chapters[].bossFx）；没有章节 / 没配 = default。
@@ -426,7 +445,7 @@ func _refresh_time() -> void:
 	if fight == null:
 		return
 	var used := minf(fight.t if not fight.finished else fight.duration, fight.time_limit)
-	var text := "首领战 · 限时 %d 秒 · 已用 %s" % [int(fight.time_limit), OfflineView.clock_text(int(used)).substr(3)]
+	var text := "%s · 限时 %d 秒 · 已用 %s" % [_fight_word(), int(fight.time_limit), OfflineView.clock_text(int(used)).substr(3)]
 	if text != _last_time_text and phase != Phase.SUBMITTING and phase != Phase.RESULT:
 		_last_time_text = text
 		_subtitle.text = text

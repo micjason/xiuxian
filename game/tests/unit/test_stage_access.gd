@@ -204,3 +204,46 @@ func test_tab_switch_shows_that_chapter_and_selects_its_stage() -> void:
 	assert_not_null(page.find_child("Stage_lianqi_1", true, false))
 	assert_null(page.find_child("Stage_jindan_1", true, false), "只显示这一章的关卡")
 	assert_true(page.selected.begins_with("lianqi_"), page.selected)
+
+
+## 精英预览小卡（SPEC_Q §14.5）：挂机所在关的首领能打、打了有东西拿才显示；点了 = 挑战这关。
+func test_elite_preview_card_shows_the_idle_stage_boss_and_challenges_it() -> void:
+	var scene := await _boot("gate")
+	scene.call("_show_page", "adventure")
+	await get_tree().process_frame
+	var page := scene.get("_stage_page") as StagePage
+	var card := page.preview_card()
+	var idle := str(((scene.get("_state") as Dictionary).wave as Dictionary).get("stageSlug", ""))
+	assert_eq(idle, "lianqi_3")
+	assert_true(card.visible, "黑风熊王能打、没首通 → 显示")
+	assert_eq(page.preview_slug(), "lianqi_3")
+	assert_eq((card.get_node("PreviewPlate") as TextureRect).texture, ArtLib.qui("plate_chief"), "章末首领用红名牌")
+	assert_true((card.get_node("PreviewPower") as Label).text.begins_with("战力 "))
+	var rect := card.get_global_rect()
+	assert_almost_eq(rect.size, Vector2(170, 230), Vector2(1, 1))
+	card.pressed.emit()
+	await get_tree().process_frame
+	assert_true((scene.get("_battle_page") as Control).visible, "点小卡进首领战")
+	assert_eq((scene.get("_battle_page") as BattlePage).stage_slug, "lianqi_3")
+
+
+func test_elite_preview_hidden_when_nothing_to_win() -> void:
+	var scene := await _boot("gate")
+	var state: Dictionary = scene.get("_state")
+	var wave: Dictionary = state.wave
+	wave["stageSlug"] = "lianqi_1"  # 已首通的精英：再战没奖励
+	scene.call("_render")
+	await get_tree().process_frame
+	var page := scene.get("_stage_page") as StagePage
+	assert_false(page.preview_card().visible)
+	wave["stageSlug"] = "zhuji_1"  # 没解锁
+	scene.call("_render")
+	await get_tree().process_frame
+	assert_false(page.preview_card().visible)
+
+
+func test_elite_preview_texture_prefers_prerendered_and_chiyan() -> void:
+	assert_eq(StagePage.preview_texture("fox", false, "default", "").resource_path, "res://assets/art/q/sprites/elite_fox.png")
+	assert_eq(StagePage.preview_texture("fire_jiao", true, "chiyan", "").resource_path, "res://assets/art/q/sprites/chief_fire_jiao_chiyan.png")
+	assert_eq(StagePage.preview_texture("bear", true, "chiyan", "").resource_path, "res://assets/art/q/sprites/chief_bear.png", "没有赤炎版就用默认预渲染图")
+	assert_eq(StagePage.preview_texture("", false, "default", "精英·青鬃狼").resource_path, "res://assets/art/q/sprites/mon_wolf.png")

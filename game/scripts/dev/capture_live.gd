@@ -1,6 +1,7 @@
 extends Node
 ## 开发用：连真实服务器截图（不用演示数据）。服务器地址用环境变量 XIUXIAN_API_BASE（可以是 SSH 隧道 http://127.0.0.1:端口）。
 ## 用法：godot --path game res://scenes/dev/capture_live.tscn -- <输出目录> <模式>（用场景启动，自动加载的 ApiClient 才在）
+##   batch2：登录后截背包（补发到账）、青云剑详情（套装块）、功法页（栏位）：10_bag.png 11_set_popup.png 12_skill_slots.png
 ##   update：假装是旧版本（XIUXIAN_FAKE_VERSION_CODE，默认 30），等「发现新版本」弹窗出现后截图 01_update_popup.png
 ##   play：  先截登录页 02_login.png；用 XIUXIAN_TEST_USER / XIUXIAN_TEST_PASS 注册（已存在就登录），等真实数据进来后截主界面
 ##          03_main.png 和历练页 04_adventure.png。不检查更新（XIUXIAN_UPDATE_CHECK=0）。
@@ -26,6 +27,8 @@ func _ready() -> void:
 	await get_tree().process_frame
 	if mode == "update":
 		await _run_update(scene)
+	elif mode == "batch2":
+		await _run_batch2(scene)
 	else:
 		await _run_play(scene)
 	get_tree().quit()
@@ -89,3 +92,43 @@ func _run_play(scene: Node) -> void:
 	scene.call("_show_page", "adventure")
 	await get_tree().create_timer(1.5).timeout
 	await _shot("04_adventure.png")
+
+
+func _run_batch2(scene: Node) -> void:
+	await _run_play(scene)
+	var state: Dictionary = scene.get("_state") if scene.get("_state") is Dictionary else {}
+	_hide_popups(scene)
+	scene.call("_show_page", "bag")
+	await get_tree().create_timer(1.5).timeout
+	await _shot("10_bag.png")
+	var bag: BagPage = scene.get("_bag_page")
+	var item_id := ""
+	for row in state.get("items", []):
+		if str(row.get("itemSlug", "")) == "gear_m_0001":
+			item_id = str(row.get("id", ""))
+	bag.show_detail(item_id)
+	await get_tree().create_timer(1.0).timeout
+	var popup := bag.detail_popup
+	var section := popup.find_child("SetSection", true, false) as Control
+	var scroll := popup.find_child("BodyScroll", true, false) as ScrollContainer
+	if section != null and scroll != null:
+		scroll.ensure_control_visible(section)
+		await get_tree().create_timer(0.5).timeout
+	await _shot("11_set_popup.png")
+	print("LIVE set_section=%s texts=%s" % [str(section != null), " | ".join(popup.texts().filter(func(t: String) -> bool: return t.contains("套") or t.contains("件")))])
+	popup.close_popup()
+	_hide_popups(scene)
+	scene.call("_show_page", "skill")
+	await get_tree().create_timer(1.5).timeout
+	_hide_popups(scene)
+	await _shot("12_skill_slots.png")
+
+
+## 离线收益 / 公告这类自动弹窗挡住页面时先关掉（只为截图）。
+func _hide_popups(scene: Node) -> void:
+	var offline: Variant = scene.get("_offline_popup")
+	if offline is Control:
+		(offline as Control).hide()
+	var popup := _find_popup(scene)
+	if popup != null:
+		popup.hide()

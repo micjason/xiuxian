@@ -108,7 +108,7 @@
 
           <SectionCard title="普通怪" anchor="sec-monsters" desc="玩家在线时在这里刷怪，每只击杀给固定修为">
             <template #extra><span class="muted">每波 {{ rules.waveSize ?? 3 }} 只 · 取自配置概览</span></template>
-            <table class="grid">
+            <table class="grid mon">
               <thead>
                 <tr>
                   <th class="name">名称</th>
@@ -665,6 +665,18 @@ onBeforeUnmount(() => window.removeEventListener("resize", onResize));
 }
 .grid .art {
   width: 136px;
+}
+/* 普通怪表多了「立绘」列：名称收窄、数值列不留余量，1080 抽屉里放得下 */
+.grid.mon .name :deep(.el-input) {
+  width: 140px;
+}
+.grid.mon .num {
+  width: 128px;
+}
+.grid.mon td,
+.grid.mon th {
+  padding-left: 4px;
+  padding-right: 4px;
 }
 .chapter-cell {
   color: var(--xx-text-primary);

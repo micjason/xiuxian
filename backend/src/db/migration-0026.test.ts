@@ -5,7 +5,7 @@ import { contentSkillCategories, contentSkills, playerNotices, players, popupTyp
 import { applyPrototypeV12 } from "../modules/content/prototype-v12.js";
 import { withDb } from "../test/db.js";
 
-const text = readFileSync(new URL("../../drizzle/0025_heart_category_notices.sql", import.meta.url), "utf8");
+const text = readFileSync(new URL("../../drizzle/0026_heart_category_notices.sql", import.meta.url), "utf8");
 
 async function runMigration(db: Parameters<Parameters<typeof withDb>[0]>[0]) {
   for (const statement of text.split(/;\s*\n/).map((part) => part.replace(/^--.*$/gm, "").trim()).filter(Boolean)) {
@@ -13,10 +13,14 @@ async function runMigration(db: Parameters<Parameters<typeof withDb>[0]>[0]) {
   }
 }
 
-describe("migration 0025 (「心法」 category, drop the income popup)", () => {
+describe("migration 0026 (「心法」 category, drop the income popup)", () => {
   it("is in the journal", () => {
-    const journal = JSON.parse(readFileSync(new URL("../../drizzle/meta/_journal.json", import.meta.url), "utf8")) as { entries: { idx: number; tag: string }[] };
-    expect(journal.entries[25]).toMatchObject({ idx: 25, tag: "0025_heart_category_notices" });
+    const journal = JSON.parse(readFileSync(new URL("../../drizzle/meta/_journal.json", import.meta.url), "utf8")) as { entries: { idx: number; tag: string; when?: number }[] };
+    const entry = journal.entries.find((row) => row.tag === "0026_heart_category_notices");
+    expect(entry).toMatchObject({ idx: 26 });
+    // drizzle 只跑 when 比库里最后一条大的迁移：必须排在 0024 之后
+    const when = (tag: string) => (journal.entries as { tag: string; when?: number }[]).find((row) => row.tag === tag)?.when ?? 0;
+    expect(when("0026_heart_category_notices")).toBeGreaterThan(when("0024_config_overview_defaults"));
   });
 
   it("puts the uncategorized heart skills under a new 「心法」 category and removes income notices; running twice changes nothing", async () => {

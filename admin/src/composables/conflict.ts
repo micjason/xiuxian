@@ -77,7 +77,9 @@ export function flatten(value: unknown, prefix = "", out: Record<string, unknown
 export function conflictRows(mine: unknown, latest: unknown): { path: string; server: unknown; mine: unknown }[] {
   const left = flatten(mine);
   const right = flatten(latest);
-  const same = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null) || (a != null && b != null && String(a) === String(b));
+  // 空字符串 / null / 没有 视为一样（表单常把 null 发成 ""）；数字和数字字符串视为一样
+  const norm = (value: unknown) => (value === "" || value === undefined ? null : value);
+  const same = (a: unknown, b: unknown) => JSON.stringify(norm(a)) === JSON.stringify(norm(b)) || (norm(a) != null && norm(b) != null && String(a) === String(b));
   return Object.keys(left)
     .filter((path) => !same(left[path], right[path]))
     .map((path) => ({ path, server: path in right ? right[path] : undefined, mine: left[path] }));

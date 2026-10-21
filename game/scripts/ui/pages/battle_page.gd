@@ -259,7 +259,8 @@ func open_stage(state: Dictionary, content: Dictionary, stage: Dictionary, gate:
 	_me_name.text = "我 · %s" % my_realm_name
 	_boss_name_label.text = _boss_name
 	var tag := "精英" if _fx.tier_for_boss(boss) == 1 else "首领"
-	_boss_meta.text = ("%s  推荐战力 %d" % [tag, int(stage.get("recommendedPower", 0))]) if int(stage.get("recommendedPower", 0)) > 0 else tag
+	# 血条卡右上角只留档次角标（名字要完整显示）；推荐战力写进战报第一行
+	_boss_meta.text = tag
 	# 首领立绘：Q 版怪物图（按后台 artKey 查，没有再按名字），朝左面向主角；认不出的首领退回旧剪影（染色）
 	var sprite := ArtLib.monster_sprite_for(boss)
 	if not sprite.is_empty():
@@ -283,6 +284,8 @@ func open_stage(state: Dictionary, content: Dictionary, stage: Dictionary, gate:
 		_subtitle.text = "这个关卡还没有首领"
 		return
 	_append_info("你（气血 %d）对阵 %s（气血 %d）" % [BagModel.shown(fight.player_max_hp), _boss_name, BagModel.shown(fight.boss_max_hp)])
+	if int(stage.get("recommendedPower", 0)) > 0:
+		_append_info("推荐战力 %d，我的战力 %d" % [int(stage.get("recommendedPower", 0)), int(state.get("power", 0))])
 	if fight.has_ult():
 		_append_info("「%s」%d 秒后冷却完毕，冷却完毕后 %d 秒内可点击释放，不点则自动释放" % [_ult_name, int(round(float(fight.ult.get("firstCooldownSeconds", 8.0)))), int(round(fight.auto_window()))])
 

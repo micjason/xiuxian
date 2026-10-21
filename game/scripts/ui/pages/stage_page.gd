@@ -571,61 +571,80 @@ func _stage_card(card_data: Dictionary, power: int) -> Control:
 		sub.name = "ButtonSub"
 		side.add_child(sub)
 	if chosen and playable:
-		outer.add_child(_reward_row(card_data))
+		info.add_child(_reward_row(card_data))
 	var height := 230.0 if not playable else 250.0
 	if chief:
 		height += 30.0
 	if chosen and playable:
-		height += 170.0
+		height += 70.0
 	shell.custom_minimum_size = Vector2(0, height)
 	return shell
 
 
-## 选中卡展开的奖励行：没首通 = 首通奖励（修为 + 物品，角标「首通」）；打过 = 重复掉落（首领装备 + 额外物品概率）。
+## 选中卡展开的奖励行（设计稿 q_adventure_stages：文字列里一行「首通奖励」+ 小格子，数量写在格子角上，不写名字，名字在悬停提示里）。
+## 没首通 = 首通奖励（修为 / 灵石 / 物品 / 随机装备）；打过 = 重复掉落（首领装备 + 额外物品概率）。
 func _reward_row(card_data: Dictionary) -> Control:
-	var well := QKit.inset(UiTokens.Q_CARD, 22, 16, 8)
-	well.panel.name = "RewardRow"
-	well.panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var slots := UiKit.hbox(14)
+	var row := UiKit.hbox(8)
+	row.name = "RewardRow"
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var first := not bool(card_data.cleared)
+	var label := UiKit.label("首通奖励" if first else "掉落", 26, UiTokens.Q_ORANGE_DARK if first else UiTokens.TEXT_MUTED)
+	label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(label)
+	var slots := UiKit.hbox(8)
 	slots.name = "DropSlots"
 	slots.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	well.body.add_child(slots)
-	var first := not bool(card_data.cleared)
-	slots.add_child(QKit.title("首通" if first else "掉落", 30, UiTokens.Q_ORANGE_DARK if first else UiTokens.TEXT_MUTED))
+	row.add_child(slots)
 	if first:
 		for reward in card_data.first_clear:
 			if typeof(reward) != TYPE_DICTIONARY:
 				continue
-			var kind := str((reward as Dictionary).get("kind", ""))
-			if kind == "cultivation" or kind == "spiritStones":
-				var what := "修为 +%s" % CultivationFormat.amount(float((reward as Dictionary).get("amount", 0))) if kind == "cultivation" else "灵石 +%d" % int((reward as Dictionary).get("amount", 0))
-				var amount := QKit.title(what, 30, UiTokens.Q_ORANGE_DARK)
-				amount.name = "FirstClearCultivation" if kind == "cultivation" else "FirstClearStones"
-				slots.add_child(amount)
-				continue
-			if kind == "gear":
-				var count := int((reward as Dictionary).get("count", 1))
-				_slot_cell(slots, QKit.slot(_gear_icon("weapon"), 2, 88, "×%d" % count if count > 1 else "", "", Color.WHITE), "随机装备", "", true)
-				continue
-			var slug := str((reward as Dictionary).get("itemSlug", ""))
-			_slot_cell(slots, QKit.reward_slot(_content, slug, 88, int((reward as Dictionary).get("quantity", 1))), str(QKit.reward_view(_content, slug).name), "", true)
+			var data := reward as Dictionary
+			var kind := str(data.get("kind", ""))
+			match kind:
+				"cultivation":
+					_reward_slot(slots, _q_icon("icons/tab_cultivate"), 3, CultivationFormat.amount(float(data.get("amount", 0))), "修为 +%s" % CultivationFormat.amount(float(data.get("amount", 0))), "FirstClearCultivation")
+				"spiritStones":
+					_reward_slot(slots, _q_icon("icons/res_stone"), 1, str(int(data.get("amount", 0))), "灵石 +%d" % int(data.get("amount", 0)), "FirstClearStones")
+				"gear":
+					var count := int(data.get("count", 1))
+					_reward_slot(slots, _gear_icon("weapon"), 2, "×%d" % count if count > 1 else "", "随机装备 ×%d" % count)
+				_:
+					var slug := str(data.get("itemSlug", ""))
+					var view := QKit.reward_view(_content, slug)
+					var qty := int(data.get("quantity", 1))
+					_reward_slot(slots, view.texture, int(view.rarity), "×%d" % qty if qty > 1 else "", str(view.name))
 	else:
 		var repeat: Variant = card_data.repeat
 		var rules: Dictionary = card_data.rules
 		if not bool(rules.get("repeatRewards", true)):
-			slots.add_child(UiKit.label("再战没有奖励", 28, UiTokens.TEXT_MUTED))
+			slots.add_child(UiKit.label("再战没有奖励", 26, UiTokens.TEXT_MUTED))
 		elif typeof(repeat) == TYPE_DICTIONARY:
 			if bool((repeat as Dictionary).get("gear", false)):
 				var pct: Dictionary = rules.get("gearQualityPct", {}) if typeof(rules.get("gearQualityPct", null)) == TYPE_DICTIONARY else {}
 				var orange := int(pct.get("orange", 0))
-				_slot_cell(slots, QKit.slot(_gear_icon("helmet"), 4 if orange > 0 else 2, 88, "", "", Color.WHITE), "首领装备", ("橙 %d%%" % orange) if orange > 0 else "")
+				_reward_slot(slots, _gear_icon("helmet"), 4 if orange > 0 else 2, ("橙%d%%" % orange) if orange > 0 else "", "首领装备")
 			for extra in (repeat as Dictionary).get("extras", []):
 				if typeof(extra) == TYPE_DICTIONARY:
 					var item := str((extra as Dictionary).get("itemSlug", ""))
-					_slot_cell(slots, QKit.reward_slot(_content, item, 88, int((extra as Dictionary).get("maxQty", 1))), str(QKit.reward_view(_content, item).name), "%d%%" % int(round(float((extra as Dictionary).get("chanceBp", 0)) / 100.0)))
-	if slots.get_child_count() <= 1:
-		slots.add_child(UiKit.label("没有奖励", 28, UiTokens.TEXT_MUTED))
-	return well.panel
+					var view := QKit.reward_view(_content, item)
+					_reward_slot(slots, view.texture, int(view.rarity), "%d%%" % int(round(float((extra as Dictionary).get("chanceBp", 0)) / 100.0)), str(view.name))
+	if slots.get_child_count() == 0:
+		slots.add_child(UiKit.label("没有奖励", 26, UiTokens.TEXT_MUTED))
+	return row
+
+
+## 奖励小格子（64）：数量 / 概率写在格子右下角，名字放提示。
+func _reward_slot(row: HBoxContainer, tex: Texture2D, rarity: int, corner: String, tip: String, node_name: String = "") -> void:
+	var slot := QKit.slot(tex, rarity, 64, corner, "", Color.WHITE)
+	slot.tooltip_text = tip
+	if not node_name.is_empty():
+		slot.name = node_name
+	row.add_child(slot)
+
+
+static func _q_icon(path: String) -> Texture2D:
+	return ArtLib.q(path) if ArtLib.has_q(path + ".png") else null
 
 
 ## 战力对比：用文字+符号表达，不只靠颜色。
@@ -637,28 +656,6 @@ static func power_status(mine: int, recommended: int) -> Dictionary:
 	if float(mine) >= float(recommended) * 0.8:
 		return {"text": "略低于推荐", "symbol": "!", "level": "warn"}
 	return {"text": "战力差距大", "symbol": "✖", "level": "bad"}
-
-
-func _slot_cell(row: HBoxContainer, slot: Control, caption: String, corner: String = "", first: bool = false) -> void:
-	var cell := UiKit.vbox(2)
-	cell.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_child(cell)
-	slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	cell.add_child(slot)
-	if not corner.is_empty():
-		var tag := QKit.outlined(corner, 26, UiTokens.Q_WHITE, UiTokens.Q_COCOA, 8, HORIZONTAL_ALIGNMENT_RIGHT)
-		tag.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-		tag.offset_top = -36
-		tag.offset_right = -4
-		slot.add_child(tag)
-	if first:
-		var badge := QKit.tag("首通", "red", 22, 8)
-		badge.position = Vector2(20, -12)
-		slot.add_child(badge)
-	var name := UiKit.label(caption, 24, UiTokens.TEXT, HORIZONTAL_ALIGNMENT_CENTER)
-	name.custom_minimum_size = Vector2(100, 0)
-	name.clip_text = true
-	cell.add_child(name)
 
 
 ## 「随机装备」格子用的部位图（Q 版装备图标）。

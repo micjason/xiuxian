@@ -5,6 +5,7 @@ import { dropMultsOf, rollMonsterKillDrop } from "../content/monster-drops.js";
 import type { StageMonster } from "../content/combat-types.js";
 import type { ContentSnapshot } from "../content/validate.js";
 import type { GameRules } from "../content/rules.js";
+import { orderedStages, type StageAccess } from "../content/stage-order.js";
 import { grantItem } from "./bag.js";
 
 type World = ContentSnapshot & { version: number };
@@ -19,26 +20,26 @@ let waveRandom: RandomInt = (min, max) => cryptoRandomInt(min, max);
 export function setWaveRandom(fn: RandomInt): void {
   waveRandom = fn;
 }
+/** 结算里别的掷骰（自动挑战首领的奖励）也用同一个来源。 */
+export const waveRandomInt: RandomInt = (min, max) => waveRandom(min, max);
 
-/** 可以刷怪的关卡：启用、配了普通怪、境界够得着。 */
-export function farmableStages(world: World, realmOrder: number): Stage[] {
-  return world.stages.filter((stage) => stage.enabled && (stage.monsters?.length ?? 0) > 0 && stage.requiredRealmOrder != null && stage.requiredRealmOrder <= realmOrder);
+/** 可以刷怪的关卡（按游戏顺序）：启用、配了普通怪、已解锁且境界够（stage-order.ts 的 stageAccessList）。 */
+export function farmableStages(world: World, access: StageAccess[]): Stage[] {
+  const playable = new Set(access.filter((row) => row.playable).map((row) => row.slug));
+  return orderedStages(world).filter((stage) => playable.has(stage.slug) && (stage.monsters?.length ?? 0) > 0);
 }
 
 /**
- * 现在在哪个关卡刷怪：玩家选过（idleStageSlug）且还有效就用它，否则用境界够得着的最高关卡（突破后自动换到新关卡）。
+ * 现在在哪个关卡刷怪：玩家选过（idleStageSlug）且还能进就用它，否则用能进的最后一关（突破、打赢首领后自动往前走）。
  * 没有可刷的关卡就返回 null（这个世界没配普通怪，或者玩家境界太低）。
  */
-export function resolveFarmStage(world: World, realmOrder: number, idleStageSlug: string | null): Stage | null {
-  const candidates = farmableStages(world, realmOrder);
+export function resolveFarmStage(world: World, access: StageAccess[], idleStageSlug: string | null): Stage | null {
+  const candidates = farmableStages(world, access);
   if (candidates.length === 0) {
     return null;
   }
   const chosen = idleStageSlug ? candidates.find((stage) => stage.slug === idleStageSlug) : undefined;
-  if (chosen) {
-    return chosen;
-  }
-  return [...candidates].sort((left, right) => (right.requiredRealmOrder ?? 0) - (left.requiredRealmOrder ?? 0) || (right.sortOrder ?? 0) - (left.sortOrder ?? 0))[0] ?? null;
+  return chosen ?? candidates[candidates.length - 1] ?? null;
 }
 
 export type WaveDrop = {

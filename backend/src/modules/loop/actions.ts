@@ -26,7 +26,9 @@ import { maxSkillSlots, nextSkillSlotRule, openSkillSlots } from "../content/ski
 import { announcementNoticesForPlayer, noticesForPlayer } from "../notices/service.js";
 import { dailyUsed, grantBossRewards, usesRewardModel } from "./boss-rewards.js";
 import { acknowledgeOfflineReport, pendingOfflineReport, recordOfflineReport } from "./offline.js";
-import { EMPTY_WAVES, cycleFor, farmableStages, resolveFarmStage, settleWaves, type WaveSettlement } from "./waves.js";
+import { EMPTY_WAVES, cycleFor, farmableStages, resolveFarmStage, settleWaves, waveRandomInt, type WaveSettlement } from "./waves.js";
+import { bossRulesFor, nextStageOf, orderedStages, stageAccessList, stageTier, type StageAccess } from "../content/stage-order.js";
+import { stageRecommendedPower } from "../content/stage-power.js";
 
 type World = ContentSnapshot & { version: number };
 type RandomInt = (min: number, max: number) => number;
@@ -371,9 +373,9 @@ export function battleConfigOf(world: ContentSnapshot) {
   };
 }
 
-async function settleLocked(tx: Tx, playerId: string, world: World, now: Date) {
+async function settleLocked(tx: Tx, playerId: string, world: World, now: Date, options: { autoChallenge?: boolean } = {}) {
   const { state } = await lockedState(tx, playerId);
-  const pieces = await loadPieces(tx, playerId);
+  let pieces = await loadPieces(tx, playerId);
   const stats = statsOf(world, state.realmSlug, pieces.items, pieces.skills);
   const rules = readGameRules(world);
   const realm = realmOf(world, state.realmSlug);
@@ -393,7 +395,8 @@ async function settleLocked(tx: Tx, playerId: string, world: World, now: Date) {
   const online = gapSeconds <= rules.onlineGapSeconds;
   const consumedSeconds = Math.max(0, (settled.lastSettledAt.getTime() - state.lastSettledAt.getTime()) / 1000);
   let waves: WaveSettlement = { ...EMPTY_WAVES, online };
-  const stage = realm.sortOrder == null ? null : resolveFarmStage(world, realm.sortOrder, state.idleStageSlug);
+  let access = realm.sortOrder == null ? [] : stageAccessList(world, realm.sortOrder, pieces.stages);
+  const stage = resolveFarmStage(world, access, state.idleStageSlug);
   if (online && stage && consumedSeconds > 0) {
     waves = await settleWaves(tx, world, playerId, {
       rules,
@@ -439,15 +442,30 @@ async function settleLocked(tx: Tx, playerId: string, world: World, now: Date) {
     });
   }
   const offlineReport = await pendingOfflineReport(tx, playerId);
-  const kept = saved ?? { ...state, cultivation, lastSettledAt: settled.lastSettledAt, cultivationRemainderBp: settled.remainderBp, waveProgress, waveDeathsInRow };
-  const items = waves.drops.length > 0 || waves.kills > 0 ? (await loadPieces(tx, playerId)).items : pieces.items;
+  let kept = saved ?? { ...state, cultivation, lastSettledAt: settled.lastSettledAt, cultivationRemainderBp: settled.remainderBp, waveProgress, waveDeathsInRow };
+  if (waves.drops.length > 0 || waves.kills > 0) {
+    pieces = { ...pieces, items: (await loadPieces(tx, playerId)).items };
+  }
+  // 自动挑战（首领规则「允许自动挑战」）：挂机关卡的首领还没击败、战力 ≥ 推荐战力 × 比例时，结算里直接打一场。
+  let autoChallenge: AutoChallengeResult | null = null;
+  if (options.autoChallenge !== false && stage) {
+    autoChallenge = await tryAutoChallenge(tx, world, playerId, { state: kept, stats, pieces, access }, stage, now);
+    if (autoChallenge) {
+      const [fresh] = await tx.select().from(playerStates).where(eq(playerStates.playerId, playerId)).limit(1);
+      kept = fresh ?? kept;
+      pieces = await loadPieces(tx, playerId);
+      access = realm.sortOrder == null ? [] : stageAccessList(world, realm.sortOrder, pieces.stages);
+    }
+  }
   return {
     state: kept,
-    pieces: { ...pieces, items },
+    pieces,
     stats,
     settled,
     waves,
     stage,
+    access,
+    autoChallenge,
     gapSeconds,
     now,
     offlineReport,
@@ -498,6 +516,7 @@ function stateDto(world: World, playerId: string, settled: Awaited<ReturnType<ty
     // 套装：穿着的每个套装几件、哪些档位已生效（游戏端装备弹窗用；数值定义在 /content/current 的 gearSets）
     activeSets: setBonusOf(world, settled.pieces.items.filter((item) => item.equippedSlot).map((item) => item.itemSlug)).sets,
     stages: settled.pieces.stages,
+    stageAccess: settled.access.map((row) => accessDto(world, row)),
     wave: waveDto(world, settled),
     offlineReport: settled.offlineReport
       ? {
@@ -525,7 +544,18 @@ function stateDto(world: World, playerId: string, settled: Awaited<ReturnType<ty
       killCultivation: settled.waves.killCultivation,
       drops: settled.waves.drops,
       bagFull: settled.waves.bagFull,
+      autoChallenge: settled.autoChallenge,
     },
+  };
+}
+
+/** 历练页用：每关能不能进、为什么不能进（解锁条件两项分别满足没有）、首领档次。 */
+function accessDto(world: World, access: StageAccess) {
+  const stage = world.stages.find((row) => row.slug === access.slug);
+  return {
+    ...access,
+    tier: stage ? stageTier(world, stage) : null,
+    chapterSlug: stage?.chapterSlug ?? null,
   };
 }
 
@@ -563,23 +593,28 @@ function breakthroughPreview(world: World, next: World["realms"][number] | undef
   };
 }
 
-/** 每个已首通、配了重复挑战奖励的首领：今天已经领了几次、一共几次。 */
+/** 每个已首通、重打给奖励（首领规则）且配了重复挑战奖励的首领：今天已经领了几次、一共几次。 */
 function bossDailyDto(world: World, settled: Awaited<ReturnType<typeof settleLocked>>) {
   const rules = readGameRules(world);
   const now = settled.now;
   return settled.pieces.stages.flatMap((row) => {
-    const boss = world.stages.find((stage) => stage.slug === row.stageSlug)?.bosses?.[0];
-    if (!row.firstClearedAt || !boss?.repeat) {
+    const stage = world.stages.find((candidate) => candidate.slug === row.stageSlug);
+    const boss = stage?.bosses?.[0];
+    if (!stage || !row.firstClearedAt || !boss?.repeat) {
       return [];
     }
-    return [{ stageSlug: row.stageSlug, used: dailyUsed(row, rules, now), limit: rules.bossDailyRewardCount }];
+    const bossRules = bossRulesFor(world, stage);
+    const limit = bossRules.repeatRewards ? bossRules.dailyRewardLimit : 0;
+    if (limit <= 0) {
+      return [];
+    }
+    return [{ stageSlug: row.stageSlug, used: dailyUsed(row, rules, now), limit }];
   });
 }
 
 /** 普通怪波次的当前状态：在哪个关卡刷、一波多久、进行到哪、可以切到哪些关卡。 */
 function waveDto(world: World, settled: Awaited<ReturnType<typeof settleLocked>>) {
   const rules = readGameRules(world);
-  const realm = realmOf(world, settled.state.realmSlug);
   const monster = settled.stage?.monsters?.[0];
   const cycle = monster ? cycleFor(rules, settled.stats, monster) : null;
   return {
@@ -595,10 +630,7 @@ function waveDto(world: World, settled: Awaited<ReturnType<typeof settleLocked>>
     deathsInRow: settled.state.waveDeathsInRow,
     onlineGapSeconds: rules.onlineGapSeconds,
     chosenStageSlug: settled.state.idleStageSlug,
-    selectable:
-      realm.sortOrder == null
-        ? []
-        : farmableStages(world, realm.sortOrder).map((stage) => ({ slug: stage.slug, name: stage.displayName ?? stage.slug, monsterName: stage.monsters?.[0]?.name ?? "" })),
+    selectable: farmableStages(world, settled.access).map((stage) => ({ slug: stage.slug, name: stage.displayName ?? stage.slug, monsterName: stage.monsters?.[0]?.name ?? "" })),
   };
 }
 
@@ -649,7 +681,7 @@ export async function initializeProgress(tx: Tx, playerId: string, now: Date) {
   if (!world) {
     return;
   }
-  const first = [...world.stages].filter((row) => row.enabled).sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))[0];
+  const first = orderedStages(world)[0];
   if (first) {
     await tx.insert(playerStageProgress).values({ playerId, stageSlug: first.slug, unlockedAt: now }).onConflictDoNothing();
   }
@@ -704,10 +736,9 @@ export async function readState(db: Db, playerId: string, now: Date) {
 export async function setIdleStage(tx: Tx, world: World, playerId: string, stageSlug: string | null, now: Date) {
   const settled = await settleLocked(tx, playerId, world, now);
   if (stageSlug !== null) {
-    const realm = realmOf(world, settled.state.realmSlug);
-    const allowed = realm.sortOrder == null ? [] : farmableStages(world, realm.sortOrder);
+    const allowed = farmableStages(world, settled.access);
     if (!allowed.some((stage) => stage.slug === stageSlug)) {
-      throw new AppError("INVALID_INPUT", "这个关卡现在不能刷怪（境界不够，或者没有配置怪物）");
+      throw new AppError("INVALID_INPUT", "这个关卡现在不能刷怪（还没解锁、境界不够，或者没有配置怪物）");
     }
   }
   if (stageSlug !== settled.state.idleStageSlug) {
@@ -781,7 +812,8 @@ export type ChallengeOptions = {
 };
 
 export async function challengeStage(tx: Tx, world: World, playerId: string, stageSlug: string, now: Date, randomInt: RandomInt, options: ChallengeOptions = {}) {
-  const settled = await settleLocked(tx, playerId, world, now);
+  // 手动挑战前的结算不触发自动挑战（否则点「挑战」时可能先被自动打掉，这一场变成重打）
+  const settled = await settleLocked(tx, playerId, world, now, { autoChallenge: false });
   const stage = world.stages.find((row) => row.slug === stageSlug);
   if (!stage) {
     throw new AppError("NOT_FOUND");
@@ -790,9 +822,33 @@ export async function challengeStage(tx: Tx, world: World, playerId: string, sta
   if (realm.sortOrder == null || stage.requiredRealmOrder == null) {
     throw new AppError("INVALID_INPUT", "关卡没有所属境界");
   }
-  if (realm.sortOrder < stage.requiredRealmOrder) {
+  const access = settled.access.find((row) => row.slug === stageSlug);
+  if (!access || !access.unlocked) {
+    throw new AppError("STAGE_LOCKED", access?.needs.bossWin && !access.needs.bossWin.met ? `先击败「${access.needs.bossWin.bossName}」` : undefined);
+  }
+  if (!access.realmOk) {
     throw new AppError("REALM_TOO_LOW");
   }
+  const rules = readGameRules(world);
+  const cooldown = rules.challengeCooldownSeconds;
+  if (cooldown > 0 && settled.state.lastChallengeAt && now.getTime() - settled.state.lastChallengeAt.getTime() < cooldown * 1000) {
+    throw new AppError("CHALLENGE_COOLDOWN", `挑战冷却中，要间隔 ${cooldown} 秒`);
+  }
+  const plan: UltPlan = options.ultWaits !== undefined && Array.isArray(options.ultWaits) ? { waits: (options.ultWaits as unknown[]).slice(0, 50).map(Number) } : cleanUltTaps(options.ultTaps);
+  const fought = await fightStageBoss(tx, world, playerId, settled, stage, now, randomInt, plan);
+  const after = await settleLocked(tx, playerId, world, now);
+  return { ...fought, state: stateDto(world, playerId, after) };
+}
+
+type FightInput = Pick<Awaited<ReturnType<typeof settleLocked>>, "state" | "stats" | "pieces">;
+
+/**
+ * 打一场首领（手动挑战和自动挑战共用）：模拟战斗、发奖励、记进度、解锁下一关。调用方已经检查过能不能打。
+ * 首领规则「允许重打」关掉时，已击败的首领不能再打。
+ */
+async function fightStageBoss(tx: Tx, world: World, playerId: string, settled: FightInput, stage: World["stages"][number], now: Date, randomInt: RandomInt, plan: UltPlan) {
+  const stageSlug = stage.slug;
+  const rules = readGameRules(world);
   let progress = settled.pieces.stages.find((row) => row.stageSlug === stageSlug);
   if (!progress) {
     await tx.insert(playerStageProgress).values({ playerId, stageSlug, unlockedAt: now }).onConflictDoNothing();
@@ -805,12 +861,8 @@ export async function challengeStage(tx: Tx, world: World, playerId: string, sta
       bestClearSeconds: null,
       dailyRewardCount: 0,
       dailyRewardDay: null,
+      autoChallengeAt: null,
     };
-  }
-  const rules = readGameRules(world);
-  const cooldown = rules.challengeCooldownSeconds;
-  if (cooldown > 0 && settled.state.lastChallengeAt && now.getTime() - settled.state.lastChallengeAt.getTime() < cooldown * 1000) {
-    throw new AppError("CHALLENGE_COOLDOWN", `挑战冷却中，要间隔 ${cooldown} 秒`);
   }
   // 行囊满不再拒绝挑战：装备掉落满包时不掉落（客户端提示），首通固定奖励允许超出容量。
   const bagCapacity = rules.bagCapacity + settled.state.bagBonus;
@@ -818,6 +870,13 @@ export async function challengeStage(tx: Tx, world: World, playerId: string, sta
     throw new AppError("INVALID_INPUT", "这个关卡还没有首领");
   }
   const boss = stage.bosses?.[0];
+  if (boss?.statsProblem) {
+    throw new AppError("INVALID_INPUT", boss.statsProblem);
+  }
+  const bossRules = bossRulesFor(world, stage);
+  if (progress.firstClearedAt && !bossRules.allowRepeat) {
+    throw new AppError("BOSS_REPEAT_DISABLED");
+  }
   const bossAttack = boss ? boss.attack : (stage.bossAttack ?? 1);
   const bossDefense = boss ? boss.defense : (stage.bossDefense ?? 0);
   const bossHp = boss ? boss.hp : stage.bossHp;
@@ -828,7 +887,6 @@ export async function challengeStage(tx: Tx, world: World, playerId: string, sta
   const fighter = { attack: settled.stats.attack, defense: settled.stats.defense, hp: settled.stats.hp, interval: settled.stats.interval };
   const monsterSide = { attack: bossAttack, defense: bossDefense, hp: bossHp, interval: bossInterval };
   const ult = ultOf(world, settled.state.realmSlug);
-  const plan: UltPlan = options.ultWaits !== undefined && Array.isArray(options.ultWaits) ? { waits: (options.ultWaits as unknown[]).slice(0, 50).map(Number) } : cleanUltTaps(options.ultTaps);
   const battle = simulateBossFight(fighter, monsterSide, battleConfigOf(world), ult, plan);
   const drops: { itemSlug: string; quantity: number; decomposed?: boolean; enhanceExp?: number; dropped?: boolean; freed?: { itemSlug: string; enhanceExp: number }[] }[] = [];
   let nextPity: Record<string, number> | undefined;
@@ -840,6 +898,7 @@ export async function challengeStage(tx: Tx, world: World, playerId: string, sta
       boss,
       progress,
       rules,
+      bossRules,
       autoDecompose: settled.state.autoDecompose,
       capacity: bagCapacity,
       now,
@@ -927,18 +986,16 @@ export async function challengeStage(tx: Tx, world: World, playerId: string, sta
           progress.bestClearSeconds == null ? battle.durationSeconds : Math.min(progress.bestClearSeconds, battle.durationSeconds),
       })
       .where(and(eq(playerStageProgress.playerId, playerId), eq(playerStageProgress.stageSlug, stageSlug)));
-    if (stage.nextStageSlug) {
-      await tx
-        .insert(playerStageProgress)
-        .values({ playerId, stageSlug: stage.nextStageSlug, unlockedAt: now })
-        .onConflictDoNothing();
+    // 记一笔下一关已解锁（境界条件仍然在 stageAccessList 里另算）；规则不要求击败首领时下一关本来就开着，这里写不写都一样。
+    const next = nextStageOf(world, stageSlug);
+    if (next) {
+      await tx.insert(playerStageProgress).values({ playerId, stageSlug: next.slug, unlockedAt: now }).onConflictDoNothing();
     }
   }
   await tx
     .update(playerStates)
     .set(nextPity ? { lastChallengeAt: now, dropPity: nextPity } : { lastChallengeAt: now })
     .where(eq(playerStates.playerId, playerId));
-  const after = await settleLocked(tx, playerId, world, now);
   return {
     battle,
     drops,
@@ -947,12 +1004,87 @@ export async function challengeStage(tx: Tx, world: World, playerId: string, sta
       ? {
           firstClear: rewardInfo.firstClear,
           cultivation: rewardInfo.cultivation,
+          spiritStones: rewardInfo.spiritStones,
           rewarded: rewardInfo.rewarded,
           dailyRewardCount: rewardInfo.dailyRewardCount,
           dailyRewardLimit: rewardInfo.dailyRewardLimit,
         }
       : null,
-    state: stateDto(world, playerId, after),
+  };
+}
+
+export type AutoChallengeResult = {
+  stageSlug: string;
+  bossName: string;
+  tier: "elite" | "chief";
+  win: boolean;
+  durationSeconds: number;
+  drops: Awaited<ReturnType<typeof fightStageBoss>>["drops"];
+  reward: Awaited<ReturnType<typeof fightStageBoss>>["reward"];
+};
+
+/**
+ * 结算里的自动挑战（Chengpeng 定：在服务端结算里触发）。条件全部满足才打，一次结算最多打一场：
+ * 挂机关卡能进、首领规则允许自动挑战、本关首领还没首通、战力 ≥ 推荐战力 × 自动挑战比例、
+ * 挑战冷却已过、上一次自动挑战失败已过「重试间隔」。大招按自动释放。
+ * 推荐战力算不出来（配置有问题）就不自动打，手动挑战会把错误报出来。
+ */
+async function tryAutoChallenge(
+  tx: Tx,
+  world: World,
+  playerId: string,
+  settled: FightInput & { access: StageAccess[] },
+  stage: World["stages"][number],
+  now: Date,
+): Promise<AutoChallengeResult | null> {
+  const boss = stage.bosses?.[0];
+  if (!boss || boss.statsProblem) {
+    return null;
+  }
+  const access = settled.access.find((row) => row.slug === stage.slug);
+  if (!access?.playable || access.cleared) {
+    return null;
+  }
+  const bossRules = bossRulesFor(world, stage);
+  if (!bossRules.autoChallenge) {
+    return null;
+  }
+  let recommended: number;
+  try {
+    recommended = stageRecommendedPower(world, stage);
+  } catch (cause) {
+    if (cause instanceof AppError) {
+      return null;
+    }
+    throw cause;
+  }
+  if (settled.stats.power < (recommended * bossRules.autoChallengePowerPct) / 100) {
+    return null;
+  }
+  const rules = readGameRules(world);
+  const cooldown = rules.challengeCooldownSeconds;
+  if (cooldown > 0 && settled.state.lastChallengeAt && now.getTime() - settled.state.lastChallengeAt.getTime() < cooldown * 1000) {
+    return null;
+  }
+  const progress = settled.pieces.stages.find((row) => row.stageSlug === stage.slug);
+  if (progress?.autoChallengeAt && now.getTime() - progress.autoChallengeAt.getTime() < bossRules.autoChallengeRetrySeconds * 1000) {
+    return null;
+  }
+  const fought = await fightStageBoss(tx, world, playerId, settled, stage, now, waveRandomInt, []);
+  if (!fought.battle.win) {
+    await tx
+      .update(playerStageProgress)
+      .set({ autoChallengeAt: now })
+      .where(and(eq(playerStageProgress.playerId, playerId), eq(playerStageProgress.stageSlug, stage.slug)));
+  }
+  return {
+    stageSlug: stage.slug,
+    bossName: boss.name,
+    tier: stageTier(world, stage),
+    win: fought.battle.win,
+    durationSeconds: fought.battle.durationSeconds,
+    drops: fought.drops,
+    reward: fought.reward,
   };
 }
 

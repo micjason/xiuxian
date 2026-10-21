@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { buildApp } from "../app.js";
-import { contentRealms, playerStageProgress, playerStates, players } from "../db/schema.js";
+import { contentRealms, contentStages, playerStageProgress, playerStates, players } from "../db/schema.js";
 import { applyPrototypeV12 } from "../modules/content/prototype-v12.js";
 import { loadDraftSnapshot } from "../modules/content/snapshot.js";
 import { validateContent } from "../modules/content/validate.js";
@@ -41,6 +41,7 @@ describe("realm table: major-breakthrough boss gate + ultimate fields (admin API
       const { app, admin } = await boot(db);
       const put = (code: number, payload: Record<string, unknown>) =>
         app.inject({ method: "PUT", url: `/admin/draft/realms/${code}`, headers: admin, payload: { displayName: "炼气二层", majorName: "炼气", interval: 1.5, ...payload } });
+      await db.update(contentStages).set({ bosses: [], bossHp: 0 }).where(eq(contentStages.slug, "lianqi_2")); // 第三批起每关都有首领，这里手动拿掉一个
       const bossless = await put(2, { requiredStageId: "lianqi_2" });
       expect(bossless.statusCode).toBe(400);
       expect(bossless.json().error.message).toContain("没有首领");
@@ -67,7 +68,8 @@ describe("realm table: major-breakthrough boss gate + ultimate fields (admin API
   it("validateContent: a gate stage must have a boss and be reachable; bossless stages are fine", async () => {
     await withDb(async (db) => {
       await applyPrototypeV12(db);
-      expect(validateContent(await loadDraftSnapshot(db)).errors).toEqual([]); // 9 个关卡里 6 个没有首领，照样合法
+      expect(validateContent(await loadDraftSnapshot(db)).errors).toEqual([]); // 第三批：9 关都有首领（6 个精英 + 3 个章末）
+      await db.update(contentStages).set({ bosses: [], bossHp: 0, bossName: "" }).where(eq(contentStages.slug, "lianqi_1"));
       await db.update(contentRealms).set({ requiredStageSlug: "lianqi_1" }).where(eq(contentRealms.slug, "lianqi_3"));
       let errors = validateContent(await loadDraftSnapshot(db)).errors;
       expect(errors.some((row) => row.field === "requiredStageSlug" && row.message.includes("没有首领"))).toBe(true);

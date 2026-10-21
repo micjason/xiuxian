@@ -1,11 +1,12 @@
 /**
  * 第四批迁移 0046：章节战斗背景列 + 第 1、2 关首领默认名字 + 统一首领立绘 boss_*。
+ * 另外把「大招自动释放等待」从旧默认 2 改成 0（蓄满立刻放）。
  * 只改还是默认值的（名字 = 0041 / 种子的「精英·<小怪>」，立绘 = 0041 / 0044 / 种子的旧编号），后台改过的不动。可以重复执行。
  */
 import { readFileSync } from "node:fs";
 import { eq, sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
-import { contentChapters, contentStages } from "./schema.js";
+import { contentChapters, contentGlobals, contentStages } from "./schema.js";
 import { PROTOTYPE_BOSS_NAMES, applyPrototypeV12 } from "../modules/content/prototype-v12.js";
 import { loadDraftSnapshot } from "../modules/content/snapshot.js";
 import { validateContent } from "../modules/content/validate.js";
@@ -91,6 +92,26 @@ describe("migration 0046 (第四批：首领名字 / 统一首领立绘 / 战斗
       for (const [slug, name] of Object.entries(PROTOTYPE_BOSS_NAMES)) {
         expect(after.stages.find((row) => row.slug === slug)!.bosses![0]!.name).toBe(name);
       }
+    });
+  });
+
+  it("ult auto-cast wait: the old default 2 becomes 0, an admin-chosen value is kept; the seed is already 0", async () => {
+    await withDb(async (db) => {
+      await applyPrototypeV12(db);
+      const wait = async () => (await db.select().from(contentGlobals))[0]!.combat!.ultAutoCastWindowSeconds;
+      expect(await wait()).toBe(0);
+      const setWait = async (value: number) => {
+        const [row] = await db.select().from(contentGlobals);
+        await db.update(contentGlobals).set({ combat: { ...row!.combat!, ultAutoCastWindowSeconds: value } });
+      };
+      await setWait(2);
+      await migrate(db);
+      expect(await wait()).toBe(0);
+      await migrate(db);
+      expect(await wait()).toBe(0);
+      await setWait(3.5);
+      await migrate(db);
+      expect(await wait()).toBe(3.5);
     });
   });
 });

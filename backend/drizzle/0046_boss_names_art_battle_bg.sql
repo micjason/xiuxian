@@ -3,6 +3,7 @@
 -- 2) 第 1、2 关首领改成策划定的名字：只改「名字还是 0041 / 种子写的默认名（精英·<小怪>）」的首领，后台改过名字的不动。
 -- 3) 首领立绘改成统一首领立绘 boss_<怪>（SPEC_Q §17.10）：只改「artKey 还是 0041 / 0044 / 种子写的默认值」的首领
 --    （按关卡 + 旧值匹配），后台换过立绘的不动。
+-- 4) 「大招自动释放等待」默认 2 → 0（见文末）。
 ALTER TABLE "content_chapters" ADD COLUMN IF NOT EXISTS "battle_bg_key" text;
 --> statement-breakpoint
 UPDATE "content_chapters"
@@ -32,3 +33,8 @@ FROM (VALUES
 WHERE s."slug" = a.slug
   AND jsonb_typeof(s."bosses") = 'array' AND jsonb_array_length(s."bosses") > 0
   AND s."bosses" -> 0 ->> 'artKey' = a.old_key;
+--> statement-breakpoint
+-- 4) 大招全自动后「大招自动释放等待」默认改成 0（蓄满立刻放）：只改还是旧默认值 2 的（种子写的）；后台改成别的值的不动。
+UPDATE "content_globals"
+SET "combat" = jsonb_set("combat", '{ultAutoCastWindowSeconds}', '0'::jsonb), "updated_at" = now()
+WHERE jsonb_typeof("combat") = 'object' AND ("combat" ->> 'ultAutoCastWindowSeconds')::numeric = 2;

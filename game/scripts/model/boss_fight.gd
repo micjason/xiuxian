@@ -90,7 +90,7 @@ func has_ult() -> bool:
 
 
 func auto_window() -> float:
-	return float(ult.get("autoCastWindowSeconds", 2.0))
+	return float(ult.get("autoCastWindowSeconds", 0.0))
 
 
 func player_damage() -> float:

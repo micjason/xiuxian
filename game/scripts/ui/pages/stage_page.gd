@@ -436,6 +436,7 @@ func _chapter_tabs() -> Control:
 		for state in ["normal", "hover", "pressed", "disabled"]:
 			tab.add_theme_stylebox_override(state, box)
 		tab.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+		tab.clip_contents = true
 		var column := UiKit.vbox(0)
 		column.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		column.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -446,7 +447,7 @@ func _chapter_tabs() -> Control:
 		label.clip_text = true
 		column.add_child(label)
 		if not open and not str(chapter.lock_text).is_empty():
-			var hint := UiKit.label(str(chapter.lock_text), 24, UiTokens.TEXT_DISABLED, HORIZONTAL_ALIGNMENT_CENTER)
+			var hint := UiKit.label(str(chapter.lock_text).replace("击败章末首领", "需击败").replace("击败精英", "需击败").replace("「", "").replace("」", ""), 24, UiTokens.TEXT_DISABLED, HORIZONTAL_ALIGNMENT_CENTER)
 			hint.clip_text = true
 			column.add_child(hint)
 		tab.disabled = not open
@@ -595,10 +596,16 @@ func _reward_row(card_data: Dictionary) -> Control:
 		for reward in card_data.first_clear:
 			if typeof(reward) != TYPE_DICTIONARY:
 				continue
-			if str((reward as Dictionary).get("kind", "")) == "cultivation":
-				var amount := QKit.title("修为 +%s" % CultivationFormat.amount(float((reward as Dictionary).get("amount", 0))), 30, UiTokens.Q_ORANGE_DARK)
-				amount.name = "FirstClearCultivation"
+			var kind := str((reward as Dictionary).get("kind", ""))
+			if kind == "cultivation" or kind == "spiritStones":
+				var what := "修为 +%s" % CultivationFormat.amount(float((reward as Dictionary).get("amount", 0))) if kind == "cultivation" else "灵石 +%d" % int((reward as Dictionary).get("amount", 0))
+				var amount := QKit.title(what, 30, UiTokens.Q_ORANGE_DARK)
+				amount.name = "FirstClearCultivation" if kind == "cultivation" else "FirstClearStones"
 				slots.add_child(amount)
+				continue
+			if kind == "gear":
+				var count := int((reward as Dictionary).get("count", 1))
+				_slot_cell(slots, QKit.slot(_gear_icon("weapon"), 2, 88, "×%d" % count if count > 1 else "", "", Color.WHITE), "随机装备", "", true)
 				continue
 			var slug := str((reward as Dictionary).get("itemSlug", ""))
 			_slot_cell(slots, QKit.reward_slot(_content, slug, 88, int((reward as Dictionary).get("quantity", 1))), str(QKit.reward_view(_content, slug).name), "", true)

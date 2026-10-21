@@ -80,6 +80,7 @@ onBeforeUnmount(() => {
   display: block;
   margin-bottom: 4px;
   font-size: 12px;
+  color: #fff;
 }
 .body p {
   margin: 0;

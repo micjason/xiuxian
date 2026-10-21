@@ -71,7 +71,9 @@ upload_big() {
     split -n "$n" -d -a 2 "$file" "$parts/part." && touch "$parts/.done"
   fi
   rssh "mkdir -p $dst/.parts-$sum"
-  for p in "$parts"/part.*; do
+  _send_parts() { # _send_parts 块文件...（并行传，返回是否全部传完）
+  local p pids=() rc=0
+  for p in "$@"; do
     ( # 每块最多重试 ${UPLOAD_RETRIES:-20} 次；断线后接着已传的部分继续
       for _ in $(seq "${UPLOAD_RETRIES:-20}"); do
         rsync -az --no-owner --no-group --partial --timeout=120 \
@@ -82,7 +84,23 @@ upload_big() {
     ) & pids+=($!)
   done
   for p in "${pids[@]}"; do wait "$p" || rc=1; done
-  [ "$rc" = 0 ] || { echo "有分块没传完，重跑同一条命令会接着传。" >&2; return 1; }
+  return "$rc"
+  }
+  _send_parts "$parts"/part.* || { echo "有分块没传完，重跑同一条命令会接着传。" >&2; return 1; }
+  # 断线时服务器上残留的 rsync 接收端超时退出前会把它的半截文件写回原名，盖掉已经传完的块：
+  # 等这些接收端都退出，再逐块核对 sha256，不一致的重传（最多 5 轮）。
+  local round bad want got
+  for round in 1 2 3 4 5; do
+    rssh "for i in \$(seq 60); do pgrep -f '[r]sync --server.*$dst/.parts-$sum' >/dev/null || exit 0; sleep 5; done; exit 0"
+    want="$(cd "$parts" && sha256sum part.* | sort -k2)"
+    got="$(rssh "cd $dst/.parts-$sum && sha256sum part.* 2>/dev/null | sort -k2")"
+    bad="$(join -1 2 -2 2 -a 1 <(echo "$want") <(echo "$got") | awk '$2 != $3 {print $1}')"
+    [ -z "$bad" ] && break
+    echo "第 $round 轮核对：$(echo "$bad" | wc -l) 块不一致，重传。" >&2
+    # shellcheck disable=SC2046
+    _send_parts $(for p in $bad; do echo "$parts/$p"; done) || { echo "有分块没传完，重跑同一条命令会接着传。" >&2; return 1; }
+  done
+  [ -z "$bad" ] || { echo "分块核对多轮仍不一致，重跑同一条命令。" >&2; return 1; }
   rssh "cd $dst && cat .parts-$sum/part.* > $name.tmp && echo '$sum  $name.tmp' | sha256sum -c --quiet && mv $name.tmp $name && rm -rf .parts-$sum"
 }
 rsync_down() { rsync -a -e "${SSH_PREFIX[*]} ssh ${SSH_OPTS[*]}" "$TARGET:$1" "$2"; }

@@ -42,9 +42,11 @@ func test_rarity_and_report_colors_are_readable() -> void:
 		assert_gte(UiTokens.contrast(color, UiTokens.SURFACE_INNER), MIN_TEXT_CONTRAST, color.to_html(false))
 
 
-func test_rarity_has_six_distinct_tiers() -> void:
-	assert_eq(UiTokens.RARITY_NAMES.size(), 6)
-	assert_eq(UiTokens.RARITY_COLORS.size(), 6)
+func test_rarity_has_five_distinct_tiers() -> void:
+	# 批次②：白→橙 5 档，红（仙品）已去掉
+	assert_eq(UiTokens.RARITY_NAMES.size(), 5)
+	assert_eq(UiTokens.RARITY_COLORS.size(), 5)
+	assert_eq(UiTokens.RARITY_FILLS.size(), 5)
 	for i in UiTokens.RARITY_COLORS.size():
 		for j in range(i + 1, UiTokens.RARITY_COLORS.size()):
 			assert_ne(UiTokens.RARITY_COLORS[i], UiTokens.RARITY_COLORS[j])

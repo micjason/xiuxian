@@ -74,15 +74,15 @@ const WARNING := Color("9a5306")
 const DANGER := Color("be2c34")
 const INFO := Color("24689f")
 
-# ---- 装备稀有度：凡 / 良 / 精 / 珍 / 绝 / 仙（白 绿 蓝 紫 橙 红）。COLORS 是文字色（奶油底上 ≥4.5），FILLS 是格子底色 ----
-const RARITY_NAMES: Array[String] = ["凡品", "良品", "精品", "珍品", "绝品", "仙品"]
+# ---- 装备稀有度：凡 / 良 / 精 / 珍 / 绝（白 绿 蓝 紫 橙，5 档；红已去掉）。COLORS 是文字色（奶油底上 ≥4.5），FILLS 是格子底色 ----
+## 品质名字以服务器品质表为准（/content/current 的 globals.qualities，Catalog.apply 会覆盖这里）；这里只是拿到内容前的默认值。
+static var RARITY_NAMES: Array[String] = ["凡品", "良品", "精品", "珍品", "绝品"]
 const RARITY_COLORS: Array[Color] = [
 	Color("646a76"),
 	Color("257542"),
 	Color("24689f"),
 	Color("7440c8"),
 	Color("9a5306"),
-	Color("be2c34"),
 ]
 const RARITY_FILLS: Array[Color] = [
 	Color("c9ced6"),
@@ -90,7 +90,6 @@ const RARITY_FILLS: Array[Color] = [
 	Color("5aaeff"),
 	Color("b57cff"),
 	Color("ffa43a"),
-	Color("ff5e5e"),
 ]
 
 # ---- 五行（技能/Boss 属性标识，仅作点缀，不单独承载信息） ----

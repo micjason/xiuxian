@@ -87,7 +87,7 @@ func test_power_weights_can_be_overridden_by_content() -> void:
 func test_sort_by_rarity_and_power_and_name() -> void:
 	var model := _model()
 	var by_rarity := model.visible_items("equip", "rarity")
-	assert_eq(by_rarity[0].slug, "sword_r", "仙品（红）排第一")
+	assert_eq(by_rarity[0].rarity, 4, "绝品（橙）排第一（品质 5 档，红已去掉）")
 	for i in range(1, by_rarity.size()):
 		assert_gte(by_rarity[i - 1].rarity, by_rarity[i].rarity)
 	var by_power := model.visible_items("equip", "power")
@@ -236,16 +236,17 @@ func test_broken_node_no_longer_blocks_and_points_to_the_next() -> void:
 	assert_eq(int(purple.break_view.next.level), 10)
 
 
-func test_red_gear_has_its_own_cap_and_can_be_enhanced() -> void:
+func test_qualities_are_five_tiers_and_legacy_red_reads_as_orange() -> void:
 	var model := _model()
-	var red := _by_slug(model, "sword_r")
-	assert_eq(red.rarity, 5)
-	assert_eq(red.rarity_name, "仙品")
-	assert_eq(red.enhance_cap, 18)
-	assert_eq(red.enhance, 2)
-	assert_true(BagModel.can_enhance(red))
-	assert_eq(red.enhance_cost, model.enhance.cost(5, 2))
-	assert_almost_eq(float(red.stats["attack"]), model.enhance.stat(40.0, 2, 5), 0.0001)
+	var top := _by_slug(model, "sword_r")
+	assert_eq(top.rarity, 4)
+	assert_eq(top.rarity_name, "绝品")
+	assert_eq(top.enhance_cap, 15, "橙色强化上限来自配置")
+	assert_true(BagModel.can_enhance(top))
+	assert_eq(UiTokens.RARITY_NAMES.size(), 5, "没有第 6 档（仙品）")
+	assert_false(UiTokens.RARITY_NAMES.has("仙品"))
+	assert_eq(Catalog.quality_index("red"), 4, "老数据里的 red 兜底按橙显示")
+	assert_eq(Catalog.quality_index("nope"), 0)
 
 
 func test_decompose_reason_explains_worn_gear_and_batch_skips_it() -> void:

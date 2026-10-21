@@ -116,6 +116,7 @@ func _ready() -> void:
 			ProtoMock.scenario = wanted
 		_login.hide()
 		_content = ProtoMock.content() if ProtoMock.available() else UiMock.content()
+		Catalog.apply(_content)
 		_state = ProtoMock.state() if ProtoMock.available() else UiMock.state()
 		_timer.wait_time = heartbeat_seconds(_state)
 		_timer.start()
@@ -380,6 +381,7 @@ func _refresh_state() -> void:
 		var content := await PlayerApi.fetch_content()
 		if int(content.get("code", 0)) == 200:
 			_content = content
+			Catalog.apply(_content)
 		else:
 			_set_status("后台还没有发布内容，暂时不能修炼。")
 			return

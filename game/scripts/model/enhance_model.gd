@@ -8,9 +8,9 @@ extends RefCounted
 ##   突破节点：装备强化到节点等级后，要交齐材料「突破」才能继续升级（不会失败）。
 ## 强化经验池没有上限。已穿戴的装备不能分解（见 BagModel.can_decompose）。
 ## 规则缺失时 rules 为空，所有查询都会报错而不是用默认数字（和服务器同样的要求）。
-## 这个文件里没有任何玩法数字；红（仙品）和突破节点也只读配置。
+## 这个文件里没有任何玩法数字；突破节点也只读配置。品质 5 档白→橙（红已去掉）。
 
-const QUALITY_KEYS: Array[String] = ["white", "green", "blue", "purple", "orange", "red"]
+const QUALITY_KEYS: Array[String] = Catalog.QUALITY_KEYS
 
 var rules: Dictionary = {}
 

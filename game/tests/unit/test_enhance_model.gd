@@ -21,16 +21,15 @@ func test_rules_come_from_content_and_missing_rules_mean_unsupported() -> void:
 
 func test_level_cap_grows_with_rarity_and_unconfigured_quality_is_unsupported() -> void:
 	var previous := 0
-	for rarity in 6:
+	for rarity in 5:
 		assert_true(_rules.supports(rarity))
 		assert_gt(_rules.cap(rarity), previous, "品质越高上限越高")
 		previous = _rules.cap(rarity)
 	assert_eq(_rules.cap(0), 5)
 	assert_eq(_rules.cap(4), 15)
-	assert_eq(_rules.cap(5), 18, "仙品（红）起始上限 18，来自配置")
-	var without_red := UiMock.content()
-	(without_red["globals"]["enhance"]["qualities"] as Dictionary).erase("red")
-	assert_false(EnhanceModel.from_content(without_red).supports(5), "配置里没有红色规则就不能强化红色，不用默认数字")
+	var without_orange := UiMock.content()
+	(without_orange["globals"]["enhance"]["qualities"] as Dictionary).erase("orange")
+	assert_false(EnhanceModel.from_content(without_orange).supports(4), "配置里没有这个品质的规则就不能强化，不用默认数字")
 
 
 func test_cost_follows_the_formula() -> void:
@@ -66,13 +65,13 @@ func test_levels_affordable_stops_at_pool_and_cap() -> void:
 	assert_eq(_rules.levels_affordable(0, 5, 100000), 5)
 
 
-func test_red_quality_uses_its_own_configured_rules() -> void:
-	assert_true(_rules.supports(5))
-	assert_eq(_rules.cap(5), 18)
-	assert_eq(_rules.cost(5, 0), int(round(60.0 * 2.0)))
-	assert_almost_eq(_rules.stat(100.0, 18, 5), 208.0, 0.001)
-	assert_eq(_rules.decompose_exp(5, 0), 960)
-	assert_gt(_rules.cap(5), _rules.cap(4), "仙品上限比橙品高")
+func test_orange_is_the_top_quality_and_uses_its_own_configured_rules() -> void:
+	# 批次②：品质 5 档，红（仙品）已去掉；超出范围的下标按最高档（橙）
+	assert_true(_rules.supports(4))
+	assert_eq(_rules.cap(4), 15)
+	assert_eq(_rules.cost(4, 0), int(round(60.0 * 1.6)))
+	assert_eq(_rules.decompose_exp(4, 0), 480)
+	assert_eq(_rules.cap(5), _rules.cap(4), "没有第 6 档")
 
 
 func test_per_quality_growth_overrides_the_general_values() -> void:
@@ -114,7 +113,7 @@ func test_break_nodes_come_from_content_sorted_and_below_cap() -> void:
 	assert_eq(nodes[0].materials[0].itemSlug, "enh_stone_low")
 	assert_eq(int(nodes[0].materials[0].count), 10)
 	assert_eq(_rules.nodes(0).size(), 0, "白色没有突破节点")
-	assert_eq(_rules.nodes(5).size(), 3)
+	assert_eq(_rules.nodes(3).size(), 2)
 
 
 func test_pending_node_only_at_the_exact_unbroken_level() -> void:

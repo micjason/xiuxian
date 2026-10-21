@@ -1,15 +1,16 @@
 class_name SkillPage
 extends VBoxContainer
 ## 功法页（Q 版设计稿 q_techniques）：
-## 上面「已装备功法」面板：攻击 / 防御 / 生命三个功法位（这三类功法还没有：展示，点了提示暂未开放）+ 当前功法加成；
+## 上面「已装备功法」面板：N 个功法栏位（批次②：服务器 state.skillSlots 按境界开放，后台「配置概览 → 功法栏位」可改；
+## 未开放的栏位显示「X 境界开放」）+ 当前功法加成；
 ## 下面「功法列表」：后台配置的心法（真实名字、等级、修炼加成、状态：修炼中 / 已习得 / 未获得）。
 ## 「升级」「切换」按钮照设计显示，客户端还没接功法升级 / 切换接口，点了提示暂未开放；不发任何服务器请求。
 
-## 上面三个功法位（设计稿 攻击 / 防御 / 生命）。
-const EQUIP_SLOTS := [
-	{"id": "atk", "name": "攻击", "chip": "red", "book": "book_atk"},
-	{"id": "def", "name": "防御", "chip": "blue", "book": "book_def"},
-	{"id": "hp", "name": "生命", "chip": "green", "book": "book_hp"},
+## 栏位格子的配色 / 书图（按栏位序号轮换，纯装饰）。
+const SLOT_LOOKS := [
+	{"chip": "red", "book": "book_atk"},
+	{"chip": "blue", "book": "book_def"},
+	{"chip": "green", "book": "book_hp"},
 ]
 
 var _view: Dictionary = {}
@@ -20,6 +21,8 @@ var _list: VBoxContainer
 var _count: Label
 var _hint: Label
 var _slot_buttons: Array[Button] = []
+var _slot_row: HBoxContainer
+var _slot_note: Label
 
 
 func _init() -> void:
@@ -71,33 +74,14 @@ func _build_equipped() -> void:
 	body.add_child(top_pad)
 	var well := QKit.inset(Color("bfe8dd"), 30, 16, 14)
 	body.add_child(well.panel)
-	var row := UiKit.hbox(0)
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	well.body.add_child(row)
-	for spec in EQUIP_SLOTS:
-		var cell := UiKit.vbox(6)
-		cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		cell.alignment = BoxContainer.ALIGNMENT_CENTER
-		row.add_child(cell)
-		var chip := QKit.tag(str(spec.name), str(spec.chip), 30, 18)
-		chip.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-		cell.add_child(chip)
-		var button := Button.new()
-		button.name = "EquipSlot_%s" % str(spec.id)
-		button.focus_mode = Control.FOCUS_NONE
-		button.flat = true
-		button.custom_minimum_size = Vector2(170, 176)
-		button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-		for state in ["normal", "hover", "pressed", "disabled", "focus"]:
-			button.add_theme_stylebox_override(state, StyleBoxEmpty.new())
-		var tex: Texture2D = ArtLib.q("items/" + str(spec.book)) if ArtLib.has_q("items/%s.png" % str(spec.book)) else null
-		var slot := QKit.slot(tex, -1, 170, "", "", Color.WHITE, true)
-		slot.set_anchors_preset(Control.PRESET_FULL_RECT)
-		button.add_child(slot)
-		LockedFeature.wire(button, "skill_slot_" + str(spec.id))
-		cell.add_child(button)
-		_slot_buttons.append(button)
-		cell.add_child(QKit.title("暂未开放", 32, UiTokens.TEXT_MUTED, HORIZONTAL_ALIGNMENT_CENTER))
+	_slot_row = UiKit.hbox(0)
+	_slot_row.name = "SkillSlots"
+	_slot_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	well.body.add_child(_slot_row)
+	_slot_note = UiKit.label("", UiTokens.FS_MICRO, UiTokens.TEXT_MUTED, HORIZONTAL_ALIGNMENT_CENTER)
+	_slot_note.name = "SkillSlotNote"
+	well.body.add_child(_slot_note)
+	_render_slots(SkillView.slots_view({}, {}))
 	var bonus_bar := QKit.inset(UiTokens.Q_CARD, 31, 22, 8)
 	bonus_bar.panel.custom_minimum_size = Vector2(0, 62)
 	body.add_child(bonus_bar.panel)
@@ -153,8 +137,50 @@ func _has(slug: String) -> bool:
 	return false
 
 
+## 功法栏位：开放的显示运转中的功法（空的写「空栏位」），没开放的上锁并写明哪个境界开放。
+func _render_slots(slots: Dictionary) -> void:
+	UiKit.clear(_slot_row)
+	_slot_buttons.clear()
+	var cells: Array = slots.get("cells", [])
+	var cell_px := 170 if cells.size() <= 3 else (140 if cells.size() <= 4 else 112)
+	for cell in cells:
+		var look: Dictionary = SLOT_LOOKS[(int(cell.index) - 1) % SLOT_LOOKS.size()]
+		var is_open := bool(cell.open)
+		var box := UiKit.vbox(6)
+		box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		box.alignment = BoxContainer.ALIGNMENT_CENTER
+		_slot_row.add_child(box)
+		var chip := QKit.tag("栏位 %d" % int(cell.index), str(look.chip) if is_open else "grey", 30, 14)
+		chip.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		box.add_child(chip)
+		var button := Button.new()
+		button.name = "EquipSlot_%d" % int(cell.index)
+		button.focus_mode = Control.FOCUS_NONE
+		button.flat = true
+		button.custom_minimum_size = Vector2(cell_px, cell_px + 6)
+		button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		for state in ["normal", "hover", "pressed", "disabled", "focus"]:
+			button.add_theme_stylebox_override(state, StyleBoxEmpty.new())
+		var filled := is_open and not str(cell.skill_slug).is_empty()
+		var tex: Texture2D = ArtLib.q("items/" + str(look.book)) if (filled and ArtLib.has_q("items/%s.png" % str(look.book))) else null
+		var slot := QKit.slot(tex, 1 if filled else -1, cell_px, "", "", Color.WHITE, not is_open)
+		slot.set_anchors_preset(Control.PRESET_FULL_RECT)
+		slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		button.add_child(slot)
+		if filled:
+			button.pressed.connect(select.bind(str(cell.skill_slug)))
+		box.add_child(button)
+		_slot_buttons.append(button)
+		var caption := str(cell.skill_name) if filled else str(cell.hint)
+		var title := QKit.title(caption, 28, UiTokens.TEXT if filled else UiTokens.TEXT_MUTED, HORIZONTAL_ALIGNMENT_CENTER)
+		title.name = "SlotCaption_%d" % int(cell.index)
+		box.add_child(title)
+	_slot_note.text = str(slots.get("note", ""))
+
+
 func _render() -> void:
 	_bind_sig = hash([_view, _selected])
+	_render_slots(_view.get("slots", SkillView.slots_view({}, {})))
 	UiKit.clear(_list)
 	var cards: Array = _view.get("cards", [])
 	_count.text = "已习得 %d/%d" % [int(_view.get("learned_count", 0)), int(_view.get("total_count", 0))]

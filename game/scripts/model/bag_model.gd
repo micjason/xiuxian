@@ -19,7 +19,8 @@ const SORTS: Array[Dictionary] = [
 	{"id": "power", "name": "战力"},
 	{"id": "name", "name": "名称"},
 ]
-const QUALITY_INDEX := {"white": 0, "green": 1, "blue": 2, "purple": 3, "orange": 4, "red": 5}
+## 品质键 → 下标（5 档 白→橙，见 Catalog）。
+const QUALITY_INDEX := {"white": 0, "green": 1, "blue": 2, "purple": 3, "orange": 4}
 const STAT_KEYS: Array[String] = ["attack", "defense", "hp", "speed"]
 const STAT_NAMES := {"attack": "攻击", "defense": "防御", "hp": "气血", "speed": "速度"}
 ## 行囊初始容量（设计定为 20）。正常情况下服务器 state.bagCapacity 一定会给；
@@ -40,6 +41,7 @@ var defs: Dictionary = {}
 
 static func from_state(state: Dictionary, content: Dictionary, seen: Dictionary = {}) -> BagModel:
 	var model := BagModel.new()
+	Catalog.apply(content)
 	var globals: Dictionary = content.get("globals", {}) if typeof(content.get("globals", {})) == TYPE_DICTIONARY else {}
 	var cap := int(state.get("bagCapacity", 0))
 	if cap <= 0:
@@ -120,7 +122,7 @@ static func category_of(def: Dictionary) -> String:
 
 
 static func rarity_of(def: Dictionary) -> int:
-	return int(QUALITY_INDEX.get(str(def.get("quality", "white")), 0))
+	return Catalog.quality_index(str(def.get("quality", "white")))
 
 
 ## 界面显示用：属性是小数，只在显示时四舍五入成整数（服务端给什么小数就用什么小数算）。

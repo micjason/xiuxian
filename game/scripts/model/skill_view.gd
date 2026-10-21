@@ -72,8 +72,59 @@ static func build(state: Dictionary, content: Dictionary) -> Dictionary:
 		"total_count": cards.size(),
 		"base_per_second": base_per_second,
 		"cap_seconds": cap,
+		"slots": slots_view(state, content),
 		"actual_bonus_percent": float((state.get("cultivationRate", {}) as Dictionary).get("bonusBp", 0)) / 100.0 if typeof(state.get("cultivationRate", null)) == TYPE_DICTIONARY else 0.0,
 	}
+
+
+## 功法栏位（批次②）：state.skillSlots = {open, max, next:{slots, realmOrder, realmName}|null}（后台「配置概览 → 功法栏位」按境界配）。
+## 栏位 N 放 runningSlot == "run_N" 的功法；老数据里的其他运转名（如 heart）按顺序补进空的已开放栏位（和服务器 countedSkills 一致）。
+## 服务器没下发时按 3 个全开（老规则）。
+const DEFAULT_SLOTS := 3
+
+
+static func slots_view(state: Dictionary, content: Dictionary) -> Dictionary:
+	var info: Dictionary = state.get("skillSlots", {}) if typeof(state.get("skillSlots", null)) == TYPE_DICTIONARY else {}
+	var open := int(info.get("open", DEFAULT_SLOTS))
+	var max_slots := maxi(int(info.get("max", DEFAULT_SLOTS)), open)
+	var next: Dictionary = info.get("next", {}) if typeof(info.get("next", null)) == TYPE_DICTIONARY else {}
+	var names := {}
+	for row in content.get("skills", []):
+		if typeof(row) == TYPE_DICTIONARY:
+			names[str((row as Dictionary).get("slug", ""))] = str((row as Dictionary).get("displayName", (row as Dictionary).get("slug", "")))
+	var placed := {}
+	var legacy: Array[String] = []
+	for row in state.get("skills", []):
+		if typeof(row) != TYPE_DICTIONARY:
+			continue
+		var slot := BagModel.plain((row as Dictionary).get("runningSlot", null))
+		var slug := str((row as Dictionary).get("skillSlug", ""))
+		if slot.is_empty():
+			continue
+		if slot.begins_with("run_") and slot.trim_prefix("run_").is_valid_int():
+			placed[int(slot.trim_prefix("run_"))] = slug
+		else:
+			legacy.append(slug)
+	for slug in legacy:
+		for index in range(1, open + 1):
+			if not placed.has(index):
+				placed[index] = slug
+				break
+	var cells: Array[Dictionary] = []
+	for index in range(1, max_slots + 1):
+		var is_open := index <= open
+		var slug := str(placed.get(index, "")) if is_open else ""
+		var hint := ""
+		if not is_open:
+			hint = ("%s开放" % str(next.get("realmName", ""))) if (index <= int(next.get("slots", 0)) and not str(next.get("realmName", "")).is_empty()) else "未开放"
+		cells.append({"index": index, "open": is_open, "skill_slug": slug, "skill_name": str(names.get(slug, slug)), "hint": hint if not is_open else ("空栏位" if slug.is_empty() else "运转中")})
+	var used := 0
+	for cell in cells:
+		used += 1 if not str(cell.skill_slug).is_empty() else 0
+	var note := "功法栏位 %d/%d 已开放" % [open, max_slots]
+	if not next.is_empty():
+		note += " · %s开放第 %d 栏" % [str(next.get("realmName", "")), int(next.get("slots", open + 1))]
+	return {"open": open, "max": max_slots, "used": used, "cells": cells, "note": note}
 
 
 static func _pct(bp: float) -> String:

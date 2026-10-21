@@ -526,7 +526,7 @@ func show_result(result: Dictionary, name_of: Callable) -> void:
 	if not (view.loot as Array).is_empty():
 		_result_body.add_child(UiKit.label("获得", UiTokens.FS_MICRO, UiTokens.GOLD, HORIZONTAL_ALIGNMENT_CENTER))
 		for row in view.loot:
-			var color := UiTokens.rarity_color({"white": 0, "green": 1, "blue": 2, "purple": 3, "orange": 4, "red": 5}.get(str(row.quality), 1) as int).lightened(0.15)
+			var color := UiTokens.rarity_color(Catalog.quality_index(str(row.quality))).lightened(0.15)
 			var loot_label := UiKit.label(str(row.text), UiTokens.FS_CAPTION, color, HORIZONTAL_ALIGNMENT_CENTER)
 			loot_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			_result_body.add_child(loot_label)

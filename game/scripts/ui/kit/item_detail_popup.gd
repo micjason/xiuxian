@@ -31,7 +31,7 @@ const COLORS := {
 	"up": Color("7ed36a"), "up_line": Color("2f7a3c"), "down": Color("ff5e5e"), "down_line": Color("a8323a"),
 	"attack": Color("ff8a2a"), "defense": Color("2e7fc4"), "hp": Color("ff5a5f"), "speed": Color("3c9a4e"), "power": Color("e07b24"),
 }
-const RARITY_CHIP: Array[String] = ["grey", "green", "blue", "purple", "orange", "redflat"]
+const RARITY_CHIP: Array[String] = ["grey", "green", "blue", "purple", "orange"]
 const HY_FONT := "res://assets/fonts/ZCOOLQingKeHuangYou-Regular.subset.woff2"
 
 var view: Dictionary = {}
@@ -152,6 +152,8 @@ func show_view(data: Dictionary, handler_map: Dictionary) -> void:
 				_body.add_child(_compare_section(view.compare))
 			else:
 				_body.add_child(_attrs_section(view.attrs, str(view.type) == "equip_worn"))
+			if not (view.get("set", {}) as Dictionary).is_empty():
+				_body.add_child(_set_section(view.set))
 			var enh: Dictionary = view.get("enhance_block", {})
 			if str(enh.get("mode", "none")) != "none":
 				_body.add_child(_enhance_section(enh))
@@ -391,7 +393,7 @@ func _head() -> Control:
 	var chips := UiKit.hbox(12)
 	chips.name = "Chips"
 	chips.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	chips.add_child(_chip(str(view.rarity_name), RARITY_CHIP[clampi(int(view.rarity), 0, 5)]))
+	chips.add_child(_chip(str(view.rarity_name), RARITY_CHIP[clampi(int(view.rarity), 0, RARITY_CHIP.size() - 1)]))
 	chips.add_child(_chip(str(view.kind_text), "cream"))
 	if bool(view.get("worn_chip", false)):
 		chips.add_child(_chip("已穿戴", "mint"))
@@ -738,6 +740,42 @@ func _material_section() -> Control:
 			body.add_child(_wrap(str(usage.note), ArtLib.bold_font(), 30, COLORS.muted))
 	if desc.is_empty() and usage.is_empty():
 		body.add_child(_label("暂无说明", ArtLib.bold_font(), 32, COLORS.muted))
+	return flow.panel
+
+
+## 套装（批次②）：套装名 + 已有 / 穿戴件数、成员（✓ 穿着、○ 已有未穿、· 没有）、各档加成（穿够的亮绿色）。
+func _set_section(data: Dictionary) -> Control:
+	var flow := _flow_section("")
+	(flow.panel as Control).name = "SetSection"
+	var body := flow.body as VBoxContainer
+	var head := UiKit.hbox(16)
+	head.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var title := _label("套装 · %s" % str(data.name), ArtLib.title_font(), 36, COLORS.orange)
+	title.name = "SetName"
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(title)
+	var count := _label(str(data.summary), ArtLib.bold_font(), 30, COLORS.muted, HORIZONTAL_ALIGNMENT_RIGHT)
+	count.name = "SetCount"
+	head.add_child(count)
+	body.add_child(head)
+	var grid := GridContainer.new()
+	grid.name = "SetMembers"
+	grid.columns = 2
+	grid.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	grid.add_theme_constant_override("h_separation", 20)
+	grid.add_theme_constant_override("v_separation", 6)
+	for member in data.members:
+		var mark := "✓" if bool(member.worn) else ("○" if bool(member.owned) else "·")
+		var color: Color = COLORS.ok if bool(member.worn) else (COLORS.text if bool(member.owned) else COLORS.muted)
+		var text := _label("%s %s · %s" % [mark, str(member.slot_name), str(member.name)], ArtLib.bold_font(), 30, color)
+		text.custom_minimum_size = Vector2((LAYOUT.section_w - 52.0 - 20.0) / 2.0, 0)
+		text.clip_text = true
+		grid.add_child(text)
+	body.add_child(grid)
+	for tier in data.tiers:
+		var line := _wrap(("● " if bool(tier.active) else "○ ") + str(tier.text), ArtLib.bold_font(), 32, COLORS.ok if bool(tier.active) else COLORS.muted)
+		line.name = "SetTier%d" % int(tier.pieces)
+		body.add_child(line)
 	return flow.panel
 
 

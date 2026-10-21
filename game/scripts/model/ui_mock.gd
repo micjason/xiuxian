@@ -19,12 +19,11 @@ const ENHANCE_RULES := {
 		"orange": {"cap": 15, "costMult": 1.6, "decomposeExp": 480, "breakthroughs": [
 			{"level": 5, "materials": [{"itemSlug": "enh_stone_low", "count": 10}]},
 			{"level": 10, "materials": [{"itemSlug": "enh_stone_mid", "count": 6}]}]},
-		"red": {"cap": 18, "costMult": 2, "decomposeExp": 960, "breakthroughs": [
-			{"level": 5, "materials": [{"itemSlug": "enh_stone_low", "count": 15}]},
-			{"level": 10, "materials": [{"itemSlug": "enh_stone_mid", "count": 10}]},
-			{"level": 15, "materials": [{"itemSlug": "enh_stone_high", "count": 5}]}]},
 	},
 }
+
+## 演示套装「青云套」的成员（武器 / 护手 / 鞋子 / 饰品）。
+const MOCK_SET_MEMBERS: Array[String] = ["sword_r", "glove_b", "shoe_b", "acc_o"]
 
 const WEIGHTS := {"attack": 4.7, "defense": 1.6, "hp": 0.95, "speed": 2.6}
 
@@ -47,10 +46,11 @@ static func content() -> Dictionary:
 		["robe_p", "玄光法袍·珍", "clothes", "purple", 0, 24, 90, 0],
 		["shoe_w", "踏云靴", "shoes", "white", 0, 4, 60, 4], ["shoe_b", "踏云靴·精", "shoes", "blue", 0, 5, 78, 5],
 		["acc_w", "凝玉佩", "accessory", "white", 0, 4, 60, 0], ["acc_o", "天罡玉佩·绝", "accessory", "orange", 6, 7, 108, 2],
-		["sword_r", "诛仙剑·仙", "weapon", "red", 40, 0, 120, 3],
+		["sword_r", "青云剑·绝", "weapon", "orange", 40, 0, 120, 3],
 	]
 	for row in gear:
-		items.append({"slug": row[0], "displayName": row[1], "kind": "equipment", "slot": row[2], "quality": row[3], "attack": row[4], "defense": row[5], "hp": row[6], "speed": row[7], "requiredRealmOrder": 2, "enabled": true})
+		var set_slug: Variant = "set_qingyun" if MOCK_SET_MEMBERS.has(row[0]) else null
+		items.append({"slug": row[0], "displayName": row[1], "kind": "equipment", "slot": row[2], "quality": row[3], "attack": row[4], "defense": row[5], "hp": row[6], "speed": row[7], "requiredRealmOrder": 2, "enabled": true, "setSlug": set_slug})
 	for row in [["herb", "凝露草", "material", "white"], ["ore", "玄铁矿", "material", "green"], ["stone", "灵石", "material", "white"], ["wood", "养魂木", "material", "blue"],
 			["enh_stone_low", "突破石·下品", "material", "green"], ["enh_stone_mid", "突破石·中品", "material", "blue"], ["enh_stone_high", "突破石·上品", "material", "purple"]]:
 		items.append({"slug": row[0], "displayName": row[1], "kind": row[2], "quality": row[3], "stackable": true, "description": "炼制与锻造用的材料。", "enabled": true})
@@ -66,6 +66,14 @@ static func content() -> Dictionary:
 			{"slug": "s3", "displayName": "落霞谷", "requiredRealmOrder": 3, "recommendedPower": 2600, "bosses": [{"name": "赤练蛇王", "attack": 70, "defense": 48, "hp": 6400, "drops": [{"itemSlug": "shoe_b", "chanceBp": 1200}]}]},
 		],
 		"items": items,
+		"gearSets": [{
+			"slug": "set_qingyun", "displayName": "青云套", "description": "青云门弟子的制式行头。",
+			"tiers": [
+				{"pieces": 2, "stats": [{"stat": "attack", "mode": "pct", "value": 5}]},
+				{"pieces": 4, "stats": [{"stat": "hp", "mode": "pct", "value": 8}, {"stat": "speed", "mode": "flat", "value": 3}]},
+			],
+			"members": MOCK_SET_MEMBERS,
+		}],
 		"skills": [{"slug": "heart1", "displayName": "养气诀", "role": "heart"}, {"slug": "art1", "displayName": "青云剑诀", "role": "art"}],
 	}
 

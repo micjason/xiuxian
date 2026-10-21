@@ -66,10 +66,10 @@ func _run() -> void:
 	await _scroll_popup_to_bottom(popup)
 	await _shot("02_enhance_card_next_node_hint")
 	popup.close_popup()
-	# 3. 红色（仙品）装备也能强化
+	# 3. 橙色套装装备：套装信息 + 强化
 	bag.show_detail(_item_id("sword_r"))
 	await _scroll_popup_to_bottom(popup)
-	await _shot("03_red_gear_enhance_card")
+	await _shot("03_set_gear_enhance_card")
 	popup.close_popup()
 	# 4. 已穿戴的装备：分解按钮置灰并写明原因
 	await _page("character")

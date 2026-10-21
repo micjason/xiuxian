@@ -4,14 +4,16 @@ extends RefCounted
 ##
 ## 6 个核心部位（武器、头部、身体、手部、腿/鞋、饰品）+ 2 个预留位（法宝、灵宠，第三期开放）。
 ## 服务器部位键与这里的 server 字段一一对应。
-## locked=true 的部位显示为锁定占位。以后可以改成由 /content/current 下发这张表。
+## locked=true 的部位显示为锁定占位。
+## 批次②：部位名字以服务器部位表为准（/content/current 的 globals.slots，Catalog.apply → apply_names），
+## 这里的 name 只是拿到内容前的默认值（和服务器 catalog.ts 一致）。
 
 const CORE: Array[Dictionary] = [
 	{"id": "weapon", "name": "武器", "glyph": "剑", "server": "weapon", "supported": true, "side": "left"},
-	{"id": "helmet", "name": "头部", "glyph": "冠", "server": "helmet", "supported": true, "side": "left"},
-	{"id": "clothes", "name": "身体", "glyph": "袍", "server": "clothes", "supported": true, "side": "left"},
-	{"id": "gloves", "name": "手部", "glyph": "护", "server": "gloves", "supported": true, "side": "right"},
-	{"id": "shoes", "name": "腿/鞋", "glyph": "靴", "server": "shoes", "supported": true, "side": "right"},
+	{"id": "helmet", "name": "头冠", "glyph": "冠", "server": "helmet", "supported": true, "side": "left"},
+	{"id": "clothes", "name": "衣服", "glyph": "袍", "server": "clothes", "supported": true, "side": "left"},
+	{"id": "gloves", "name": "护手", "glyph": "护", "server": "gloves", "supported": true, "side": "right"},
+	{"id": "shoes", "name": "鞋子", "glyph": "靴", "server": "shoes", "supported": true, "side": "right"},
 	{"id": "accessory", "name": "饰品", "glyph": "佩", "server": "accessory", "supported": true, "side": "right"},
 ]
 
@@ -21,8 +23,29 @@ const EXTRA: Array[Dictionary] = [
 ]
 
 
+## 服务器部位键 → 名字（Catalog.apply 写入）。空 = 用默认名。
+static var _names: Dictionary = {}
+
+
+static func apply_names(names: Dictionary) -> void:
+	_names = names.duplicate()
+
+
+static func _named(list: Array[Dictionary]) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	for slot in list:
+		var key := str(slot.get("server", ""))
+		if not key.is_empty() and _names.has(key):
+			var copy := slot.duplicate()
+			copy["name"] = str(_names[key])
+			out.append(copy)
+		else:
+			out.append(slot)
+	return out
+
+
 static func core() -> Array[Dictionary]:
-	return CORE
+	return _named(CORE)
 
 
 static func extra() -> Array[Dictionary]:
@@ -31,7 +54,7 @@ static func extra() -> Array[Dictionary]:
 
 static func all() -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
-	out.append_array(CORE)
+	out.append_array(core())
 	out.append_array(EXTRA)
 	return out
 

@@ -16,9 +16,9 @@ static func skill_max_level(content: Dictionary) -> int:
 	return value if value >= 1 else SKILL_MAX_LEVEL
 const ROLE_NAMES := {"heart": "心法", "art": "功法", "body": "体修"}
 ## 品质深色（文字用，SPEC_Q 第 2 节；白品名字用 #646A76）。
-const QUALITY_DARK: Array[Color] = [Color("8e96a3"), Color("3c9a4e"), Color("2e7fc4"), Color("8a4fe0"), Color("e07b24"), Color("d93a3f")]
+const QUALITY_DARK: Array[Color] = [Color("8e96a3"), Color("3c9a4e"), Color("2e7fc4"), Color("8a4fe0"), Color("e07b24")]
 const NAME_WHITE := Color("646a76")
-const QUALITY_KEYS: Array[String] = ["white", "green", "blue", "purple", "orange", "red"]
+const QUALITY_KEYS: Array[String] = Catalog.QUALITY_KEYS
 
 
 static func quality_dark(rarity: int, for_name: bool = false) -> Color:
@@ -67,6 +67,7 @@ static func build(item: Dictionary, worn: Dictionary, model: BagModel, content: 
 				view["compare"] = compare_view(item, worn)
 			else:
 				view["attrs"] = attrs_view(item)
+			view["set"] = set_view(item, content, model)
 			view["enhance_block"] = enhance_view(item, model.enhance_exp if model != null else 0)
 			view["decompose"] = {"exp": int(item.get("decompose_exp", 0)), "blocked": BagModel.decompose_block_reason(item)}
 		"book":
@@ -78,6 +79,87 @@ static func build(item: Dictionary, worn: Dictionary, model: BagModel, content: 
 			view["usage"] = usage_view(str(item.get("slug", "")), content, model)
 			view["sources"] = sources_of(content, [str(item.get("slug", ""))])
 	return view
+
+
+## 套装（批次②）：这件装备属于哪个套装、成员里已拥有 / 穿着几件、每档加成（穿够的档标亮）。不属于套装时返回空字典。
+## 数据：content.items[].setSlug + content.gearSets（名字、档位、成员），拥有 / 穿着按背包里的装备算（和服务器 setBonusOf 同一规则：穿着件数够就生效）。
+static func set_view(item: Dictionary, content: Dictionary, model: BagModel) -> Dictionary:
+	var slug := str(item.get("slug", ""))
+	var set_slug := ""
+	for row in content.get("items", []):
+		if typeof(row) == TYPE_DICTIONARY and str((row as Dictionary).get("slug", "")) == slug:
+			set_slug = BagModel.plain((row as Dictionary).get("setSlug", null))
+			break
+	if set_slug.is_empty():
+		return {}
+	var set_def := {}
+	for row in content.get("gearSets", []):
+		if typeof(row) == TYPE_DICTIONARY and str((row as Dictionary).get("slug", "")) == set_slug:
+			set_def = row
+			break
+	if set_def.is_empty():
+		return {}
+	var owned_slugs := {}
+	var worn_slugs := {}
+	if model != null:
+		for mine in model.items:
+			owned_slugs[str(mine.get("slug", ""))] = true
+			if bool(mine.get("equipped", false)):
+				worn_slugs[str(mine.get("slug", ""))] = true
+	var members: Array[Dictionary] = []
+	var owned := 0
+	var worn := 0
+	for member in set_def.get("members", []):
+		var member_slug := str(member)
+		var def := {}
+		for row in content.get("items", []):
+			if typeof(row) == TYPE_DICTIONARY and str((row as Dictionary).get("slug", "")) == member_slug:
+				def = row
+				break
+		var is_owned := owned_slugs.has(member_slug)
+		var is_worn := worn_slugs.has(member_slug)
+		owned += 1 if is_owned else 0
+		worn += 1 if is_worn else 0
+		members.append({
+			"slug": member_slug,
+			"name": str(def.get("displayName", member_slug)),
+			"slot_name": Catalog.slot_name(str(def.get("slot", ""))),
+			"owned": is_owned,
+			"worn": is_worn,
+			"this": member_slug == slug,
+		})
+	var tiers: Array[Dictionary] = []
+	for tier in set_def.get("tiers", []):
+		if typeof(tier) != TYPE_DICTIONARY:
+			continue
+		var pieces := int((tier as Dictionary).get("pieces", 0))
+		tiers.append({"pieces": pieces, "text": "%d 件：%s" % [pieces, tier_text((tier as Dictionary).get("stats", []))], "active": worn >= pieces})
+	tiers.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return int(a.pieces) < int(b.pieces))
+	return {
+		"slug": set_slug,
+		"name": str(set_def.get("displayName", set_slug)),
+		"desc": str(set_def.get("description", "")),
+		"total": members.size(),
+		"owned": owned,
+		"worn": worn,
+		"members": members,
+		"tiers": tiers,
+		"summary": "已有 %d/%d · 穿戴 %d/%d" % [owned, members.size(), worn, members.size()],
+	}
+
+
+## 一档加成的文字：「攻击 +5%、速度 +3」。
+static func tier_text(stats: Variant) -> String:
+	var parts: Array[String] = []
+	if typeof(stats) == TYPE_ARRAY:
+		for row in stats:
+			if typeof(row) != TYPE_DICTIONARY:
+				continue
+			var label := str(BagModel.STAT_NAMES.get(str((row as Dictionary).get("stat", "")), str((row as Dictionary).get("stat", ""))))
+			var value := float((row as Dictionary).get("value", 0))
+			var number := str(int(value)) if is_equal_approx(value, roundf(value)) else String.num(value, 2)
+			parts.append("%s +%s%s" % [label, number, "%" if str((row as Dictionary).get("mode", "")) == "pct" else ""])
+	return "、".join(parts)
 
 
 static func kind_text(item: Dictionary) -> String:

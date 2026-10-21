@@ -52,7 +52,6 @@
   --xx-rarity-3: #2f6fb0; /* 精品·蓝 */
   --xx-rarity-4: #7a4bb5; /* 珍品·紫 */
   --xx-rarity-5: #a85a0f; /* 绝品·橙 */
-  --xx-rarity-6: #b8352a; /* 仙品·红 */
 
   /* ---- 图表（色盲友好：蓝/橙对比，另用实线/虚线区分） ---- */
   --xx-chart-1: #2f6a8e;
@@ -129,7 +128,6 @@ html.dark {
   --xx-rarity-3: #62a7ea;
   --xx-rarity-4: #b890f2;
   --xx-rarity-5: #f2a24c;
-  --xx-rarity-6: #f26b5c;
 
   --xx-chart-1: #6fb0d6;
   --xx-chart-2: #e8935a;

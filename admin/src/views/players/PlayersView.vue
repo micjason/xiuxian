@@ -42,6 +42,7 @@
           <template #default="{ row }">
             <el-button link type="primary" @click.stop="openDetail(row)">详情</el-button>
             <el-button link type="primary" @click.stop="goAudit(row)">操作日志</el-button>
+            <el-button link type="primary" @click.stop="grantFor(row)">补发装备</el-button>
             <el-button link type="danger" @click.stop="clearPlayer(row)">清空</el-button>
           </template>
         </el-table-column>
@@ -85,12 +86,13 @@
                 </el-timeline-item>
               </el-timeline>
               <el-button link type="primary" @click="goAudit(current)">在操作日志里查看全部</el-button>
+              <el-button link type="primary" @click="grantFor(current)">补发装备</el-button>
             </DataState>
           </el-tab-pane>
           <el-tab-pane label="处理" name="act">
             <div class="actions">
               <div class="action">
-                <div><strong>清空进度</strong><p>账号保留，修为回到 0，境界回到编号最小的一档。不可恢复。</p></div>
+                <div><strong>清空进度</strong><p>账号保留，修为回到 0，境界回到初始境界（配置概览 → 新手设置）。不可恢复。</p></div>
                 <el-button type="danger" @click="clearPlayer(current)">清空进度</el-button>
               </div>
             </div>
@@ -98,6 +100,7 @@
         </el-tabs>
       </template>
     </el-drawer>
+    <GrantDrawer v-model="grantOpen" :preset-players="grantPlayers" />
   </div>
 </template>
 
@@ -108,6 +111,7 @@ import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { api } from "../../api";
 import DataState from "../../components/DataState.vue";
+import GrantDrawer from "../../components/GrantDrawer.vue";
 import PageHeader from "../../components/PageHeader.vue";
 import { confirmDanger } from "../../composables/confirm";
 import { compactNumber, downloadText, formatTime, relativeTime, toCsv } from "../../composables/format";
@@ -127,6 +131,18 @@ type Breakdown = {
   lines: { group: string; name: string; attack: number; defense: number; hp: number; speed: number; counted: boolean; note: string }[];
   steps: string[];
 };
+type GrantPlayer = { id: string; username: string; realmName: string; bagUsed: number; bagCapacity: number };
+const grantOpen = ref(false);
+const grantPlayers = ref<GrantPlayer[]>([]);
+
+/** 玩家详情里的「补发装备」：打开装备配置同一个补发抽屉，玩家已填好。 */
+async function grantFor(row: { username: string } | null): Promise<void> {
+  if (!row) return;
+  const found = await api<GrantPlayer[]>(`/admin/grants/players?q=${encodeURIComponent(row.username)}`);
+  grantPlayers.value = found.filter((player) => player.username === row.username).slice(0, 1);
+  grantOpen.value = true;
+}
+
 type PlayerRow = { username: string; realmName: string; cultivation: number; power: number | null; lastSettledAt: string; breakdown: Breakdown };
 type Op = { at: string; actorName: string; action: string; result: string; reason: string | null };
 
@@ -221,7 +237,7 @@ function goAudit(row: PlayerRow): void {
 async function clearPlayer(row: PlayerRow): Promise<void> {
   const ok = await confirmDanger({
     title: "清空玩家进度",
-    message: `将清空「${row.username}」的进度：账号保留，修为回到 0，境界回到编号最小的一档。此操作不可恢复，并会记入操作日志。`,
+    message: `将清空「${row.username}」的进度：账号保留，修为回到 0，境界回到初始境界（配置概览 → 新手设置）。此操作不可恢复，并会记入操作日志。`,
     typeText: row.username,
     confirmText: "清空进度",
   });

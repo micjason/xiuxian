@@ -146,7 +146,6 @@ p.page-lead {
 .xx-tag-rarity[data-rarity="3"] { color: var(--xx-rarity-3); }
 .xx-tag-rarity[data-rarity="4"] { color: var(--xx-rarity-4); }
 .xx-tag-rarity[data-rarity="5"] { color: var(--xx-rarity-5); }
-.xx-tag-rarity[data-rarity="6"] { color: var(--xx-rarity-6); }
 
 /* ---- Element Plus 细节统一 ---- */
 .el-button {

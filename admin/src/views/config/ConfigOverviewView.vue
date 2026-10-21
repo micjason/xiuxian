@@ -135,6 +135,12 @@
             </FormRow>
           </SectionCard>
 
+          <SkillSlotsSection v-model="skillSlots" :realms="realms" :max="data.skillSlots?.max ?? 6" />
+
+          <NewbieSection v-model="newbie" :realms="realms.map((realm) => ({ slug: realm.slug, displayName: realm.displayName }))" :limits="data.newbie?.limits ?? { maxRows: 20, maxQuantity: 9999 }" />
+
+          <CatalogSection v-if="data.catalog" :slots="data.catalog.slots" :qualities="data.catalog.qualities" />
+
           <SectionCard title="挂机与战斗节奏" anchor="pace">
             <SchemaForm v-model="rules" :schema="paceSchema" :hidden-keys="hiddenExcept(paceSchema)" class="grid-form" />
           </SectionCard>
@@ -163,6 +169,9 @@ import SaveBar from "../../components/SaveBar.vue";
 import SchemaForm from "../../components/SchemaForm.vue";
 import SectionCard from "../../components/SectionCard.vue";
 import BossRulesSection from "./overview/BossRulesSection.vue";
+import CatalogSection from "./overview/CatalogSection.vue";
+import NewbieSection, { type Newbie } from "./overview/NewbieSection.vue";
+import SkillSlotsSection, { type SlotRule } from "./overview/SkillSlotsSection.vue";
 import { useDirtyGuard } from "../../composables/dirty";
 import { rulesSchema } from "../../schema/resources";
 import type { FormValues, Schema } from "../../schema/types";
@@ -191,6 +200,9 @@ type Overview = {
   enhance: { rules: Enhance | null };
   gear: { gearBudgetRatio: number; gearSpeedFactor: number; slotShares: Record<string, number>; qualityFactors: Record<Quality, number> | null };
   stages: { total: number; customized: StageRow[] };
+  newbie?: Newbie & { limits: { maxRows: number; maxQuantity: number } };
+  skillSlots?: { rules: SlotRule[]; max: number };
+  catalog?: { slots: { key: string; name: string }[]; qualities: { key: Quality; name: string; short: string; color: string }[] };
 };
 
 const QUALITIES: { key: Quality; name: string; color: string }[] = [
@@ -200,7 +212,8 @@ const QUALITIES: { key: Quality; name: string; color: string }[] = [
   { key: "purple", name: "紫", color: "#8a5bb8" },
   { key: "orange", name: "橙", color: "#d9822b" },
 ];
-const ENHANCE_QUALITIES = [...QUALITIES, { key: "red", name: "红", color: "#c0392b" }];
+// 品质统一白→橙 5 档（红已去掉）
+const ENHANCE_QUALITIES = QUALITIES;
 const RANKS: { key: Rank; name: string }[] = [
   { key: "yellow", name: "黄阶" },
   { key: "xuan", name: "玄阶" },
@@ -208,7 +221,7 @@ const RANKS: { key: Rank; name: string }[] = [
   { key: "heaven", name: "天阶" },
 ];
 const LAYER_LABELS = ["第 1 层", "第 2–3 层", "第 4–6 层", "第 7 层起"];
-const SLOT_NAMES: Record<string, string> = { weapon: "武器", clothes: "衣服", helmet: "头盔", gloves: "护手", shoes: "鞋子", accessory: "饰品" };
+const SLOT_NAMES = computed<Record<string, string>>(() => Object.fromEntries((data.value?.catalog?.slots ?? []).map((slot) => [slot.key, slot.name])));
 const ANCHORS = [
   { id: "power", label: "战力公式" },
   { id: "drop", label: "装备掉落默认" },
@@ -216,6 +229,9 @@ const ANCHORS = [
   { id: "gear", label: "装备生成" },
   { id: "enhance", label: "强化与分解" },
   { id: "skill", label: "功法层数系数" },
+  { id: "slots", label: "功法栏位" },
+  { id: "newbie", label: "新手设置" },
+  { id: "catalog", label: "部位与品质" },
   { id: "pace", label: "挂机与战斗节奏" },
 ];
 
@@ -232,18 +248,20 @@ const data = ref<Overview | null>(null);
 const rules = ref<FormValues>({});
 const tuning = ref<Tuning>({} as Tuning);
 const enhance = ref<Enhance | null>(null);
-const realms = ref<{ code: number; displayName: string }[]>([]);
+const realms = ref<{ code: number; displayName: string; slug: string }[]>([]);
+const newbie = ref<Newbie>({ startingRealmSlug: "", starterItems: [] });
+const skillSlots = ref<SlotRule[]>([]);
 const original = ref("");
 const activeAnchor = ref("power");
 
-const snapshot = () => JSON.stringify({ rules: rules.value, tuning: tuning.value, enhance: enhance.value });
+const snapshot = () => JSON.stringify({ rules: rules.value, tuning: tuning.value, enhance: enhance.value, newbie: newbie.value, skillSlots: { rules: skillSlots.value } });
 const dirty = computed(() => original.value !== "" && snapshot() !== original.value);
 const changeCount = computed(() => {
   if (!dirty.value) return 0;
   const before = JSON.parse(original.value) as Record<string, Record<string, unknown> | null>;
   const now = JSON.parse(snapshot()) as Record<string, Record<string, unknown> | null>;
   let count = 0;
-  for (const part of ["rules", "tuning", "enhance"]) {
+  for (const part of ["rules", "tuning", "enhance", "newbie", "skillSlots"]) {
     const left = before[part] ?? {};
     const right = now[part] ?? {};
     for (const key of new Set([...Object.keys(left), ...Object.keys(right)])) {
@@ -301,7 +319,7 @@ async function reload(): Promise<void> {
   loading.value = true;
   error.value = "";
   try {
-    const [overview, realmList] = await Promise.all([api<Overview>("/admin/draft/config-overview"), api<{ code: number; displayName: string }[]>("/admin/draft/realms")]);
+    const [overview, realmList] = await Promise.all([api<Overview>("/admin/draft/config-overview"), api<{ code: number; displayName: string; slug: string }[]>("/admin/draft/realms")]);
     apply(overview);
     realms.value = realmList;
   } catch (cause) {
@@ -316,15 +334,19 @@ function apply(overview: Overview): void {
   rules.value = { ...overview.rules };
   tuning.value = JSON.parse(JSON.stringify(overview.tuning)) as Tuning;
   enhance.value = overview.enhance.rules ? (JSON.parse(JSON.stringify(overview.enhance.rules)) as Enhance) : null;
+  newbie.value = { startingRealmSlug: overview.newbie?.startingRealmSlug ?? "", starterItems: JSON.parse(JSON.stringify(overview.newbie?.starterItems ?? [])) };
+  skillSlots.value = JSON.parse(JSON.stringify(overview.skillSlots?.rules ?? []));
   original.value = snapshot();
 }
 
 async function save(): Promise<boolean> {
   saving.value = true;
   try {
-    const before = JSON.parse(original.value) as { enhance: unknown };
+    const before = JSON.parse(original.value) as { enhance: unknown; newbie: unknown; skillSlots: { rules: unknown } };
     const body: Record<string, unknown> = { rules: rules.value, tuning: tuning.value };
     if (enhance.value && JSON.stringify(before.enhance) !== JSON.stringify(enhance.value)) body.enhance = enhance.value;
+    if (JSON.stringify(before.newbie) !== JSON.stringify(newbie.value)) body.newbie = newbie.value;
+    if (JSON.stringify(before.skillSlots.rules) !== JSON.stringify(skillSlots.value)) body.skillSlots = { rules: skillSlots.value };
     const overview = await api<Overview>("/admin/draft/config-overview", { method: "PUT", body: JSON.stringify(body) });
     apply(overview);
     ElMessage.success("已保存到草稿；跟随默认的关卡立即生效");

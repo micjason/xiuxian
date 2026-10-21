@@ -1,6 +1,12 @@
 <template>
   <div>
-    <PageHeader title="操作日志" desc="谁在什么时候做了什么。日志只读，不能修改或删除。玩家名留空时默认只查最近 24 小时，填了玩家名则查最近 30 天。" />
+    <PageHeader title="操作日志" desc="谁在什么时候做了什么。日志只读，不能修改或删除。「装备发放」里是所有发给玩家的装备（关卡掉落、首领奖励、后台补发），按来源筛。" />
+    <el-tabs v-model="tab" class="tabs">
+      <el-tab-pane label="操作记录" name="ops" />
+      <el-tab-pane label="装备发放" name="grants" />
+    </el-tabs>
+    <GrantLog v-if="tab === 'grants'" :initial-source="typeof route.query.source === 'string' ? route.query.source : ''" />
+    <template v-else>
     <div class="filter-bar">
       <el-input v-model="name" clearable placeholder="玩家名 / 账号" class="f-name" @keyup.enter="load" />
       <el-select v-model="action" clearable placeholder="全部动作" class="f-action">
@@ -33,23 +39,26 @@
       </el-table>
       <el-pagination v-if="shown.length > pageSize" v-model:current-page="page" class="pager" layout="total, prev, pager, next" :page-size="pageSize" :total="shown.length" background />
     </DataState>
+    </template>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { api } from "../../api";
 import DataState from "../../components/DataState.vue";
 import PageHeader from "../../components/PageHeader.vue";
 import { downloadText, formatTime, toCsv } from "../../composables/format";
 import { actionText } from "../../composables/lookups";
+import GrantLog from "./GrantLog.vue";
 
 type Row = { key: string; at: string; actorName: string; action: string; result: string; reason: string | null; summary: Record<string, unknown> };
 
 const route = useRoute();
 const router = useRouter();
 const actions: Record<string, string> = { login: "登录", settle: "结算", breakthrough: "突破", publish: "发布", repair: "修复" };
+const tab = ref(route.query.tab === "grants" ? "grants" : "ops");
 const name = ref(typeof route.query.name === "string" ? route.query.name : "");
 const action = ref("");
 const resultFilter = ref("");
@@ -119,6 +128,12 @@ function exportCsv(): void {
   );
 }
 
+watch(
+  () => route.query.tab,
+  (value) => {
+    if (route.path === "/system/audit") tab.value = value === "grants" ? "grants" : "ops";
+  },
+);
 onMounted(load);
 </script>
 
@@ -133,6 +148,9 @@ onMounted(load);
   border: 1px solid var(--xx-border);
   border-radius: var(--xx-radius-md);
   background: var(--xx-bg-surface);
+}
+.tabs {
+  margin-bottom: 4px;
 }
 .f-name {
   width: 200px;

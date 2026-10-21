@@ -208,6 +208,8 @@
               @trial="openTrial"
             />
           </SectionCard>
+
+          <StageDesignatedDrops v-model="(form as StageForm).designatedDrops" />
         </div>
       </template>
     </ConfigListPage>
@@ -230,6 +232,7 @@ import NumInput from "../../components/NumInput.vue";
 import PageHeader from "../../components/PageHeader.vue";
 import SectionCard from "../../components/SectionCard.vue";
 import TrialDialog from "../../components/TrialDialog.vue";
+import StageDesignatedDrops, { type DesignatedRow } from "./stages/StageDesignatedDrops.vue";
 import { loadWeapons, type Named } from "../../composables/lookups";
 import { stageSchema } from "../../schema/resources";
 
@@ -247,6 +250,7 @@ type StageForm = {
   bosses: BossRow[];
   monsters: MonsterRow[];
   monsterDrop: DropForm;
+  designatedDrops: DesignatedRow[];
 };
 type DropDefaults = { chancePercent: number; weights: Record<MonsterQuality, number>; orangeChancePercent: number };
 type ApiBoss = {
@@ -299,6 +303,7 @@ const anchors = [
   { id: "sec-monsters", label: "普通怪" },
   { id: "sec-drop", label: "装备掉落" },
   { id: "sec-boss", label: "首领与掉落" },
+  { id: "sec-designated", label: "指定掉落" },
 ];
 
 const router = useRouter();
@@ -441,6 +446,7 @@ function newRow(): Record<string, unknown> {
     bosses: [] as BossRow[],
     monsters: [] as MonsterRow[],
     monsterDrop: { chancePercent: null, weights: { white: null, green: null, blue: null, purple: null } },
+    designatedDrops: [] as DesignatedRow[],
   };
 }
 
@@ -453,6 +459,7 @@ async function save(values: Record<string, unknown>, mode: "create" | "edit", ed
     bosses: form.bosses,
     monsters: form.monsters,
     monsterDrop: form.monsterDrop,
+    designatedDrops: (form.designatedDrops ?? []).map(({ itemId, trigger, chancePercent, count }) => ({ itemId, trigger, chancePercent, count })),
   });
   if (mode === "create") {
     await api("/admin/draft/stages", { method: "POST", body });

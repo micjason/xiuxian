@@ -93,6 +93,7 @@ export const itemSchema: Schema = {
     { key: "kind", label: "类型", kind: "select", required: true, default: "material", options: [{ label: "材料", value: "material" }, { label: "丹药", value: "pill" }], hint: "材料（例如突破石，强化突破要用）或丹药。保存时不会再清空原来的类型。", column: { width: 90 } },
     { key: "quality", label: "品质", kind: "select", required: true, default: "white", options: [{ label: "白", value: "white" }, { label: "绿", value: "green" }, { label: "蓝", value: "blue" }, { label: "紫", value: "purple" }, { label: "橙", value: "orange" }], hint: "行囊里显示的品质颜色。", column: { width: 80 } },
     { key: "stackable", label: "可叠加", kind: "bool", default: true, hint: "同种物品在行囊里叠成一格。", column: { width: 80 } },
+    { key: "iconKey", label: "图标", kind: "select", options: [], hint: "游戏里显示的图标。不选 = 按编号自动选（例如突破石用石头图）。客户端 0.15.0 起生效。" },
     { key: "description", label: "描述", kind: "textarea", hint: "物品详情里的说明文字。", column: { minWidth: 260 } },
   ],
 };
@@ -202,14 +203,9 @@ export const rulesSchema: Schema = {
   ],
 };
 
-// 草稿快照 globals 里目前没有任何编辑接口的参数：只读展示，提醒后端补接口。
-export const globalsReadonlyFields: FieldDef[] = [
-  { key: "startingRealmSlug", label: "初始境界", kind: "text", readonly: true, hint: "新玩家的起始境界。目前只能改数据库或导入脚本。" },
-  { key: "starterItems", label: "新手物品", kind: "text", readonly: true, hint: "新玩家注册时发放的物品清单。目前没有编辑接口。" },
-  { key: "artSlotRules", label: "功法栏位规则", kind: "text", readonly: true, hint: "各境界开放几个功法栏位。目前没有编辑接口。" },
-  { key: "idleKillCap", label: "挂机击杀上限", kind: "number", readonly: true, hint: "离线结算时最多算多少次击杀。目前没有编辑接口。" },
-  { key: "minClientVersionCode", label: "最低客户端版本号", kind: "number", readonly: true, hint: "低于这个版本号的客户端被要求更新。目前没有编辑接口。" },
-];
+// 以前只读展示的 globals 参数：初始境界、新手物品、功法栏位已在「配置概览」可编辑（批次②）；
+// 挂机击杀上限、最低客户端版本号已删除（离线不打怪；强制更新统一走「客户端安装包」）。
+export const globalsReadonlyFields: FieldDef[] = [];
 
 // ---------- 人偶（手填属性） ----------
 export const puppetManualSchema: Schema = {
@@ -267,7 +263,7 @@ const extraLabels: Record<string, string> = {
   requiredStageSlug: "所需通关关卡", requiredStageId: "突破前要先通关", ultName: "大招名称", ultMultiplier: "大招伤害倍数", ultCooldownSeconds: "大招冷却", ultFirstCooldownSeconds: "开战首次冷却",
   skillSlug: "对应功法", bossName: "首领名称", bossAttack: "首领攻击", bossDefense: "首领防御", bossHp: "首领气血", bossInterval: "首领出手间隔",
   tickSeconds: "修炼间隔", gainPerTick: "每次获得修为", breakthroughCost: "突破消耗修为", starterItems: "新手物品", startingRealmSlug: "初始境界",
-  artSlotRules: "功法栏位规则", idleKillCap: "挂机击杀上限", minClientVersionCode: "最低客户端版本号", bagCapacity: "行囊容量",
+  artSlotRules: "功法栏位规则", bagCapacity: "行囊容量",
   offlineCapSeconds: "离线收益上限", onlineGapSeconds: "在线判定间隔", offlinePopupMinSeconds: "离线弹窗最短时长", dayStartHour: "每日重置整点", bossDailyRewardCount: "首领每日奖励次数", ultAutoCastWindowSeconds: "大招自动释放等待", waveSize: "每波怪物数", waveTransitionSeconds: "波次转场秒数", reviveSeconds: "阵亡复活秒数", attack: "攻击", defense: "防御", hp: "气血", speed: "速度", displayName: "名称",
 };
 

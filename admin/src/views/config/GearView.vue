@@ -1,11 +1,57 @@
 <template>
   <div class="gear-page">
-    <PageHeader title="装备配置" desc="上面是生成公式参数，改完保存会按公式重算 90 件装备的攻、防、血、速；下面是生成出的装备，可以单独改名称、描述、图标和掉率倍数。">
+    <PageHeader title="装备配置" desc="公式装备 90 件按境界属性自动生成；手动装备由策划新建、数值手填，可以组成套装。发给玩家统一走「发放指定装备」接口。">
       <template #actions>
-        <el-button :loading="regenerating" @click="regenerate">重新生成全部装备</el-button>
+        <el-button @click="router.push('/system/audit?tab=grants')">发放记录</el-button>
+        <el-button @click="grantOpen = true">补发装备</el-button>
+        <el-button v-if="segment === 'gear'" :loading="regenerating" @click="regenerate">重新生成数值</el-button>
+        <el-button v-if="segment === 'gear'" type="primary" @click="openManual(null)">＋ 新建装备</el-button>
+        <el-button v-else type="primary" @click="openSet(null)">＋ 新建套装</el-button>
       </template>
     </PageHeader>
+    <el-radio-group v-model="segment" class="segment">
+      <el-radio-button value="gear">装备 <span class="seg-n">{{ allRows.length }} 件</span></el-radio-button>
+      <el-radio-button value="sets">套装 <span class="seg-n">{{ sets.length }} 套</span></el-radio-button>
+    </el-radio-group>
     <DataState :loading="loading" :error="error" :has-data="majors.length > 0" empty-text="还没有境界，生成不了装备" @retry="reload">
+      <template v-if="segment === 'sets'">
+        <SectionCard title="套装列表" desc="一件装备最多属于一个套装；只有手动装备能进套装">
+          <el-table :data="sets" row-key="id" class="pieces" empty-text="还没有套装，点右上角「＋ 新建套装」" @row-click="openSet">
+            <el-table-column prop="displayName" label="套装名称" min-width="120" />
+            <el-table-column label="大境界" width="90"><template #default="{ row }">{{ row.majorName || "—" }}</template></el-table-column>
+            <el-table-column label="品质" width="80">
+              <template #default="{ row }">
+                <span v-if="row.quality && row.quality !== 'mixed'" class="q-tag" :style="{ color: colorOf(row.quality), borderColor: colorOf(row.quality) }">{{ qualityShort(row.quality) }}</span>
+                <span v-else class="muted">{{ row.quality === "mixed" ? "混合" : "—" }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="成员" width="230">
+              <template #default="{ row }">
+                <div class="mini-icons">
+                  <template v-for="slot in slots" :key="slot.key">
+                    <span v-if="memberIn(row, slot.key)" class="icon-box mini" :style="{ background: bgOf(memberIn(row, slot.key)!.quality) }" :title="memberIn(row, slot.key)!.displayName"><img v-if="iconUrl(icons, memberIn(row, slot.key)!.iconKey)" :src="iconUrl(icons, memberIn(row, slot.key)!.iconKey)" alt="" /></span>
+                    <span v-else class="icon-box mini empty" :title="`${slot.name}：空`" />
+                  </template>
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column label="件数" width="70"><template #default="{ row }"><strong>{{ row.members.length }} / 6</strong></template></el-table-column>
+            <el-table-column label="套装加成" min-width="320">
+              <template #default="{ row }">
+                <div v-for="tier in row.tiers" :key="tier.pieces" class="tier-line"><span class="tier-tag">{{ tier.pieces }} 件</span>{{ tierText(tier) }}</div>
+              </template>
+            </el-table-column>
+            <el-table-column label="更新时间" width="160"><template #default="{ row }">{{ new Date(row.updatedAt).toLocaleString("zh-CN", { hour12: false }) }}</template></el-table-column>
+            <el-table-column label="操作" width="120" align="right">
+              <template #default="{ row }">
+                <el-button link type="primary" @click.stop="openSet(row)">编辑</el-button>
+                <el-button link type="danger" @click.stop="deleteSet(row)">删除</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </SectionCard>
+      </template>
+      <template v-else>
       <SectionCard title="生成参数" desc="单件装备战力 = 大境界预算 × 部位占比 × 品质系数">
         <template #extra>
           <CustomTag v-if="paramsDirty" kind="custom">未保存</CustomTag>
@@ -69,10 +115,17 @@
         </el-table>
       </SectionCard>
 
-      <SectionCard title="装备列表" :desc="`共 ${allPieces.length} 件`">
-        <div class="info-bar">ⓘ 重新生成只更新攻、防、血、速和战力；改过的名称、描述、图标、掉率倍数不动。</div>
+      <SectionCard title="装备列表" :desc="`共 ${allRows.length} 件 · 公式 ${allPieces.length} · 手动 ${manual.length}`">
+        <div class="info-bar">ⓘ 「重新生成数值」只更新公式装备的攻、防、血、速和战力（改过的名称、描述、图标、掉率倍数不动）；手动装备永远不被覆盖。手动装备默认不参与随机掉落，只靠关卡指定掉落和补发获得。</div>
         <div class="filters">
           <el-input v-model="query" placeholder="搜索名称" clearable class="f160" />
+          <el-select v-model="filterOrigin" placeholder="来源" clearable class="f100">
+            <el-option label="公式" value="formula" />
+            <el-option label="手动" value="manual" />
+          </el-select>
+          <el-select v-model="filterSet" placeholder="套装" clearable class="f100">
+            <el-option v-for="set in sets" :key="set.id" :label="set.displayName" :value="set.id" />
+          </el-select>
           <el-select v-model="filterMajor" placeholder="大境界" clearable class="f120">
             <el-option v-for="major in majors" :key="major.majorKey" :label="major.majorName" :value="major.majorKey" />
           </el-select>
@@ -80,13 +133,13 @@
             <el-option v-for="slot in slots" :key="slot.key" :label="slot.name" :value="slot.key" />
           </el-select>
           <el-select v-model="filterQuality" placeholder="品质" clearable class="f120">
-            <el-option v-for="quality in QUALITIES" :key="quality.key" :label="quality.name" :value="quality.key" />
+            <el-option v-for="quality in qualities" :key="quality.key" :label="quality.short" :value="quality.key" />
           </el-select>
           <el-checkbox v-model="onlyCustom">只看已自定义</el-checkbox>
           <span class="spacer" />
           <span class="muted">{{ filtered.length }} 件</span>
         </div>
-        <el-table :data="paged" row-key="id" :row-class-name="rowClass" class="pieces" @row-click="openPiece">
+        <el-table :data="paged" row-key="id" :row-class-name="rowClass" class="pieces" @row-click="openRow">
           <el-table-column label="图标" width="72">
             <template #default="{ row }">
               <span class="icon-box" :style="{ background: bgOf(row.quality) }">
@@ -94,12 +147,21 @@
               </span>
             </template>
           </el-table-column>
-          <el-table-column label="名称" min-width="240">
+          <el-table-column label="名称" min-width="200">
             <template #default="{ row }">
               <div class="name-cell">
-                <span>{{ row.displayName }}<CustomTag v-if="row.nameCustom" kind="custom" class="ml">已自定义</CustomTag></span>
-                <span v-if="row.nameCustom" class="muted small">默认名 {{ row.defaultName }}</span>
+                <span>{{ row.displayName }}<CustomTag v-if="row.nameCustom && row.origin !== 'manual'" kind="custom" class="ml">已自定义</CustomTag></span>
+                <span v-if="row.nameCustom && row.origin !== 'manual'" class="muted small">默认名 {{ row.defaultName }}</span>
               </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="来源" width="76">
+            <template #default="{ row }"><span class="origin" :class="row.origin">{{ row.origin === "manual" ? "手动" : "公式" }}</span></template>
+          </el-table-column>
+          <el-table-column label="套装" width="96">
+            <template #default="{ row }">
+              <el-button v-if="row.setSlug" link type="primary" @click.stop="openSet(sets.find((set) => set.id === row.setSlug) ?? null)">{{ setName(row.setSlug) }}</el-button>
+              <span v-else class="muted">—</span>
             </template>
           </el-table-column>
           <el-table-column prop="majorName" label="大境界" width="90" />
@@ -116,14 +178,15 @@
           <el-table-column width="150" align="right">
             <template #header>掉率倍数<HelpTip title="掉率倍数" text="同大境界、同品质的 6 件按倍数分被抽中的机会：本件概率 = 掉装备 × 抽到这个品质 × 本件倍数 ÷ 同组倍数合计。普通怪掉落和首领重复奖励都按它。" meta="默认 ×1.00 · 0 = 不掉" /></template>
             <template #default="{ row }">
-              <CustomTag v-if="row.dropMult !== 1" kind="custom">已自定义 ×{{ row.dropMult.toFixed(2) }}</CustomTag>
+              <span v-if="row.origin === 'manual' && !row.randomDrop" class="muted">不参与随机</span>
+              <CustomTag v-else-if="row.dropMult !== 1" kind="custom">已自定义 ×{{ row.dropMult.toFixed(2) }}</CustomTag>
               <span v-else class="muted">×1.00</span>
             </template>
           </el-table-column>
           <el-table-column label="操作" width="150" align="right">
             <template #default="{ row }">
-              <el-button link type="primary" @click.stop="openPiece(row)">编辑</el-button>
-              <el-button v-if="isCustom(row)" link type="primary" @click.stop="resetPiece(row)">恢复默认</el-button>
+              <el-button link type="primary" @click.stop="openRow(row)">编辑</el-button>
+              <el-button v-if="row.origin !== 'manual' && isCustom(row)" link type="primary" @click.stop="resetPiece(row)">恢复默认</el-button>
             </template>
           </el-table-column>
         </el-table>
@@ -137,7 +200,25 @@
         />
       </SectionCard>
       <SaveBar :dirty="paramsDirty" :saving="savingParams" save-text="保存并重算装备" @save="saveParams" @cancel="resetParams" />
+      </template>
     </DataState>
+
+    <ManualGearDrawer
+      v-model="manualOpen"
+      :editing="manualEditing"
+      :majors="majors"
+      :realms="realms"
+      :sets="sets"
+      :slots="slots"
+      :qualities="qualities"
+      :weights="weights"
+      :next-id="nextManualId"
+      :enhance="enhanceRules"
+      :size="drawerSize"
+      @saved="reload"
+    />
+    <GearSetDrawer v-model="setOpen" :editing="setEditing" :manual="manual" :slots="slots" :qualities="qualities" :size="drawerSize" @saved="reload" />
+    <GrantDrawer v-model="grantOpen" :size="drawerSize" />
 
     <EditDrawer
       v-model="drawer"
@@ -258,6 +339,10 @@ import SectionCard from "../../components/SectionCard.vue";
 import { useCrumbTail } from "../../composables/crumbs";
 import { useDirtyGuard } from "../../composables/dirty";
 import { autoGearIcon, iconUrl, useItemIcons } from "../../composables/itemIcons";
+import GrantDrawer from "../../components/GrantDrawer.vue";
+import GearSetDrawer from "./gear/GearSetDrawer.vue";
+import ManualGearDrawer from "./gear/ManualGearDrawer.vue";
+import { tierText, type GearSet, type ManualPiece, type QualityRow } from "./gear/types";
 
 type Quality = "white" | "green" | "blue" | "purple" | "orange";
 type StatKey = "attack" | "defense" | "hp" | "speed";
@@ -281,6 +366,9 @@ type Piece = {
   speed: number;
   power: number | null;
   missing: boolean;
+  origin?: "formula" | "manual";
+  setSlug?: string | null;
+  randomDrop?: boolean;
 };
 type Major = {
   majorName: string;
@@ -297,6 +385,10 @@ type GearList = {
   majors: Major[];
   params: { gearBudgetRatio: number; gearSpeedFactor: number; slotShares: Record<string, number>; qualityFactors: Record<Quality, number>; powerWeights: Record<StatKey, number> | null };
   slots: { key: string; name: string }[];
+  manual: ManualPiece[];
+  sets: GearSet[];
+  qualities: QualityRow[];
+  nextManualId: string;
 };
 type StageDrop = {
   id: string;
@@ -309,14 +401,15 @@ type StageDrop = {
 };
 
 const DEFAULT_RATIO = 0.55;
-const QUALITIES: { key: Quality; name: string; color: string }[] = [
-  { key: "white", name: "白", color: "#9aa09b" },
-  { key: "green", name: "绿", color: "#4f9a5e" },
-  { key: "blue", name: "蓝", color: "#3f78b5" },
-  { key: "purple", name: "紫", color: "#8a5bb8" },
-  { key: "orange", name: "橙", color: "#d9822b" },
-];
-const QUALITY_COLOR = Object.fromEntries(QUALITIES.map((quality) => [quality.key, quality.color])) as Record<Quality, string>;
+// 品质表由服务端统一下发（catalog.ts）；这里只放加载前的占位
+const qualities = ref<QualityRow[]>([
+  { key: "white", name: "凡品", short: "白", color: "#9aa3a0" },
+  { key: "green", name: "良品", short: "绿", color: "#3c9a4e" },
+  { key: "blue", name: "精品", short: "蓝", color: "#2e7fc4" },
+  { key: "purple", name: "珍品", short: "紫", color: "#8a4fc0" },
+  { key: "orange", name: "绝品", short: "橙", color: "#e07b1f" },
+]);
+const QUALITIES = computed(() => qualities.value.map((row) => ({ key: row.key, name: row.short, color: row.color })));
 const QUALITY_BG: Record<Quality, string> = { white: "#eceeea", green: "#e3f1e5", blue: "#e2ecf7", purple: "#efe6f7", orange: "#fbeadb" };
 const STAT_KEYS: StatKey[] = ["attack", "defense", "hp", "speed"];
 const STAT_NAMES: Record<StatKey, string> = { attack: "攻", defense: "防", hp: "血", speed: "速" };
@@ -328,6 +421,18 @@ const error = ref("");
 const majors = ref<Major[]>([]);
 const slots = ref<{ key: string; name: string }[]>([]);
 const realms = ref<{ code: number; displayName: string; majorName: string }[]>([]);
+const manual = ref<ManualPiece[]>([]);
+const sets = ref<GearSet[]>([]);
+const nextManualId = ref("gear_m_0001");
+const enhanceRules = ref<null | { qualities?: Record<string, { cap: number; costMult: number; decomposeExp: number; breakthroughs: { level: number; materials: { itemSlug: string; count: number }[] }[] }> }>(null);
+const segment = ref<"gear" | "sets">("gear");
+const filterOrigin = ref("");
+const filterSet = ref("");
+const manualOpen = ref(false);
+const manualEditing = ref<ManualPiece | null>(null);
+const setOpen = ref(false);
+const setEditing = ref<GearSet | null>(null);
+const grantOpen = ref(false);
 const stages = ref<StageDrop[]>([]);
 const weights = ref<Record<StatKey, number> | null>(null);
 const params = reactive({ gearBudgetRatio: DEFAULT_RATIO as number | null, gearSpeedFactor: 0.3 as number | null, qualityFactors: { white: 1, green: 1, blue: 1, purple: 1, orange: 1 } as Record<Quality, number | null> });
@@ -374,25 +479,90 @@ const allPieces = computed<Row[]>(() =>
     })),
   ),
 );
+// 手动装备排在前面
+const allRows = computed<Row[]>(() => [
+  ...manual.value.map(
+    (row) =>
+      ({
+        ...row,
+        defaultName: row.displayName,
+        defaultDescription: row.description,
+        nameCustom: false,
+        descriptionCustom: false,
+        missing: false,
+        requiredRealmName: row.realmName,
+        majorKey: row.majorKey ?? "",
+      }) as unknown as Row,
+  ),
+  ...allPieces.value.map((row) => ({ ...row, origin: "formula" as const })),
+]);
 const filtered = computed(() =>
-  allPieces.value.filter(
+  allRows.value.filter(
     (row) =>
       (!query.value || row.displayName.includes(query.value) || row.id.includes(query.value)) &&
       (!filterMajor.value || row.majorKey === filterMajor.value) &&
       (!filterSlot.value || row.slot === filterSlot.value) &&
       (!filterQuality.value || row.quality === filterQuality.value) &&
+      (!filterOrigin.value || (row.origin ?? "formula") === filterOrigin.value) &&
+      (!filterSet.value || row.setSlug === filterSet.value) &&
       (!onlyCustom.value || isCustom(row)),
   ),
 );
 const paged = computed(() => filtered.value.slice((page.value - 1) * pageSize.value, page.value * pageSize.value));
 const pickerIcons = computed(() => icons.value.filter((icon) => icon.key.startsWith("gear_")));
 
+function colorOfQuality(quality: string): string {
+  return qualities.value.find((row) => row.key === quality)?.color ?? "#9aa09b";
+}
+
+function qualityShort(quality: string): string {
+  return qualities.value.find((row) => row.key === quality)?.short ?? quality;
+}
+
+function setName(slug: string | null | undefined): string {
+  return sets.value.find((set) => set.id === slug)?.displayName ?? "—";
+}
+
+function memberIn(set: GearSet, slot: string) {
+  return set.members.find((member) => member.slot === slot);
+}
+
+function openRow(row: Row): void {
+  if (row.origin === "manual") {
+    openManual(manual.value.find((item) => item.id === row.id) ?? null);
+  } else {
+    openPiece(row);
+  }
+}
+
+function openManual(row: ManualPiece | null): void {
+  manualEditing.value = row;
+  manualOpen.value = true;
+  highlightId.value = row?.id ?? "";
+}
+
+function openSet(row: GearSet | null): void {
+  setEditing.value = row;
+  setOpen.value = true;
+}
+
+async function deleteSet(row: GearSet): Promise<void> {
+  try {
+    await ElMessageBox.confirm(`删除套装「${row.displayName}」？成员装备保留，只是不再属于套装。`, "删除套装", { type: "warning" });
+  } catch {
+    return;
+  }
+  await api(`/admin/draft/gear-sets/${row.id}`, { method: "DELETE" });
+  ElMessage.success("已删除");
+  await reload();
+}
+
 function bgOf(quality: string): string {
   return QUALITY_BG[quality as Quality] ?? "#eceeea";
 }
 
 function colorOf(quality: string): string {
-  return QUALITY_COLOR[quality as Quality] ?? "#9aa09b";
+  return colorOfQuality(quality);
 }
 
 function isCustom(row: Piece): boolean {
@@ -425,7 +595,7 @@ function every(p: number, unit: string): string {
 function applyParams(list: GearList): void {
   params.gearBudgetRatio = list.params.gearBudgetRatio;
   params.gearSpeedFactor = list.params.gearSpeedFactor;
-  for (const quality of QUALITIES) params.qualityFactors[quality.key] = list.params.qualityFactors[quality.key];
+  for (const quality of QUALITIES.value) params.qualityFactors[quality.key as Quality] = list.params.qualityFactors[quality.key as Quality];
   for (const slot of list.slots) shares[slot.key] = Math.round((list.params.slotShares[slot.key] ?? 0) * 1000) / 10;
   weights.value = list.params.powerWeights;
   savedParams.value = paramsSnapshot();
@@ -581,12 +751,18 @@ async function reload(): Promise<void> {
   loading.value = true;
   error.value = "";
   try {
-    const [list, realmList, stageList] = await Promise.all([
+    const [list, realmList, stageList, enhance] = await Promise.all([
       api<GearList>("/admin/draft/gear"),
       api<{ code: number; displayName: string; majorName: string }[]>("/admin/draft/realms"),
       api<StageDrop[]>("/admin/draft/stages"),
+      api<{ rules: typeof enhanceRules.value }>("/admin/draft/enhance").catch(() => ({ rules: null })),
     ]);
     majors.value = list.majors;
+    manual.value = list.manual ?? [];
+    sets.value = list.sets ?? [];
+    if (list.qualities?.length) qualities.value = list.qualities;
+    nextManualId.value = list.nextManualId ?? nextManualId.value;
+    enhanceRules.value = enhance.rules;
     slots.value = list.slots;
     realms.value = realmList;
     stages.value = stageList;
@@ -609,7 +785,13 @@ watch(drawer, (open) => {
     highlightTimer = window.setTimeout(() => (highlightId.value = ""), 1500);
   }
 });
-watch([query, filterMajor, filterSlot, filterQuality, onlyCustom], () => (page.value = 1));
+watch([query, filterMajor, filterSlot, filterQuality, filterOrigin, filterSet, onlyCustom], () => (page.value = 1));
+watch(manualOpen, (value) => {
+  if (!value) {
+    window.clearTimeout(highlightTimer);
+    highlightTimer = window.setTimeout(() => (highlightId.value = ""), 1500);
+  }
+});
 
 onMounted(() => {
   window.addEventListener("resize", onResize);
@@ -686,6 +868,56 @@ onBeforeUnmount(() => window.removeEventListener("resize", onResize));
 }
 .f120 {
   width: 120px;
+}
+.f100 {
+  width: 100px;
+}
+.segment {
+  margin-bottom: 14px;
+}
+.seg-n {
+  margin-left: 4px;
+  color: var(--xx-text-secondary);
+  font-size: 12px;
+}
+.origin {
+  padding: 1px 8px;
+  border-radius: 4px;
+  background: #eef0ec;
+  color: #6b736e;
+  font-size: 12px;
+}
+.origin.manual {
+  background: #efe6f7;
+  color: #7a45a8;
+}
+.mini-icons {
+  display: flex;
+  gap: 4px;
+}
+.icon-box.mini {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+}
+.icon-box.mini img {
+  width: 24px;
+  height: 24px;
+}
+.icon-box.mini.empty {
+  border: 1px dashed #c9cec8;
+  background: transparent;
+}
+.tier-line {
+  font-size: 12px;
+  line-height: 22px;
+}
+.tier-tag {
+  margin-right: 6px;
+  padding: 0 6px;
+  border-radius: 4px;
+  background: #e3f1e5;
+  color: #2f6b3f;
 }
 .spacer {
   flex: 1;

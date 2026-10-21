@@ -68,7 +68,7 @@
               <template #default="{ row }"><el-input-number v-model="rule(row.key).decomposeExp" :min="1" :step="10" :precision="0" size="small" controls-position="right" @change="touched = true" /></template>
             </el-table-column>
           </el-table>
-          <p class="hint">经验倍数：这个品质每一级所需经验再乘以它。「经验增长倍数」「每级属性加成」留空表示用左边的通用值，填了就只对这个品质生效。红（仙品）的数字是新增的起始值，还没有平衡过。</p>
+          <p class="hint">经验倍数：这个品质每一级所需经验再乘以它。「经验增长倍数」「每级属性加成」留空表示用左边的通用值，填了就只对这个品质生效。</p>
         </section>
       </div>
 
@@ -167,7 +167,7 @@ import RarityTag from "../../components/RarityTag.vue";
 import { useDirtyGuard } from "../../composables/dirty";
 import { refreshDraftStatus } from "../../composables/draftStatus";
 
-type QualityKey = "white" | "green" | "blue" | "purple" | "orange" | "red";
+type QualityKey = "white" | "green" | "blue" | "purple" | "orange";
 type Material = { itemSlug: string; count: number | null };
 type Node = { level: number | null; materials: Material[] };
 type QualityRule = { cap: number | null; costMult: number | null; decomposeExp: number | null; expGrowth?: number | null; statGrowthBp?: number | null; breakthroughs: Node[] };
@@ -185,7 +185,6 @@ const QUALITIES: { key: QualityKey; name: string }[] = [
   { key: "blue", name: "蓝" },
   { key: "purple", name: "紫" },
   { key: "orange", name: "橙" },
-  { key: "red", name: "红" },
 ];
 
 function emptyQuality(): QualityRule {
@@ -198,7 +197,7 @@ function emptyRules(): Rules {
   return { expBase: null, expGrowth: null, statGrowthBp: null, refundBp: null, qualities };
 }
 
-/** 服务器存的规则可能缺红色或突破节点（老草稿），补成表单能编辑的样子。 */
+/** 服务器存的规则可能缺突破节点（老草稿），补成表单能编辑的样子。品质统一白→橙 5 档（红已去掉）。 */
 function normalize(rules: Partial<Rules> | null): Rules {
   const base = emptyRules();
   if (!rules) return base;
@@ -484,7 +483,7 @@ function fillStarting(): void {
   if (!starting.value) return;
   form.value = normalize(clone(starting.value));
   touched.value = true;
-  ElMessage.info("已填入建议起始值（含红色和突破节点），还没有保存。");
+  ElMessage.info("已填入建议起始值（含突破节点），还没有保存。");
 }
 
 function revert(): void {

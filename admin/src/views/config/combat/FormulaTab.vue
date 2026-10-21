@@ -200,14 +200,8 @@
           <SchemaForm v-model="form" :schema="rulesSchema" :card="false" :only-groups="['world']" show-all-errors @active="(f) => (active = f)" />
         </section>
         <section class="block">
-          <h2>其他全局参数（只读）</h2>
-          <p class="note">这些参数存在草稿里，但后端还没有编辑接口，只能改数据库或导入脚本。需要后端补接口后才能在这里编辑。</p>
-          <dl class="globals">
-            <div v-for="field in globalsReadonlyFields" :key="field.key" class="g-row" @mouseenter="active = field">
-              <dt>{{ field.label }} <code>{{ field.key }}</code></dt>
-              <dd>{{ globalText(field.key) }}</dd>
-            </div>
-          </dl>
+          <h2>其他全局参数</h2>
+          <p class="note">初始境界、新手物品、功法栏位在「配置概览」里改；部位与品质表由服务端统一提供（配置概览 → 部位与品质，只读）。</p>
         </section>
       </div>
     </div>
@@ -221,7 +215,7 @@ import { api } from "../../../api";
 import SchemaForm from "../../../components/SchemaForm.vue";
 import { useDirtyGuard } from "../../../composables/dirty";
 import { refreshDraftStatus } from "../../../composables/draftStatus";
-import { globalsReadonlyFields, rulesSchema } from "../../../schema/resources";
+import { rulesSchema } from "../../../schema/resources";
 import type { FieldDef, FormValues } from "../../../schema/types";
 import { isBlank, validateSchema } from "../../../schema/validate";
 
@@ -312,11 +306,6 @@ function speedPart(name: string): PuppetLine | undefined {
 }
 
 
-function globalText(key: string): string {
-  const value = globals.value[key];
-  if (value === undefined || value === null) return "—";
-  return typeof value === "object" ? JSON.stringify(value) : String(value);
-}
 
 
 function revert(): void {

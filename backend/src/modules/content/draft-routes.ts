@@ -146,6 +146,7 @@ export async function registerDraftRoutes(app: FastifyInstance, deps: { db: Db; 
       .sort((left, right) => left.sortOrder - right.sortOrder)
       .map((row) => ({
         code: row.sortOrder,
+        slug: row.slug,
         displayName: row.displayName,
         majorName: row.majorName,
         tickSeconds: row.tickSeconds,

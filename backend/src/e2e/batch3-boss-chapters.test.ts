@@ -253,7 +253,8 @@ describe("第三批：首领装备走统一发放接口 grantEquipment", () => {
       const again = await challenge("lianqi_1");
       expect(again.statusCode).toBe(200);
       expect(again.json().reward.firstClear).toBe(true);
-      const grants = await db.select().from(equipmentGrants).where(eq(equipmentGrants.playerId, playerId));
+      // 只看首领首通的装备流水（批次②之后挂机掉落、新手物品也记流水）
+      const grants = (await db.select().from(equipmentGrants).where(eq(equipmentGrants.playerId, playerId))).filter((row) => row.source === "boss_first");
       expect(grants).toHaveLength(2);
       expect(new Set(grants.map((row) => row.requestId)).size).toBe(2);
       await app.close();

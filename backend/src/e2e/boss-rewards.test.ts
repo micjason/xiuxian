@@ -95,8 +95,12 @@ describe("boss first-clear fixed rewards", () => {
       expect(gearDrops[0].dropped).toBeUndefined();
       expect(gearDrops[0].decomposed).toBeUndefined();
       const grants = await db.select().from(equipmentGrants).where(eq(equipmentGrants.playerId, playerId));
-      // 黑风熊王的首通奖励是固定物品（不抽装备），所以只有这一次重打抽到的装备有流水
-      expect(grants.map((row) => [row.source, row.sourceRef, row.itemSlug, row.count])).toEqual([["boss_repeat", "lianqi_3", gearDrops[0].itemSlug, 1]]);
+      // 批次②之后所有装备入包都记发放流水：首通的固定装备（饰品）记 boss_first，这次重打抽到的记 boss_repeat
+      const rows = grants.filter((row) => row.sourceRef === "lianqi_3").map((row) => [row.source, row.sourceRef, row.itemSlug, row.count]);
+      expect(rows).toEqual([
+        ["boss_first", "lianqi_3", "gear_major1_accessory_blue", 1],
+        ["boss_repeat", "lianqi_3", gearDrops[0].itemSlug, 1],
+      ]);
       await app.close();
     });
     await withDb(async (db) => {

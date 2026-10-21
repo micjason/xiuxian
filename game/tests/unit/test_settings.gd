@@ -1,6 +1,6 @@
 extends GutTest
-## 设置面板（点头像）：退出登录清掉令牌回登录页；音乐 / 音效开关本机保存并作用到音频总线；
-## 暂未开放的入口提示；旧的战报开关 / 背包满处理不再出现。
+## 设置弹窗（点头像，设计稿 q_settings_popup / SPEC_Q 17.4）：退出登录清掉令牌回登录页；音乐 / 音效开关本机保存并作用到音频总线；
+## 未开放入口提示且弹窗不关；旧的战报开关 / 背包满处理不再出现。
 
 const SAVED := ["user://player_token.txt", "user://player_account.json"]
 var _backup: Dictionary = {}
@@ -47,6 +47,13 @@ func _texts(node: Node, out: Array[String] = []) -> Array[String]:
 	return out
 
 
+func _press(root: Node, node_name: String) -> void:
+	var button := root.find_child(node_name, true, false) as Button
+	assert_not_null(button, node_name)
+	if button != null:
+		button.pressed.emit()
+
+
 func test_forget_session_clears_token_and_account() -> void:
 	PlayerApi.save_token("tok-abc")
 	PlayerApi.save_account("daoyou", "p-1")
@@ -84,42 +91,42 @@ func test_avatar_opens_settings_and_logout_returns_to_login() -> void:
 	PlayerApi.save_token("tok-logout")
 	PlayerApi.save_account("old_account", "p-9")
 	var scene := await _boot()
-	var popup := scene.get("_popup") as GamePopup
+	var settings := scene.get("_settings") as SettingsView
 	var login := scene.get("_login") as PlayerLogin
 	assert_false(login.visible)
 	(scene.get("_top_bar") as TopBar).settings_pressed.emit()
 	await wait_frames(2)
-	assert_true(popup.visible)
-	assert_eq(popup.title_label.text, "设置")
-	var texts := _texts(popup)
-	for wanted in ["音乐", "音效", "检查更新", "退出登录", "修改密码", "绑定手机", "兑换码", "客服", "用户协议与隐私政策"]:
+	assert_true(settings.visible, "点头像打开设置")
+	var texts := _texts(settings)
+	for wanted in ["设 置", "声音", "音乐", "音效", "更多", "敬请期待", "版本号", "检查更新", "退出登录", "修改密码", "绑定手机", "兑换码", "客服反馈", "用户协议与隐私政策"]:
 		assert_has(texts, wanted)
-	for gone in ["显示战斗记录", "满包：跳过掉落", "导出存档文本"]:
+	for gone in ["显示战斗记录", "满包：跳过掉落", "导出存档文本", "战报"]:
 		assert_does_not_have(texts, gone)
-	assert_true(texts.any(func(t: String) -> bool: return t.begins_with("当前版本 ")), "显示版本号")
-	# 暂未开放
-	(popup.find_child("Locked_兑换码", true, false) as Button).pressed.emit()
+	assert_true(texts.any(func(t: String) -> bool: return t.begins_with("v") and t.contains("（")), "显示版本号 v名（号）")
+	# 未开放：toast，弹窗不关
+	_press(settings, "Locked_兑换码")
 	assert_eq((scene.get("_toast") as Toast).text(), "功能暂未开放")
+	assert_true(settings.visible, "设置弹窗不关")
 	# 音乐开关：点一下关掉并写盘
-	(popup.find_child("MusicToggle", true, false) as Button).pressed.emit()
+	_press(settings, "MusicToggle")
 	assert_false(LocalSettings.music_on())
+	assert_false((settings.find_child("MusicToggle", true, false) as QToggleSwitch).is_on)
 	# 退出登录 → 二次确认 → 取消回设置
-	(popup.find_child("LogoutButton", true, false) as Button).pressed.emit()
-	await wait_frames(2)
-	assert_eq(popup.title_label.text, "确定退出登录？")
+	_press(settings, "LogoutButton")
+	assert_true(settings.is_confirming())
+	assert_has(_texts(settings), "确定要退出当前账号吗？")
 	assert_eq(PlayerApi.token(), "tok-logout", "确认前不退出")
-	(popup.actions.get_child(0) as Button).pressed.emit()
-	await wait_frames(2)
-	assert_eq(popup.title_label.text, "设置")
-	# 再来一次，确定
-	(popup.find_child("LogoutButton", true, false) as Button).pressed.emit()
-	await wait_frames(2)
-	(popup.actions.get_child(1) as Button).pressed.emit()
+	_press(settings, "ConfirmCancel")
+	assert_false(settings.is_confirming())
+	assert_true(settings.visible, "取消回到设置")
+	# 再来一次，退出
+	_press(settings, "LogoutButton")
+	_press(settings, "ConfirmLogout")
 	await wait_frames(2)
 	assert_eq(PlayerApi.token(), "", "令牌清掉")
 	assert_true(PlayerApi.account().is_empty(), "账号记录清掉")
 	assert_true(login.visible, "回到登录页")
-	assert_false(popup.visible)
+	assert_false(settings.visible)
 	assert_true((scene.get("_state") as Dictionary).is_empty(), "旧账号数据清空")
 	assert_eq(int(scene.call("session_id")), 1)
 	# 能登录另一个账号：登录页发 logged_in 后重新开始心跳
@@ -127,11 +134,18 @@ func test_avatar_opens_settings_and_logout_returns_to_login() -> void:
 	PlayerApi.save_account("new_account", "p-10")
 	login.hide()
 	login.logged_in.emit()
-	assert_eq(str((scene.call("settings_info") as Dictionary).get("username", "")), "演示账号")
 	assert_false(login.visible)
+	assert_eq(PlayerApi.token(), "tok-other")
 
 
-func test_settings_info_uses_saved_account() -> void:
-	var view := SettingsView.version_text({"version": "0.17.1", "versionCode": 39})
-	assert_eq(view, "当前版本 0.17.1（39）")
-	assert_eq(SettingsView.version_text({"version": "0.17.1"}), "当前版本 0.17.1")
+func test_close_by_button_and_texts() -> void:
+	var scene := await _boot()
+	var settings := scene.get("_settings") as SettingsView
+	(scene.get("_top_bar") as TopBar).settings_pressed.emit()
+	await wait_frames(1)
+	_press(settings, "CloseButton")
+	assert_false(settings.visible)
+	assert_eq(SettingsView.version_text({"version": "0.17.1", "versionCode": 39}), "v0.17.1（39）")
+	assert_eq(SettingsView.mask_account("13812346612"), "138****6612")
+	assert_eq(SettingsView.mask_account("daoyou01"), "da****01")
+	assert_eq(SettingsView.mask_account("abc"), "abc")

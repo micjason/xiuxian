@@ -92,7 +92,7 @@ static func inset(fill: Color = UiTokens.Q_CARD, radius: int = 24, pad_x: int = 
 
 ## Q 版按钮：kind = "o" 橙 / "m" 薄荷 / "g" 灰（不可用）/ "c" 奶油 / "r" 红。文字白色可可描边（奶油按钮用深色字）。
 ## 橙/薄荷/灰用美术切图（btn_<色>_<档>_normal/pressed，档 = 60/100/124/150，取最接近 height 的一档，
-## 按钮高度 = 档高 + 6 投影）；radius 30 的方角橙钮用 btn_orange_r30_*。奶油/红没有切图，代码画。
+## 按钮高度 = 档高 + 6 投影）；radius 30 的方角橙钮用 btn_orange_r30_*。红色只有 100 / 124 档切图（btn_red_*，SPEC_Q 17.6），其它档和奶油代码画。
 const BTN_TIERS := [60, 100, 124, 150]
 
 
@@ -108,7 +108,7 @@ static func button(text: String, kind: String = "o", height: int = 100, font_siz
 static func _btn_cut(kind: String, height: int, radius: int) -> Dictionary:
 	if kind == "o" and radius < 100 and ArtLib.qui("btn_orange_r30_normal") != null:
 		return {"normal": "btn_orange_r30_normal", "pressed": "btn_orange_r30_pressed", "off": "btn_grey_disabled_100", "h": 104}
-	var colour: String = {"o": "orange", "m": "mint", "g": "grey"}.get(kind, "")
+	var colour: String = {"o": "orange", "m": "mint", "g": "grey", "r": "red"}.get(kind, "")
 	if colour == "":
 		return {}
 	var best := 100

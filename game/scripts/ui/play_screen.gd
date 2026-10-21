@@ -149,15 +149,20 @@ func _setup_update_check() -> void:
 	_update_prompt = UpdatePrompt.new(_popup, _update_service)
 	_update_service.update_available.connect(func(info: Dictionary) -> void:
 		_manual_update_check = false
+		if _settings != null and _settings.visible:
+			_settings.show_new_version(str(info.get("version", "")))
+			_settings.close()  # 更新弹窗和设置同层，先收起设置
 		_update_prompt.show_update(info, _update_service.get_current_version()))
 	# 设置页「检查更新」：没有新版本 / 失败时给个提示（启动时的静默检查不提示）。
 	_update_service.no_update.connect(func(version: String) -> void:
 		if _manual_update_check:
 			_manual_update_check = false
-			_toast.say("当前已是最新版本 %s" % version))
+			_settings.show_latest()
+			_toast.say("已是最新版本"))
 	_update_service.failed.connect(func(message: String) -> void:
 		if _manual_update_check:
 			_manual_update_check = false
+			_settings.set_checking(false)
 			_toast.say(message, false))
 	_check_update()
 
@@ -321,11 +326,16 @@ func _build_shell() -> void:
 		_show_page(PAGE_CULTIVATE))
 	_success_popup.z_index = Z_POPUP
 	add_child(_success_popup)
-	_settings = SettingsView.new(_popup)
+	_settings = SettingsView.new()
+	_settings.z_index = Z_POPUP
 	_settings.logout_confirmed.connect(logout)
 	_settings.check_update_requested.connect(_on_manual_update_check)
-	_settings.locked_pressed.connect(func(feature: String) -> void: _toast.say_locked(feature))
-	_settings.credits_requested.connect(func() -> void: CreditsView.show_credits(_popup))
+	_settings.locked_pressed.connect(func(feature: String) -> void: _toast.say_locked(feature, true))
+	_settings.credits_requested.connect(func() -> void:
+		_settings.close()
+		CreditsView.show_credits(_popup))
+	_settings.closed.connect(func() -> void: _maybe_show_notice.call_deferred())
+	add_child(_settings)
 	_announcement = AnnouncementPrompt.new(_popup)
 	_announcement.acknowledged.connect(_on_notice_ack)
 	_popup.closed.connect(func() -> void: _maybe_show_notice.call_deferred())
@@ -348,6 +358,8 @@ func _apply_layout() -> void:
 	_toast.place_top(float(UiTokens.PAGE_MARGIN) + inset.x, inset.y + _top_bar.content_height() + float(UiTokens.SP_2), float(UiTokens.PAGE_MARGIN) + inset.z, 110.0)
 	_breakthrough_page.apply_safe_area(inset)
 	_offline_popup.apply_safe_area(inset)
+	if _settings != null:
+		_settings.apply_safe_area(inset)
 	if _item_popup != null:
 		_item_popup.set_safe_top(inset.y)
 	if _mock_tag != null:
@@ -408,7 +420,7 @@ func settings_info() -> Dictionary:
 		"realm": _realm_name(str(_state.get("realmSlug", ""))),
 		"version": _update_service.get_current_version() if _update_service != null else str(ProjectSettings.get_setting("application/config/version", "")),
 		"versionCode": _update_service.get_version_code() if _update_service != null else 0,
-		"server": "" if _mock else ServerAddress.current(),
+		"server": "演示数据" if _mock else ServerAddress.current().trim_prefix("http://").trim_prefix("https://"),
 	}
 
 
@@ -422,8 +434,8 @@ func _load_account() -> void:
 		return
 	_account = fresh
 	PlayerApi.save_account(fresh.username, fresh.playerId)
-	# 面板还开着（还在设置页）就刷新一下账号行
-	if _popup.visible and _popup.title_label.text == "设置":
+	# 设置弹窗还开着（没在二次确认）就刷新一下账号行
+	if _settings.visible and not _settings.is_confirming():
 		_settings.open(settings_info())
 
 
@@ -431,7 +443,7 @@ func _on_manual_update_check() -> void:
 	if _update_service == null:
 		return
 	_manual_update_check = true
-	_toast.say_neutral("正在检查更新…")
+	_settings.set_checking(true)
 	_update_service.check_for_update(false)
 
 
@@ -445,6 +457,7 @@ func logout() -> void:
 	if _break_open:
 		_close_breakthrough()
 	_popup.close_popup()
+	_settings.close()
 	_state = {}
 	_account = {}
 	_offline_shown_id = ""
@@ -700,7 +713,7 @@ func _sync_notices(notices: Variant) -> void:
 func _maybe_show_notice() -> void:
 	if _notices.current.is_empty() or _announcement == null or not _announcement.showing_id.is_empty():
 		return
-	if _popup.visible or _offline_popup.visible or _item_popup.visible or _success_popup.visible or _break_open or _login.visible:
+	if _popup.visible or (_settings != null and _settings.visible) or _offline_popup.visible or _item_popup.visible or _success_popup.visible or _break_open or _login.visible:
 		return
 	if _page == PAGE_BATTLE and _battle_page.is_running():
 		return

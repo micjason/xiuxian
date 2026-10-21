@@ -19,6 +19,7 @@ var _mode := "normal"
 var _top := Rect2(24, 230, 1032, 110)  # 普通提示的位置（左、上、右边距、高），外壳 place_top 设置
 var _normal_box: StyleBox
 var _locked_box: StyleBox
+var _locked_lock_box: StyleBox  # 带锁版 toast_bg_lock（设置弹窗的未开放入口，SPEC_Q 17.4）
 
 
 func _init() -> void:
@@ -27,6 +28,7 @@ func _init() -> void:
 	z_index = 30
 	_normal_box = QSkin.custom(Color(0.29, 0.23, 0.2, 0.94), Color(1, 1, 1, 0.85), 4, 999, 6, 40, 20)
 	_locked_box = _make_locked_box()
+	_locked_lock_box = _make_locked_box("toast_bg_lock", 124)
 	add_theme_stylebox_override("panel", _normal_box)
 	_label = UiKit.label("", UiTokens.FS_CAPTION, UiTokens.Q_WHITE, HORIZONTAL_ALIGNMENT_CENTER)
 	_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -35,13 +37,13 @@ func _init() -> void:
 	add_child(_label)
 
 
-static func _make_locked_box() -> StyleBox:
-	var tex := ArtLib.qui("toast_bg")
+static func _make_locked_box(cut: String = "toast_bg", left: int = 72) -> StyleBox:
+	var tex := ArtLib.qui(cut)
 	if tex == null:
 		return QSkin.custom(UiTokens.Q_CREAM, UiTokens.Q_COCOA, 3, 36, 4, 40, 24)
 	var box := StyleBoxTexture.new()
 	box.texture = tex
-	box.texture_margin_left = 72
+	box.texture_margin_left = left
 	box.texture_margin_top = 60
 	box.texture_margin_right = 72
 	box.texture_margin_bottom = 60
@@ -50,7 +52,7 @@ static func _make_locked_box() -> StyleBox:
 	box.expand_margin_top = 24
 	box.expand_margin_right = 24
 	box.expand_margin_bottom = 32
-	box.content_margin_left = 40
+	box.content_margin_left = 40 + (left - 72)
 	box.content_margin_right = 40
 	box.content_margin_top = 24
 	box.content_margin_bottom = 24
@@ -88,19 +90,19 @@ func say_neutral(text: String, seconds: float = 2.2) -> void:
 
 
 ## LockedFeature.notify 的接收端：美术提示条。
-func say_locked(feature: String = "") -> void:
+func say_locked(feature: String = "", with_lock: bool = false) -> void:
 	set_meta("last_locked_feature", feature)
 	if _tween != null:
 		_tween.kill()
 	_mode = "locked"
-	add_theme_stylebox_override("panel", _locked_box)
+	add_theme_stylebox_override("panel", _locked_lock_box if with_lock else _locked_box)
 	_label.text = LockedFeature.TEXT
 	_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	_label.add_theme_font_override("font", ArtLib.bold_font())
 	_label.add_theme_font_size_override("font_size", 34)
 	_label.add_theme_color_override("font_color", LOCKED_TEXT_COLOR)
 	var text_width := _label.get_theme_font("font").get_string_size(_label.text, HORIZONTAL_ALIGNMENT_LEFT, -1, 34).x
-	var width := maxf(LOCKED_MIN_WIDTH, ceilf(text_width) + 80.0)
+	var width := maxf(LOCKED_MIN_WIDTH, ceilf(text_width) + 80.0 + (52.0 if with_lock else 0.0))
 	var view_h := get_viewport_rect().size.y if is_inside_tree() else CANVAS_HEIGHT
 	var center_y := LOCKED_CENTER_Y * view_h / CANVAS_HEIGHT
 	set_anchors_preset(Control.PRESET_CENTER_TOP)

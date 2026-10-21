@@ -109,11 +109,16 @@ func test_stage_list_drag_on_cards_scrolls_without_selecting() -> void:
 	await get_tree().process_frame
 	var page := scene.get("_stage_page") as StagePage
 	var view := page.get("_stage_view") as ScrollContainer
+	# 第三批：一章 3 张竖排卡在 2340 高的屏上正好放得下；展开挂机地点下拉，让列表超出可视区
+	page.set("_dropdown_open", true)
+	page.call("_render_stages")
+	await get_tree().process_frame
+	await get_tree().process_frame
 	var kit := ScrollKit.of(view)
 	assert_gt(kit.max_scroll(), 50.0, "关卡区内容超出可视区")
 	var before_selected := page.selected
-	var card := page.find_child("StageCards", true, false) as Control
-	var from := card.get_global_rect().get_center()
+	var card := (page.find_child("StageCards", true, false) as Control).get_child(0) as Control
+	var from := card.get_global_rect().intersection(view.get_global_rect()).get_center()
 	var to := from - Vector2(0, kit.max_scroll() + 40.0)
 	await TouchSim.drag(get_tree(), get_viewport(), from, to, 10, true)
 	assert_gt(view.scroll_vertical, 40, "按在关卡卡上竖着拖，列表滚动")

@@ -1,6 +1,11 @@
 class_name NoticeQueue
 extends RefCounted
 
+## 后台公告排队：心跳（/me/state.notices）带来的公告一次弹一条，按优先级、时间、编号排。
+## 只认「acknowledge」（公告）模板：版本更新由 UpdatePrompt 查 latest.json 弹，离线收益由「闭关归来」弹。
+
+const TEMPLATE_ANNOUNCEMENT := "acknowledge"
+
 var current: Dictionary = {}
 var _waiting: Array[Dictionary] = []
 var _session_hidden: Array[String] = []
@@ -12,8 +17,7 @@ func sync(notices: Array) -> void:
 		if typeof(item) != TYPE_DICTIONARY:
 			continue
 		var notice: Dictionary = item
-		var template := str(notice.get("template", ""))
-		if template != "confirm" and template != "acknowledge" and template != "reward":
+		if str(notice.get("template", "")) != TEMPLATE_ANNOUNCEMENT:
 			continue
 		var id := str(notice.get("id", ""))
 		if id.is_empty() or _session_hidden.has(id):
@@ -36,6 +40,7 @@ func sync(notices: Array) -> void:
 		_present()
 
 
+## 关掉当前这条。hide_for_session：本次运行不再弹（点了「知道了」，服务器记下之前的心跳可能还带着它）。
 func close_current(hide_for_session: bool) -> void:
 	var id := str(current.get("id", ""))
 	if hide_for_session and not id.is_empty():

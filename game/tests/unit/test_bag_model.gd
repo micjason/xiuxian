@@ -272,3 +272,16 @@ func test_decimal_base_stats_are_kept_and_rounded_only_for_display() -> void:
 	assert_eq(item.power, 41, "战力按小数算再取整，和服务端一致")
 	assert_eq(BagModel.shown(0.5), 1)
 	assert_eq(BagModel.shown(2.49), 2)
+
+
+func test_normalize_carries_the_admin_icon_key() -> void:
+	var def := {"slug": "gear_major1_weapon_blue", "kind": "equipment", "slot": "weapon", "quality": "blue", "iconKey": "gear_core_weapon"}
+	assert_eq(BagModel.normalize({"id": "a", "itemSlug": "gear_major1_weapon_blue"}, def, {})["icon_key"], "gear_core_weapon")
+	def.erase("iconKey")
+	assert_eq(BagModel.normalize({"id": "a", "itemSlug": "gear_major1_weapon_blue"}, def, {})["icon_key"], "")
+
+
+func test_skill_max_level_comes_from_content_tuning() -> void:
+	assert_eq(ItemDetailView.skill_max_level({}), 7)
+	assert_eq(ItemDetailView.skill_max_level({"globals": {"tuning": {"skillMaxLayers": 9}}}), 9)
+	assert_eq(ItemDetailView.skill_max_level({"globals": {"tuning": {"skillMaxLayers": 0}}}), 7)

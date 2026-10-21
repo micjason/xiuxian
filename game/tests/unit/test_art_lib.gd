@@ -208,3 +208,14 @@ func test_switch_textures_are_requested_by_the_documented_names() -> void:
 	var on_tex := ArtLib.switch_tex(true)
 	if on_tex != null:
 		assert_eq(on_tex.get_size(), Vector2(160, 80))
+
+
+func test_admin_icon_key_is_tried_first_then_the_usual_chain() -> void:
+	var item := _gear("gear_major1_weapon_blue", "weapon", 2)
+	item["icon_key"] = "gear_core_weapon"
+	assert_eq(ArtLib.item_icon_candidates(item), ["gear_core_weapon", "gear_major1_weapon_blue", "gear_qi_weapon", "gear_weapon"])
+	var base := ArtLib.ITEM_DIR
+	assert_eq(ArtLib.item_icon(item, _only([base + "gear_core_weapon.png", base + "gear_qi_weapon.png"]))["source"], "gear_core_weapon")
+	assert_eq(ArtLib.item_icon(item, _only([base + "gear_qi_weapon.png"]))["source"], "gear_qi_weapon", "指定的图不存在就回到境界 + 部位")
+	item["icon_key"] = ""
+	assert_eq(ArtLib.item_icon_candidates(item)[0], "gear_major1_weapon_blue", "空 = 自动")

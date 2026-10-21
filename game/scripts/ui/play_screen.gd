@@ -88,6 +88,9 @@ var _last_inset := Vector4(-1, -1, -1, -1)
 var _last_view := Vector2.ZERO
 var _update_service: UpdateService
 var _update_prompt: UpdatePrompt
+## 后台公告：心跳 /me/state.notices → 排队，一次弹一条（不打断战斗、突破和其他弹窗）。
+var _notices := NoticeQueue.new()
+var _announcement: AnnouncementPrompt
 
 
 func _ready() -> void:
@@ -118,6 +121,7 @@ func _ready() -> void:
 		_timer.start()
 		_render()
 		_maybe_show_offline()
+		_sync_notices(_state.get("notices", []))
 	elif PlayerApi.token().is_empty():
 		_login.show()
 		_set_status("请先登录。")
@@ -300,6 +304,9 @@ func _build_shell() -> void:
 		_show_page(PAGE_CULTIVATE))
 	_success_popup.z_index = Z_POPUP
 	add_child(_success_popup)
+	_announcement = AnnouncementPrompt.new(_popup)
+	_announcement.acknowledged.connect(_on_notice_ack)
+	_popup.closed.connect(func() -> void: _maybe_show_notice.call_deferred())
 	_apply_layout()
 
 
@@ -387,6 +394,7 @@ func _refresh_state() -> void:
 		_timer.wait_time = wanted
 	_render(true)
 	_maybe_show_offline()
+	_sync_notices(state.get("notices", []))
 
 
 ## feedback = true 时（心跳 / 行动返回的新结算）把击杀、掉落反馈给修炼页。
@@ -550,8 +558,41 @@ func _on_offline_ack(report_id: String) -> void:
 		_offline_popup.claim_button().disabled = false
 		return
 	_offline_popup.close_popup()
+	_maybe_show_notice.call_deferred()
 	if _state.get("offlineReport", null) != null and str((_state.get("offlineReport", {}) as Dictionary).get("id", "")) == report_id:
 		_state["offlineReport"] = null
+
+
+# ───────── 后台公告 ─────────
+
+func _sync_notices(notices: Variant) -> void:
+	_notices.sync(notices if typeof(notices) == TYPE_ARRAY else [])
+	_maybe_show_notice()
+
+
+## 有排队的公告、且眼下没有别的弹窗 / 突破 / 战斗时才弹；否则等下次心跳或弹窗关掉再试。
+func _maybe_show_notice() -> void:
+	if _notices.current.is_empty() or _announcement == null or not _announcement.showing_id.is_empty():
+		return
+	if _popup.visible or _offline_popup.visible or _item_popup.visible or _success_popup.visible or _break_open or _login.visible:
+		return
+	if _page == PAGE_BATTLE and _battle_page.is_running():
+		return
+	_announcement.show_notice(_notices.current)
+
+
+func announcement_queue() -> NoticeQueue:
+	return _notices
+
+
+func _on_notice_ack(notice_id: String) -> void:
+	if str(_notices.current.get("id", "")) == notice_id:
+		_notices.close_current(true)
+	if not _mock and not PlayerApi.token().is_empty():
+		var result := await PlayerApi.dismiss_notice(PlayerApi.token(), notice_id)
+		if int(result.get("code", 0)) >= 300 and OS.is_debug_build():
+			print("[notice] 公告已读没告诉服务器：", PlayerApi.error_message(result))
+	_maybe_show_notice.call_deferred()
 
 
 # ───────── 首领战 ─────────

@@ -5,7 +5,15 @@ extends RefCounted
 ## 版式：equip（背包里的装备，身上同部位有装备时带对比）、equip_worn（身上穿着的）、book（功法书，可使用）、material（材料 / 丹药）。
 
 ## 功法最多 7 层（和服务器 useItem 一致：7 层后再用转修为）。
+## 功法满层：服务器 /content/current 的 globals.tuning.skillMaxLayers（后台「配置概览」可改），没有时按 7。
 const SKILL_MAX_LEVEL := 7
+
+
+static func skill_max_level(content: Dictionary) -> int:
+	var globals: Dictionary = content.get("globals", {}) if typeof(content.get("globals", null)) == TYPE_DICTIONARY else {}
+	var tuning: Dictionary = globals.get("tuning", {}) if typeof(globals.get("tuning", null)) == TYPE_DICTIONARY else {}
+	var value := int(tuning.get("skillMaxLayers", SKILL_MAX_LEVEL))
+	return value if value >= 1 else SKILL_MAX_LEVEL
 const ROLE_NAMES := {"heart": "心法", "art": "功法", "body": "体修"}
 ## 品质深色（文字用，SPEC_Q 第 2 节；白品名字用 #646A76）。
 const QUALITY_DARK: Array[Color] = [Color("8e96a3"), Color("3c9a4e"), Color("2e7fc4"), Color("8a4fe0"), Color("e07b24"), Color("d93a3f")]
@@ -205,9 +213,10 @@ static func skill_view(item: Dictionary, model: BagModel, content: Dictionary, s
 			bonus.append("%s +%d" % [str(BagModel.STAT_NAMES[key]), value])
 	var need_order := int(skill.get("requiredRealmOrder", 0))
 	var realm_ok := current_realm_order(content, state) >= need_order
-	var hint := "已满 %d 层后再使用，会转换为修为。" % SKILL_MAX_LEVEL
-	if level >= SKILL_MAX_LEVEL:
-		hint = "已满 %d 层，使用后转换为修为。" % SKILL_MAX_LEVEL
+	var max_level := skill_max_level(content)
+	var hint := "已满 %d 层后再使用，会转换为修为。" % max_level
+	if level >= max_level:
+		hint = "已满 %d 层，使用后转换为修为。" % max_level
 	elif level == 0 and not realm_ok:
 		hint = "需要 %s 才能学习。" % realm_name_for_order(content, need_order)
 	return {
@@ -215,9 +224,9 @@ static func skill_view(item: Dictionary, model: BagModel, content: Dictionary, s
 		"role": str(ROLE_NAMES.get(str(skill.get("role", "")), "功法")),
 		"bonus": "  ".join(bonus),
 		"level": level,
-		"max": SKILL_MAX_LEVEL,
+		"max": max_level,
 		"now_text": "未学习" if level == 0 else "第 %d 层" % level,
-		"next_text": "转为修为" if level >= SKILL_MAX_LEVEL else "第 %d 层" % (level + 1),
+		"next_text": "转为修为" if level >= max_level else "第 %d 层" % (level + 1),
 		"hint": hint,
 	}
 

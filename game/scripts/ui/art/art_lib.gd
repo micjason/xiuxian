@@ -406,8 +406,12 @@ static func item_kind_fallback(item: Dictionary) -> String:
 ## 按优先级排好的候选文件名（不含目录和 .png），不碰文件系统，方便测试。
 static func item_icon_candidates(item: Dictionary) -> Array[String]:
 	var out: Array[String] = []
+	# 后台「装备配置」里为单件指定的图标优先；找不到这张图再按编号、境界 + 部位往下找。
+	var icon_key := str(item.get("icon_key", "")).strip_edges()
+	if not icon_key.is_empty():
+		out.append(icon_key)
 	var slug := str(item.get("slug", ""))
-	if not slug.is_empty():
+	if not slug.is_empty() and slug != icon_key:
 		out.append(slug)
 	var slot_id := str(item.get("slot_id", ""))
 	if GEAR_SLOT_IDS.has(slot_id):

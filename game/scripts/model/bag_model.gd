@@ -165,6 +165,8 @@ static func normalize(row: Dictionary, def: Dictionary, weights: Dictionary, enh
 		"name": str(def.get("displayName", row.get("itemSlug", ""))),
 		"desc": str(def.get("description", "")),
 		"kind": str(def.get("kind", "")),
+		## 后台给这件指定的图标（空 = 按境界 + 部位自动选）
+		"icon_key": str(def.get("iconKey", "")) if def.get("iconKey", null) != null else "",
 		"category": category,
 		"server_slot": server_slot,
 		"slot_id": SlotConfig.id_from_server(server_slot),

@@ -30,10 +30,6 @@ static func login(username: String, password: String) -> Dictionary:
 	return await ApiClient.request_json(HTTPClient.METHOD_POST, "/api/v1/auth/login", {"username": username, "password": password})
 
 
-static func me(session_token: String, version_code: int) -> Dictionary:
-	return await ApiClient.request_json(HTTPClient.METHOD_GET, "/api/v1/me?versionCode=%d" % version_code, {}, session_token)
-
-
 static func dismiss_notice(session_token: String, notice_id: String) -> Dictionary:
 	return await ApiClient.request_json(HTTPClient.METHOD_POST, "/api/v1/me/notices/%s/dismiss" % notice_id.uri_encode(), {}, session_token)
 

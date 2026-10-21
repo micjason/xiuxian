@@ -41,7 +41,11 @@ func test_the_layered_hero_replaces_the_static_one_everywhere() -> void:
 			assert_true(hero.is_animated(), owner)
 			assert_eq(hero.current_animation(), "idle", "打坐待机自动循环")
 	scene.call("_open_battle", str(((scene.get("_state") as Dictionary).breakthrough.requiredStage as Dictionary).slug))
-	assert_not_null((scene.get("_battle_page") as Node).find_child("BattleHero", true, false) as QHero, "战斗页也是动画主角")
+	# 第四批：战斗页用主角战斗姿势立绘（sprites/player_fight，SPEC_Q §17.8），不再是打坐的动画主角
+	var pose := (scene.get("_battle_page") as Node).find_child("HeroArt", true, false) as TextureRect
+	assert_not_null(pose, "战斗页是战斗姿势")
+	if pose != null:
+		assert_eq(pose.texture.resource_path.get_file(), "player_fight.png")
 	# 突破弹窗：主角放在莲台上，坐垫隐藏
 	var page := scene.get("_breakthrough_page") as BreakthroughPage
 	var slot_hero := page.break_fx().get_node("HeroSlot/Hero") as Node2D

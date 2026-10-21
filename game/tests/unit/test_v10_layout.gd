@@ -166,8 +166,8 @@ func test_lianqi_2_points_to_lianqi_3_and_the_bear_king() -> void:
 	var card := stage_page.find_child("Stage_lianqi_3", true, false)
 	var text := "\n".join(_texts(card))
 	assert_true(text.contains("黑风熊王"), text)
-	assert_true(text.contains("章末首领"), text)
-	assert_true(text.contains("击败精英「精英·赤眼狐妖」"), text)
+	assert_true(text.contains("首领"), text)
+	assert_true(text.contains("击败首领「精英·赤眼狐妖」"), text)
 	assert_true(text.contains("达到炼气三层"), text)
 	var youming := stage_page.find_child("ChapterTab_youming", true, false) as Button
 	assert_true(youming.disabled, "幽冥古道还没解锁")

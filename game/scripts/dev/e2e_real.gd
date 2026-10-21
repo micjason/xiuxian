@@ -127,7 +127,7 @@ func _battle() -> void:
 			if not shot_mid:
 				shot_mid = true
 				await _shot("real_03_battle_ult_ready")
-			page._on_ult_tapped()
+			pass  # 第四批：大招全自动，没有点击
 		guard += 1
 	var predicted_win := page.fight.win
 	var predicted_duration := page.fight.duration
@@ -185,7 +185,7 @@ func _bagfull() -> void:
 	page._on_start()
 	_out("phase_after_start", page.phase)
 	await _shot("real_07_bag_full_fight_not_blocked")
-	var result := await PlayerApi.post_action("/api/v1/me/stages/%s/challenge" % slug, {"ultTaps": []})
+	var result := await PlayerApi.post_action("/api/v1/me/stages/%s/challenge" % slug, {})
 	_out("direct_challenge_code", result.get("code"))
 	_out("direct_challenge_win", (result.get("battle", {}) as Dictionary).get("win"))
 	_out("direct_challenge_bagFull", result.get("bagFull"))

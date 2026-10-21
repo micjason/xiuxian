@@ -145,6 +145,9 @@ func _find_baked(tex: Texture2D) -> Texture2D:
 		return null
 	var path := tex.resource_path
 	var file := path.get_file()
+	# 第四批：统一首领立绘 boss_<怪>.png 本身就是预渲染好的首领描边图（SPEC_Q §17.10），直接用
+	if file.begins_with("boss_") and tier != Tier.NORMAL:
+		return tex
 	if not file.begins_with("mon_"):
 		return null
 	var base := ("elite_" if tier == Tier.ELITE else "chief_") + file.trim_prefix("mon_").get_basename()

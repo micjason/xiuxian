@@ -59,7 +59,7 @@ func _fight(tap: bool, until: float = 999.0, stop_for_shot: String = "") -> void
 				await _wait(0.2)
 				await _shot(stop_for_shot)
 				stop_for_shot = ""
-			page._on_ult_tapped()
+			pass  # 第四批：大招全自动，没有点击
 	await _wait(0.5)
 
 
@@ -83,7 +83,7 @@ func _run_ready() -> void:
 	page._on_start()
 	await _fight(true, 9.5)
 	await _shot("05_battle_running_ult_ready")
-	page._on_ult_tapped()
+	pass  # 第四批：大招全自动，没有点击
 	await _fight(true, 3.0)
 	await _shot("05b_battle_after_ult")
 	await _fight(true)

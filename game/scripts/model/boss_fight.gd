@@ -3,10 +3,9 @@ extends RefCounted
 ## 首领战预演（客户端画面）。公式、事件顺序和服务端 simulateBossFight 逐项一致：
 ## - 普攻伤害 = 攻击² / (攻击 + k × 防御)，按双方出手间隔轮流出手；
 ## - 大招 = 额外一次伤害 floor(普攻伤害 × 倍率)，第一次冷却 first_cooldown，之后冷却从“释放那一刻”算起；
-## - 冷却好以后的 window 秒内，玩家点击就在点击那一刻释放（手动），没点就在窗口结束时自动释放；
-## - 冷却没好时点击无效；同一时刻先结算玩家普攻、再大招、最后首领出手；超过时限算超时。
-## 画面只是预演：真正的胜负、掉落以服务器重算为准。点击的时间（从开战算起的秒数）记在 taps 里，
-## 战斗结束后随挑战请求以 ultTaps 上报。
+## - 第四批起大招全自动：冷却好以后再过 window 秒（服务器 ultAutoCastWindowSeconds）自动释放，界面上没有点击；
+## - 同一时刻先结算玩家普攻、再大招、最后首领出手；超过时限算超时。
+## 画面只是预演：真正的胜负、掉落以服务器重算为准。服务器不再接收 ultTaps（tap() 只留给回放旧战报 / 测试）。
 ## 数值全部用服务器给的小数，不在这里取整；显示时再取整。
 
 const MAX_TAPS := 50
@@ -196,6 +195,19 @@ func ult_progress() -> float:
 		return 1.0
 	var total := maxf(_ult_ready - _ult_last_cast, 0.001)
 	return clampf((t - _ult_last_cast) / total, 0.0, 1.0)
+
+
+## 自动施放的蓄力 0..1：从上次释放（或开战）到下一次自动施放那一刻，满 = 正在施放（战斗页圆盘用这个）。
+func ult_charge() -> float:
+	if not has_ult() or finished:
+		return 0.0
+	var total := maxf(_ult_next - _ult_last_cast, 0.001)
+	return clampf((t - _ult_last_cast) / total, 0.0, 1.0)
+
+
+## 已经自动释放过几次。
+func cast_count() -> int:
+	return casts.size()
 
 
 ## 还要多久冷却好（已好 = 0）。

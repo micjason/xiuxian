@@ -87,7 +87,7 @@ static func card(stage: Dictionary, acc: Dictionary, content: Dictionary) -> Dic
 	var win: Variant = needs.get("bossWin", null)
 	if typeof(win) == TYPE_DICTIONARY:
 		var who := str((win as Dictionary).get("bossName", ""))
-		var kind := "章末首领" if str((win as Dictionary).get("tier", "")) == "chief" else "精英"
+		var kind := "首领"  # 第四批：不再区分精英 / 章末首领
 		lines.append({"ok": bool((win as Dictionary).get("met", false)), "text": "击败%s「%s」" % [kind, who]})
 	var realm: Variant = needs.get("realm", null)
 	if typeof(realm) == TYPE_DICTIONARY:
@@ -104,11 +104,20 @@ static func card(stage: Dictionary, acc: Dictionary, content: Dictionary) -> Dic
 	}
 
 
-## 今日奖励次数 {used, limit, left}；这一关不发重复奖励返回空字典。
+## 今日首领挑战次数 {used, limit, left}；这一关不发重复奖励返回空字典。
+## 第四批：次数是全局的（state.bossDailyTotal {used, limit}，所有首领共用一个每日总数，挂机刷出的首领默认不算）；
+## 老服务器没有 bossDailyTotal 时退回按关的 bossDaily + rules.dailyRewardLimit。
 static func daily(card_data: Dictionary, state: Dictionary) -> Dictionary:
 	var rules: Dictionary = card_data.get("rules", {})
 	if not bool(rules.get("allowRepeat", true)) or not bool(rules.get("repeatRewards", true)):
 		return {}
+	var total: Variant = state.get("bossDailyTotal", null)
+	if typeof(total) == TYPE_DICTIONARY:
+		var cap := int((total as Dictionary).get("limit", 0))
+		if cap <= 0:
+			return {}
+		var spent := int((total as Dictionary).get("used", 0))
+		return {"used": spent, "limit": cap, "left": maxi(0, cap - spent)}
 	var limit := int(rules.get("dailyRewardLimit", 0))
 	var used := 0
 	for row in state.get("bossDaily", []) if typeof(state.get("bossDaily", null)) == TYPE_ARRAY else []:
@@ -134,11 +143,12 @@ static func button(card_data: Dictionary, state: Dictionary) -> Dictionary:
 	if not bool(rules.get("allowRepeat", true)):
 		return {"text": "已击败", "sub": "", "kind": "g", "enabled": false, "state": "done"}
 	if not bool(rules.get("repeatRewards", true)):
-		return {"text": "再 战", "sub": "无奖励", "kind": "m", "enabled": true, "state": "repeat"}
+		return {"text": "再 战", "sub": "首通已领 · 无奖励", "kind": "m", "enabled": true, "state": "repeat"}
+	# 次数本身写在卡片首领名后的「今日 n/总」胶囊里（SPEC_Q §17.10），按钮下只写「用 1 次」/「今日次数已用完」
 	var day := daily(card_data, state)
 	if not day.is_empty() and int(day.left) <= 0:
-		return {"text": "再 战", "sub": "明日再来", "kind": "g", "enabled": false, "state": "spent"}
-	return {"text": "再 战", "sub": "今日 %d/%d" % [int(day.left), int(day.limit)] if not day.is_empty() else "", "kind": "o", "enabled": true, "state": "repeat"}
+		return {"text": "明日再来", "sub": "今日次数已用完", "kind": "g", "enabled": false, "state": "spent"}
+	return {"text": "再 战", "sub": "用 1 次" if not day.is_empty() else "", "kind": "o", "enabled": true, "state": "repeat"}
 
 
 ## 默认打开哪个章节：挂机所在关的章节 → 第一个有「能打没打过」关卡的章节 → 最后一个解锁的章节。
@@ -189,6 +199,30 @@ static func chapter_row(content: Dictionary, chapter_slug: String) -> Dictionary
 	return {}
 
 
+## 挂机刷首领结果提示（lastSettle.idleBoss：{bossName, spawns, wins, losses, rewarded, bagFull, ...}）。没有返回 ""。
+static func idle_boss_text(last_settle: Variant) -> String:
+	if typeof(last_settle) != TYPE_DICTIONARY:
+		return ""
+	var idle: Variant = (last_settle as Dictionary).get("idleBoss", null)
+	if typeof(idle) != TYPE_DICTIONARY:
+		return ""
+	var row := idle as Dictionary
+	var spawns := int(row.get("spawns", 0))
+	if spawns <= 0:
+		return ""
+	var wins := int(row.get("wins", 0))
+	var text := "挂机遇到首领「%s」%d 次，胜 %d 次" % [str(row.get("bossName", "")), spawns, wins]
+	var got := 0
+	for drop in row.get("drops", []):
+		if typeof(drop) == TYPE_DICTIONARY and not bool((drop as Dictionary).get("dropped", false)):
+			got += 1
+	if got > 0:
+		text += "，获得 %d 件物品" % got
+	if bool(row.get("bagFull", false)):
+		text += "（行囊已满，装备未拾取）"
+	return text
+
+
 ## 自动挑战结果提示（lastSettle.autoChallenge）。没有返回 ""。
 static func auto_challenge_text(last_settle: Variant) -> String:
 	if typeof(last_settle) != TYPE_DICTIONARY:
@@ -197,11 +231,12 @@ static func auto_challenge_text(last_settle: Variant) -> String:
 	if typeof(auto) != TYPE_DICTIONARY:
 		return ""
 	var row := auto as Dictionary
-	var kind := "章末首领" if str(row.get("tier", "")) == "chief" else "精英"
+	var kind := "首领"  # 第四批：不再区分精英 / 章末首领
 	if bool(row.get("win", false)):
 		var count := 0
 		for drop in row.get("drops", []):
 			if typeof(drop) == TYPE_DICTIONARY and not bool((drop as Dictionary).get("dropped", false)):
 				count += 1
-		return "自动挑战%s「%s」胜利%s" % [kind, str(row.get("bossName", "")), ("，获得 %d 件物品" % count) if count > 0 else ""]
+		var full := "（行囊已满，装备未拾取）" if bool(row.get("bagFull", false)) else ""
+		return "自动挑战%s「%s」胜利%s%s" % [kind, str(row.get("bossName", "")), ("，获得 %d 件物品" % count) if count > 0 else "", full]
 	return "自动挑战%s「%s」失败，稍后再试" % [kind, str(row.get("bossName", ""))]

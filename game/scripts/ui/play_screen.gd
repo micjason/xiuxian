@@ -215,6 +215,7 @@ func _build_shell() -> void:
 	_battle_page.submit_requested.connect(_on_battle_submit)
 	_battle_page.back_requested.connect(func() -> void: _show_page(PAGE_ADVENTURE))
 	_battle_page.retry_requested.connect(_open_battle)
+	_battle_page.retreat_requested.connect(_on_battle_retreat)
 	_breakthrough_page = BreakthroughPage.new()
 	_breakthrough_page.start_requested.connect(_on_breakthrough)
 	_breakthrough_page.close_requested.connect(_close_breakthrough)
@@ -417,6 +418,7 @@ func _render(feedback: bool = false) -> void:
 			_fly_drops(lines)
 			_stage_drops()
 			_toast_auto_challenge()
+			_toast_idle_boss()
 	_flags.adopt_if_first_run(_item_ids())
 	_bag_page.bind(_state, _content, _flags)
 	_stage_render()
@@ -512,6 +514,11 @@ func _page_background(page: String) -> String:
 		return fallback
 	var chapter := StageAccessView.chapter_row(_content, BagModel.plain(_stage_def(slug).get("chapterSlug", null)))
 	var name := ArtLib.chapter_bg_name(BagModel.plain(chapter.get("bgKey", null)))
+	# 首领战：每章竖版战斗背景（1080×1640，章节 battleBgKey，没配跟随 bgKey）；没有就用章节背景
+	if page == PAGE_BATTLE:
+		var battle_bg := ArtLib.battle_bg_name(chapter)
+		if not battle_bg.is_empty():
+			return battle_bg
 	return name if not name.is_empty() else fallback
 
 
@@ -523,6 +530,17 @@ func _toast_auto_challenge() -> void:
 		return
 	var win := bool(((last as Dictionary).get("autoChallenge", {}) as Dictionary).get("win", false))
 	(last as Dictionary).erase("autoChallenge")
+	_toast.say(text, win, 4.0)
+
+
+## 第四批：挂机刷出来的首领（lastSettle.idleBoss，在线 / 离线结算都有）：提示一次，带「行囊已满」。
+func _toast_idle_boss() -> void:
+	var last: Variant = _state.get("lastSettle", null)
+	var text := StageAccessView.idle_boss_text(last)
+	if text.is_empty():
+		return
+	var win := int(((last as Dictionary).get("idleBoss", {}) as Dictionary).get("wins", 0)) > 0
+	(last as Dictionary).erase("idleBoss")
 	_toast.say(text, win, 4.0)
 
 
@@ -633,14 +651,32 @@ func _open_battle(slug: String) -> void:
 	_show_page(PAGE_BATTLE)
 
 
+## 首领战「撤退」：没开打直接回历练页；打到一半先确认（撤退将视为挑战失败），本地预演作废、不提交。
+func _on_battle_retreat(running: bool) -> void:
+	if not running:
+		_show_page(PAGE_ADVENTURE)
+		return
+	_popup.clear_content()
+	var hint := UiKit.label("撤退将视为挑战失败", UiTokens.FS_BODY, UiTokens.TEXT, HORIZONTAL_ALIGNMENT_CENTER)
+	hint.name = "RetreatHint"
+	_popup.body.add_child(hint)
+	_popup.set_actions([
+		{"text": "继续战斗", "variation": MainTheme.VAR_SECONDARY},
+		{"text": "撤退", "variation": MainTheme.VAR_PRIMARY, "callback": func() -> void:
+			_battle_page.abort()
+			_show_page(PAGE_ADVENTURE)},
+	])
+	_popup.open_popup("撤退", true)
+
+
 func _show_bag_full(used: int, capacity: int) -> void:
 	BagFullPrompt.show_prompt(_popup, used, capacity, func() -> void: _show_page(PAGE_BAG))
 
 
-## 战斗画面打完，把大招点击时间随挑战请求上报；胜负和掉落以服务器返回为准。
-func _on_battle_submit(slug: String, taps: Array) -> void:
+## 战斗画面打完就提交挑战（第四批起大招全自动，不再上报 ultTaps）；胜负和掉落以服务器返回为准。
+func _on_battle_submit(slug: String) -> void:
 	_busy = true
-	var result := await _post("/api/v1/me/stages/%s/challenge" % slug.uri_encode(), {"ultTaps": taps})
+	var result := await _post("/api/v1/me/stages/%s/challenge" % slug.uri_encode(), {})
 	_busy = false
 	if int(result.get("code", 0)) != 200:
 		_battle_page.show_submit_error(PlayerApi.error_message(result))

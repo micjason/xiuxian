@@ -210,6 +210,9 @@ static var _art_warned := {}
 static func monster_sprite_for(row: Dictionary) -> String:
 	var raw: Variant = row.get("artKey", null)
 	var key := str(raw) if raw != null else ""
+	# 第四批：统一首领立绘 artKey = boss_<怪>（sprites/boss_<怪>.png，已带首领描边，SPEC_Q §17.10）
+	if key.begins_with("boss_") and has_q("sprites/%s.png" % key):
+		return key
 	if not key.is_empty():
 		if has_q("sprites/mon_%s.png" % key):
 			return "mon_" + key
@@ -229,7 +232,22 @@ static func chapter_bg_name(bg_key: String) -> String:
 
 ## 历练场景里怪物要朝左（面向左边的主角）：这张立绘需不需要水平翻转。
 static func monster_needs_flip(sprite_id: String) -> bool:
-	return not MONSTER_FACES_LEFT.has(sprite_id)
+	# boss_<怪> 和 mon_<怪> 朝向一样
+	var base := "mon_" + sprite_id.trim_prefix("boss_") if sprite_id.begins_with("boss_") else sprite_id
+	return not MONSTER_FACES_LEFT.has(base)
+
+
+## 第四批：首领战斗页背景（SPEC_Q §17.8，竖版 1080×1640）。章节 battleBgKey，没配跟随 bgKey；
+## 返回 ArtLib.bg 用的名字（bg_battle_<key>_1080x1640），没有这张图返回 ""。
+static func battle_bg_name(chapter: Dictionary) -> String:
+	for raw in [chapter.get("battleBgKey", null), chapter.get("bgKey", null)]:
+		var key := str(raw) if raw != null else ""
+		if key.is_empty():
+			continue
+		var name := "bg_battle_%s_1080x1640" % key
+		if ResourceLoader.exists(Q_DIR + "bg/" + name + ".webp"):
+			return name
+	return ""
 
 
 ## 图标没交付时用 fallback 顶上（占位）。例如页签「洞府」的 tab_cave（N160）还没出图。

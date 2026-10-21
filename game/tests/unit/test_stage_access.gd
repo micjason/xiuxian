@@ -106,15 +106,16 @@ func test_button_states_follow_boss_rules_and_daily_limit() -> void:
 	var state := {"bossDaily": [{"stageSlug": "s", "used": 2, "limit": 5}]}
 	var b := StageAccessView.button(card, state)
 	assert_eq(b.text, "再 战")
-	assert_eq(b.sub, "今日 3/5")
+	assert_eq(b.sub, "用 1 次")
+	assert_eq(StageAccessView.daily(card, state).left, 3)
 	assert_true(bool(b.enabled))
 	state.bossDaily[0]["used"] = 5
 	b = StageAccessView.button(card, state)
 	assert_false(bool(b.enabled), "次数用完")
-	assert_eq(b.sub, "明日再来")
+	assert_eq(b.sub, "今日次数已用完")
 	card.rules["repeatRewards"] = false
 	b = StageAccessView.button(card, state)
-	assert_eq(b.sub, "无奖励")
+	assert_eq(b.sub, "首通已领 · 无奖励")
 	assert_eq(b.kind, "m")
 	assert_true(StageAccessView.daily(card, state).is_empty(), "不发重复奖励就不显示次数")
 	card.rules["allowRepeat"] = false
@@ -129,9 +130,23 @@ func test_auto_challenge_text() -> void:
 	assert_eq(StageAccessView.auto_challenge_text(null), "")
 	assert_eq(StageAccessView.auto_challenge_text({"kills": 3}), "")
 	var win := StageAccessView.auto_challenge_text({"autoChallenge": {"stageSlug": "lianqi_1", "bossName": "精英·青鬃狼", "tier": "elite", "win": true, "drops": [{"itemSlug": "x"}, {"itemSlug": "y", "dropped": true}]}})
-	assert_eq(win, "自动挑战精英「精英·青鬃狼」胜利，获得 1 件物品")
+	assert_eq(win, "自动挑战首领「精英·青鬃狼」胜利，获得 1 件物品")
 	var lose := StageAccessView.auto_challenge_text({"autoChallenge": {"bossName": "黑风熊王", "tier": "chief", "win": false, "drops": []}})
-	assert_eq(lose, "自动挑战章末首领「黑风熊王」失败，稍后再试")
+	assert_eq(lose, "自动挑战首领「黑风熊王」失败，稍后再试")
+	var full := StageAccessView.auto_challenge_text({"autoChallenge": {"bossName": "青鬃狼王", "win": true, "bagFull": true, "drops": [{"itemSlug": "g", "dropped": true}]}})
+	assert_eq(full, "自动挑战首领「青鬃狼王」胜利（行囊已满，装备未拾取）")
+
+
+func test_idle_boss_text_and_global_daily_total() -> void:
+	assert_eq(StageAccessView.idle_boss_text(null), "")
+	assert_eq(StageAccessView.idle_boss_text({"idleBoss": {"spawns": 0}}), "")
+	var text := StageAccessView.idle_boss_text({"idleBoss": {"bossName": "青鬃狼王", "spawns": 2, "wins": 2, "drops": [{"itemSlug": "a"}, {"itemSlug": "b", "dropped": true}], "bagFull": true}})
+	assert_eq(text, "挂机遇到首领「青鬃狼王」2 次，胜 2 次，获得 1 件物品（行囊已满，装备未拾取）")
+	# 全局每日首领挑战总次数（bossDailyTotal）优先于按关的 bossDaily
+	var card := {"slug": "s", "has_boss": true, "playable": true, "cleared": true, "rules": {"allowRepeat": true, "repeatRewards": true}}
+	var state := {"bossDailyTotal": {"used": 4, "limit": 5}, "bossDaily": [{"stageSlug": "s", "used": 0, "limit": 9}]}
+	assert_eq(StageAccessView.daily(card, state), {"used": 4, "limit": 5, "left": 1})
+	assert_eq(StageAccessView.button(card, state).sub, "用 1 次")
 
 
 func test_art_key_first_then_name() -> void:
@@ -162,11 +177,12 @@ func test_chiyan_battle_uses_chapter_bg_and_boss_fx() -> void:
 	assert_eq(str(backdrop.call("current_background")), "bg_chiyan_1080x960", "挂机在赤炎火山 → 赤炎背景")
 	scene.call("_open_battle", "jindan_3")
 	await get_tree().process_frame
-	assert_eq(str(backdrop.call("current_background")), "bg_chiyan_1080x960")
+	assert_eq(str(backdrop.call("current_background")), "bg_battle_chiyan_1080x1640", "第四批：首领战用本章竖版战斗背景")
 	var battle := scene.get("_battle_page") as BattlePage
 	var fx: Node = battle.get("_fx")
 	assert_eq(str((fx.get("boss") as Node).get("fx_variant")), "chiyan")
-	assert_eq(int(fx.get("tier")), 2, "赤焰蛟是章末首领")
+	assert_eq(int(fx.get("tier")), 2, "统一首领样式")
+	assert_eq((battle.get("_boss_art") as TextureRect).texture.resource_path.get_file(), "boss_fire_jiao.png", "统一首领立绘")
 
 
 func test_heifeng_elite_battle_uses_default_fx() -> void:
@@ -176,8 +192,9 @@ func test_heifeng_elite_battle_uses_default_fx() -> void:
 	var battle := scene.get("_battle_page") as BattlePage
 	var fx: Node = battle.get("_fx")
 	assert_eq(str((fx.get("boss") as Node).get("fx_variant")), "default")
-	assert_eq(int(fx.get("tier")), 1, "精英")
-	assert_eq(str((scene.get("_backdrop") as Node).call("current_background")), "bg_heifeng_1080x960")
+	assert_eq(int(fx.get("tier")), 2, "第四批：不再区分精英，一律首领样式")
+	assert_eq(str((scene.get("_backdrop") as Node).call("current_background")), "bg_battle_heifeng_1080x1640")
+	assert_eq((battle.get("_boss_art") as TextureRect).texture.resource_path.get_file(), "boss_wolf.png")
 
 
 func test_auto_challenge_result_toasts_once() -> void:
@@ -188,7 +205,7 @@ func test_auto_challenge_result_toasts_once() -> void:
 	state["lastSettle"] = last
 	scene.call("_render", true)
 	var toast := scene.get("_toast") as Toast
-	assert_eq(toast.text(), "自动挑战章末首领「黑风熊王」胜利")
+	assert_eq(toast.text(), "自动挑战首领「黑风熊王」胜利")
 	assert_false((state.lastSettle as Dictionary).has("autoChallenge"), "提示过就拿掉，重画不再弹")
 
 
@@ -242,8 +259,13 @@ func test_elite_preview_hidden_when_nothing_to_win() -> void:
 	assert_false(page.preview_card().visible)
 
 
-func test_elite_preview_texture_prefers_prerendered_and_chiyan() -> void:
-	assert_eq(StagePage.preview_texture("fox", false, "default", "").resource_path, "res://assets/art/q/sprites/elite_fox.png")
-	assert_eq(StagePage.preview_texture("fire_jiao", true, "chiyan", "").resource_path, "res://assets/art/q/sprites/chief_fire_jiao_chiyan.png")
-	assert_eq(StagePage.preview_texture("bear", true, "chiyan", "").resource_path, "res://assets/art/q/sprites/chief_bear.png", "没有赤炎版就用默认预渲染图")
-	assert_eq(StagePage.preview_texture("", false, "default", "精英·青鬃狼").resource_path, "res://assets/art/q/sprites/mon_wolf.png")
+func test_boss_preview_texture_uses_the_unified_boss_sprites() -> void:
+	# 第四批（SPEC_Q §17.10）：统一首领立绘 boss_*，不再用 elite_* / chief_*
+	assert_eq(StagePage.preview_texture("fox", false, "default", "").resource_path, "res://assets/art/q/sprites/boss_fox.png")
+	assert_eq(StagePage.preview_texture("boss_fire_jiao", true, "chiyan", "").resource_path, "res://assets/art/q/sprites/boss_fire_jiao.png")
+	assert_eq(StagePage.preview_texture("", false, "default", "青鬃狼王").resource_path, "res://assets/art/q/sprites/boss_wolf.png", "没配立绘按名字找")
+	assert_eq(StagePage.preview_texture("snake", true, "default", "").resource_path, "res://assets/art/q/sprites/mon_snake.png", "没有统一首领图的退回普通立绘")
+	var card := StagePage.boss_portrait("boss_wolf", "青鬃狼王", 178, false)
+	assert_not_null(card.find_child("BadgeChief", true, false))
+	assert_not_null(card.find_child("BossPlate", true, false))
+	card.free()

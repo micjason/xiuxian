@@ -1,0 +1,37 @@
+# 2026-10-21 批次③（后台 + 客户端）：首领规则两列、章节页、关卡抽屉首领区；历练页章节页签 + 竖排关卡卡
+
+服务端部分见 `batch3-boss-chapters-server.md`。
+
+## 后台（admin）
+
+- 配置概览「首领规则」改两列（小首领 / 大首领），每项带说明；去掉「单首领橙装概率」和 `bossDailyRewardCount` 输入（服务端已不读，传 `orangeChancePercent` 报错）。
+- 新增「章节」页（/config/chapters）：列表 + 编辑（名称、顺序、背景 bgKey 缩略图、首领特效 default/chiyan、章末首领关可选）。
+- 关卡列表按章节分组，带精英 / 章末标签；后台关卡列表接口按游戏顺序（章节 → 关卡顺序）排。
+- 关卡抽屉首领区（`components/BossEditor.vue`）：档次标签、属性自动 / 手填（自动按怪物 × 规则倍率现算预览）、立绘 artKey 下拉（缩略图）、
+  规则逐项覆盖（金色「已自定义」+「恢复默认」）、所属章节下拉。普通怪表加立绘列。
+- 关卡抽屉首领区下面留了「指定掉落」的挂载位置（注释标出），抽屉结构没动。
+
+## 客户端（game）
+
+- 接入精英 / 章末首领特效（integration_elite.patch）；`monster_rig.fx_variant`（default / chiyan，SPEC_Q §14.7），赤炎用 *_chiyan 光圈和预渲染图，没有就走实时 shader。
+- 立绘按后台 artKey 找（`ArtLib.monster_sprite_for`：`sprites/mon_<artKey>.png`），没有 artKey 才按名字猜；配了 artKey 但缺图时警告一次。挂机怪 `/me/state.wave.monster` 也带 artKey。
+- 章节背景 / 首领特效来自服务器 `content.chapters`：历练页背景 = 挂机所在关的章节 bgKey，首领战背景 = 这关的章节；首领战 `fx_variant` = 章节 bossFx。
+- 历练页（SPEC_Q §14.5）：挂机地点下拉保留；下面章节页签（未解锁章节灰色带锁和条件）+ 竖排关卡卡（小怪 ▶ 精英蓝环 / 章末首领橙环、推荐战力、
+  未解锁时逐条写条件 ✓/✗、已击败、今日奖励次数、按钮 挑战 / 再战 / 未解锁 / 明日再来）。选中卡展开首通奖励或重复掉落。
+  能不能打只看服务器 `stageAccess`（`StageAccessView`），客户端不自己按境界猜。原来底部「自动挑战」开关和固定挑战条去掉。
+- 结算里的自动挑战（`lastSettle.autoChallenge`）弹一次提示（胜 / 负），提示后从本地状态拿掉。
+- 演示数据集重新生成（`gen-mock-dataset.ts`：每个境界补「低境界关卡都已首通」的进度，stageAccess 是真实服务器算的）；演示挑战打赢会更新 stageAccess / 每日次数。
+- 开发截图脚本 `scenes/dev/capture_b3.tscn`（连服务器，list / battle 两种模式）。
+
+- 历练页场景右下角「精英预览小卡」（SPEC_Q §14.5，884,630,170,230）：挂机所在关的精英 / 章末首领（预渲染 elite_* / chief_*，赤炎章节用 *_chiyan）+ 名牌 + 「战力 N」，点了 = 挑战；
+  只在这关首领能打且打了有奖励（没首通 / 还有今日次数）时显示。
+- 首领战：副标题（精英战 / 首领战 · 限时 · 已用）放进奶油色胶囊并和血条卡拉开，亮背景上不再看不清；标题按档次写「精英战」/「首领战」。
+
+## 上线说明
+
+- **挂机在精英关且战力达标（≥ 推荐战力 × 自动挑战比例）的老号，上线后第一次结算会自动挑战这关精英**（结果在客户端弹提示）。
+
+## 测试
+
+- 新增 `tests/unit/test_stage_access.gd`：章节 / 关卡顺序、解锁链（首领 + 境界）、按钮状态与每日次数、自动挑战提示、artKey 优先、章节背景与赤炎特效。
+- 改：`test_v10_layout`（按 stageAccess 检查每个境界的卡片和按钮；炼气二层指向黑风熊王）、`test_v9_fixes`（挑战按钮在选中卡上）、`test_v14_scroll`、`test_q_ui`（去掉自动挑战开关）。

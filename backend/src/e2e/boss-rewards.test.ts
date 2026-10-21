@@ -1,8 +1,9 @@
 import { and, eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { buildApp } from "../app.js";
-import { contentGlobals, contentRealms, contentStages, playerItems, playerStageProgress, playerStates, players } from "../db/schema.js";
+import { contentGlobals, contentRealms, contentStages, equipmentGrants, playerItems, playerStageProgress, playerStates, players } from "../db/schema.js";
 import { simulateBossFight } from "../modules/combat/battle.js";
+import { DEFAULT_BOSS_RULES, type BossRules } from "../modules/content/boss-rules.js";
 import { applyPrototypeV12 } from "../modules/content/prototype-v12.js";
 import { withDb } from "../test/db.js";
 
@@ -20,6 +21,10 @@ async function boot(db: TestDb, name: string, realmSlug = "lianqi_3") {
   const headers = { authorization: `Bearer ${registered.json().token as string}` };
   const [player] = await db.select().from(players).where(eq(players.usernameLower, name));
   await db.update(playerStates).set({ realmSlug }).where(eq(playerStates.playerId, player!.id));
+  // 第三批：下一关要先打赢上一关的首领才解锁。这里的用例都打黑风熊王（lianqi_3），先把前两关的精英记成已通关
+  for (const stageSlug of ["lianqi_1", "lianqi_2"]) {
+    await db.insert(playerStageProgress).values({ playerId: player!.id, stageSlug, unlockedAt: start, firstClearedAt: start, clearCount: 1 }).onConflictDoUpdate({ target: [playerStageProgress.playerId, playerStageProgress.stageSlug], set: { firstClearedAt: start, clearCount: 1 } });
+  }
   let n = 0;
   const challenge = (stage: string, payload: Record<string, unknown> = {}) =>
     app.inject({ method: "POST", url: `/api/v1/me/stages/${stage}/challenge`, headers: { ...headers, "idempotency-key": `boss-key-${name}-${(n += 1)}-pad` }, payload });
@@ -62,7 +67,7 @@ describe("boss first-clear fixed rewards", () => {
     });
   });
 
-  it("a full bag never refuses a boss challenge; first-clear rewards may exceed capacity, later equipment drops are simply not dropped", async () => {
+  it("a full bag never refuses a boss challenge; first-clear rewards may exceed capacity; boss gear is granted even when full (grantEquipment)", async () => {
     await withDb(async (db) => {
       const { app, challenge, bag, weakBear, playerId } = await boot(db, "boss_b");
       await weakBear();
@@ -77,17 +82,25 @@ describe("boss first-clear fixed rewards", () => {
       const afterFirst = await bag();
       expect(afterFirst.length).toBeGreaterThan(20); // 首通固定奖励允许超出容量
       expect(first.json().drops.some((row: { dropped?: boolean }) => row.dropped)).toBe(false);
-      // 重复挑战（关掉自动分解，否则新掉的白装会直接分解成强化经验）：奖励里的装备在满包时不掉落，并标记 bagFull 让客户端提示
-      await db.update(playerStates).set({ autoDecompose: false }).where(eq(playerStates.playerId, playerId));
+      // 重复挑战：首领装备走统一发放接口 grantEquipment（ADMIN_SPEC §14）—— 行囊满照发、不自动分解，记一条 boss_repeat 流水
+      await db.update(playerStates).set({ autoDecompose: true }).where(eq(playerStates.playerId, playerId));
       const again = await challenge("lianqi_3");
       expect(again.statusCode).toBe(200);
       const body = again.json();
       const gearBefore = afterFirst.filter((row) => row.itemSlug.startsWith("gear_")).length;
       const gearAfter = (await bag()).filter((row) => row.itemSlug.startsWith("gear_")).length;
-      expect(gearAfter).toBe(gearBefore);
-      expect(body.drops.filter((row: { itemSlug: string }) => row.itemSlug.startsWith("gear_")).every((row: { dropped?: boolean }) => row.dropped === true)).toBe(true);
-      expect(body.drops.some((row: { itemSlug: string; dropped?: boolean }) => row.itemSlug.startsWith("gear_") && row.dropped)).toBe(true);
-      expect(body.bagFull).toBe(true);
+      expect(gearAfter).toBe(gearBefore + 1);
+      const gearDrops = body.drops.filter((row: { itemSlug: string }) => row.itemSlug.startsWith("gear_"));
+      expect(gearDrops).toHaveLength(1);
+      expect(gearDrops[0].dropped).toBeUndefined();
+      expect(gearDrops[0].decomposed).toBeUndefined();
+      const grants = await db.select().from(equipmentGrants).where(eq(equipmentGrants.playerId, playerId));
+      // 批次②之后所有装备入包都记发放流水：首通的固定装备（饰品）记 boss_first，这次重打抽到的记 boss_repeat
+      const rows = grants.filter((row) => row.sourceRef === "lianqi_3").map((row) => [row.source, row.sourceRef, row.itemSlug, row.count]);
+      expect(rows).toEqual([
+        ["boss_first", "lianqi_3", "gear_major1_accessory_blue", 1],
+        ["boss_repeat", "lianqi_3", gearDrops[0].itemSlug, 1],
+      ]);
       await app.close();
     });
     await withDb(async (db) => {
@@ -122,6 +135,7 @@ describe("boss first-clear fixed rewards", () => {
   it("a stage without a boss refuses the challenge with a clear message", async () => {
     await withDb(async (db) => {
       const { app, challenge } = await boot(db, "boss_d");
+      await db.update(contentStages).set({ bosses: [], bossHp: 0 }).where(eq(contentStages.slug, "lianqi_1")); // 第三批起每关都有首领，手动拿掉一个
       const response = await challenge("lianqi_1");
       expect(response.statusCode).toBe(400);
       expect(response.json().error.message).toContain("还没有首领");
@@ -130,14 +144,26 @@ describe("boss first-clear fixed rewards", () => {
   });
 });
 
-describe("boss repeat rewards: orange gear only from bosses (配置概览「首领橙装概率」)", () => {
-  it("the repeat gear is orange when the orange roll hits (default 2%), and each slot follows the drop multipliers", async () => {
+async function setBossRules(db: TestDb, patch: (rules: BossRules) => void) {
+  const [globals] = await db.select().from(contentGlobals);
+  const rules = structuredClone(DEFAULT_BOSS_RULES);
+  patch(rules);
+  await db.update(contentGlobals).set({ tuning: { ...(globals?.tuning ?? {}), bossRules: rules } });
+}
+
+describe("boss repeat rewards: gear quality follows 首领规则「装备品质掉率」(章末默认 0/50/35/13/2)", () => {
+  it("the repeat gear quality is rolled from the chief gearQualityPct, and each slot follows the drop multipliers", async () => {
     await withDb(async (db) => {
       const { app, challenge, weakBear } = await boot(db, "boss_o");
       await weakBear();
       await challenge("lianqi_3"); // 首通
+      const first = (await challenge("lianqi_3")).json();
+      // 掷骰 0 = 最低一档有概率的品质：默认章末白 0% → 绿；部位等概率，掷 0 = 武器
+      expect(first.drops.map((row: { itemSlug: string }) => row.itemSlug).filter((slug: string) => slug.startsWith("gear_"))).toEqual(["gear_major1_weapon_green"]);
+      await setBossRules(db, (rules) => {
+        rules.chief.gearQualityPct = { white: 0, green: 0, blue: 0, purple: 0, orange: 100 };
+      });
       const body = (await challenge("lianqi_3")).json();
-      // 掷骰 0 < 200：橙装；部位等概率，掷 0 = 武器
       expect(body.drops.map((row: { itemSlug: string }) => row.itemSlug).filter((slug: string) => slug.startsWith("gear_"))).toEqual(["gear_major1_weapon_orange"]);
       await app.close();
     });
@@ -149,8 +175,6 @@ describe("boss repeat rewards: first N wins per day (Beijing time, day starts 05
     await withDb(async (db) => {
       const { app, challenge, state, setClock, weakBear, playerId } = await boot(db, "boss_e");
       await weakBear();
-      // 这个用例的掷骰全是 0（必中）：先把首领橙装概率关掉，只看白改绿；橙装在下面单独测
-      await db.update(contentGlobals).set({ tuning: { bossOrangeChanceBp: 0 } });
       await challenge("lianqi_3"); // 首通
       const rewarded: boolean[] = [];
       const gear: string[] = [];
@@ -162,7 +186,7 @@ describe("boss repeat rewards: first N wins per day (Beijing time, day starts 05
         expect(body.reward.dailyRewardLimit).toBe(5);
       }
       expect(rewarded).toEqual([true, true, true, true, true, false]);
-      // roll 0 = 最低一档品质 = 白，白色改为绿色
+      // roll 0 = 最低一档有概率的品质：章末默认白 0%，所以是绿
       expect(gear).toEqual(Array(5).fill("gear_major1_weapon_green"));
       let progress = (await db.select().from(playerStageProgress).where(and(eq(playerStageProgress.playerId, playerId), eq(playerStageProgress.stageSlug, "lianqi_3"))))[0]!;
       expect(progress).toMatchObject({ dailyRewardCount: 5, dailyRewardDay: "2026-10-08" });
@@ -185,7 +209,10 @@ describe("boss repeat rewards: first N wins per day (Beijing time, day starts 05
       const { app, challenge, setClock, weakBear } = await boot(db, "boss_f");
       await weakBear();
       const [globals] = await db.select().from(contentGlobals);
-      await db.update(contentGlobals).set({ combat: { ...globals!.combat!, bossDailyRewardCount: 1, dayStartHour: 0 } });
+      await db.update(contentGlobals).set({ combat: { ...globals!.combat!, dayStartHour: 0 } });
+      await setBossRules(db, (rules) => {
+        rules.chief.dailyRewardLimit = 1; // 第三批：每日奖励次数从 combat.bossDailyRewardCount 挪到首领规则
+      });
       await challenge("lianqi_3");
       expect((await challenge("lianqi_3")).json().reward.rewarded).toBe(true);
       expect((await challenge("lianqi_3")).json().reward.rewarded).toBe(false);

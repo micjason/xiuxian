@@ -109,11 +109,16 @@ func test_stage_list_drag_on_cards_scrolls_without_selecting() -> void:
 	await get_tree().process_frame
 	var page := scene.get("_stage_page") as StagePage
 	var view := page.get("_stage_view") as ScrollContainer
+	# 第三批：一章 3 张竖排卡在 2340 高的屏上正好放得下；展开挂机地点下拉，让列表超出可视区
+	page.set("_dropdown_open", true)
+	page.call("_render_stages")
+	await get_tree().process_frame
+	await get_tree().process_frame
 	var kit := ScrollKit.of(view)
 	assert_gt(kit.max_scroll(), 50.0, "关卡区内容超出可视区")
 	var before_selected := page.selected
-	var card := page.find_child("StageCards", true, false) as Control
-	var from := card.get_global_rect().get_center()
+	var card := (page.find_child("StageCards", true, false) as Control).get_child(0) as Control
+	var from := card.get_global_rect().intersection(view.get_global_rect()).get_center()
 	var to := from - Vector2(0, kit.max_scroll() + 40.0)
 	await TouchSim.drag(get_tree(), get_viewport(), from, to, 10, true)
 	assert_gt(view.scroll_vertical, 40, "按在关卡卡上竖着拖，列表滚动")
@@ -130,7 +135,7 @@ func test_heartbeat_with_unchanged_state_does_not_rebuild_lists() -> void:
 	var stage := scene.get("_stage_page") as StagePage
 	var refreshes := bag.refresh_count
 	var rebuilds := grid.rebuilds
-	var detail := stage.find_child("StageDetailCard", true, false)
+	var detail := stage.find_child("StageCards", true, false)
 	var first_slot := grid.find_children("*", "ItemSlot", true, false)[0]
 	for i in 3:
 		scene.call("_render", true)
@@ -138,7 +143,7 @@ func test_heartbeat_with_unchanged_state_does_not_rebuild_lists() -> void:
 	assert_eq(bag.refresh_count, refreshes, "背包没变就不刷新")
 	assert_eq(grid.rebuilds, rebuilds, "格子不重建")
 	assert_same(grid.find_children("*", "ItemSlot", true, false)[0], first_slot, "格子节点还是原来那个（按住的格子不会消失）")
-	assert_same(stage.find_child("StageDetailCard", true, false), detail, "历练列表不重建")
+	assert_same(stage.find_child("StageCards", true, false), detail, "历练列表不重建")
 
 
 func test_bag_refreshes_when_items_change_and_reuses_slots() -> void:

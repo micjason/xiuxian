@@ -351,7 +351,7 @@ func _show_page(page: String) -> void:
 		if key != PAGE_BREAKTHROUGH:
 			(_pages[key] as Control).visible = key == page
 	_tab_bar.select(str(TAB_OF.get(page, page)))
-	_backdrop.show_background(str(PAGE_BACKGROUNDS.get(page, "home")))
+	_backdrop.show_background(_page_background(page))
 	_top_bar.set_cultivation_visible(page in PAGES_WITH_CULTIVATION)
 	_apply_layout()
 	var page_node := _pages[page] as Control
@@ -416,6 +416,7 @@ func _render(feedback: bool = false) -> void:
 			_home_page.show_gains(last as Dictionary)
 			_fly_drops(lines)
 			_stage_drops()
+			_toast_auto_challenge()
 	_flags.adopt_if_first_run(_item_ids())
 	_bag_page.bind(_state, _content, _flags)
 	_stage_render()
@@ -482,27 +483,47 @@ func _realm_after(slug: String) -> String:
 
 
 func _stage_render() -> void:
-	# 历练页列出当前境界已解锁的全部关卡（有首领的可挑战，没有首领的只刷怪），再加一张下一个未解锁关卡的锁定卡。
-	var stages := _stages_for_current_realm()
-	# 换了境界（突破后）就重新选默认关卡：新解锁的首领关优先。
+	# 第三批：历练页列出全部章节和关卡（能不能打看服务器 stageAccess），默认选中第一个「能打没打过」的关卡。
+	var chapters := StageAccessView.chapters(_content, _state)
+	# 换了境界（突破后）就重新选默认关卡：新解锁的关卡优先。
 	var realm_now := str(_state.get("realmSlug", ""))
 	if realm_now != _selected_realm:
 		_selected_realm = realm_now
 		_selected_stage = ""
-	var known := false
-	for stage in stages:
-		if str(stage.get("slug", "")) == _selected_stage:
-			known = true
-	if not known:
-		# 默认选中最高的首领关；一个首领关都没有就选最高的关卡。
-		var pick_boss := ""
-		var pick_last := ""
-		for stage in stages:
-			pick_last = str(stage.get("slug", ""))
-			if not (stage.get("bosses", []) as Array).is_empty():
-				pick_boss = pick_last
-		_selected_stage = pick_boss if not pick_boss.is_empty() else pick_last
-	_stage_page.bind(_state, _content, stages, _selected_stage, _next_locked_boss(), _next_locked_stage())
+	if StageAccessView.chapter_of(chapters, _selected_stage).is_empty():
+		_selected_stage = StageAccessView.default_stage(chapters)
+	_stage_page.bind(_state, _content, _selected_stage)
+	if _page == PAGE_ADVENTURE:
+		_backdrop.show_background(_page_background(_page))
+
+
+## 页面背景：历练页用挂机所在关卡的章节背景，首领战用这关的章节背景（后台章节 bgKey）；没有就用默认的。
+func _page_background(page: String) -> String:
+	var fallback := str(PAGE_BACKGROUNDS.get(page, "home"))
+	var slug := ""
+	if page == PAGE_ADVENTURE:
+		var wave: Variant = _state.get("wave", null)
+		slug = BagModel.plain((wave as Dictionary).get("stageSlug", null)) if typeof(wave) == TYPE_DICTIONARY else ""
+		if slug.is_empty():
+			slug = _selected_stage
+	elif page == PAGE_BATTLE:
+		slug = _battle_page.stage_slug
+	else:
+		return fallback
+	var chapter := StageAccessView.chapter_row(_content, BagModel.plain(_stage_def(slug).get("chapterSlug", null)))
+	var name := ArtLib.chapter_bg_name(BagModel.plain(chapter.get("bgKey", null)))
+	return name if not name.is_empty() else fallback
+
+
+## 结算里后台替玩家自动挑战了首领（lastSettle.autoChallenge）：提示一次，提示完从状态里拿掉，重画时不再弹。
+func _toast_auto_challenge() -> void:
+	var last: Variant = _state.get("lastSettle", null)
+	var text := StageAccessView.auto_challenge_text(last)
+	if text.is_empty():
+		return
+	var win := bool(((last as Dictionary).get("autoChallenge", {}) as Dictionary).get("win", false))
+	(last as Dictionary).erase("autoChallenge")
+	_toast.say(text, win, 4.0)
 
 
 ## 页签红点：能突破、背包里有新物品、有更强的装备可换。
@@ -879,83 +900,6 @@ func _realm_name(slug: String) -> String:
 		if typeof(row) == TYPE_DICTIONARY and str((row as Dictionary).get("slug", "")) == slug:
 			return str((row as Dictionary).get("displayName", slug))
 	return slug
-
-
-func _current_realm_code() -> int:
-	var slug := str(_state.get("realmSlug", ""))
-	for row in _content.get("realms", []):
-		if typeof(row) == TYPE_DICTIONARY and str((row as Dictionary).get("slug", "")) == slug:
-			return int((row as Dictionary).get("sortOrder", -1))
-	return -1
-
-
-func _stages_for_current_realm() -> Array[Dictionary]:
-	var found: Array[Dictionary] = []
-	var code := _current_realm_code()
-	if code < 0:
-		return found
-	for row in _content.get("stages", []):
-		if typeof(row) != TYPE_DICTIONARY:
-			continue
-		var stage_code := int((row as Dictionary).get("requiredRealmOrder", -1))
-		if stage_code >= 0 and stage_code <= code:
-			found.append(row as Dictionary)
-	found.sort_custom(func(left: Dictionary, right: Dictionary) -> bool:
-		var left_code := int(left.get("requiredRealmOrder", 0))
-		var right_code := int(right.get("requiredRealmOrder", 0))
-		if left_code == right_code:
-			return str(left.get("displayName", "")) < str(right.get("displayName", ""))
-		return left_code < right_code
-	)
-	return found
-
-
-func _realm_name_of_order(order: int) -> String:
-	for row in _content.get("realms", []):
-		if typeof(row) == TYPE_DICTIONARY and int((row as Dictionary).get("sortOrder", -1)) == order:
-			return str((row as Dictionary).get("displayName", ""))
-	return ""
-
-
-## 当前境界还打不到的最近一个关卡（want_boss = true 时只找有首领的）：
-## {stage, boss, monster, realm, power}（没有返回空字典）。历练页用它显示锁定卡和“哪个境界解锁哪个首领”。
-func _nearest_locked(want_boss: bool) -> Dictionary:
-	var code := _current_realm_code()
-	if code < 0:
-		return {}
-	var best: Dictionary = {}
-	var best_code := 0
-	for row in _content.get("stages", []):
-		if typeof(row) != TYPE_DICTIONARY:
-			continue
-		var stage := row as Dictionary
-		var stage_code := int(stage.get("requiredRealmOrder", -1))
-		if stage_code <= code:
-			continue
-		if want_boss and (stage.get("bosses", []) as Array).is_empty():
-			continue
-		if best.is_empty() or stage_code < best_code:
-			best = stage
-			best_code = stage_code
-	if best.is_empty():
-		return {}
-	var boss_rows: Array = best.get("bosses", [])
-	var monsters: Array = best.get("monsters", [])
-	return {
-		"stage": str(best.get("displayName", best.get("slug", ""))),
-		"boss": str((boss_rows[0] as Dictionary).get("name", "")) if not boss_rows.is_empty() and typeof(boss_rows[0]) == TYPE_DICTIONARY else "",
-		"monster": str((monsters[0] as Dictionary).get("name", "")) if not monsters.is_empty() and typeof(monsters[0]) == TYPE_DICTIONARY else "",
-		"realm": _realm_name_of_order(best_code),
-		"power": int(best.get("recommendedPower", 0)),
-	}
-
-
-func _next_locked_boss() -> Dictionary:
-	return _nearest_locked(true)
-
-
-func _next_locked_stage() -> Dictionary:
-	return _nearest_locked(false)
 
 
 func _stage_def(slug: String) -> Dictionary:

@@ -197,6 +197,34 @@
       "when": 1793210000000,
       "tag": "0028_batch2_equipment",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1795000000000,
+      "tag": "0040_chapters",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1795000100000,
+      "tag": "0041_boss_tier_art",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1795000200000,
+      "tag": "0042_boss_rules_defaults",
+      "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1795000300000,
+      "tag": "0043_unlock_backfill",
+      "breakpoints": true
     }
   ]
 }

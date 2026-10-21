@@ -1,29 +1,47 @@
 [gd_scene format=3]
 
-[ext_resource type="Script" path="res://anim_q/battle_idle/monster_rig.gd" id="1_3wulq"]
-[ext_resource type="Texture2D" path="res://anim_q/battle_idle/fx/fx_shadow.png" id="2_aabde"]
-[ext_resource type="Shader" path="res://anim_q/battle_idle/monster_fx.gdshader" id="3_nexgn"]
-[ext_resource type="Texture2D" path="res://anim_q/battle_idle/fx/fx_noise.png" id="4_dlbgm"]
+[ext_resource type="Script" path="res://anim_q/battle_idle/monster_rig.gd" id="1_dlbgm"]
+[ext_resource type="Texture2D" path="res://anim_q/battle_idle/fx/fx_shadow.png" id="2_4r8ye"]
+[ext_resource type="Texture2D" path="res://anim_q/battle_idle/art/boss_aura_elite.png" id="3_f0i78"]
+[ext_resource type="Shader" path="res://anim_q/battle_idle/monster_fx.gdshader" id="4_c304v"]
+[ext_resource type="Texture2D" path="res://anim_q/battle_idle/fx/fx_noise.png" id="5_lhy0e"]
+[ext_resource type="Texture2D" path="res://anim_q/battle_idle/art/plate_elite.png" id="6_01j15"]
+[ext_resource type="Texture2D" path="res://anim_q/battle_idle/art/badge_chief.png" id="7_51j1c"]
 
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_4r8ye"]
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_rwj7v"]
 resource_local_to_scene = true
-shader = ExtResource("3_nexgn")
+shader = ExtResource("4_c304v")
 shader_parameter/flash = null
 shader_parameter/flash_color = null
 shader_parameter/dissolve = null
 shader_parameter/edge_color = null
-shader_parameter/noise_tex = ExtResource("4_dlbgm")
+shader_parameter/noise_tex = ExtResource("5_lhy0e")
 
-[node name="MonsterRig" type="Node2D" unique_id=526995341]
-script = ExtResource("1_3wulq")
+[node name="MonsterRig" type="Node2D" unique_id=390792386]
+script = ExtResource("1_dlbgm")
 
-[node name="Shadow" type="Sprite2D" parent="." unique_id=666147397]
+[node name="Shadow" type="Sprite2D" parent="." unique_id=2082021796]
 modulate = Color(1, 1, 1, 0.75)
 position = Vector2(0, 180)
 scale = Vector2(2.5, 1)
-texture = ExtResource("2_aabde")
+texture = ExtResource("2_4r8ye")
 
-[node name="Body" type="Node2D" parent="." unique_id=2114720969]
+[node name="Aura" type="Sprite2D" parent="." unique_id=1958646760]
+visible = false
+texture = ExtResource("3_f0i78")
 
-[node name="Sprite" type="Sprite2D" parent="Body" unique_id=982948790]
-material = SubResource("ShaderMaterial_4r8ye")
+[node name="Body" type="Node2D" parent="." unique_id=1576597957]
+
+[node name="Sprite" type="Sprite2D" parent="Body" unique_id=892173196]
+material = SubResource("ShaderMaterial_rwj7v")
+
+[node name="Plate" type="Node2D" parent="." unique_id=10755799]
+visible = false
+
+[node name="Tag" type="Sprite2D" parent="Plate" unique_id=682247566]
+texture = ExtResource("6_01j15")
+
+[node name="Badge" type="Sprite2D" parent="Plate" unique_id=133076095]
+visible = false
+scale = Vector2(0.75, 0.75)
+texture = ExtResource("7_51j1c")

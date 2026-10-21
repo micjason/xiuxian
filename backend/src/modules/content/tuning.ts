@@ -5,6 +5,7 @@
  * 只放类型、默认值和校验，不依赖数据库，validate.ts / snapshot.ts / 游戏循环都可以引用。
  */
 import { AppError } from "../../shared/errors.js";
+import { DEFAULT_BOSS_RULES, bossRulesFromInput, bossRulesOf, type BossRules } from "./boss-rules.js";
 
 export const TUNING_QUALITIES = ["white", "green", "blue", "purple", "orange"] as const;
 export type TuningQuality = (typeof TUNING_QUALITIES)[number];
@@ -31,8 +32,13 @@ export type Tuning = {
   monsterDropChanceBp: number;
   /** 普通怪默认品质权重（橙固定 0：橙装只由首领掉） */
   monsterQualityWeights: Record<TuningQuality, number>;
-  /** 首领重复奖励给的装备有多大概率直接是橙色（万分比） */
+  /**
+   * 已停用（第三批起橙装概率是首领规则 bossRules.*.gearQualityPct 里的橙色一档，游戏不再读这一项）。
+   * 字段先留着，等后台配置概览去掉这个输入框再删。
+   */
   bossOrangeChanceBp: number;
+  /** 首领规则（配置概览「首领规则」两列）：小首领（精英）/ 大首领（章末）的默认值，单关可覆盖（boss-rules.ts）。 */
+  bossRules: BossRules;
 };
 
 export const DEFAULT_TUNING: Tuning = {
@@ -46,6 +52,7 @@ export const DEFAULT_TUNING: Tuning = {
   monsterDropChanceBp: 500,
   monsterQualityWeights: { white: 70, green: 25, blue: 5, purple: 0, orange: 0 },
   bossOrangeChanceBp: 200,
+  bossRules: DEFAULT_BOSS_RULES,
 };
 
 function num(value: unknown, label: string, min: number, max: number, integer = false): number {
@@ -107,6 +114,7 @@ export function tuningFromInput(raw: Raw): Tuning {
     monsterDropChanceBp: num(pick(raw, "monsterDropChanceBp", DEFAULT_TUNING.monsterDropChanceBp), "默认每只击杀掉落率", 0, 10000, true),
     monsterQualityWeights,
     bossOrangeChanceBp: num(pick(raw, "bossOrangeChanceBp", DEFAULT_TUNING.bossOrangeChanceBp), "首领橙装概率", 0, 10000, true),
+    bossRules: bossRulesFromInput(pick(raw, "bossRules", DEFAULT_TUNING.bossRules), DEFAULT_BOSS_RULES),
   };
 }
 
@@ -123,6 +131,8 @@ export function tuningOf(raw: Raw): Tuning {
         out[key] = DEFAULT_TUNING[key];
       }
     }
+    // 首领规则按列、按项回退（一项存坏不影响另一列）
+    out.bossRules = bossRulesOf(raw?.bossRules);
     return out as Tuning;
   }
 }

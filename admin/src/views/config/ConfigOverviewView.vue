@@ -56,7 +56,7 @@
             <p class="muted small">金色数字 = 关卡自己的值；其余跟随上面的默认。</p>
           </SectionCard>
 
-          <BossRulesSection v-model:rules="rules" v-model:orange-bp="tuning.bossOrangeChanceBp" :default-orange-bp="data.tuningDefaults.bossOrangeChanceBp" />
+          <BossRulesSection ref="bossSection" v-model:rules="tuning.bossRules" :defaults="data.tuningDefaults.bossRules" />
 
           <SectionCard title="装备生成" anchor="gear" desc="只读摘要，在「装备配置」里改">
             <template #extra><el-button link type="primary" @click="router.push('/config/gear')">在装备配置中修改 ›</el-button></template>
@@ -172,6 +172,7 @@ import BossRulesSection from "./overview/BossRulesSection.vue";
 import CatalogSection from "./overview/CatalogSection.vue";
 import NewbieSection, { type Newbie } from "./overview/NewbieSection.vue";
 import SkillSlotsSection, { type SlotRule } from "./overview/SkillSlotsSection.vue";
+import type { BossRules } from "../../composables/bossRules";
 import { useDirtyGuard } from "../../composables/dirty";
 import { rulesSchema } from "../../schema/resources";
 import type { FormValues, Schema } from "../../schema/types";
@@ -188,7 +189,7 @@ type Tuning = {
   bookOverflowRankFactors: Record<Rank, number>;
   monsterDropChanceBp: number;
   monsterQualityWeights: Record<Quality, number>;
-  bossOrangeChanceBp: number;
+  bossRules: BossRules;
 };
 type EnhanceQuality = { cap: number; costMult: number; decomposeExp: number; breakthroughs: { level: number; materials: { itemSlug: string; count: number }[] }[] };
 type Enhance = { expBase: number; expGrowth: number; statGrowthBp: number; refundBp: number; qualities: Record<string, EnhanceQuality | undefined> };
@@ -237,7 +238,7 @@ const ANCHORS = [
 
 const pick = (keys: string[], title: string): Schema => ({ title, fields: rulesSchema.fields.filter((field) => keys.includes(field.key)).map((field) => ({ ...field, group: undefined })) });
 const powerSchema = pick(["defenseConstant", "speedBase", "minInterval", "attackWeight", "defenseWeight", "hpWeight", "speedWeight", "recommendedPowerMargin"], "战力公式");
-const paceSchema = pick(["waveSize", "waveTransitionSeconds", "reviveSeconds", "onlineGapSeconds", "offlineCapSeconds", "offlinePopupMinSeconds", "dayStartHour", "bagCapacity"], "挂机与战斗节奏");
+const paceSchema = pick(["waveSize", "waveTransitionSeconds", "reviveSeconds", "onlineGapSeconds", "offlineCapSeconds", "offlinePopupMinSeconds", "dayStartHour", "bagCapacity", "challengeCooldownSeconds", "timeLimitSeconds", "ultAutoCastWindowSeconds"], "挂机与战斗节奏");
 
 const route = useRoute();
 const router = useRouter();
@@ -253,6 +254,7 @@ const newbie = ref<Newbie>({ startingRealmSlug: "", starterItems: [] });
 const skillSlots = ref<SlotRule[]>([]);
 const original = ref("");
 const activeAnchor = ref("power");
+const bossSection = ref<{ reloadUsage: () => Promise<void> } | null>(null);
 
 const snapshot = () => JSON.stringify({ rules: rules.value, tuning: tuning.value, enhance: enhance.value, newbie: newbie.value, skillSlots: { rules: skillSlots.value } });
 const dirty = computed(() => original.value !== "" && snapshot() !== original.value);
@@ -349,6 +351,7 @@ async function save(): Promise<boolean> {
     if (JSON.stringify(before.skillSlots.rules) !== JSON.stringify(skillSlots.value)) body.skillSlots = { rules: skillSlots.value };
     const overview = await api<Overview>("/admin/draft/config-overview", { method: "PUT", body: JSON.stringify(body) });
     apply(overview);
+    void bossSection.value?.reloadUsage();
     ElMessage.success("已保存到草稿；跟随默认的关卡立即生效");
     return true;
   } catch (cause) {

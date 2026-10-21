@@ -92,6 +92,7 @@ static func state(scene: String = "") -> Dictionary:
 			out["cultivation"] = cost
 			if typeof(breakthrough.get("requiredStage", null)) == TYPE_DICTIONARY:
 				(breakthrough.requiredStage as Dictionary)["cleared"] = true
+				mark_cleared(out, str((breakthrough.requiredStage as Dictionary).get("slug", "")))
 		"gate":
 			out["cultivation"] = floorf(cost * 0.75) if by_realm else cost
 		"fresh":
@@ -160,7 +161,7 @@ static func _wave(content_data: Dictionary, state_data: Dictionary, realm_slug: 
 	var monster: Dictionary = (chosen.monsters as Array)[0]
 	return {
 		"available": true, "stageSlug": chosen.slug, "stageName": chosen.displayName,
-		"monster": {"name": monster.name, "hp": monster.hp, "attack": monster.attack, "defense": monster.defense, "interval": monster.interval, "killCultivation": monster.killCultivation},
+		"monster": {"name": monster.name, "artKey": monster.get("artKey", null), "hp": monster.hp, "attack": monster.attack, "defense": monster.defense, "interval": monster.interval, "killCultivation": monster.killCultivation},
 		"waveSize": 3, "cycleSeconds": 24.5, "killsPerWave": 3, "deathsPerWave": 0, "progress": 9.8, "deathsInRow": 0,
 		"onlineGapSeconds": 15, "chosenStageSlug": null, "selectable": selectable,
 	}
@@ -221,7 +222,7 @@ static func handle(path: String, body: Dictionary, state_data: Dictionary, conte
 					for stage in content_data.get("stages", []):
 						if str((stage as Dictionary).get("slug", "")) == str(slug):
 							var monster: Dictionary = ((stage as Dictionary).get("monsters", []) as Array)[0]
-							wave["monster"] = {"name": monster.name, "hp": monster.hp, "attack": monster.attack, "defense": monster.defense, "interval": monster.interval, "killCultivation": monster.killCultivation}
+							wave["monster"] = {"name": monster.name, "artKey": monster.get("artKey", null), "hp": monster.hp, "attack": monster.attack, "defense": monster.defense, "interval": monster.interval, "killCultivation": monster.killCultivation}
 		wave["progress"] = 0.0
 		state_data["wave"] = wave
 		return {"code": 200, "state": state_data}
@@ -254,6 +255,8 @@ static func _challenge(slug: String, body: Dictionary, state_data: Dictionary, c
 		else:
 			items.append(_row(drop_slug))
 		drops.append(row)
+		_count_daily(state_data, stage, slug)
+		mark_cleared(state_data, slug)
 		var gate_info: Variant = (state_data.get("breakthrough", {}) as Dictionary).get("requiredStage", null)
 		if typeof(gate_info) == TYPE_DICTIONARY and str((gate_info as Dictionary).get("slug", "")) == slug:
 			(gate_info as Dictionary)["cleared"] = true
@@ -263,6 +266,41 @@ static func _challenge(slug: String, body: Dictionary, state_data: Dictionary, c
 	var battle := {"win": fight.win, "reason": fight.reason, "durationSeconds": fight.duration if fight.finished else fight.time_limit, "log": fight.log, "ultCasts": casts}
 	UiMock.recompute(state_data, content_data)
 	return {"code": 200, "battle": battle, "drops": drops, "bagFull": bag_full, "reward": {"firstClear": false}, "state": state_data}
+
+
+## 第三批：打赢 slug 这关 → stageAccess 里这关首通，下一关「击败上一关首领」条件满足（境界也够就能打）。和服务器同一套规则。
+static func mark_cleared(state_data: Dictionary, slug: String) -> void:
+	for row in state_data.get("stageAccess", []):
+		if typeof(row) != TYPE_DICTIONARY:
+			continue
+		var acc := row as Dictionary
+		if str(acc.get("slug", "")) == slug:
+			acc["cleared"] = true
+		var needs: Variant = acc.get("needs", null)
+		var win: Variant = (needs as Dictionary).get("bossWin", null) if typeof(needs) == TYPE_DICTIONARY else null
+		if typeof(win) == TYPE_DICTIONARY and str((win as Dictionary).get("stageSlug", "")) == slug:
+			(win as Dictionary)["met"] = true
+			acc["unlocked"] = true
+			acc["playable"] = bool(acc.get("realmOk", false))
+
+
+## 首通之后再打赢：今日奖励次数 +1（只算发奖励的首领）。
+static func _count_daily(state_data: Dictionary, stage: Dictionary, slug: String) -> void:
+	var cleared := false
+	for row in state_data.get("stageAccess", []):
+		if typeof(row) == TYPE_DICTIONARY and str((row as Dictionary).get("slug", "")) == slug:
+			cleared = bool((row as Dictionary).get("cleared", false))
+	var boss: Dictionary = (stage.get("bosses", []) as Array)[0]
+	var rules: Dictionary = boss.get("rules", {}) if typeof(boss.get("rules", null)) == TYPE_DICTIONARY else {}
+	if not cleared or not bool(rules.get("allowRepeat", true)) or not bool(rules.get("repeatRewards", true)):
+		return
+	var daily: Array = state_data.get("bossDaily", [])
+	for row in daily:
+		if str((row as Dictionary).get("stageSlug", "")) == slug:
+			(row as Dictionary)["used"] = int((row as Dictionary).get("used", 0)) + 1
+			return
+	daily.append({"stageSlug": slug, "used": 1, "limit": int(rules.get("dailyRewardLimit", 0))})
+	state_data["bossDaily"] = daily
 
 
 ## 把预演跑完：按上报的点击时间依次点大招，没点的由自动释放兜底。

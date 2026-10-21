@@ -92,7 +92,6 @@ func test_locked_buttons_all_say_feature_not_open() -> void:
 		"_home_page": ["alchemy", "idle_chest"],
 		"_skill_page": ["skill_upgrade"],
 		"_cave_page": ["cave_retreat", "cave_upgrade"],
-		"_stage_page": ["auto_challenge"],
 		"_bag_page": ["bag_sell"],
 		"_offline_popup": ["offline_double"],
 	}

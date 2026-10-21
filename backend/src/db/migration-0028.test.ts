@@ -85,6 +85,7 @@ describe("migration 0028 (去掉红、默认功法栏位)", () => {
     expect(tags.indexOf("0028_batch2_equipment")).toBeGreaterThan(tags.indexOf("0027_equipment_grants"));
     const whens = journal.entries.map((row) => row.when);
     expect([...whens].sort((a, b) => a - b)).toEqual(whens);
-    expect(Math.max(...whens)).toBeLessThan(1795000000000);
+    // 批次 3 的迁移（0040+）从 1795000000000 往上；0028 在它们下面
+    expect(journal.entries.find((row) => row.tag === "0028_batch2_equipment")!.when).toBeLessThan(1795000000000);
   });
 });

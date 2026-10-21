@@ -1,5 +1,6 @@
 import type { OptionalRuleValues, StageMonster, MonsterDropOverride, BossRewardEntry, BossRepeatReward, DesignatedDrop, SetTier } from "../modules/content/combat-types.js";
 import type { Tuning } from "../modules/content/tuning.js";
+import type { BossRuleOverride, BossStatKey } from "../modules/content/boss-rules.js";
 import { sql } from "drizzle-orm";
 import {
   bigint,
@@ -371,15 +372,39 @@ export type StageBoss = {
   reward?: { major: string; stageIndex: number; nextMajor: string | null };
   /** 原型奖励模型：首通固定奖励（配了它或 repeat 就不再走旧的掉落表/方案奖励）。 */
   firstClear?: BossRewardEntry[];
-  /** 首通之后每天前 N 次胜利的奖励（N = 规则“首领每日奖励次数”）。 */
+  /** 首通之后每天前 N 次胜利的奖励（N = 首领规则的「每日次数」）。 */
   repeat?: BossRepeatReward;
+  /** 立绘编号（art-keys.ts）；精英不填 = 用本关普通怪的立绘（客户端按 tier 加描边）。 */
+  artKey?: string;
+  /** 首领规则的单关覆盖（只存改过的项，boss-rules.ts）。 */
+  rules?: BossRuleOverride;
+  /** 自动属性模式下，哪几项保留手填值（其余按普通怪 × 倍率算）。 */
+  statsCustom?: BossStatKey[];
 };
+
+/** 章节（第三批）：关卡按章节分组；章末关 = chief_stage_slug，没填 = 本章 sortOrder 最大的一关。 */
+export const contentChapters = pgTable("content_chapters", {
+  slug: text("slug").primaryKey(),
+  displayName: text("display_name").notNull(),
+  sortOrder: integer("sort_order").notNull().default(0),
+  /** 战斗区背景（art-keys.ts CHAPTER_BG_KEYS）。 */
+  bgKey: text("bg_key").notNull(),
+  /** 章节首领特效（art-keys.ts CHAPTER_BOSS_FX）：default | chiyan。 */
+  bossFx: text("boss_fx").notNull().default("default"),
+  /** 手动指定章末关；null = 自动取本章 sortOrder 最大的一关。 */
+  chiefStageSlug: text("chief_stage_slug"),
+  enabled: boolean("enabled").notNull().default(true),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedBy: uuid("updated_by"),
+});
 
 export const contentStages = pgTable("content_stages", {
   slug: text("slug").primaryKey(),
   displayName: text("display_name").notNull(),
   sortOrder: integer("sort_order").notNull().default(0),
   nextStageSlug: text("next_stage_slug"),
+  /** 所属章节（content_chapters.slug）。 */
+  chapterSlug: text("chapter_slug"),
   requiredRealmOrder: integer("required_realm_order").notNull().default(0),
   /** null = 按公式自动算；数字 = 后台手动覆盖。 */
   recommendedPower: integer("recommended_power"),
@@ -541,6 +566,8 @@ export const playerStageProgress = pgTable(
     /** 首领每日奖励：今天（按每日重置整点算）已经拿过几次，和对应的日期。 */
     dailyRewardCount: integer("daily_reward_count").notNull().default(0),
     dailyRewardDay: text("daily_reward_day"),
+    /** 上一次自动挑战（输了）的时间：隔「自动挑战重试间隔」再试。 */
+    autoChallengeAt: timestamp("auto_challenge_at", { withTimezone: true }),
   },
   (table) => [primaryKey({ columns: [table.playerId, table.stageSlug] })],
 );

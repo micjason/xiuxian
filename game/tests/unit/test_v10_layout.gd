@@ -112,68 +112,67 @@ func _texts(root: Node, out: Array[String] = []) -> Array[String]:
 	return out
 
 
-func _boss_stage_count(content: Dictionary, realm_slug: String) -> int:
-	var code := -1
-	for row in content.get("realms", []):
-		if str((row as Dictionary).get("slug", "")) == realm_slug:
-			code = int((row as Dictionary).get("sortOrder", -1))
-	var count := 0
-	for row in content.get("stages", []):
-		var stage := row as Dictionary
-		if int(stage.get("requiredRealmOrder", 99)) <= code and not (stage.get("bosses", []) as Array).is_empty():
-			count += 1
-	return count
-
-
-func test_stage_page_empty_state_matches_the_idle_card_in_every_realm() -> void:
+## 第三批：历练页按章节分页签、竖排关卡卡，能不能打全看服务器 stageAccess（每个境界的演示快照都来自真实服务器）。
+func test_stage_page_cards_follow_server_stage_access_in_every_realm() -> void:
 	var scene := await _boot_in(Vector2i(1080, 2340), "gate")
 	var content: Dictionary = scene.get("_content")
 	var stage_page := scene.get("_stage_page") as StagePage
-	var empty_realms := 0
 	for row in content.get("realms", []):
 		var slug := str((row as Dictionary).get("slug", ""))
-		scene.set("_state", _state_for(slug, content))
+		var state := _state_for(slug, content)
+		scene.set("_state", state)
 		scene.call("_render")
 		await get_tree().process_frame
-		var texts := _texts(stage_page)
-		var joined := "\n".join(texts)
-		var has_boss := _boss_stage_count(content, slug) > 0
-		assert_false(joined.contains("还没有可以打的关卡"), "%s：旧的矛盾文案不再出现" % slug)
-		assert_eq(stage_page.find_child("NoBossHint", true, false) == null, has_boss, "%s：有首领关卡就不显示“没有首领”说明" % slug)
-		assert_not_null(stage_page.find_child("StageDetailCard", true, false), "%s：始终有详情卡" % slug)
-		assert_eq(stage_page.challenge_button() != null, has_boss, "%s：只有选中首领关才有挑战按钮" % slug)
-		if not has_boss:
-			empty_realms += 1
-			assert_true(joined.contains("还没有首领可以挑战"), "%s：说清是首领没有，不是关卡没有" % slug)
-			assert_true(joined.contains("解锁"), "%s：告诉玩家哪个境界解锁" % slug)
-	assert_gt(empty_realms, 0, "原型里炼气一层、二层都没有首领关（首领在每个大境界的第三层）")
+		var access := StageAccessView.access_map(state)
+		assert_false(access.is_empty(), "%s：服务器给了 stageAccess" % slug)
+		var tabs := stage_page.find_child("ChapterTabs", true, false)
+		assert_not_null(tabs, "%s：有章节页签" % slug)
+		assert_eq(tabs.get_child_count(), (content.get("chapters", []) as Array).size(), "%s：每章一个页签" % slug)
+		var list := stage_page.find_child("StageCards", true, false)
+		assert_not_null(list, "%s：有竖排关卡卡" % slug)
+		for card in list.get_children():
+			var stage_slug := str(card.name).trim_prefix("Stage_")
+			var acc: Dictionary = access.get(stage_slug, {})
+			var button := stage_page.challenge_button_for(stage_slug)
+			assert_not_null(button, "%s/%s：每张卡都有按钮" % [slug, stage_slug])
+			if not bool(acc.get("playable", false)):
+				assert_true(button.disabled, "%s/%s：没解锁的不能打" % [slug, stage_slug])
+				assert_eq(button.text, "未解锁")
+		var chosen := stage_page.challenge_button()
+		assert_not_null(chosen, "%s：默认选中一个关卡" % slug)
+		assert_false(chosen.disabled, "%s：默认选中的关卡能打（%s）" % [slug, stage_page.selected])
+		assert_true(bool((access.get(stage_page.selected, {}) as Dictionary).get("playable", false)), "%s：默认选中能打的关卡" % slug)
 
 
+## 炼气二层：炼气一层的精英打过了（再战），炼气二层能打（挑战），炼气三层章末首领黑风熊王锁着，写明两个条件；
+## 幽冥古道章节锁着，页签上写「击败章末首领「黑风熊王」」。
 func test_lianqi_2_points_to_lianqi_3_and_the_bear_king() -> void:
 	var scene := await _boot_in(Vector2i(1080, 2340), "gate")
 	var content: Dictionary = scene.get("_content")
 	scene.set("_state", _state_for("lianqi_2", content))
+	scene.set("_selected_stage", "")
+	scene.set("_selected_realm", "")
 	scene.call("_render")
 	await get_tree().process_frame
 	var stage_page := scene.get("_stage_page") as StagePage
-	var card := stage_page.find_child("NoBossHint", true, false)
-	assert_not_null(card, "炼气二层显示“没有首领”说明")
+	assert_eq(stage_page.current_tab(), "heifeng")
+	assert_eq(stage_page.selected, "lianqi_2", "默认选中能打没打过的关卡")
+	assert_eq(stage_page.challenge_button_for("lianqi_1").text, "再 战")
+	assert_eq(stage_page.challenge_button_for("lianqi_2").text, "挑 战")
+	assert_false(stage_page.challenge_button_for("lianqi_2").disabled)
+	var locked := stage_page.challenge_button_for("lianqi_3")
+	assert_eq(locked.text, "未解锁")
+	assert_true(locked.disabled)
+	var card := stage_page.find_child("Stage_lianqi_3", true, false)
 	var text := "\n".join(_texts(card))
-	var all_text := "\n".join(_texts(stage_page))
-	assert_not_null(stage_page.find_child("LockedStageCard", true, false), "下一个未解锁关卡有锁定卡")
-	assert_true(all_text.contains("炼气三层解锁"), "锁定卡写明解锁条件")
-	assert_false(all_text.contains("首领：青鬃狼"), "没有首领的关卡不显示首领行")
-	assert_true(text.contains("炼气二层"), text)
-	assert_true(text.contains("炼气三层"), text)
-	assert_true(text.contains("黑风岭·三"), text)
 	assert_true(text.contains("黑风熊王"), text)
+	assert_true(text.contains("章末首领"), text)
+	assert_true(text.contains("击败精英「精英·赤眼狐妖」"), text)
+	assert_true(text.contains("达到炼气三层"), text)
+	var youming := stage_page.find_child("ChapterTab_youming", true, false) as Button
+	assert_true(youming.disabled, "幽冥古道还没解锁")
+	assert_true("\n".join(_texts(youming)).contains("黑风熊王"), "页签写明解锁条件")
 	assert_not_null(stage_page.find_child("IdleStageCard", true, false), "挂机刷怪地点仍然在")
-
-
-func test_empty_text_without_a_locked_boss() -> void:
-	var text := StagePage.empty_text("金丹三层", {})
-	assert_true(text.contains("金丹三层还没有首领可以挑战"))
-	assert_false(text.contains("解锁"))
 
 
 ## 演示数据的修为不能超过本境界突破所需（曾出现「3,300 / 300」）。最高境界没有 cost，不检查。

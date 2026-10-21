@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { eq } from "drizzle-orm";
 import {
+  contentChapters,
   contentCurrent,
   contentDropEntries,
   contentDropTables,
@@ -21,6 +22,8 @@ import { resolveMonsterDrop } from "./stage-defaults.js";
 import { tuningOf } from "./tuning.js";
 import { QUALITY_TABLE, SLOT_KEYS, SLOT_TABLE } from "./catalog.js";
 import { skillSlotRulesOf } from "./skill-slots.js";
+import { expandBossStats, resolveBossRules } from "./boss-rules.js";
+import { chiefStageOf } from "./stage-order.js";
 
 export async function loadDraftSnapshot(db: Db | Tx): Promise<ContentSnapshot> {
   const [globals] = await db.select().from(contentGlobals).limit(1);
@@ -31,7 +34,15 @@ export async function loadDraftSnapshot(db: Db | Tx): Promise<ContentSnapshot> {
   const entries = await db.select().from(contentDropEntries);
   const stages = await db.select().from(contentStages);
   const sets = await db.select().from(contentGearSets);
+  const chapterRows = await db.select().from(contentChapters);
   const tuning = tuningOf(globals?.tuning);
+  const chapters = [...chapterRows]
+    .sort((left, right) => left.sortOrder - right.sortOrder || left.slug.localeCompare(right.slug))
+    .map((row) => {
+      const chapter = { slug: row.slug, displayName: row.displayName, sortOrder: row.sortOrder, bgKey: row.bgKey, bossFx: row.bossFx, chiefStageSlugSetting: row.chiefStageSlug ?? null, enabled: row.enabled };
+      return { ...chapter, chiefStageSlug: chiefStageOf(chapter, stages) };
+    });
+  const chapterBySlug = new Map(chapters.map((row) => [row.slug, row]));
   return {
     globals: {
       startingRealmSlug: globals?.startingRealmSlug ?? "",
@@ -71,8 +82,31 @@ export async function loadDraftSnapshot(db: Db | Tx): Promise<ContentSnapshot> {
       ultFirstCooldownSeconds: row.ultFirstCooldownSeconds,
       enabled: row.enabled,
     })),
-    stages: stages.map((row) => ({
+    stages: stages.map((row) => {
+      const chapter = row.chapterSlug ? chapterBySlug.get(row.chapterSlug) : undefined;
+      // 没有章节（老数据）的关卡单独算一章：首领按章末规则（和第三批之前一样，发布校验会报「没有所属章节」）。
+      const tier = chapter && chapter.chiefStageSlug !== row.slug ? ("elite" as const) : ("chief" as const);
+      const monster = row.monsters?.[0];
+      const bosses = (row.bosses ?? []).map((boss) => {
+        const rules = resolveBossRules(tuning.bossRules[tier], boss.rules ?? null);
+        const stats = expandBossStats(boss, monster, rules);
+        const { rules: ruleOverride, ...rest } = boss;
+        return {
+          ...rest,
+          ...(stats ?? {}),
+          // 精英没单独选立绘 = 用本关普通怪的立绘（客户端按 tier 加金边、放大）
+          artKey: boss.artKey || (tier === "elite" ? monster?.artKey : undefined) || undefined,
+          tier,
+          rules,
+          ruleOverride: ruleOverride ?? null,
+          statsAuto: rules.statMode === "auto",
+          ...(stats ? {} : { statsProblem: `首领「${boss.name}」设成按普通怪自动算属性，但本关没有普通怪` }),
+        };
+      });
+      return {
       slug: row.slug,
+      chapterSlug: row.chapterSlug ?? null,
+      tier,
       displayName: row.displayName,
       sortOrder: row.sortOrder,
       nextStageSlug: row.nextStageSlug,
@@ -85,7 +119,7 @@ export async function loadDraftSnapshot(db: Db | Tx): Promise<ContentSnapshot> {
       bossDefense: row.bossDefense,
       bossHp: row.bossHp,
       bossInterval: row.bossInterval,
-      bosses: row.bosses ?? [],
+      bosses,
       monsters: row.monsters ?? [],
       // 关卡里只存改过的项；这里合并配置概览的默认值，游戏和客户端拿到的永远是完整的掉落配置。
       monsterDrop: resolveMonsterDrop(row.monsterDrop, tuning),
@@ -93,7 +127,9 @@ export async function loadDraftSnapshot(db: Db | Tx): Promise<ContentSnapshot> {
       // 0 = 没手动覆盖，按公式自动算（库里存 null）
       recommendedPower: row.recommendedPower ?? 0,
       enabled: row.enabled,
-    })),
+      };
+    }),
+    chapters,
     dropTables: tables.map((table) => ({
       slug: table.slug,
       entries: entries

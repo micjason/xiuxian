@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { buildApp } from "../app.js";
-import { playerStates, players } from "../db/schema.js";
+import { playerStageProgress, playerStates, players } from "../db/schema.js";
 import { advanceWaves, waveCycle } from "../modules/combat/wave.js";
 import { applyPrototypeV12 } from "../modules/content/prototype-v12.js";
 import { withDb } from "../test/db.js";
@@ -20,7 +20,13 @@ async function boot(db: TestDb, name: string, randomInt: (min: number, max: numb
     clock = new Date(start.getTime() + seconds * 1000);
   };
   const state = async () => (await app.inject({ method: "GET", url: "/api/v1/me/state", headers })).json();
-  return { app, headers, playerId: player!.id, at, state };
+  /** 第三批：下一关要先打赢上一关的首领（精英）才解锁，这里直接记成已通关。 */
+  const cleared = async (...stageSlugs: string[]) => {
+    for (const stageSlug of stageSlugs) {
+      await db.insert(playerStageProgress).values({ playerId: player!.id, stageSlug, unlockedAt: start, firstClearedAt: start, clearCount: 1 }).onConflictDoUpdate({ target: [playerStageProgress.playerId, playerStageProgress.stageSlug], set: { firstClearedAt: start, clearCount: 1 } });
+    }
+  };
+  return { app, headers, playerId: player!.id, at, state, cleared };
 }
 
 const rules = { waveSize: 3, transitionSeconds: 2, reviveSeconds: 3, defenseConstant: 1 };
@@ -32,7 +38,7 @@ describe("normal-monster waves (server-deterministic, online only)", () => {
       const { app, at, state } = await boot(db, "wave_a");
       const first = await state();
       const cycle = waveCycle({ hp: first.hp, attack: first.attack, defense: first.defense, interval: first.interval }, wolf, rules);
-      expect(first.wave).toMatchObject({ available: true, stageSlug: "lianqi_1", monster: { name: "青鬃狼", killCultivation: 3 }, waveSize: 3 });
+      expect(first.wave).toMatchObject({ available: true, stageSlug: "lianqi_1", monster: { name: "青鬃狼", artKey: "wolf", killCultivation: 3 }, waveSize: 3 });
       expect(first.wave.cycleSeconds).toBeCloseTo(cycle.cycleSeconds, 3);
       let kills = 0;
       let last = first;
@@ -101,9 +107,12 @@ describe("normal-monster waves (server-deterministic, online only)", () => {
 
   it("default stage is the highest one the realm reaches; POST /me/idle-stage switches (idempotent) and rejects locked or unknown stages", async () => {
     await withDb(async (db) => {
-      const { app, headers, playerId, state } = await boot(db, "wave_e");
+      const { app, headers, playerId, state, cleared } = await boot(db, "wave_e");
       expect((await state()).wave).toMatchObject({ stageSlug: "lianqi_1", chosenStageSlug: null });
       await db.update(playerStates).set({ realmSlug: "lianqi_3" }).where(eq(playerStates.playerId, playerId));
+      // 境界够了但还没打赢精英：仍停在第一关
+      expect((await state()).wave.stageSlug).toBe("lianqi_1");
+      await cleared("lianqi_1", "lianqi_2");
       const high = await state();
       expect(high.wave.stageSlug).toBe("lianqi_3");
       expect(high.wave.selectable.map((row: { slug: string }) => row.slug)).toEqual(["lianqi_1", "lianqi_2", "lianqi_3"]);
@@ -123,7 +132,8 @@ describe("normal-monster waves (server-deterministic, online only)", () => {
 
   it("breakthrough auto-switches the farming stage to the new layer's stage", async () => {
     await withDb(async (db) => {
-      const { app, headers, playerId, state } = await boot(db, "wave_f");
+      const { app, headers, playerId, state, cleared } = await boot(db, "wave_f");
+      await cleared("lianqi_1");
       await db.update(playerStates).set({ cultivation: 100000, idleStageSlug: "lianqi_1" }).where(eq(playerStates.playerId, playerId));
       const response = await app.inject({ method: "POST", url: "/api/v1/me/breakthrough", headers: { ...headers, "idempotency-key": "break-key-0001" }, payload: {} });
       expect(response.json().result.success).toBe(true);

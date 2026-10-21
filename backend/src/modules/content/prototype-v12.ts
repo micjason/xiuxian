@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { contentDropTables, contentGlobals, contentItems, contentRealms, contentSkillCategories, contentSkills, contentStages, type StageBoss } from "../../db/schema.js";
+import { contentChapters, contentDropTables, contentGlobals, contentItems, contentRealms, contentSkillCategories, contentSkills, contentStages, type StageBoss } from "../../db/schema.js";
 import type { Db } from "../operations/record.js";
 import { DEFAULT_OPTIONAL_RULES, type QualityWeights } from "./combat-types.js";
 import { STARTING_BREAK_MATERIALS, STARTING_ENHANCE_RULES } from "./enhance.js";
@@ -8,6 +8,7 @@ import { ensureSkillBook } from "./ops-content.js";
 import { gearPieceSlug } from "./gear.js";
 import { compactDropOverride } from "./stage-defaults.js";
 import { DEFAULT_TUNING } from "./tuning.js";
+import { DEFAULT_BOSS_RULES } from "./boss-rules.js";
 
 /**
  * 原型数值表 v1.2（/workspace/prototype_design_numbers.md）的内容数据：9 层 3 个大境界、9 个关卡、3 个首领、3 门功法。
@@ -36,20 +37,30 @@ export const PROTOTYPE_LAYERS: { slug: string; name: string; major: 0 | 1 | 2; g
   { slug: "jindan_3", name: "金丹三层", major: 2, gainPerTick: 9, costToNext: null, stats: { hp: 2950, attack: 295, defense: 98, speed: 40 } },
 ];
 
-type Mob = { name: string; hp: number; attack: number; defense: number; interval: number; killXp: number };
-type Lord = { slug: string; name: string; hp: number; attack: number; defense: number; interval: number; recommendedPower: number };
+type Mob = { name: string; hp: number; attack: number; defense: number; interval: number; killXp: number; art: string };
+type Lord = { slug: string; name: string; hp: number; attack: number; defense: number; interval: number; recommendedPower: number; art: string };
 
 export const PROTOTYPE_STAGES: { slug: string; name: string; monster: Mob; boss?: Lord }[] = [
-  { slug: "lianqi_1", name: "黑风岭·一", monster: { name: "青鬃狼", hp: 110, attack: 24, defense: 14, interval: 1.5, killXp: 3 } },
-  { slug: "lianqi_2", name: "黑风岭·二", monster: { name: "赤眼狐妖", hp: 125, attack: 32, defense: 15, interval: 1.25, killXp: 3 } },
-  { slug: "lianqi_3", name: "黑风岭·三", monster: { name: "毒牙蟒", hp: 190, attack: 36, defense: 17, interval: 1.5, killXp: 3 }, boss: { slug: "b_lq_bear", name: "黑风熊王", hp: 1640, attack: 42, defense: 20, interval: 1.5, recommendedPower: 900 } },
-  { slug: "zhuji_1", name: "幽冥古道·一", monster: { name: "游魂", hp: 335, attack: 100, defense: 42, interval: 1.5, killXp: 10 } },
-  { slug: "zhuji_2", name: "幽冥古道·二", monster: { name: "骨傀", hp: 365, attack: 110, defense: 46, interval: 1.25, killXp: 10 } },
-  { slug: "zhuji_3", name: "幽冥古道·三", monster: { name: "血蝠", hp: 565, attack: 125, defense: 50, interval: 1.5, killXp: 10 }, boss: { slug: "b_zj_ghost", name: "噬魂老鬼", hp: 5760, attack: 113, defense: 61, interval: 1.5, recommendedPower: 2450 } },
-  { slug: "jindan_1", name: "赤炎火山·一", monster: { name: "炎鳞蜥", hp: 1310, attack: 275, defense: 120, interval: 1.5, killXp: 30 } },
-  { slug: "jindan_2", name: "赤炎火山·二", monster: { name: "火鸦", hp: 1430, attack: 305, defense: 130, interval: 1.25, killXp: 30 } },
-  { slug: "jindan_3", name: "赤炎火山·三", monster: { name: "熔岩傀", hp: 2470, attack: 265, defense: 140, interval: 1.5, killXp: 30 }, boss: { slug: "b_jd_jiao", name: "赤焰蛟", hp: 20400, attack: 309, defense: 170, interval: 1.5, recommendedPower: 6590 } },
+  { slug: "lianqi_1", name: "黑风岭·一", monster: { name: "青鬃狼", hp: 110, attack: 24, defense: 14, interval: 1.5, killXp: 3, art: "wolf" } },
+  { slug: "lianqi_2", name: "黑风岭·二", monster: { name: "赤眼狐妖", hp: 125, attack: 32, defense: 15, interval: 1.25, killXp: 3, art: "fox" } },
+  { slug: "lianqi_3", name: "黑风岭·三", monster: { name: "毒牙蟒", hp: 190, attack: 36, defense: 17, interval: 1.5, killXp: 3, art: "snake" }, boss: { slug: "b_lq_bear", name: "黑风熊王", hp: 1640, attack: 42, defense: 20, interval: 1.5, recommendedPower: 900, art: "bear" } },
+  { slug: "zhuji_1", name: "幽冥古道·一", monster: { name: "游魂", hp: 335, attack: 100, defense: 42, interval: 1.5, killXp: 10, art: "ghost" } },
+  { slug: "zhuji_2", name: "幽冥古道·二", monster: { name: "骨傀", hp: 365, attack: 110, defense: 46, interval: 1.25, killXp: 10, art: "bone_golem" } },
+  { slug: "zhuji_3", name: "幽冥古道·三", monster: { name: "血蝠", hp: 565, attack: 125, defense: 50, interval: 1.5, killXp: 10, art: "bat" }, boss: { slug: "b_zj_ghost", name: "噬魂老鬼", hp: 5760, attack: 113, defense: 61, interval: 1.5, recommendedPower: 2450, art: "ghost_elder" } },
+  { slug: "jindan_1", name: "赤炎火山·一", monster: { name: "炎鳞蜥", hp: 1310, attack: 275, defense: 120, interval: 1.5, killXp: 30, art: "lava_lizard" } },
+  { slug: "jindan_2", name: "赤炎火山·二", monster: { name: "火鸦", hp: 1430, attack: 305, defense: 130, interval: 1.25, killXp: 30, art: "fire_crow" } },
+  { slug: "jindan_3", name: "赤炎火山·三", monster: { name: "熔岩傀", hp: 2470, attack: 265, defense: 140, interval: 1.5, killXp: 30, art: "lava_golem" }, boss: { slug: "b_jd_jiao", name: "赤焰蛟", hp: 20400, attack: 309, defense: 170, interval: 1.5, recommendedPower: 6590, art: "fire_jiao" } },
 ];
+
+/** 三章（第三批）：每章 3 关，第 3 关是章末（大首领），第 1、2 关的首领是本关小怪的精英版。 */
+export const PROTOTYPE_CHAPTERS = [
+  { slug: "heifeng", name: "黑风岭", bgKey: "heifeng", bossFx: "default" },
+  { slug: "youming", name: "幽冥古道", bgKey: "youming", bossFx: "default" },
+  { slug: "chiyan", name: "赤炎火山", bgKey: "chiyan", bossFx: "chiyan" },
+] as const;
+
+/** 精英首通奖励的灵石（起始值，后台可改）：炼气 50 / 筑基 150 / 金丹 450。 */
+export const PROTOTYPE_ELITE_STONES = [50, 150, 450] as const;
 
 export const PROTOTYPE_SKILLS = [
   { slug: "skill_tuna", name: "吐纳诀", bonusBp: 500 },
@@ -63,6 +74,7 @@ export const PROTOTYPE_BOSS_ULT_NAME = "剑诀·破军";
 export async function applyPrototypeV12(db: Db): Promise<{ stageSlugs: string[]; realmSlugs: string[]; bookSlugs: Record<string, string> }> {
   const now = new Date();
   await db.delete(contentStages);
+  await db.delete(contentChapters);
   await db.delete(contentDropTables);
   await db.delete(contentRealms);
   await db.delete(contentGlobals);
@@ -166,23 +178,38 @@ export async function applyPrototypeV12(db: Db): Promise<{ stageSlugs: string[];
       repeat: { gear: true, extras: [{ itemSlug: "enh_stone_low", chanceBp: 7000, minQty: 1, maxQty: 2 }, { itemSlug: "enh_stone_mid", chanceBp: 3000, minQty: 1, maxQty: 1 }] },
     },
   };
+  for (const [index, chapter] of PROTOTYPE_CHAPTERS.entries()) {
+    await db.insert(contentChapters).values({ slug: chapter.slug, displayName: chapter.name, sortOrder: index + 1, bgKey: chapter.bgKey, bossFx: chapter.bossFx, updatedAt: now });
+  }
   for (const [index, stage] of PROTOTYPE_STAGES.entries()) {
     const major = Math.floor(index / 3);
-    const boss = stage.boss ? bosses[stage.boss.slug] : undefined;
+    // 章末关是原来的大首领（手填数值）；第 1、2 关是本关小怪的精英版（属性按首领规则自动算，这里存一份按默认倍率算好的数方便后台看）
+    const boss: StageBoss = stage.boss
+      ? { ...bosses[stage.boss.slug]!, artKey: stage.boss.art }
+      : {
+          name: `精英·${stage.monster.name}`,
+          attack: Math.round(stage.monster.attack * DEFAULT_BOSS_RULES.elite.statMul.attack),
+          defense: Math.round(stage.monster.defense * DEFAULT_BOSS_RULES.elite.statMul.defense),
+          hp: Math.round(stage.monster.hp * DEFAULT_BOSS_RULES.elite.statMul.hp),
+          interval: stage.monster.interval,
+          drops: [],
+          firstClear: [{ kind: "spiritStones", amount: PROTOTYPE_ELITE_STONES[major]! }, stone("enh_stone_low", 1), { kind: "gear", count: 1 }],
+        };
     await db.insert(contentStages).values({
       slug: stage.slug,
       displayName: stage.name,
+      chapterSlug: PROTOTYPE_CHAPTERS[major]!.slug,
       sortOrder: index + 1,
       nextStageSlug: PROTOTYPE_STAGES[index + 1]?.slug ?? null,
       requiredRealmOrder: index + 1,
       recommendedPower: stage.boss?.recommendedPower ?? null,
-      bossName: boss?.name ?? "",
-      bossAttack: boss?.attack ?? 0,
-      bossDefense: boss?.defense ?? 0,
-      bossHp: boss?.hp ?? 0,
-      bossInterval: boss?.interval ?? 0,
-      bosses: boss ? [boss] : [],
-      monsters: [{ name: stage.monster.name, attack: stage.monster.attack, defense: stage.monster.defense, hp: stage.monster.hp, interval: stage.monster.interval, killCultivation: stage.monster.killXp }],
+      bossName: boss.name,
+      bossAttack: boss.attack,
+      bossDefense: boss.defense,
+      bossHp: boss.hp,
+      bossInterval: boss.interval,
+      bosses: [boss],
+      monsters: [{ name: stage.monster.name, attack: stage.monster.attack, defense: stage.monster.defense, hp: stage.monster.hp, interval: stage.monster.interval, killCultivation: stage.monster.killXp, artKey: stage.monster.art }],
       // 只存和配置概览默认值不同的项（炼气 = 默认值，存 null = 跟随默认）
       monsterDrop: compactDropOverride({ chanceBp: 500, qualityWeights: PROTOTYPE_MAJORS[major]!.weights }, DEFAULT_TUNING),
       bossDropTableSlug: "proto_boss",

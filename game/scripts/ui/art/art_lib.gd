@@ -202,6 +202,31 @@ static func monster_sprite_id(monster_name: String) -> String:
 	return ""
 
 
+## 第三批：怪物 / 首领立绘按后台配置的 artKey 找（sprites/mon_<artKey>.png）。
+## 没有 artKey（旧数据）才退回按名字猜；配了 artKey 但没有这张图时警告一次再按名字猜。
+static var _art_warned := {}
+
+
+static func monster_sprite_for(row: Dictionary) -> String:
+	var raw: Variant = row.get("artKey", null)
+	var key := str(raw) if raw != null else ""
+	if not key.is_empty():
+		if has_q("sprites/mon_%s.png" % key):
+			return "mon_" + key
+		if not _art_warned.has(key):
+			_art_warned[key] = true
+			push_warning("ArtLib: 没有 artKey「%s」的立绘 sprites/mon_%s.png，按名字「%s」找" % [key, key, str(row.get("name", ""))])
+	return monster_sprite_id(str(row.get("name", "")))
+
+
+## 章节背景（后台章节 bgKey → assets/art/q/bg/bg_<key>_1080x960.webp）：返回 ArtLib.bg 用的名字，没有这张图返回 ""。
+static func chapter_bg_name(bg_key: String) -> String:
+	if bg_key.is_empty():
+		return ""
+	var name := "bg_%s_1080x960" % bg_key
+	return name if ResourceLoader.exists(Q_DIR + "bg/" + name + ".webp") else ""
+
+
 ## 历练场景里怪物要朝左（面向左边的主角）：这张立绘需不需要水平翻转。
 static func monster_needs_flip(sprite_id: String) -> bool:
 	return not MONSTER_FACES_LEFT.has(sprite_id)

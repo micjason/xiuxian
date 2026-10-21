@@ -474,8 +474,8 @@ static func reward_slot(content: Dictionary, slug: String, size: int, count: int
 	return node
 
 
-## 怪物 / 首领圆头像（设计稿关卡卡里的 150 圆）：Q 版立绘（狼/狐/蛇/蟒/熊），没有立绘的退回旧剪影图标。
-static func portrait(monster_name: String, size: int, ring: Color = UiTokens.Q_MINT, locked: bool = false) -> Control:
+## 怪物 / 首领圆头像（设计稿关卡卡里的 150 圆）：Q 版立绘（按 artKey，没有再按名字），没有立绘的退回旧剪影图标。
+static func portrait(monster_name: String, size: int, ring: Color = UiTokens.Q_MINT, locked: bool = false, art_key: String = "") -> Control:
 	var disc := Panel.new()
 	disc.name = "Portrait"
 	disc.custom_minimum_size = Vector2(size, size)
@@ -484,7 +484,7 @@ static func portrait(monster_name: String, size: int, ring: Color = UiTokens.Q_M
 	disc.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	disc.clip_children = CanvasItem.CLIP_CHILDREN_AND_DRAW
 	disc.add_theme_stylebox_override("panel", QSkin.custom(Color("eaf6ee") if not locked else Color("dcd4cb"), ring, 6, 999, 0, 0, 0))
-	var sprite_id := ArtLib.monster_sprite_id(monster_name)
+	var sprite_id := ArtLib.monster_sprite_for({"artKey": art_key if not art_key.is_empty() else null, "name": monster_name})
 	var art := TextureRect.new()
 	art.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE

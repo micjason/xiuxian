@@ -3,7 +3,10 @@ import { eq } from "drizzle-orm";
 import type { BossRepeatReward, BossRewardEntry, MonsterDropOverride, StageMonster } from "./combat-types.js";
 import { QUALITY_KEYS } from "./catalog.js";
 import { gearMap, readDesignated, type DesignatedInput } from "./designated-drops.js";
-import { contentDropEntries, contentDropTables, contentGlobals, contentItems, contentRealms, contentSkillCategories, contentSkills, contentStages, playerItems, type StageBoss } from "../../db/schema.js";
+import { contentChapters, contentDropEntries, contentDropTables, contentGlobals, contentItems, contentRealms, contentSkillCategories, contentSkills, contentStages, playerItems, type StageBoss } from "../../db/schema.js";
+import { BOSS_STAT_KEYS, compactBossRuleOverride, customRuleCount, type BossStatKey, type BossTier } from "./boss-rules.js";
+import { MONSTER_ART_KEY_SET } from "./art-keys.js";
+import { chiefStageOf, orderedStages } from "./stage-order.js";
 import { AppError } from "../../shared/errors.js";
 import type { Db } from "../operations/record.js";
 import { loadDraftSnapshot } from "./snapshot.js";
@@ -24,9 +27,41 @@ type BossInput = {
   firstClear?: ({ kind?: string; itemId?: string; quantity?: number; amount?: number })[] | null;
   /** 首通之后每天前几次胜利的奖励。不传 = 保持原样。 */
   repeat?: { gear?: boolean; orangeChancePercent?: number | null; extras?: { itemId?: string; chancePercent?: number; minQty?: number; maxQty?: number }[] } | null;
+  /** 立绘编号（art-keys.ts）。不传 = 保持原样；null / 空 = 清掉（精英跟随本关普通怪的立绘）。 */
+  artKey?: string | null;
+  /** 首领规则的单关覆盖（boss-rules.ts，只存和默认不同的项）。不传 = 保持原样；null = 全部恢复默认。 */
+  rules?: Record<string, unknown> | null;
+  /** 自动属性模式下保留手填值的项（attack / defense / hp / interval）。不传 = 保持原样。 */
+  statsCustom?: string[] | null;
 };
 
-type MonsterInput = { name?: string; attack?: number; defense?: number; hp?: number; interval?: number; killCultivation?: number };
+/** artKey：立绘编号（art-keys.ts）。不传 = 保持原样。 */
+type MonsterInput = { name?: string; attack?: number; defense?: number; hp?: number; interval?: number; killCultivation?: number; artKey?: string | null };
+
+/** 关卡的章节和顺序（第三批）。不传 = 保持原样。 */
+type StagePlacementInput = { chapterSlug?: string | null; sortOrder?: number };
+
+function readArtKey(value: unknown, label: string): string | undefined {
+  const key = textOf(value);
+  if (!key) {
+    return undefined;
+  }
+  if (!MONSTER_ART_KEY_SET.has(key)) {
+    throw new AppError("INVALID_INPUT", `${label}的立绘「${key}」不在可选列表里`);
+  }
+  return key;
+}
+
+function readStatsCustom(value: unknown): BossStatKey[] | undefined {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+  if (!Array.isArray(value) || value.some((key) => !BOSS_STAT_KEYS.includes(key as BossStatKey))) {
+    throw new AppError("INVALID_INPUT", "首领自定义属性项只能是 攻击 / 防御 / 气血 / 出手间隔");
+  }
+  const list = BOSS_STAT_KEYS.filter((key) => (value as string[]).includes(key));
+  return list.length > 0 ? list : undefined;
+}
 /** 关卡掉落：null / 不填的项 = 跟随配置概览；填了和默认一样的值也按「跟随默认」存。 */
 type MonsterDropInput = { chancePercent?: number | null; weights?: Partial<Record<"white" | "green" | "blue" | "purple" | "orange", number | null>> } | null;
 
@@ -59,11 +94,11 @@ async function realmByCode(db: Db, code: number) {
   return realm ?? null;
 }
 
-function readMonsters(monsters: MonsterInput[] | undefined): StageMonster[] | undefined {
+function readMonsters(monsters: MonsterInput[] | undefined, current: StageMonster[] = []): StageMonster[] | undefined {
   if (monsters === undefined) {
     return undefined;
   }
-  return monsters.map((monster) => {
+  return monsters.map((monster, index) => {
     const name = textOf(monster.name);
     if (!name) {
       throw new AppError("INVALID_INPUT", "请填写怪物名称");
@@ -77,7 +112,14 @@ function readMonsters(monsters: MonsterInput[] | undefined): StageMonster[] | un
     if (!Number.isInteger(killCultivation)) {
       throw new AppError("INVALID_INPUT", "击杀修为要填整数");
     }
-    return { name, attack: numberOf(monster.attack, "怪物攻击"), defense: numberOf(monster.defense, "怪物防御"), hp, interval, killCultivation };
+    const out: StageMonster = { name, attack: numberOf(monster.attack, "怪物攻击"), defense: numberOf(monster.defense, "怪物防御"), hp, interval, killCultivation };
+    // 立绘：没传就保持原样（同名或同位置的那只），后台老页面保存时不会把它清掉
+    const previous = current.find((row) => row.name === name) ?? current[index];
+    const artKey = monster.artKey === undefined ? previous?.artKey : readArtKey(monster.artKey, `怪物「${name}」`);
+    if (artKey) {
+      out.artKey = artKey;
+    }
+    return out;
   });
 }
 
@@ -126,6 +168,20 @@ function readFirstClear(entries: BossInput["firstClear"], known: Set<string>): B
       }
       return { kind: "cultivation" as const, amount };
     }
+    if (entry.kind === "spiritStones") {
+      const amount = numberOf(entry.amount, "首通灵石");
+      if (!Number.isInteger(amount) || amount < 1) {
+        throw new AppError("INVALID_INPUT", "首通灵石要填不小于 1 的整数");
+      }
+      return { kind: "spiritStones" as const, amount };
+    }
+    if (entry.kind === "gear") {
+      const count = numberOf(entry.amount ?? entry.quantity ?? 1, "首通装备件数");
+      if (!Number.isInteger(count) || count < 1 || count > 10) {
+        throw new AppError("INVALID_INPUT", "首通装备件数要填 1 到 10 的整数");
+      }
+      return { kind: "gear" as const, count };
+    }
     const itemSlug = textOf(entry.itemId);
     if (!itemSlug || !known.has(itemSlug)) {
       throw new AppError("INVALID_INPUT", "首通奖励里选的物品或功法不存在");
@@ -161,15 +217,69 @@ function readRepeat(input: BossInput["repeat"], known: Set<string>): BossRepeatR
     }
     return { itemSlug, chanceBp: Math.round(percent * 100), minQty, maxQty };
   });
-  const out: BossRepeatReward = { gear: input.gear === true, extras };
+  // 单首领「橙装概率」第三批起停用（品质按首领规则「装备品质掉率」抽），保存时清掉；传了数值直接报错，免得以为生效了
   if (input.orangeChancePercent !== undefined && input.orangeChancePercent !== null) {
-    const percent = numberOf(input.orangeChancePercent, "橙装概率");
-    if (percent > 100) {
-      throw new AppError("INVALID_INPUT", "橙装概率不能超过 100%");
-    }
-    out.orangeChanceBp = Math.round(percent * 100);
+    throw new AppError("INVALID_INPUT", "「重复奖励橙装概率」已停用，请在首领规则的装备品质掉率里改橙装");
   }
-  return out;
+  return { gear: input.gear === true, extras };
+}
+
+/** 章节和顺序：不传保持原样；新关卡默认排在本章最后。 */
+async function readPlacement(db: Db, slug: string, input: StagePlacementInput, current: { chapterSlug: string | null; sortOrder: number } | null) {
+  let chapterSlug = current?.chapterSlug ?? null;
+  if (input.chapterSlug !== undefined) {
+    chapterSlug = textOf(input.chapterSlug) || null;
+    if (chapterSlug) {
+      const [chapter] = await db.select().from(contentChapters).where(eq(contentChapters.slug, chapterSlug)).limit(1);
+      if (!chapter) {
+        throw new AppError("INVALID_INPUT", "没有这个章节");
+      }
+    }
+  }
+  let sortOrder: number;
+  if (input.sortOrder !== undefined && input.sortOrder !== null) {
+    sortOrder = Number(input.sortOrder);
+    if (!Number.isInteger(sortOrder) || sortOrder < 0 || sortOrder > 100000) {
+      throw new AppError("INVALID_INPUT", "关卡顺序要填 0 到 100000 的整数");
+    }
+  } else if (current) {
+    sortOrder = current.sortOrder;
+  } else {
+    const rows = await db.select({ slug: contentStages.slug, sortOrder: contentStages.sortOrder }).from(contentStages);
+    sortOrder = rows.filter((row) => row.slug !== slug).reduce((max, row) => Math.max(max, row.sortOrder), 0) + 1;
+  }
+  return { chapterSlug, sortOrder };
+}
+
+/** 保存后这一关的首领是精英还是章末（按保存后的章节和顺序算）。没有章节的关卡单独算一章 = 章末。 */
+async function prospectiveTier(db: Db, slug: string, placement: { chapterSlug: string | null; sortOrder: number }): Promise<BossTier> {
+  if (!placement.chapterSlug) {
+    return "chief";
+  }
+  const [chapter] = await db.select().from(contentChapters).where(eq(contentChapters.slug, placement.chapterSlug)).limit(1);
+  const stages = (await db.select().from(contentStages)).filter((row) => row.slug !== slug);
+  const [own] = await db.select().from(contentStages).where(eq(contentStages.slug, slug)).limit(1);
+  stages.push({ ...(own ?? { slug, requiredRealmOrder: 0, enabled: true }), chapterSlug: placement.chapterSlug, sortOrder: placement.sortOrder } as (typeof stages)[number]);
+  const chief = chiefStageOf({ slug: placement.chapterSlug, chiefStageSlugSetting: chapter?.chiefStageSlug ?? null }, stages);
+  return chief === slug ? "chief" : "elite";
+}
+
+/** 首领规则的单关覆盖：传了才改（null = 全部恢复默认），按保存后的档次校验，只存和默认不同的项。 */
+async function applyBossRules(db: Db, slug: string, placement: { chapterSlug: string | null; sortOrder: number }, input: BossInput[] | undefined, bosses: StageBoss[]): Promise<StageBoss[]> {
+  const raw = input?.[0]?.rules;
+  if (raw === undefined || bosses.length === 0) {
+    return bosses;
+  }
+  const tier = await prospectiveTier(db, slug, placement);
+  const override = raw === null ? null : compactBossRuleOverride(raw, (await tuningFor(db)).bossRules[tier], tier);
+  const [first, ...rest] = bosses;
+  const next: StageBoss = { ...first! };
+  if (override) {
+    next.rules = override;
+  } else {
+    delete next.rules;
+  }
+  return [next, ...rest];
 }
 
 async function readBosses(db: Db, bosses: BossInput[] | undefined, current: StageBoss[] = []): Promise<StageBoss[]> {
@@ -222,6 +332,18 @@ async function readBosses(db: Db, bosses: BossInput[] | undefined, current: Stag
     if (previous?.reward) {
       out.reward = previous.reward;
     }
+    // 第三批字段：没传就保持原样（rules 在 applyBossRules 里另外校验和保存）
+    const artKey = boss.artKey === undefined ? previous?.artKey : readArtKey(boss.artKey, `首领「${name}」`);
+    if (artKey) {
+      out.artKey = artKey;
+    }
+    const statsCustom = boss.statsCustom === undefined ? previous?.statsCustom : readStatsCustom(boss.statsCustom);
+    if (statsCustom && statsCustom.length > 0) {
+      out.statsCustom = statsCustom;
+    }
+    if (previous?.rules) {
+      out.rules = previous.rules;
+    }
     if (firstClear && firstClear.length > 0) {
       out.firstClear = firstClear;
     }
@@ -230,6 +352,22 @@ async function readBosses(db: Db, bosses: BossInput[] | undefined, current: Stag
     }
     return out;
   });
+}
+
+/** 首领的第三批字段（后台抽屉用）：立绘、档次、规则覆盖 / 生效值、自动属性算出来的数。 */
+function bossExtrasView(boss: StageBoss, effective: NonNullable<ContentSnapshot["stages"][number]["bosses"]>[number] | undefined) {
+  return {
+    artKey: boss.artKey ?? null,
+    effectiveArtKey: effective?.artKey ?? null,
+    tier: effective?.tier ?? null,
+    ruleOverride: boss.rules ?? null,
+    ruleCustomCount: customRuleCount(boss.rules),
+    rules: effective?.rules ?? null,
+    statsCustom: boss.statsCustom ?? [],
+    statsAuto: effective?.statsAuto ?? false,
+    effectiveStats: effective ? { attack: effective.attack, defense: effective.defense, hp: effective.hp, interval: effective.interval } : null,
+    statsProblem: effective?.statsProblem ?? null,
+  };
 }
 
 type StagePowerView = {
@@ -289,10 +427,12 @@ function stageView(
   skills: { slug: string; displayName: string }[],
   power: StagePowerView,
   tuning: Tuning,
+  effective?: ContentSnapshot["stages"][number],
 ) {
   const realm = realms.find((candidate) => candidate.sortOrder === row.requiredRealmOrder);
   const nameOf = (slug: string) => items.find((candidate) => candidate.slug === slug)?.displayName || skills.find((candidate) => candidate.slug === slug)?.displayName || "名称缺失";
-  const bosses = (row.bosses ?? []).map((boss) => ({
+  const bosses = (row.bosses ?? []).map((boss, index) => ({
+    ...bossExtrasView(boss, effective?.bosses?.[index]),
     name: boss.name,
     attack: boss.attack,
     defense: boss.defense,
@@ -304,9 +444,11 @@ function stageView(
       return { itemId: drop.itemSlug, displayName: item?.displayName || skill?.displayName || "名称缺失", chancePercent: drop.chanceBp / 100 };
     }),
     firstClear: (boss.firstClear ?? []).map((entry) =>
-      entry.kind === "cultivation"
-        ? { kind: "cultivation", amount: entry.amount }
-        : { kind: "item", itemId: entry.itemSlug, quantity: entry.quantity, displayName: nameOf(entry.itemSlug) },
+      entry.kind === "cultivation" || entry.kind === "spiritStones"
+        ? { kind: entry.kind, amount: entry.amount }
+        : entry.kind === "gear"
+          ? { kind: "gear", amount: entry.count }
+          : { kind: "item", itemId: entry.itemSlug, quantity: entry.quantity, displayName: nameOf(entry.itemSlug) },
     ),
     repeat: boss.repeat
       ? {
@@ -319,6 +461,10 @@ function stageView(
   return {
     id: row.slug,
     displayName: row.displayName,
+    chapterSlug: row.chapterSlug ?? null,
+    sortOrder: row.sortOrder,
+    /** elite = 小首领（精英）/ chief = 章末大首领（按章节算出来的） */
+    tier: effective?.tier ?? null,
     realmCode: row.requiredRealmOrder,
     realmName: realm?.displayName ?? "",
     realmMissing: realm == null,
@@ -363,14 +509,16 @@ export async function listOpsStages(db: Db) {
     loadDraftSnapshot(db),
   ]);
   const tuning = world.globals.tuning ?? tuningOf(null);
+  // 按游戏顺序（章节顺序 → 关卡顺序），停用的和没章节的排在后面
+  const rank = new Map(orderedStages(world).map((stage, index) => [stage.slug, index]));
   return stages
-    .sort((left, right) => left.requiredRealmOrder - right.requiredRealmOrder || left.displayName.localeCompare(right.displayName, "zh"))
-    .map((row) => stageView(row, realms, items, skills, stagePowerOf(world, row.slug, row.recommendedPower), tuning));
+    .sort((left, right) => (rank.get(left.slug) ?? 1e9) - (rank.get(right.slug) ?? 1e9) || left.requiredRealmOrder - right.requiredRealmOrder || left.displayName.localeCompare(right.displayName, "zh"))
+    .map((row) => stageView(row, realms, items, skills, stagePowerOf(world, row.slug, row.recommendedPower), tuning, world.stages.find((stage) => stage.slug === row.slug)));
 }
 
 export async function createOpsStage(
   db: Db,
-  input: { displayName?: string; realmCode?: number; recommendedPower?: number | null; bosses?: BossInput[]; monsters?: MonsterInput[]; monsterDrop?: MonsterDropInput; designatedDrops?: DesignatedInput },
+  input: { displayName?: string; realmCode?: number; recommendedPower?: number | null; bosses?: BossInput[]; monsters?: MonsterInput[]; monsterDrop?: MonsterDropInput; designatedDrops?: DesignatedInput } & StagePlacementInput,
   adminId: string | null,
 ) {
   const displayName = textOf(input.displayName);
@@ -385,11 +533,12 @@ export async function createOpsStage(
   if (!realm) {
     throw new AppError("INVALID_INPUT", "没有这个境界");
   }
-  const bosses = await readBosses(db, input.bosses);
+  const slug = newId("s");
+  const placement = await readPlacement(db, slug, input, null);
+  const bosses = await applyBossRules(db, slug, placement, input.bosses, await readBosses(db, input.bosses));
   const monsters = readMonsters(input.monsters) ?? [];
   const monsterDrop = readMonsterDrop(input.monsterDrop, await tuningFor(db)) ?? null;
   const designatedDrops = readDesignated(input.designatedDrops, await gearMap(db)) ?? [];
-  const slug = newId("s");
   const now = new Date();
   const dropSlug = (suffix: string) => `${slug}_${suffix}`;
   await db.insert(contentDropTables).values([
@@ -401,7 +550,8 @@ export async function createOpsStage(
   await db.insert(contentStages).values({
     slug,
     displayName,
-    sortOrder: 0,
+    sortOrder: placement.sortOrder,
+    chapterSlug: placement.chapterSlug,
     nextStageSlug: null,
     requiredRealmOrder: realmCode,
     recommendedPower: readRecommendedPower(input.recommendedPower) ?? null,
@@ -426,7 +576,7 @@ export async function createOpsStage(
 export async function updateOpsStage(
   db: Db,
   id: string,
-  input: { displayName?: string; realmCode?: number; recommendedPower?: number | null; bosses?: BossInput[]; monsters?: MonsterInput[]; monsterDrop?: MonsterDropInput; designatedDrops?: DesignatedInput },
+  input: { displayName?: string; realmCode?: number; recommendedPower?: number | null; bosses?: BossInput[]; monsters?: MonsterInput[]; monsterDrop?: MonsterDropInput; designatedDrops?: DesignatedInput } & StagePlacementInput,
   adminId: string | null,
 ) {
   const [current] = await db.select().from(contentStages).where(eq(contentStages.slug, id)).limit(1);
@@ -445,8 +595,9 @@ export async function updateOpsStage(
   if (!realm) {
     throw new AppError("INVALID_INPUT", "没有这个境界");
   }
-  const bosses = await readBosses(db, input.bosses, current.bosses ?? []);
-  const monsters = readMonsters(input.monsters);
+  const placement = await readPlacement(db, id, input, current);
+  const bosses = await applyBossRules(db, id, placement, input.bosses, await readBosses(db, input.bosses, current.bosses ?? []));
+  const monsters = readMonsters(input.monsters, current.monsters ?? []);
   const monsterDrop = readMonsterDrop(input.monsterDrop, await tuningFor(db));
   const designatedDrops = readDesignated(input.designatedDrops, await gearMap(db));
   const first = bosses[0];
@@ -456,7 +607,9 @@ export async function updateOpsStage(
       displayName,
       requiredRealmOrder: realmCode,
       ...(readRecommendedPower(input.recommendedPower) === undefined ? {} : { recommendedPower: readRecommendedPower(input.recommendedPower) }),
-      // 关卡顺序 / 下一关不在这个接口里改，保持原值（以前会被清零；批次 3 分支有同样的修复）
+      // 顺序和章节决定解锁链和章末关：没传就保持原样（以前这里会把顺序清零、下一关清空）
+      sortOrder: placement.sortOrder,
+      chapterSlug: placement.chapterSlug,
       bossName: first?.name ?? "",
       bossAttack: first?.attack ?? 0,
       bossDefense: first?.defense ?? 0,

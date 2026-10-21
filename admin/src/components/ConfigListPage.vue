@@ -41,6 +41,7 @@
         :row-key="idKey"
         :row-class-name="({ row }: { row: Row }) => (drawer && String(row[idKey]) === editingId ? 'editing-row' : '')"
         class="grid"
+        :span-method="spanKey ? spanOf : undefined"
         @selection-change="(value: Row[]) => (selection = value)"
         @row-click="(row: Row, column: { type?: string; property?: string }) => column.type !== 'selection' && column.property !== '__actions' && openEdit(row)"
         @sort-change="onSort"
@@ -183,6 +184,8 @@ const props = withDefaults(
     drawerSubtitle?: (form: Row) => string;
     /** 抽屉标题，例如「编辑关卡：黑风岭·一」（不传按 entityName + 名称） */
     titleOf?: (form: Row, mode: "create" | "edit") => string;
+    /** 按这一列分组：相邻同值的行合并成一格（例如关卡按章节）。只合并这一列，排序后不相邻就不合并。 */
+    spanKey?: string;
   }>(),
   { drawerSize: 800, pageSize: 20, savedMessage: "已保存到草稿", refreshDraft: true, exportName: "export" },
 );
@@ -253,6 +256,15 @@ const filtered = computed(() => {
 });
 
 const pageRows = computed(() => filtered.value.slice((page.value - 1) * props.pageSize, page.value * props.pageSize));
+
+function spanOf({ row, column, rowIndex }: { row: Row; column: { property?: string }; rowIndex: number }): { rowspan: number; colspan: number } {
+  if (!props.spanKey || column.property !== props.spanKey) return { rowspan: 1, colspan: 1 };
+  const list = pageRows.value;
+  if (rowIndex > 0 && list[rowIndex - 1]?.[props.spanKey] === row[props.spanKey]) return { rowspan: 0, colspan: 0 };
+  let span = 1;
+  while (list[rowIndex + span]?.[props.spanKey] === row[props.spanKey]) span += 1;
+  return { rowspan: span, colspan: 1 };
+}
 watch([query, filterValues, () => props.rows], () => {
   page.value = 1;
 });

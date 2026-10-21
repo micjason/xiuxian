@@ -1,10 +1,10 @@
 class_name StagePage
 extends VBoxContainer
-## 历练页（Q 版设计稿 q_adventure，底栏第二格）：
-## 上半是挂机刷怪的场景（黑风岭背景、打坐的主角、正在刷的怪、本波进度圆点、击杀时飘「+修为」）；
-## 下面是章节条 + 挂机地点下拉、关卡卡一排（每个已解锁关卡的怪 / 首领 / 下一个未解锁关卡）、
-## 选中关卡的详情（怪物属性、推荐战力、掉落预览、首领首通奖励），最底下固定「自动挑战」开关（暂未开放）和「挑战」。
-## 点「挑战」进入首领战界面（BattlePage）；只有选中有首领的关卡才有挑战按钮。数值都来自后台配置和 /me/state。
+## 历练页（Q 版设计稿 q_adventure / q_adventure_stages，底栏第二格）：
+## 上半是挂机刷怪的场景（章节背景、打坐的主角、正在刷的怪、本波进度圆点、击杀时飘「+修为」）；
+## 下面是挂机地点下拉、章节页签、竖排关卡卡（第三批 SPEC_Q §14.5：每关 = 挂机小怪 + 精英 / 章末首领，
+## 解锁看服务器 stageAccess，卡上直接有「挑战 / 再战 / 未解锁」按钮）。原来底部的「自动挑战」开关拿掉了
+## （自动挑战改成后台按首领规则在结算里打，结果用提示告诉玩家）。数值都来自后台配置和 /me/state。
 
 signal stage_selected(slug: String)
 signal challenge_requested(slug: String)
@@ -15,17 +15,15 @@ signal back_requested
 ## 页面区左上角在画布上的位置（紧凑顶栏 152 + 刘海 90 + 8，左右边距 24）。
 const ORIGIN := Vector2(24, 250)
 const SCENE_HEIGHT := 712.0
-const CARD_SIZE := Vector2(236, 296)
 ## 挂机打小怪特效（anim_q/battle_idle，README 第 1 步）：飞剑出手、命中、伤害数字、击杀溶解、灵气、「+N 修为」、掉落飞进背包。
 const IdleBattle := preload("res://anim_q/battle_idle/idle_battle.tscn")
 
 var _state: Dictionary = {}
 var _content: Dictionary = {}
-var _stages: Array[Dictionary] = []
-## 最近一个还没解锁的关卡（带锁图标显示）：{stage, realm, boss, monster, power}；没有就是空字典。
-var _locked_stage: Dictionary = {}
-## 当前境界之上最近一个有首领的关卡：{stage, boss, realm, power}。没有首领可打时用它说明“哪个境界解锁哪个首领”。
-var _locked_next: Dictionary = {}
+## StageAccessView.chapters 的结果（章节 → 关卡卡数据）。
+var _chapters: Array[Dictionary] = []
+## 当前打开的章节页签 slug。
+var _tab := ""
 var selected := ""
 var busy := false
 var _dropdown_open := false
@@ -43,6 +41,12 @@ var _hero: Control
 var _last_kills := -1
 var _elapsed := 0.0
 
+var _preview: Button
+var _preview_art: TextureRect
+var _preview_plate: TextureRect
+var _preview_power: Label
+var _preview_slug := ""
+
 var _stage_view: ScrollContainer
 var _stages_sig := 0
 ## 本波圆点两种样式（亮 / 暗）只建一次；原来每帧给每个圆点新建 StyleBox，整页每帧重绘。
@@ -50,10 +54,9 @@ var _pip_on: StyleBox
 var _pip_off: StyleBox
 var _pip_lit := -1
 var _stage_box: VBoxContainer
-## 「挑战」按钮固定在页面底部（紧贴标签栏上方），详情在它上面滚动。
-var _challenge_bar: HBoxContainer
+## 选中关卡卡上的挑战按钮（测试用）；全部卡的按钮按 slug。
 var _challenge_button: Button
-var _auto_toggle: Button
+var _challenge_buttons := {}
 
 
 func _init() -> void:
@@ -68,9 +71,6 @@ func _init() -> void:
 	_stage_box = UiKit.vbox(18)
 	_stage_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_stage_view.add_child(_stage_box)
-	_challenge_bar = UiKit.hbox(UiTokens.SP_2)
-	_challenge_bar.name = "ChallengeBar"
-	add_child(_challenge_bar)
 	var orb_room := Control.new()
 	orb_room.custom_minimum_size = Vector2(0, 96)
 	orb_room.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -137,7 +137,7 @@ func _build_scene() -> void:
 	_at(hero, Rect2(54, 520, 300, 300))
 	_hero = hero
 	# 原来 (470,600) 的装饰飞剑去掉了：特效里自带会飞的剑（battle_idle/art/sword.png）。
-	# 怪物（远处小一只 + 目标一只，都朝左）：贴图按当前关卡的怪物名在 _render_scene 里查（ArtLib.monster_sprite_id）
+	# 怪物（远处小一只 + 目标一只，都朝左）：贴图按当前怪物的 artKey 在 _render_scene 里查（ArtLib.monster_sprite_for）
 	_monster_far = _sprite("", Rect2(412, 450, 166, 166), true)
 	_monster_far.modulate = Color(1, 1, 1, 0.9)
 	_monster = _sprite("", Rect2(560, 510, 340, 370), true)
@@ -161,20 +161,135 @@ func _build_scene() -> void:
 	_monster_hp = QKit.bar(1.0, UiTokens.Q_RED, 30, 1, UiTokens.Q_TRACK, "red") as QBar
 	_monster_hp.name = "MonsterHp"
 	_at(_monster_hp, Rect2(756, 444, 170, 30))
+	_build_preview()
 
 
-## stages = 当前境界已解锁的全部关卡（有首领的和只刷怪的）；locked_stage = 下一个未解锁关卡；
-## locked_boss = 之上最近的首领关（见 _locked_next）。
-func bind(state: Dictionary, content: Dictionary, stages: Array[Dictionary], selected_slug: String, locked_boss: Dictionary = {}, locked_stage: Dictionary = {}) -> void:
+## 精英预览小卡（SPEC_Q §14.5：884,630,170,230）：挂机所在关的精英 / 章末首领立绘 + 名牌 + 「战力 N」，点了 = 挑战。
+## 只在这关首领现在能打、而且打了有东西拿的时候显示（没首通，或还有今日奖励次数）。
+func _build_preview() -> void:
+	_preview = Button.new()
+	_preview.name = "ElitePreview"
+	_preview.focus_mode = Control.FOCUS_NONE
+	var box := QSkin.custom(Color(1.0, 0.973, 0.925, 0.94), UiTokens.Q_COCOA, 4, 28, 6, 0, 0)
+	for state in ["normal", "hover", "pressed", "disabled"]:
+		_preview.add_theme_stylebox_override(state, box)
+	_preview.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+	_at(_preview, Rect2(884, 630, 170, 230))
+	_preview_art = TextureRect.new()
+	_preview_art.name = "PreviewArt"
+	_preview_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_preview_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_preview_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_preview_art.position = Vector2(19, 8)
+	_preview_art.size = Vector2(132, 150)
+	_preview.add_child(_preview_art)
+	_preview_plate = TextureRect.new()
+	_preview_plate.name = "PreviewPlate"
+	_preview_plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_preview_plate.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_preview_plate.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_preview_plate.position = Vector2(19, 146)
+	_preview_plate.size = Vector2(132, 42)
+	_preview.add_child(_preview_plate)
+	_preview_power = QKit.title("", 24, UiTokens.Q_RED, HORIZONTAL_ALIGNMENT_CENTER)
+	_preview_power.name = "PreviewPower"
+	_preview_power.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_preview_power.position = Vector2(0, 190)
+	_preview_power.size = Vector2(170, 34)
+	_preview.add_child(_preview_power)
+	_preview.pressed.connect(func() -> void:
+		if not _preview_slug.is_empty() and not busy:
+			challenge_requested.emit(_preview_slug))
+	_preview.visible = false
+
+
+func _render_preview() -> void:
+	var idle := str(_wave().get("stageSlug", ""))
+	var card := {}
+	var fx := "default"
+	for chapter in _chapters:
+		for row in chapter.cards:
+			if str(row.slug) == idle:
+				card = row
+				fx = str(chapter.boss_fx)
+	_preview_slug = ""
+	var action := StageAccessView.button(card, _state) if not card.is_empty() else {}
+	var shown := not card.is_empty() and bool(action.get("enabled", false)) and str(action.get("kind", "")) == "o"
+	_preview.visible = shown
+	if not shown:
+		return
+	_preview_slug = str(card.slug)
+	var chief := str(card.tier) == "chief"
+	_preview_art.texture = preview_texture(str(card.boss_art), chief, fx, str(card.boss_name))
+	_preview_plate.texture = ArtLib.qui("plate_chief" if chief else "plate_elite")
+	_preview_power.text = "战力 %d" % int(card.recommended) if int(card.recommended) > 0 else ""
+	_preview.tooltip_text = "挑战%s「%s」" % ["章末首领" if chief else "精英", str(card.boss_name)]
+
+
+## 预览小卡的立绘：预渲染的 elite_<artKey> / chief_<artKey>（赤炎章节先找 *_chiyan），没有就用普通立绘。
+static func preview_texture(art_key: String, chief: bool, fx: String, boss_name: String) -> Texture2D:
+	var base := ("chief_" if chief else "elite_") + art_key
+	for name in ([base + "_" + fx, base] if fx != "default" else [base]):
+		if not art_key.is_empty() and ArtLib.has_q("sprites/%s.png" % name):
+			return ArtLib.q("sprites/" + name)
+	var sprite := ArtLib.monster_sprite_for({"artKey": art_key if not art_key.is_empty() else null, "name": boss_name})
+	return ArtLib.q("sprites/" + sprite) if not sprite.is_empty() else null
+
+
+## 供测试：预览小卡（不显示时 visible = false）和它对应的关卡。
+func preview_card() -> Button:
+	return _preview
+
+
+func preview_slug() -> String:
+	return _preview_slug
+
+
+## 第三批：关卡列表按章节分组、能不能打看服务器 stageAccess（StageAccessView 算好每张卡）。
+## selected_slug = 选中（高亮、展开奖励）的关卡。
+func bind(state: Dictionary, content: Dictionary, selected_slug: String) -> void:
 	_state = state
 	_content = content
-	_stages = stages
-	_locked_next = locked_boss
-	_locked_stage = locked_stage
+	_chapters = StageAccessView.chapters(content, state)
 	selected = selected_slug
+	# 页签跟着选中的关卡走（点页签时 select_tab 会把选中换到那一章，两边一致）。
+	var own := StageAccessView.chapter_of(_chapters, selected)
+	if not own.is_empty():
+		_tab = str(own.slug)
+	elif _tab.is_empty() or not _has_chapter(_tab):
+		_tab = StageAccessView.default_chapter(_chapters, str(_wave().get("stageSlug", "")))
 	_elapsed = 0.0
 	_render_scene()
+	_render_preview()
 	_render_stages_if_changed()
+
+
+func _has_chapter(slug: String) -> bool:
+	for chapter in _chapters:
+		if str(chapter.slug) == slug:
+			return true
+	return false
+
+
+## 当前打开的章节页签。
+func current_tab() -> String:
+	return _tab
+
+
+## 切章节页签（点页签 / 测试用）。选中关卡跟着换到这一章默认的那关。
+func select_tab(slug: String) -> void:
+	if slug == _tab or not _has_chapter(slug):
+		return
+	_tab = slug
+	var chapter: Dictionary = {}
+	for row in _chapters:
+		if str(row.slug) == slug:
+			chapter = row
+	var pick := StageAccessView.default_stage([chapter] as Array[Dictionary])
+	if not pick.is_empty():
+		selected = pick
+		stage_selected.emit(pick)
+	_render_stages()
 
 
 ## 心跳每次都会 bind；列表内容没变就不重建（v14：原来每次心跳都整列重建，
@@ -188,16 +303,16 @@ func _render_stages_if_changed() -> void:
 
 func _stages_signature() -> int:
 	var wave := _wave()
-	return hash([_stages, selected, _locked_next, _locked_stage, int(_state.get("power", 0)), str(_state.get("realmName", "")),
+	return hash([_chapters, selected, _tab, int(_state.get("power", 0)), str(_state.get("realmName", "")),
 		wave.get("stageSlug", null), wave.get("chosenStageSlug", null), wave.get("selectable", []),
-		_state.get("breakthrough", null), _state.get("challengeCooldownSeconds", null), _state.get("bossDaily", null),
+		_state.get("challengeCooldownSeconds", null), _state.get("bossDaily", null),
 		busy, _dropdown_open])
 
 
 func set_busy(value: bool) -> void:
 	busy = value
+	_preview.disabled = value
 	_render_stages()
-
 
 func _wave() -> Dictionary:
 	return _state.get("wave", {}) if typeof(_state.get("wave", null)) == TYPE_DICTIONARY else {}
@@ -212,7 +327,8 @@ func _render_scene() -> void:
 	_monster_chip.text = monster_name
 	_monster_chip.get_parent().visible = not monster_name.is_empty()
 	_monster_hp.visible = not monster_name.is_empty()
-	var sprite := ArtLib.monster_sprite_id(monster_name)
+	var mon_row: Dictionary = wave.get("monster", {}) if typeof(wave.get("monster", null)) == TYPE_DICTIONARY else {}
+	var sprite := ArtLib.monster_sprite_for({"artKey": mon_row.get("artKey", null), "name": monster_name})
 	var tex: Texture2D = ArtLib.q("sprites/" + sprite) if not sprite.is_empty() else (ArtLib.icon(ArtLib.boss_icon_name(monster_name)) if not monster_name.is_empty() else null)
 	_monster.texture = tex
 	_monster_far.texture = tex
@@ -288,44 +404,38 @@ func set_bag_target(point: Vector2) -> void:
 func battle_fx() -> Node2D:
 	return _battle_fx
 
-
 func _render_stages() -> void:
 	_stages_sig = _stages_signature()
 	var keep_scroll := _stage_view.scroll_vertical
-	var cards := _stage_box.find_child("StageCards", false, false) as ScrollContainer
-	var keep_cards := cards.scroll_horizontal if cards != null else 0
 	UiKit.clear(_stage_box)
-	UiKit.clear(_challenge_bar)
 	_challenge_button = null
-	var power := int(_state.get("power", 0))
+	_challenge_buttons.clear()
 	_stage_box.add_child(_idle_card())
-	_stage_box.add_child(_cards_row(power))
-	var current := _find(selected)
-	if not current.is_empty():
-		_stage_box.add_child(_detail_card(current, power))
-	elif _stages.is_empty():
+	if _chapters.is_empty():
 		var empty := QKit.panel()
-		empty.panel.name = "StageDetailCard"
-		empty.body.add_child(UiKit.wrap_label("这个境界还没有开放的关卡。", UiTokens.FS_BODY, UiTokens.TEXT_MUTED))
+		empty.panel.name = "NoStages"
+		empty.body.add_child(UiKit.wrap_label("还没有开放的关卡。", UiTokens.FS_BODY, UiTokens.TEXT_MUTED))
 		_stage_box.add_child(empty.panel)
-	_build_challenge_bar(current)
-	_restore_scroll.call_deferred(keep_scroll, keep_cards)
+		return
+	_stage_box.add_child(_chapter_tabs())
+	var list := UiKit.vbox(16)
+	list.name = "StageCards"
+	_stage_box.add_child(list)
+	var power := int(_state.get("power", 0))
+	for chapter in _chapters:
+		if str(chapter.slug) != _tab:
+			continue
+		for card_data in chapter.cards:
+			list.add_child(_stage_card(card_data, power))
+	_restore_scroll.call_deferred(keep_scroll)
 
 
-func _restore_scroll(value: int, cards_value: int = 0) -> void:
+func _restore_scroll(value: int) -> void:
 	await get_tree().process_frame
 	if is_instance_valid(_stage_view):
 		_stage_view.scroll_vertical = value
-		var cards := _stage_box.find_child("StageCards", false, false) as ScrollContainer
-		if cards != null:
-			cards.scroll_horizontal = cards_value
 
-
-static func _has_boss(stage: Dictionary) -> bool:
-	return not (stage.get("bosses", []) as Array).is_empty()
-
-
-## 章节条（设计稿 36,962,1008,100）：章节名 + 「挂机地点」下拉（服务器 wave.selectable / chosenStageSlug，null = 自动）。
+## 挂机地点条（设计稿 36,962,1008,100）：境界 + 「挂机地点」下拉（服务器 wave.selectable / chosenStageSlug，null = 自动）。
 ## 点下拉展开选项列表（就在章节条下面），选了发 idle_stage_requested。
 func _idle_card() -> Control:
 	var wave := _wave()
@@ -338,9 +448,7 @@ func _idle_card() -> Control:
 	(bar.body as VBoxContainer).alignment = BoxContainer.ALIGNMENT_CENTER
 	(bar.body as VBoxContainer).size_flags_vertical = Control.SIZE_EXPAND_FILL
 	bar.body.add_child(row)
-	var chapter := str(_stages[0].get("displayName", "")).get_slice("·", 0) if not _stages.is_empty() else str(_state.get("realmName", ""))
-	row.add_child(QKit.title(chapter, 44, UiTokens.TEXT))
-	row.add_child(UiKit.label("%s" % str(_state.get("realmName", "")), UiTokens.FS_MICRO, UiTokens.TEXT_MUTED))
+	row.add_child(QKit.title(str(_state.get("realmName", "")), 40, UiTokens.TEXT))
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(spacer)
@@ -400,160 +508,233 @@ func _idle_card() -> Control:
 			list.body.add_child(button)
 	return box
 
-
-## 关卡卡一排（横向可滑）：每个已解锁关卡一张（怪物），有首领的关卡再加一张首领卡，最后是下一个未解锁关卡的锁定卡。
-func _cards_row(power: int) -> Control:
-	var scroll := ScrollContainer.new()
-	scroll.name = "StageCards"
-	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	scroll.custom_minimum_size = Vector2(0, CARD_SIZE.y + 30)
+## 章节页签（SPEC_Q §14.5）：当前章橙色、已解锁奶油色、未解锁灰色带锁和条件（不可点）。
+func _chapter_tabs() -> Control:
 	var row := UiKit.hbox(12)
-	row.name = "CardRow"
-	row.custom_minimum_size = Vector2(0, CARD_SIZE.y + 24)
-	scroll.add_child(row)
-	var cards: Array[Control] = []
-	for stage in _stages:
-		cards.append(_stage_card(stage))
-	for stage in _stages:
-		if _has_boss(stage):
-			cards.append(_boss_card(stage, power))
-	if not _locked_stage.is_empty():
-		cards.append(_locked_card(_locked_stage))
-	for index in cards.size():
-		if index > 0:
-			var link := QKit.cut_rect("btn_next_connector", Vector2(40, 40))
-			link.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-			row.add_child(link)
-		row.add_child(cards[index])
-	return scroll
+	row.name = "ChapterTabs"
+	for chapter in _chapters:
+		var slug := str(chapter.slug)
+		var on := slug == _tab
+		var open := bool(chapter.unlocked)
+		var tab := Button.new()
+		tab.name = "ChapterTab_%s" % (slug if not slug.is_empty() else "other")
+		tab.focus_mode = Control.FOCUS_NONE
+		tab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		tab.custom_minimum_size = Vector2(0, 96)
+		var fill := UiTokens.Q_ORANGE if on else (UiTokens.Q_CREAM if open else Color("d9d0c6"))
+		var box := QSkin.custom(fill, UiTokens.Q_COCOA, 4, 30, 5, 12, 4)
+		for state in ["normal", "hover", "pressed", "disabled"]:
+			tab.add_theme_stylebox_override(state, box)
+		tab.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+		tab.clip_contents = true
+		var column := UiKit.vbox(0)
+		column.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		column.alignment = BoxContainer.ALIGNMENT_CENTER
+		column.set_anchors_preset(Control.PRESET_FULL_RECT)
+		tab.add_child(column)
+		var text := str(chapter.name) if open else "🔒 " + str(chapter.name)
+		var label := QKit.outlined(text, 38, UiTokens.Q_WHITE, UiTokens.Q_COCOA, 8, HORIZONTAL_ALIGNMENT_CENTER) if on else QKit.title(text, 38, UiTokens.TEXT if open else UiTokens.TEXT_DISABLED, HORIZONTAL_ALIGNMENT_CENTER)
+		label.clip_text = true
+		column.add_child(label)
+		if not open and not str(chapter.lock_text).is_empty():
+			var hint := UiKit.label(str(chapter.lock_text).replace("击败章末首领", "需击败").replace("击败精英", "需击败").replace("「", "").replace("」", ""), 24, UiTokens.TEXT_DISABLED, HORIZONTAL_ALIGNMENT_CENTER)
+			hint.clip_text = true
+			column.add_child(hint)
+		tab.disabled = not open
+		tab.pressed.connect(func() -> void: select_tab(slug))
+		row.add_child(tab)
+	return row
 
 
-func _card_shell(name: String, cut: String, chosen: bool) -> Dictionary:
-	var button := Button.new()
-	button.name = name
-	button.focus_mode = Control.FOCUS_NONE
-	button.custom_minimum_size = CARD_SIZE + Vector2(0, 6)
-	button.size_flags_vertical = Control.SIZE_SHRINK_END
-	var box: StyleBox
-	if ArtLib.qui(cut) != null:
-		box = QKit.cut_box(cut, 10, 10)
-	else:
-		box = QSkin.custom(Color("ffe9b8") if chosen else UiTokens.Q_CARD, UiTokens.Q_COCOA, 4, 28, 6, 10, 10)
-	for state in ["normal", "hover", "pressed", "disabled"]:
-		button.add_theme_stylebox_override(state, box)
-	button.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
-	if chosen:
-		button.custom_minimum_size = CARD_SIZE + Vector2(0, 22)
-	var column := UiKit.vbox(6)
-	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	column.alignment = BoxContainer.ALIGNMENT_CENTER
-	column.set_anchors_preset(Control.PRESET_FULL_RECT)
-	column.offset_left = 10
-	column.offset_right = -10
-	column.offset_top = 12
-	column.offset_bottom = -16
-	button.add_child(column)
-	return {"button": button, "column": column}
-
-
-func _stage_card(stage: Dictionary) -> Control:
-	var slug := str(stage.get("slug", ""))
-	var chosen := slug == selected and not _has_boss(stage)
-	var idle_here := slug == str(_wave().get("stageSlug", ""))
-	var shell := _card_shell("Stage_%s" % slug, "card_current_gold" if chosen else "card_apricot", chosen)
-	var column := shell.column as VBoxContainer
-	var title := QKit.title(str(stage.get("displayName", slug)), 30, UiTokens.Q_ORANGE_DARK if chosen else UiTokens.TEXT_MUTED, HORIZONTAL_ALIGNMENT_CENTER)
-	title.clip_text = true
-	column.add_child(title)
-	column.add_child(QKit.portrait(_monster_name(stage), 136))
-	var name := QKit.title(_monster_name(stage), 32, UiTokens.TEXT, HORIZONTAL_ALIGNMENT_CENTER)
-	name.clip_text = true
-	column.add_child(name)
-	var chip := QKit.tag("挂机中" if idle_here else "可挂机", "orange" if idle_here else "mint", 30, 14)
-	chip.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	column.add_child(chip)
-	(shell.button as Button).pressed.connect(func() -> void: stage_selected.emit(slug))
-	return shell.button
-
-
-## 首领卡：首领立绘 + 「首领」+ 名字 + 状态（已击败 / 可挑战，已击败来自服务器的突破关卡 cleared）。
-func _boss_card(stage: Dictionary, power: int) -> Control:
-	var slug := str(stage.get("slug", ""))
+## 竖排关卡卡（SPEC_Q §14.5）：怪物头像（挂机）▶ 首领头像（精英蓝环 / 章末首领橙环）+ 关卡名、首领、推荐战力、
+## 解锁条件（✓/✗）、今日奖励次数、按钮（挑战 / 再战 / 未解锁）。选中的卡加金框，展开首通 / 重复奖励。
+func _stage_card(card_data: Dictionary, power: int) -> Control:
+	var slug := str(card_data.slug)
 	var chosen := slug == selected
-	var shell := _card_shell("Boss_%s" % slug, "card_current_gold" if chosen else "card_apricot", chosen)
-	var column := shell.column as VBoxContainer
-	column.add_child(QKit.title("首领", 30, UiTokens.Q_ORANGE_DARK if chosen else UiTokens.TEXT_MUTED, HORIZONTAL_ALIGNMENT_CENTER))
-	column.add_child(QKit.portrait(_boss_name(stage), 136, UiTokens.Q_ORANGE))
-	var name := QKit.title(_boss_name(stage), 32, UiTokens.TEXT, HORIZONTAL_ALIGNMENT_CENTER)
-	name.clip_text = true
-	column.add_child(name)
-	var tag := _tag_text(stage)
-	var status := power_status(power, int(stage.get("recommendedPower", 0)))
-	var chip := QKit.tag(tag if not tag.is_empty() else "可挑战", "mint" if not tag.is_empty() else ("orange" if str(status.level) != "bad" else "red"), 30, 14)
-	chip.name = "Tag"
-	chip.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	column.add_child(chip)
-	var badge := QKit.tag("BOSS", "badge_orange", 30, 14)
-	badge.name = "BossBadge"
-	badge.position = Vector2(CARD_SIZE.x - 96, -18)
-	badge.rotation = deg_to_rad(6)
-	(shell.button as Button).add_child(badge)
-	(shell.button as Button).pressed.connect(func() -> void: stage_selected.emit(slug))
-	return shell.button
-
-
-## 卡片右上角的小标签：真实状态才显示（已击败只来自服务器的突破关卡 cleared），不编造。
-func _tag_text(stage: Dictionary) -> String:
-	var gate: Variant = (_state.get("breakthrough", {}) as Dictionary).get("requiredStage", null) if typeof(_state.get("breakthrough", null)) == TYPE_DICTIONARY else null
-	if typeof(gate) == TYPE_DICTIONARY and str((gate as Dictionary).get("slug", "")) == str(stage.get("slug", "")) and bool((gate as Dictionary).get("cleared", false)):
-		return "已击败 ✓"
-	return ""
-
-
-## 下一个还没解锁的关卡：灰色卡片 + 锁 + 解锁条件（不可点）。
-func _locked_card(info: Dictionary) -> Control:
-	var shell := _card_shell("LockedStageCard", "card_locked", false)
-	var button := shell.button as Button
-	button.disabled = true
-	button.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var column := shell.column as VBoxContainer
-	var has_boss := not str(info.get("boss", "")).is_empty()
-	var title := QKit.title(str(info.get("stage", "")), 30, UiTokens.TEXT_MUTED, HORIZONTAL_ALIGNMENT_CENTER)
+	var chief := str(card_data.tier) == "chief"
+	var playable := bool(card_data.playable)
+	var idle_here := slug == str(_wave().get("stageSlug", ""))
+	var action := StageAccessView.button(card_data, _state)
+	var cut := "card_locked" if not playable else ("card_current_gold" if chosen else ("card_chief" if chief else "card_apricot"))
+	var shell := Button.new()
+	shell.name = "Stage_%s" % slug
+	shell.focus_mode = Control.FOCUS_NONE
+	var box: StyleBox = QKit.cut_box(cut, 22, 18) if ArtLib.qui(cut) != null else QSkin.custom(Color("ffe9b8") if chosen else UiTokens.Q_CARD, UiTokens.Q_COCOA, 4, 28, 6, 22, 18)
+	for state in ["normal", "hover", "pressed", "disabled"]:
+		shell.add_theme_stylebox_override(state, box)
+	shell.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+	shell.pressed.connect(func() -> void: stage_selected.emit(slug))
+	var margin := MarginContainer.new()
+	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
+	for side in ["left", "right"]:
+		margin.add_theme_constant_override("margin_" + side, 24)
+	for side in ["top", "bottom"]:
+		margin.add_theme_constant_override("margin_" + side, 18)
+	shell.add_child(margin)
+	var outer := UiKit.vbox(10)
+	outer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	margin.add_child(outer)
+	var row := UiKit.hbox(12)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	outer.add_child(row)
+	# 头像：小怪（挂机）▶ 首领
+	var mon := QKit.portrait(str(card_data.monster_name), 96, UiTokens.Q_MINT, not playable, str(card_data.monster_art))
+	mon.name = "MonsterPortrait"
+	if idle_here:
+		var tag := QKit.tag("挂机", "orange", 24, 10)
+		tag.position = Vector2(4, 64)
+		mon.clip_children = CanvasItem.CLIP_CHILDREN_DISABLED
+		mon.add_child(tag)
+	row.add_child(mon)
+	row.add_child(QKit.title("▶", 30, UiTokens.TEXT_MUTED))
+	var ring := Color("f08a24") if chief else Color("4c8fd6")
+	var boss_size := 156 if chief else 128
+	var boss := QKit.portrait(str(card_data.boss_name), boss_size, ring, not playable, str(card_data.boss_art))
+	boss.name = "BossPortrait"
+	if not playable:
+		var lock := QKit.lock_icon(56)
+		QKit.center_in(lock, lock.custom_minimum_size)
+		boss.add_child(lock)
+	row.add_child(boss)
+	# 文字列
+	var info := UiKit.vbox(4)
+	info.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(info)
+	var head := UiKit.hbox(8)
+	head.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	info.add_child(head)
+	var title := QKit.title(str(card_data.name), 38, UiTokens.TEXT if playable else UiTokens.TEXT_MUTED)
 	title.clip_text = true
-	column.add_child(title)
-	var who := str(info.get("boss", "")) if has_boss else str(info.get("monster", ""))
-	var portrait := QKit.portrait(who, 136, Color("b9ada2"), true)
-	var lock := QKit.lock_icon(64)
-	QKit.center_in(lock, lock.custom_minimum_size)
-	portrait.add_child(lock)
-	column.add_child(portrait)
-	var what := ("首领 %s" % who) if has_boss else who
-	var name := QKit.title(what, 30, UiTokens.TEXT_MUTED, HORIZONTAL_ALIGNMENT_CENTER)
-	name.clip_text = true
-	column.add_child(name)
-	var unlock := QKit.title("%s解锁" % str(info.get("realm", "更高境界")), 30, UiTokens.Q_RED, HORIZONTAL_ALIGNMENT_CENTER)
-	unlock.clip_text = true
-	column.add_child(unlock)
-	return button
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(title)
+	var tier_tag := QKit.tag("章末首领" if chief else "精英", "orange" if chief else "blue", 24, 12)
+	tier_tag.name = "TierTag"
+	head.add_child(tier_tag)
+	var boss_name := QKit.title(str(card_data.boss_name), 32, UiTokens.Q_RED if chief else UiTokens.TEXT)
+	boss_name.clip_text = true
+	info.add_child(boss_name)
+	var recommended := int(card_data.recommended)
+	if recommended > 0:
+		var status := power_status(power, recommended)
+		var colour := UiTokens.Q_MINT_DARK if str(status.level) == "ok" else (UiTokens.Q_ORANGE_DARK if str(status.level) == "warn" else UiTokens.Q_RED)
+		var line := UiKit.label("推荐战力 %d %s" % [recommended, str(status.symbol)], 28, colour if playable and not bool(card_data.cleared) else UiTokens.TEXT_MUTED)
+		line.name = "PowerLine"
+		info.add_child(line)
+	if not playable:
+		for need in card_data.needs_lines:
+			var need_row := UiKit.hbox(6)
+			need_row.name = "Need"
+			need_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			need_row.add_child(QKit.check(bool(need.ok), 32))
+			need_row.add_child(UiKit.label(str(need.text), 26, UiTokens.Q_MINT_DARK if bool(need.ok) else UiTokens.Q_RED))
+			info.add_child(need_row)
+	# 右列：状态 + 次数 + 按钮
+	var side := UiKit.vbox(6)
+	side.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	side.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_child(side)
+	if bool(card_data.cleared):
+		var done := QKit.tag("已击败 ✓", "mint", 24, 10)
+		done.name = "ClearedChip"
+		done.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		side.add_child(done)
+	var day := StageAccessView.daily(card_data, _state)
+	if not day.is_empty() and (bool(card_data.cleared) or chief):
+		var chip := QKit.tag("今日 %d/%d" % [int(day.left), int(day.limit)], "cream" if int(day.left) > 0 else "red", 24, 10)
+		chip.name = "DailyChip"
+		chip.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		side.add_child(chip)
+	var button := QKit.button(str(action.text), str(action.kind), 100, 38)
+	button.name = "Challenge_%s" % slug
+	button.custom_minimum_size.x = 200
+	button.disabled = busy or not bool(action.enabled)
+	button.tooltip_text = "挑战%s「%s」" % ["章末首领" if chief else "精英", str(card_data.boss_name)]
+	button.pressed.connect(func() -> void: challenge_requested.emit(slug))
+	side.add_child(button)
+	_challenge_buttons[slug] = button
+	if chosen:
+		_challenge_button = button
+	if not str(action.sub).is_empty():
+		var sub := UiKit.label(str(action.sub), 24, UiTokens.TEXT_MUTED, HORIZONTAL_ALIGNMENT_CENTER)
+		sub.name = "ButtonSub"
+		side.add_child(sub)
+	if chosen and playable:
+		info.add_child(_reward_row(card_data))
+	var height := 230.0 if not playable else 250.0
+	if chief:
+		height += 30.0
+	if chosen and playable:
+		height += 70.0
+	shell.custom_minimum_size = Vector2(0, height)
+	return shell
 
 
-func _find(slug: String) -> Dictionary:
-	for stage in _stages:
-		if str(stage.get("slug", "")) == slug:
-			return stage
-	return {}
+## 选中卡展开的奖励行（设计稿 q_adventure_stages：文字列里一行「首通奖励」+ 小格子，数量写在格子角上，不写名字，名字在悬停提示里）。
+## 没首通 = 首通奖励（修为 / 灵石 / 物品 / 随机装备）；打过 = 重复掉落（首领装备 + 额外物品概率）。
+func _reward_row(card_data: Dictionary) -> Control:
+	var row := UiKit.hbox(8)
+	row.name = "RewardRow"
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var first := not bool(card_data.cleared)
+	var label := UiKit.label("首通奖励" if first else "掉落", 26, UiTokens.Q_ORANGE_DARK if first else UiTokens.TEXT_MUTED)
+	label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(label)
+	var slots := UiKit.hbox(8)
+	slots.name = "DropSlots"
+	slots.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(slots)
+	if first:
+		for reward in card_data.first_clear:
+			if typeof(reward) != TYPE_DICTIONARY:
+				continue
+			var data := reward as Dictionary
+			var kind := str(data.get("kind", ""))
+			match kind:
+				"cultivation":
+					_reward_slot(slots, _q_icon("icons/tab_cultivate"), 3, CultivationFormat.amount(float(data.get("amount", 0))), "修为 +%s" % CultivationFormat.amount(float(data.get("amount", 0))), "FirstClearCultivation")
+				"spiritStones":
+					_reward_slot(slots, _q_icon("icons/res_stone"), 1, str(int(data.get("amount", 0))), "灵石 +%d" % int(data.get("amount", 0)), "FirstClearStones")
+				"gear":
+					var count := int(data.get("count", 1))
+					_reward_slot(slots, _gear_icon("weapon"), 2, "×%d" % count if count > 1 else "", "随机装备 ×%d" % count)
+				_:
+					var slug := str(data.get("itemSlug", ""))
+					var view := QKit.reward_view(_content, slug)
+					var qty := int(data.get("quantity", 1))
+					_reward_slot(slots, view.texture, int(view.rarity), "×%d" % qty if qty > 1 else "", str(view.name))
+	else:
+		var repeat: Variant = card_data.repeat
+		var rules: Dictionary = card_data.rules
+		if not bool(rules.get("repeatRewards", true)):
+			slots.add_child(UiKit.label("再战没有奖励", 26, UiTokens.TEXT_MUTED))
+		elif typeof(repeat) == TYPE_DICTIONARY:
+			if bool((repeat as Dictionary).get("gear", false)):
+				var pct: Dictionary = rules.get("gearQualityPct", {}) if typeof(rules.get("gearQualityPct", null)) == TYPE_DICTIONARY else {}
+				var orange := int(pct.get("orange", 0))
+				_reward_slot(slots, _gear_icon("helmet"), 4 if orange > 0 else 2, ("橙%d%%" % orange) if orange > 0 else "", "首领装备")
+			for extra in (repeat as Dictionary).get("extras", []):
+				if typeof(extra) == TYPE_DICTIONARY:
+					var item := str((extra as Dictionary).get("itemSlug", ""))
+					var view := QKit.reward_view(_content, item)
+					_reward_slot(slots, view.texture, int(view.rarity), "%d%%" % int(round(float((extra as Dictionary).get("chanceBp", 0)) / 100.0)), str(view.name))
+	if slots.get_child_count() == 0:
+		slots.add_child(UiKit.label("没有奖励", 26, UiTokens.TEXT_MUTED))
+	return row
 
 
-## 当前境界没有首领可挑战时的说明。挂机地点里列的是普通关卡（只刷怪、没有首领），
-## 两者不矛盾：首领关要到更高的境界才解锁。
-static func empty_text(realm_name: String, locked_next: Dictionary) -> String:
-	var head := "%s还没有首领可以挑战。" % realm_name if not realm_name.is_empty() else "当前境界还没有首领可以挑战。"
-	if locked_next.is_empty():
-		return head + "上面「挂机地点」里的关卡只刷小怪，会自动刷。"
-	var text := head + "突破到「%s」后解锁「%s」的首领「%s」" % [str(locked_next.get("realm", "更高境界")), str(locked_next.get("stage", "")), str(locked_next.get("boss", ""))]
-	if int(locked_next.get("power", 0)) > 0:
-		text += "（推荐战力 %d）" % int(locked_next.get("power", 0))
-	return text + "。现在可以先选「挂机地点」刷怪积累修为。"
+## 奖励小格子（64）：数量 / 概率写在格子右下角，名字放提示。
+func _reward_slot(row: HBoxContainer, tex: Texture2D, rarity: int, corner: String, tip: String, node_name: String = "") -> void:
+	var slot := QKit.slot(tex, rarity, 64, corner, "", Color.WHITE)
+	slot.tooltip_text = tip
+	if not node_name.is_empty():
+		slot.name = node_name
+	row.add_child(slot)
+
+
+static func _q_icon(path: String) -> Texture2D:
+	return ArtLib.q(path) if ArtLib.has_q(path + ".png") else null
 
 
 ## 战力对比：用文字+符号表达，不只靠颜色。
@@ -567,180 +748,17 @@ static func power_status(mine: int, recommended: int) -> Dictionary:
 	return {"text": "战力差距大", "symbol": "✖", "level": "bad"}
 
 
-static func _boss_name(stage: Dictionary) -> String:
-	var bosses: Array = stage.get("bosses", [])
-	return str((bosses[0] as Dictionary).get("name", "")) if not bosses.is_empty() and typeof(bosses[0]) == TYPE_DICTIONARY else ""
-
-
-static func _monster_name(stage: Dictionary) -> String:
-	var monsters: Array = stage.get("monsters", [])
-	return str((monsters[0] as Dictionary).get("name", "")) if not monsters.is_empty() and typeof(monsters[0]) == TYPE_DICTIONARY else "怪物"
-
-
-## 选中关卡的详情（设计稿 36,1410,1008,462）：怪物、每只修为、属性与推荐战力、我的战力、掉落预览；
-## 有首领时加首领属性与首通奖励；没有首领时写明首领在哪个境界解锁（NoBossHint）。
-func _detail_card(stage: Dictionary, power: int) -> Control:
-	var card := QKit.panel(UiTokens.Q_CREAM, 34, 28, 22)
-	card.panel.name = "StageDetailCard"
-	var body := card.body as VBoxContainer
-	body.add_theme_constant_override("separation", 12)
-	var has_boss := _has_boss(stage)
-	var monsters: Array = stage.get("monsters", [])
-	var monster: Dictionary = monsters[0] if not monsters.is_empty() and typeof(monsters[0]) == TYPE_DICTIONARY else {}
-	var head := UiKit.hbox(12)
-	body.add_child(head)
-	head.add_child(QKit.portrait(_monster_name(stage), 64))
-	var title := QKit.title("%s · %s" % [str(stage.get("displayName", "")), _monster_name(stage)], 42, UiTokens.TEXT)
-	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	title.clip_text = true
-	head.add_child(title)
-	if monster.has("killCultivation"):
-		head.add_child(UiKit.label("每只修为 +%d" % int(monster.get("killCultivation", 0)), UiTokens.FS_MICRO, UiTokens.TEXT_MUTED))
-	var parts: Array[String] = []
-	for entry in [["气血", "hp"], ["攻击", "attack"], ["防御", "defense"]]:
-		if monster.has(entry[1]):
-			parts.append("%s %d" % [entry[0], int(monster[entry[1]])])
-	var stats := UiKit.hbox(12)
-	body.add_child(stats)
-	var stat_line := UiKit.label(" · ".join(parts), UiTokens.FS_MICRO, UiTokens.TEXT)
-	stat_line.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	stats.add_child(stat_line)
-	stats.add_child(UiKit.label("我的战力 %d" % power, UiTokens.FS_MICRO, UiTokens.Q_ORANGE_DARK, HORIZONTAL_ALIGNMENT_RIGHT))
-	var drops := QKit.inset(UiTokens.Q_CARD, 26, 22, 14)
-	drops.panel.name = "DropPreview"
-	body.add_child(drops.panel)
-	var drop_head := UiKit.hbox(8)
-	drops.body.add_child(drop_head)
-	var label := QKit.title("掉落预览", 32, UiTokens.TEXT_MUTED)
-	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	drop_head.add_child(label)
-	var slots := UiKit.hbox(18)
-	slots.name = "DropSlots"
-	drops.body.add_child(slots)
-	var drop: Variant = stage.get("monsterDrop", null)
-	if typeof(drop) == TYPE_DICTIONARY and (drop as Dictionary).has("chanceBp"):
-		_slot_cell(slots, QKit.slot(_gear_icon("weapon"), 1, 104, "", "", Color.WHITE), "小怪装备", "%.1f%%" % (float((drop as Dictionary).get("chanceBp", 0)) / 100.0))
-	if has_boss:
-		_boss_rows(stage, body, slots, drop_head, power)
-	else:
-		var hint := UiKit.wrap_label(empty_text(str(_state.get("realmName", "")), _locked_next), UiTokens.FS_MICRO, UiTokens.Q_ORANGE_DARK)
-		hint.name = "NoBossHint"
-		body.add_child(hint)
-	if slots.get_child_count() == 0:
-		slots.add_child(UiKit.label("没有掉落", UiTokens.FS_MICRO, UiTokens.TEXT_MUTED))
-	return card.panel
-
-
-func _slot_cell(row: HBoxContainer, slot: Control, caption: String, corner: String = "", first: bool = false) -> void:
-	var cell := UiKit.vbox(2)
-	cell.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_child(cell)
-	cell.add_child(slot)
-	if not corner.is_empty():
-		var tag := QKit.outlined(corner, 30, UiTokens.Q_WHITE, UiTokens.Q_COCOA, 8, HORIZONTAL_ALIGNMENT_RIGHT)
-		tag.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-		tag.offset_top = -40
-		tag.offset_right = -6
-		slot.add_child(tag)
-	if first:
-		var badge := QKit.tag("首通", "red", 30, 10)
-		badge.position = Vector2(30, -14)
-		slot.add_child(badge)
-	var name := UiKit.label(caption, UiTokens.FS_MICRO, UiTokens.TEXT, HORIZONTAL_ALIGNMENT_CENTER)
-	name.custom_minimum_size = Vector2(120, 0)
-	name.clip_text = true
-	cell.add_child(name)
-
-
 ## 「随机装备」格子用的部位图（Q 版装备图标）。
 static func _gear_icon(slot_id: String) -> Texture2D:
 	var path := "items/gear_" + slot_id
 	return ArtLib.q(path) if ArtLib.has_q(path + ".png") else ArtLib.icon(ArtLib.slot_icon_name(slot_id))
 
 
-## 首领那部分：首领属性、推荐战力、重复掉落（装备 + 额外物品概率）、首通奖励（修为 + 物品，角标「首通」）。
-func _boss_rows(stage: Dictionary, body: VBoxContainer, slots: HBoxContainer, drop_head: HBoxContainer, power: int) -> void:
-	var bosses: Array = stage.get("bosses", [])
-	var boss: Dictionary = bosses[0] if not bosses.is_empty() and typeof(bosses[0]) == TYPE_DICTIONARY else {}
-	var recommended := int(stage.get("recommendedPower", 0))
-	var status := power_status(power, recommended)
-	var line := UiKit.hbox(10)
-	body.add_child(line)
-	body.move_child(line, 2)
-	var parts: Array[String] = ["首领 %s" % str(boss.get("name", ""))]
-	for entry in [["气血", "hp"], ["攻击", "attack"], ["防御", "defense"]]:
-		if boss.has(entry[1]):
-			parts.append("%s %d" % [entry[0], int(boss[entry[1]])])
-	var boss_line := UiKit.label(" · ".join(parts), UiTokens.FS_MICRO, UiTokens.TEXT)
-	boss_line.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	boss_line.clip_text = true
-	line.add_child(boss_line)
-	if recommended > 0:
-		var colour := UiTokens.Q_MINT_DARK if str(status.level) == "ok" else (UiTokens.Q_ORANGE_DARK if str(status.level) == "warn" else UiTokens.Q_RED)
-		line.add_child(UiKit.label("推荐战力 %d %s" % [recommended, str(status.symbol)], UiTokens.FS_MICRO, colour, HORIZONTAL_ALIGNMENT_RIGHT))
-	var repeat: Variant = boss.get("repeat", null)
-	if typeof(repeat) == TYPE_DICTIONARY:
-		if bool((repeat as Dictionary).get("gear", false)):
-			_slot_cell(slots, QKit.slot(_gear_icon("helmet"), 2, 104, "", "", Color.WHITE), "首领装备")
-		for extra in (repeat as Dictionary).get("extras", []):
-			if typeof(extra) == TYPE_DICTIONARY:
-				var slug := str((extra as Dictionary).get("itemSlug", ""))
-				var view := QKit.reward_view(_content, slug)
-				var qty := int((extra as Dictionary).get("maxQty", 1))
-				_slot_cell(slots, QKit.reward_slot(_content, slug, 104, qty), str(view.name), "%d%%" % int(round(float((extra as Dictionary).get("chanceBp", 0)) / 100.0)))
-	for reward in boss.get("firstClear", []):
-		if typeof(reward) != TYPE_DICTIONARY:
-			continue
-		if str((reward as Dictionary).get("kind", "")) == "cultivation":
-			var amount := QKit.title("首领首通：修为 +%s" % CultivationFormat.amount(float((reward as Dictionary).get("amount", 0))), 32, UiTokens.Q_ORANGE_DARK, HORIZONTAL_ALIGNMENT_RIGHT)
-			amount.name = "FirstClearCultivation"
-			drop_head.add_child(amount)
-			continue
-		var reward_slug := str((reward as Dictionary).get("itemSlug", ""))
-		var reward_view := QKit.reward_view(_content, reward_slug)
-		_slot_cell(slots, QKit.reward_slot(_content, reward_slug, 104, int((reward as Dictionary).get("quantity", 1))), str(reward_view.name), "", true)
-	var cooldown: Variant = _state.get("challengeCooldownSeconds", null)
-	if cooldown != null:
-		body.add_child(UiKit.label("挑战冷却 %s 秒" % str(cooldown), UiTokens.FS_MICRO, UiTokens.TEXT_MUTED))
-	if recommended > 0 and power < recommended:
-		body.add_child(UiKit.wrap_label("我的战力低于推荐值，可能打不过。可以先去背包换装备。", UiTokens.FS_MICRO, UiTokens.Q_ORANGE_DARK))
-
-
-## 底部固定一行（设计稿 y 1890）：「自动挑战」开关（还没有这个功能：展示，点了提示暂未开放）+「挑战」。
-func _build_challenge_bar(current: Dictionary) -> void:
-	var pill := PanelContainer.new()
-	pill.name = "AutoChallenge"
-	pill.custom_minimum_size = Vector2(330, 108)
-	pill.add_theme_stylebox_override("panel", QKit.cut_box("panel_pill_100", 24, 0) if ArtLib.qui("panel_pill_100") != null else QSkin.custom(UiTokens.Q_CREAM, UiTokens.Q_COCOA, 4, 50, 6, 24, 0))
-	var row := UiKit.hbox(12)
-	pill.add_child(row)
-	row.add_child(QKit.title("自动挑战", 36, UiTokens.TEXT))
-	_auto_toggle = QKit.toggle(false)
-	_auto_toggle.name = "AutoChallengeToggle"
-	_auto_toggle.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	LockedFeature.wire(_auto_toggle, "auto_challenge")
-	row.add_child(_auto_toggle)
-	_challenge_bar.add_child(pill)
-	var spacer := Control.new()
-	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_challenge_bar.add_child(spacer)
-	if current.is_empty() or not _has_boss(current):
-		return
-	var bosses: Array = current.get("bosses", [])
-	var boss: Dictionary = bosses[0] if not bosses.is_empty() and typeof(bosses[0]) == TYPE_DICTIONARY else {}
-	_challenge_button = QKit.button("挑战", "o", 100, 58)
-	_challenge_button.name = "StageChallengeButton"
-	_challenge_button.custom_minimum_size.x = 340
-	_challenge_button.tooltip_text = "挑战首领「%s」" % str(boss.get("name", ""))
-	_challenge_button.disabled = busy or boss.is_empty()
-	_challenge_button.pressed.connect(func() -> void: challenge_requested.emit(str(current.get("slug", ""))))
-	_challenge_bar.add_child(_challenge_button)
-
-
-## 供测试：固定在底部的挑战按钮（没选中首领关卡时为 null）。
+## 供测试：选中关卡卡上的挑战按钮（没有选中关卡时为 null）。
 func challenge_button() -> Button:
 	return _challenge_button
 
 
-func auto_toggle() -> Button:
-	return _auto_toggle
+## 供测试：某一关卡卡上的按钮。
+func challenge_button_for(slug: String) -> Button:
+	return _challenge_buttons.get(slug, null)

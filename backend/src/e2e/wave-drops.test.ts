@@ -2,7 +2,7 @@
 import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { buildApp } from "../app.js";
-import { playerItems, playerStates, players } from "../db/schema.js";
+import { playerItems, playerStageProgress, playerStates, players } from "../db/schema.js";
 import { applyPrototypeV12 } from "../modules/content/prototype-v12.js";
 import { withDb } from "../test/db.js";
 
@@ -109,6 +109,10 @@ describe("monster kill drops (5% per kill, regional quality weights, equal 6-slo
     await withDb(async (db) => {
       const { app, control, state, playerId } = await boot(db, "drop_d");
       await db.update(playerStates).set({ realmSlug: "zhuji_1" }).where(eq(playerStates.playerId, playerId));
+      // 第三批：要先打赢炼气三关的首领才解锁筑基一关
+      for (const stageSlug of ["lianqi_1", "lianqi_2", "lianqi_3"]) {
+        await db.insert(playerStageProgress).values({ playerId, stageSlug, unlockedAt: start, firstClearedAt: start, clearCount: 1 }).onConflictDoUpdate({ target: [playerStageProgress.playerId, playerStageProgress.stageSlug], set: { firstClearedAt: start, clearCount: 1 } });
+      }
       control.chance = 0;
       control.quality = 99999; // 50/35/13/2：最后一档是紫
       control.slot = 5;

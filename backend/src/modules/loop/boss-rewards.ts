@@ -2,15 +2,15 @@ import { and, eq, sql } from "drizzle-orm";
 import type { Tx } from "../../db/tx.js";
 import { playerItems, playerStageProgress, playerStates } from "../../db/schema.js";
 import { ensureSkillBook } from "../content/ops-content.js";
-import { dropMultsOf, rollBossRepeatGear } from "../content/monster-drops.js";
-import { bossOrangeChanceBp } from "../content/stage-defaults.js";
-import { tuningOf } from "../content/tuning.js";
+import { dropMultsOf, rollGearPiece } from "../content/monster-drops.js";
+import type { BossRuleSet } from "../content/boss-rules.js";
 import { rollDropTable } from "../content/roll-drops.js";
 import type { GameRules } from "../content/rules.js";
 import type { ContentSnapshot } from "../content/validate.js";
 import { rewardDayKey } from "../progress/day.js";
 import { AppError } from "../../shared/errors.js";
 import { grantItem } from "./bag.js";
+import { grantEquipment, type GrantSource } from "../player/grant.js";
 
 type World = ContentSnapshot & { version: number };
 type Stage = ContentSnapshot["stages"][number];
@@ -23,6 +23,8 @@ export type BossRewardOutcome = {
   drops: BossDrop[];
   /** 首通固定奖励里的修为（已入账）。 */
   cultivation: number;
+  /** 首通固定奖励里的灵石（已入账）。 */
+  spiritStones: number;
   firstClear: boolean;
   /** 重复挑战这次有没有奖励（今天前 N 次胜利才有）。 */
   rewarded: boolean;
@@ -36,15 +38,44 @@ export function usesRewardModel(boss: Boss | undefined): boolean {
   return Boolean(boss && ((boss.firstClear?.length ?? 0) > 0 || boss.repeat));
 }
 
-export function dailyUsed(progress: { dailyRewardCount: number; dailyRewardDay: string | null }, rules: GameRules, now: Date): number {
+export function dailyUsed(progress: { dailyRewardCount: number; dailyRewardDay: string | null }, rules: Pick<GameRules, "dayStartHour">, now: Date): number {
   return progress.dailyRewardDay === rewardDayKey(now, rules.dayStartHour) ? progress.dailyRewardCount : 0;
 }
 
+/** 「发放指定装备」的来源（ADMIN_SPEC §14）；首领这边只用这两个。 */
+export type BossGearSource = Extract<GrantSource, "boss_first" | "boss_repeat">;
+
 /**
- * 首领胜利后的奖励（设计表 2.6）：
- * - 首通：固定奖励（物品、功法书、修为），允许暂时超出行囊容量；首通不占每日奖励次数。
- * - 之后每天前 bossDailyRewardCount 次胜利：本境界阶装备 1 件（品质权重同本区域，白色并入绿色）+ 额外物品按各自概率掷；
- *   这些走行囊规则（满包自动分解 / 腾格 / 不掉）。超过次数仍可打，但没有奖励。
+ * 一场首领胜利的「战斗报告 id」（可重放）：玩家 + 关卡 + 这条进度记录的解锁时间 + 第几次胜利。
+ * 带上解锁时间是因为后台「清空玩家」会删掉进度记录、clear_count 从 0 重来，不带的话清空后的胜利会撞上清空前的发放单号。
+ */
+export function bossBattleId(playerId: string, stageSlug: string, progress: { unlockedAt: Date; clearCount: number }): string {
+  return `boss:${playerId}:${stageSlug}:${progress.unlockedAt.getTime()}:${progress.clearCount + 1}`;
+}
+
+/**
+ * 首领给装备都走这一个函数（抽中之后调用）→ 统一发放接口 grantEquipment（ADMIN_SPEC §14）。
+ * requestId = 战斗报告 id + 序号，同一场胜利重放不会重复发；行囊满照发、不自动分解；写 equipment_grants 流水。
+ */
+export async function grantBossEquipment(
+  tx: Tx,
+  input: { playerId: string; itemSlug: string; count: number; source: BossGearSource; stageSlug: string; battleId: string; index: number },
+) {
+  return grantEquipment(tx, {
+    playerId: input.playerId,
+    itemId: input.itemSlug,
+    count: input.count,
+    source: input.source,
+    sourceRef: input.stageSlug,
+    requestId: `${input.battleId}:${input.index}`,
+  });
+}
+
+/**
+ * 首领胜利后的奖励（第三批，规则见 content/boss-rules.ts，按首领档次 + 单关覆盖生效）：
+ * - 首通：首领的 firstClear 固定奖励（物品 / 功法书 / 修为 / 灵石 / 按「装备品质掉率」抽装备），允许暂时超出行囊容量；不占每日次数。
+ * - 重打：规则「重打给奖励」开着、每日次数 > 0 且今天没用完时，给 repeat 奖励（装备按「装备品质掉率」抽 + 额外物品各自掷），
+ *   额外物品走行囊规则；装备走统一发放接口（行囊满照发、不自动分解）。用完了（或不给重打奖励）仍可打，但没有奖励。
  * 日期按北京时间、每天 dayStartHour 点换天。
  */
 export async function grantBossRewards(
@@ -54,30 +85,21 @@ export async function grantBossRewards(
   input: {
     stage: Stage;
     boss: Boss;
-    progress: { firstClearedAt: Date | null; dailyRewardCount: number; dailyRewardDay: string | null };
+    progress: { unlockedAt: Date; firstClearedAt: Date | null; clearCount: number; dailyRewardCount: number; dailyRewardDay: string | null };
     rules: GameRules;
+    bossRules: BossRuleSet;
     autoDecompose: boolean;
     capacity: number;
     now: Date;
     randomInt: RandomInt;
   },
 ): Promise<BossRewardOutcome> {
-  const { stage, boss, progress, rules, now } = input;
-  const outcome: BossRewardOutcome = { drops: [], cultivation: 0, firstClear: !progress.firstClearedAt, rewarded: false, dailyRewardCount: 0, dailyRewardLimit: rules.bossDailyRewardCount, bagFull: false };
+  const { stage, boss, progress, rules, bossRules, now } = input;
+  const limit = bossRules.repeatRewards ? bossRules.dailyRewardLimit : 0;
+  const outcome: BossRewardOutcome = { drops: [], cultivation: 0, spiritStones: 0, firstClear: !progress.firstClearedAt, rewarded: false, dailyRewardCount: 0, dailyRewardLimit: limit, bagFull: false };
   const source = `drop:${stage.slug}`;
-  const put = async (itemSlug: string, quantity: number, overflow: boolean, designated = false) => {
-    const skill = world.skills.find((row) => row.slug === itemSlug);
-    if (skill) {
-      const bookSlug = await ensureSkillBook(tx, { slug: skill.slug, displayName: skill.displayName ?? "名称缺失" }, null);
-      await tx.insert(playerItems).values({ playerId, itemSlug: bookSlug, isStack: false, quantity: 1, source, acquiredAt: now });
-      outcome.drops.push({ itemSlug: bookSlug, quantity: 1 });
-      return;
-    }
-    if (!world.items.some((item) => item.slug === itemSlug)) {
-      throw new AppError("INVALID_INPUT", "有一件奖励已经不在后台");
-    }
-    const granted = await grantItem(tx, world, playerId, itemSlug, quantity, source, now, { autoDecompose: input.autoDecompose, capacity: input.capacity, overflow });
-    const drop: BossDrop = designated ? { itemSlug, quantity, designated: true } : { itemSlug, quantity };
+  const battleId = bossBattleId(playerId, stage.slug, progress);
+  const record = (drop: BossDrop, granted: Awaited<ReturnType<typeof grantItem>>) => {
     if (granted.decomposed > 0) {
       drop.decomposed = true;
       drop.enhanceExp = granted.enhanceExp;
@@ -91,6 +113,37 @@ export async function grantBossRewards(
       outcome.bagFull = true;
     }
     outcome.drops.push(drop);
+  };
+  const put = async (itemSlug: string, quantity: number, overflow: boolean, designated = false) => {
+    const skill = world.skills.find((row) => row.slug === itemSlug);
+    if (skill) {
+      const bookSlug = await ensureSkillBook(tx, { slug: skill.slug, displayName: skill.displayName ?? "名称缺失" }, null);
+      await tx.insert(playerItems).values({ playerId, itemSlug: bookSlug, isStack: false, quantity: 1, source, acquiredAt: now });
+      outcome.drops.push({ itemSlug: bookSlug, quantity: 1 });
+      return;
+    }
+    if (!world.items.some((item) => item.slug === itemSlug)) {
+      throw new AppError("INVALID_INPUT", "有一件奖励已经不在后台");
+    }
+    const granted = await grantItem(tx, world, playerId, itemSlug, quantity, source, now, { autoDecompose: input.autoDecompose, capacity: input.capacity, overflow });
+    record(designated ? { itemSlug, quantity, designated: true } : { itemSlug, quantity }, granted);
+  };
+  const majorKey = world.realms.find((row) => row.sortOrder === stage.requiredRealmOrder)?.majorKey;
+  const multOf = dropMultsOf(world.items, world.realms);
+  /** 按首领规则的装备品质掉率抽一件本境界阶装备并发放。 */
+  const rollAndGrant = async (kind: BossGearSource, index: number) => {
+    if (!majorKey) {
+      throw new AppError("INVALID_INPUT", `关卡「${stage.displayName ?? stage.slug}」的境界没有大境界编号，发不了装备`);
+    }
+    const piece = rollGearPiece(majorKey, bossRules.gearQualityPct, input.randomInt, multOf);
+    if (!piece) {
+      return;
+    }
+    if (!world.items.some((item) => item.slug === piece.slug)) {
+      throw new AppError("INVALID_INPUT", `装备 ${piece.slug} 不在后台，发不了`);
+    }
+    const granted = await grantBossEquipment(tx, { playerId, itemSlug: piece.slug, count: 1, source: kind, stageSlug: stage.slug, battleId, index });
+    outcome.drops.push({ itemSlug: piece.slug, quantity: granted.length });
   };
 
   /** 指定掉落（首领首通 / 首领有奖励的重打）：每条单独按概率抽。 */
@@ -107,23 +160,34 @@ export async function grantBossRewards(
   };
 
   if (!progress.firstClearedAt) {
+    let gearIndex = 0;
     for (const entry of boss.firstClear ?? []) {
       if (entry.kind === "cultivation") {
         outcome.cultivation += entry.amount;
+      } else if (entry.kind === "spiritStones") {
+        outcome.spiritStones += entry.amount;
+      } else if (entry.kind === "gear") {
+        for (let n = 0; n < entry.count; n += 1) {
+          await rollAndGrant("boss_first", gearIndex);
+          gearIndex += 1;
+        }
       } else {
         await put(entry.itemSlug, entry.quantity, true);
       }
     }
     await rollDesignated("boss_first", true);
-    if (outcome.cultivation > 0) {
-      await tx.update(playerStates).set({ cultivation: sqlAdd(outcome.cultivation) }).where(eq(playerStates.playerId, playerId));
+    if (outcome.cultivation > 0 || outcome.spiritStones > 0) {
+      await tx
+        .update(playerStates)
+        .set({ cultivation: sql`${playerStates.cultivation} + ${outcome.cultivation}`, spiritStones: sql`${playerStates.spiritStones} + ${outcome.spiritStones}` })
+        .where(eq(playerStates.playerId, playerId));
     }
     return outcome;
   }
 
   const used = dailyUsed(progress, rules, now);
   outcome.dailyRewardCount = used;
-  if (!boss.repeat || used >= rules.bossDailyRewardCount) {
+  if (!boss.repeat || limit <= 0 || used >= limit) {
     return outcome;
   }
   outcome.rewarded = true;
@@ -132,13 +196,8 @@ export async function grantBossRewards(
     .update(playerStageProgress)
     .set({ dailyRewardCount: used + 1, dailyRewardDay: rewardDayKey(now, rules.dayStartHour) })
     .where(and(eq(playerStageProgress.playerId, playerId), eq(playerStageProgress.stageSlug, stage.slug)));
-  const majorKey = world.realms.find((row) => row.sortOrder === stage.requiredRealmOrder)?.majorKey;
-  if (boss.repeat.gear && majorKey && stage.monsterDrop) {
-    const orangeBp = bossOrangeChanceBp(boss.repeat, world.globals.tuning ?? tuningOf(null));
-    const piece = rollBossRepeatGear(majorKey, stage.monsterDrop.qualityWeights, orangeBp, input.randomInt, dropMultsOf(world.items, world.realms));
-    if (piece && world.items.some((item) => item.slug === piece.slug)) {
-      await put(piece.slug, 1, false);
-    }
+  if (boss.repeat.gear && majorKey) {
+    await rollAndGrant("boss_repeat", 0);
   }
   const extras = rollDropTable(
     boss.repeat.extras.map((extra) => ({ itemSlug: extra.itemSlug, chanceBp: extra.chanceBp, minQty: extra.minQty, maxQty: extra.maxQty })),
@@ -149,8 +208,4 @@ export async function grantBossRewards(
   }
   await rollDesignated("boss_repeat", false);
   return outcome;
-}
-
-function sqlAdd(amount: number) {
-  return sql`${playerStates.cultivation} + ${amount}`;
 }

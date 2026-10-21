@@ -80,16 +80,20 @@ export function stagePowerErrors(world: ContentSnapshot): { slug: string; messag
       errors.push({ slug: stage.slug, message: cause.message });
     }
   }
-  const orders = [...new Set(priced.map((row) => row.realmOrder))].sort((left, right) => left - right);
-  for (let index = 1; index < orders.length; index += 1) {
-    const lower = priced.filter((row) => row.realmOrder === orders[index - 1]);
-    const strongest = lower.reduce((best, row) => (row.power > best.power ? row : best));
-    for (const row of priced.filter((candidate) => candidate.realmOrder === orders[index])) {
-      if (row.power <= strongest.power) {
-        errors.push({
-          slug: row.stage.slug,
-          message: `推荐战力 ${row.power} 不高于低一个境界的关卡「${strongest.stage.displayName ?? strongest.stage.slug}」的 ${strongest.power}`,
-        });
+  // 只在同一档首领之间比（第三批：精英按小怪 × 倍率自动算，章末首领是手填的，两档本来就不在一条曲线上）
+  for (const tier of ["elite", "chief"] as const) {
+    const group = priced.filter((row) => (row.stage.tier ?? "chief") === tier);
+    const orders = [...new Set(group.map((row) => row.realmOrder))].sort((left, right) => left - right);
+    for (let index = 1; index < orders.length; index += 1) {
+      const lower = group.filter((row) => row.realmOrder === orders[index - 1]);
+      const strongest = lower.reduce((best, row) => (row.power > best.power ? row : best));
+      for (const row of group.filter((candidate) => candidate.realmOrder === orders[index])) {
+        if (row.power <= strongest.power) {
+          errors.push({
+            slug: row.stage.slug,
+            message: `推荐战力 ${row.power} 不高于低一个境界的关卡「${strongest.stage.displayName ?? strongest.stage.slug}」的 ${strongest.power}`,
+          });
+        }
       }
     }
   }

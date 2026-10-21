@@ -18,6 +18,17 @@ const ULT_LAUNCH := 0.48    ## 大招：剑扇停留到第一把剑射出的时�
 const ULT_STAGGER := 0.05
 const MonsterRig := preload("res://anim_q/battle_idle/monster_rig.gd")
 
+## 首领档次（每关只设这一个）：1 = 精英（每关首领，本关小怪放大 + 金边，金色「精英来袭」、不压暗、震屏减半）；
+## 2 = 章末大首领（红边 + 火焰光圈 + 红名牌，红色压暗 +「首领来袭」，震屏全额）。
+## 由关卡数据决定：tier = BossBattleFx.tier_for_boss(boss 字典)（见 README）。0 = 普通怪外观（一般不用）。
+@export_enum("普通:0", "精英:1", "章末首领:2") var tier := 2:
+	set(v):
+		tier = v
+		if is_node_ready():
+			boss.tier = tier
+			_layout()
+## 精英的所有震屏乘这个系数（约减半）
+@export var elite_shake_scale := 0.5
 @export var shake_light := 5.0      ## 普攻、首领攻击
 @export var shake_medium := 9.0     ## 首领落地
 @export var shake_strong := 16.0    ## 只有大招
@@ -120,6 +131,7 @@ var _dust_t := 9.0
 var _magic_t := 9.0
 
 var _tex_warn: Texture2D = preload("res://anim_q/battle_boss/art/banner_warning.png")
+var _tex_elite: Texture2D = preload("res://anim_q/battle_boss/art/banner_elite.png")
 var _tex_win: Texture2D = preload("res://anim_q/battle_boss/art/banner_win.png")
 var _tex_lose: Texture2D = preload("res://anim_q/battle_boss/art/banner_lose.png")
 
@@ -146,6 +158,7 @@ func _ready() -> void:
 		_lines.append(l as Sprite2D)
 	$Front/SpeedLines.visible = false
 	boss.attack_impact.connect(_on_boss_impact)
+	boss.tier = tier
 	for n in [_hit, _hero_hit, _crescent, _dust, _big, _alert, _banner, _land, _tele, _magic]:
 		(n as CanvasItem).visible = false
 	_sword.visible = false
@@ -153,6 +166,20 @@ func _ready() -> void:
 	_vignette.modulate.a = 0.0
 	if _attach_pending:
 		_do_attach.call_deferred()
+
+
+## 关卡首领字典 → tier。优先用数据里的字段（tier / kind / type："elite" 或 "chief"/"boss"）；
+## 没有字段时按名字：「精英·xxx」= 精英，其他 = 章末大首领（现有数据里的黑风熊王等）。
+static func tier_for_boss(boss_data: Dictionary) -> int:
+	for key in ["tier", "kind", "type", "bossType"]:
+		var v := str(boss_data.get(key, "")).to_lower()
+		if v in ["normal", "0"]:
+			return 0
+		if v in ["elite", "精英", "1"]:
+			return 1
+		if v in ["chief", "boss", "chapter_boss", "首领", "2"]:
+			return 2
+	return 1 if str(boss_data.get("name", "")).begins_with("精英") else 2
 
 
 func _notification(what: int) -> void:
@@ -196,6 +223,8 @@ func set_boss_from_art() -> void:
 	boss.set_texture(boss_art.texture if boss_art is TextureRect else null, (boss_art as TextureRect).flip_h if boss_art is TextureRect else false)
 	_boss_spr.self_modulate = boss_art.modulate
 	boss_art.visible = false
+	boss.tier = tier
+	_layout()
 	reset()
 
 
@@ -249,7 +278,8 @@ func _layout() -> void:
 		_hero_base = (hero as Node2D).position
 	if boss_art != null:
 		_boss_rect = boss_art.get_rect()
-	boss.box = _boss_rect.size
+	# 精英会被怪物模板放大 1.2 倍（脚底不动、往上长）：框的宽度先除以 1.2，放大后不会超出页面原来的首领框左右
+	boss.box = Vector2(_boss_rect.size.x / 1.2, _boss_rect.size.y) if tier == 1 else _boss_rect.size
 	boss._fit()
 	boss.position = _boss_rect.get_center()
 	_dim.size = _size
@@ -338,9 +368,12 @@ func play_intro() -> void:
 	_layout()
 	_intro_t = 0.0
 	_intro_landed = false
-	_dim_target = 0.32
-	_vig_target = 0.5
-	_show_banner(_tex_warn, 0.85)
+	var elite := tier != 2
+	# 精英：金色横幅、不压暗不泛红、金色落点圈；章末首领：红色压暗 + 暗角 +「首领来袭」
+	_dim_target = 0.0 if elite else 0.32
+	_vig_target = 0.0 if elite else 0.5
+	_land.self_modulate = Color(1.0, 0.86, 0.4) if elite else Color.WHITE
+	_show_banner(_tex_elite if elite else _tex_warn, 0.85)
 	_alert.visible = true
 	_alert.scale = Vector2.ZERO
 	_land.visible = true
@@ -375,6 +408,8 @@ func _show_banner(tex: Texture2D, hold: float) -> void:
 
 
 func _kick_shake(amp: float, dur: float) -> void:
+	if tier != 2:
+		amp *= elite_shake_scale
 	if _shake <= 0.0 or amp >= _shake_amp:
 		_shake_amp = amp
 	_shake = maxf(_shake, dur)

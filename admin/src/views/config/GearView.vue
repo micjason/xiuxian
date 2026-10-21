@@ -406,7 +406,7 @@ type StageDrop = {
   bosses: {
     name: string;
     tier: "elite" | "chief" | null;
-    rules: { repeatRewards: boolean; dailyRewardLimit: number; gearQualityPct: Record<string, number> } | null;
+    rules: { repeatRewards: boolean; gearQualityPct: Record<string, number>; repeatGearQualityPct?: Record<string, number>; idleSpawn?: boolean; idleSpawnWaves?: number } | null;
     firstClear: { kind: string; amount?: number }[];
     repeat: { gear: boolean } | null;
   }[];
@@ -697,18 +697,21 @@ const dropRows = computed(() => {
         unit: "只",
       });
     }
-    // 首领给的装备按首领规则的「装备品质掉率」抽（配置概览 → 首领规则；关卡可单独覆盖），不再有单独的橙装概率
+    // 首领给的装备按首领规则的「首通 / 重复奖励装备品质」抽（配置概览 → 首领规则；关卡可单独覆盖）。第四批：一套规则
     const boss = stage.bosses[0];
     const pct = boss?.rules?.gearQualityPct;
     if (boss && pct) {
       const quality = (pct[row.quality] ?? 0) / 100;
-      const label = boss.tier === "chief" ? "章末首领" : "精英";
+      const repeatPct = boss.rules?.repeatGearQualityPct ?? pct;
+      const repeatQuality = (repeatPct[row.quality] ?? 0) / 100;
+      const label = "首领";
       const firstGear = boss.firstClear.filter((entry) => entry.kind === "gear").reduce((sum, entry) => sum + (entry.amount ?? 0), 0);
       if (firstGear > 0) {
         out.push({ stage: stage.displayName, source: `${label} ${boss.name} 首通（${firstGear} 件）`, drop: 1, quality, unit: "次首通" });
       }
-      if (boss.repeat?.gear && boss.rules?.repeatRewards && boss.rules.dailyRewardLimit > 0) {
-        out.push({ stage: stage.displayName, source: `${label} ${boss.name} 重复奖励（每天 ${boss.rules.dailyRewardLimit} 次）`, drop: 1, quality, unit: "次胜利" });
+      if (boss.repeat?.gear && boss.rules?.repeatRewards && repeatQuality > 0) {
+        const idle = boss.rules.idleSpawn ? `；挂机每 ${boss.rules.idleSpawnWaves} 波 1 次` : "";
+        out.push({ stage: stage.displayName, source: `${label} ${boss.name} 重复奖励（手动重打占每日次数${idle}）`, drop: 1, quality: repeatQuality, unit: "次胜利" });
       }
     }
   }

@@ -211,7 +211,7 @@
             </FormRow>
           </SectionCard>
 
-          <SectionCard title="首领" anchor="sec-boss" :desc="tierOf(form as StageForm) === 'chief' ? '本章最后一关：章末大首领，属性默认手填' : '普通关卡：小首领（精英），属性默认 = 本关普通怪 × 倍率'">
+          <SectionCard title="首领" anchor="sec-boss" desc="每关一个首领、一套规则（配置概览 · 首领规则）；章末关只是外观不同">
             <template #extra>
               <TierTag :tier="tierOf(form as StageForm)" long />
             </template>
@@ -223,7 +223,7 @@
               :power-of="(boss: BossRow) => bossPowerOf(boss, (form as StageForm).realmCode)"
               :weights="weights"
               :tier="tierOf(form as StageForm)"
-              :defaults="bossRules[tierOf(form as StageForm)]"
+              :defaults="bossRules"
               :monster="(form as StageForm).monsters[0] ?? null"
               @trial="openTrial"
               @open-overview="goOverviewBoss"
@@ -248,7 +248,7 @@ import ArtKeySelect from "../../components/ArtKeySelect.vue";
 import type { BossRow, BossStatKey, FirstClearRow } from "../../components/BossEditor.vue";
 import BossEditor from "../../components/BossEditor.vue";
 import TierTag from "../../components/TierTag.vue";
-import { cloneRules, loadBossRules, loadChapters, type BossRuleOverride, type BossRules, type BossTier, type ChapterRow } from "../../composables/bossRules";
+import { FALLBACK_BOSS_RULES, cloneRules, loadBossRules, loadChapters, type BossRuleOverride, type BossRules, type BossTier, type ChapterRow } from "../../composables/bossRules";
 import ConfigListPage from "../../components/ConfigListPage.vue";
 import CustomTag from "../../components/CustomTag.vue";
 import DrawerAnchors from "../../components/DrawerAnchors.vue";
@@ -332,11 +332,6 @@ const QUALITIES = [
   { key: "purple", name: "紫", color: "#8a5bb8" },
   { key: "orange", name: "橙", color: "#d9822b" },
 ] as const;
-/** 读不到首领规则时的占位（和服务端 DEFAULT_BOSS_RULES 一样） */
-const FALLBACK_RULES: BossRules = {
-  elite: { statMode: "auto", statMul: { hp: 5, attack: 1.3, defense: 1.2 }, allowRepeat: true, repeatRewards: false, dailyRewardLimit: 0, gearQualityPct: { white: 0, green: 70, blue: 25, purple: 5, orange: 0 }, autoChallenge: true, autoChallengePowerPct: 100, autoChallengeRetrySeconds: 60, unlockNeedsBossWin: true, unlockNeedsRealm: true },
-  chief: { statMode: "manual", statMul: { hp: 8.5, attack: 1.15, defense: 1.2 }, allowRepeat: true, repeatRewards: true, dailyRewardLimit: 5, gearQualityPct: { white: 0, green: 50, blue: 35, purple: 13, orange: 2 }, autoChallenge: false, autoChallengePowerPct: 100, autoChallengeRetrySeconds: 60, unlockNeedsBossWin: true, unlockNeedsRealm: true },
-};
 const anchors = [
   { id: "sec-base", label: "基础信息" },
   { id: "sec-monsters", label: "普通怪" },
@@ -352,7 +347,7 @@ const loading = ref(false);
 const error = ref("");
 const realms = ref<{ code: number; displayName: string; interval: number }[]>([]);
 const chapters = ref<ChapterRow[]>([]);
-const bossRules = ref<BossRules>(cloneRules(FALLBACK_RULES));
+const bossRules = ref<BossRules>(cloneRules(FALLBACK_BOSS_RULES));
 const items = ref<Named[]>([]);
 const weapons = ref<Named[]>([]);
 const skills = ref<Named[]>([]);
@@ -413,7 +408,7 @@ function tierOf(form: StageForm): BossTier {
 }
 
 function tierNote(form: StageForm): string {
-  return tierOf(form) === "chief" ? "本关是本章最后一关 → 章末大首领" : "本关是普通关卡 → 小首领（精英）";
+  return tierOf(form) === "chief" ? "本关是本章最后一关（首领用章末外观）" : "本关是普通关卡";
 }
 
 function nextStageName(form: StageForm): string {

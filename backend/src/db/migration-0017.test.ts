@@ -53,7 +53,9 @@ describe("migration 0017", () => {
         await db.execute(sql.raw(statement));
       }
       const [row] = await db.select().from(contentGlobals);
-      expect(enhanceRulesFromInput(row?.enhance)).toEqual(saved);
+      // 0017 原样保留管理员存过的红；红在 0028 里去掉（见 migration-0028.test.ts），解析时也会忽略红
+      expect((row?.enhance as { qualities: Record<string, unknown> }).qualities.red).toEqual(saved.qualities.red);
+      expect(enhanceRulesFromInput(row?.enhance)).toEqual(STARTING_ENHANCE_RULES);
       const entries = await db.execute(sql`select item_slug from content_drop_entries order by item_slug`);
       expect((entries as unknown as { item_slug: string }[]).map((entry) => entry.item_slug)).toEqual(["enh_stone_high", "enh_stone_low", "enh_stone_mid"]);
       // 重复执行不报错、不重复

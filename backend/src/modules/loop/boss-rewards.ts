@@ -17,7 +17,7 @@ type Stage = ContentSnapshot["stages"][number];
 type Boss = NonNullable<Stage["bosses"]>[number];
 type RandomInt = (min: number, max: number) => number;
 
-export type BossDrop = { itemSlug: string; quantity: number; decomposed?: boolean; enhanceExp?: number; dropped?: boolean; freed?: { itemSlug: string; enhanceExp: number }[] };
+export type BossDrop = { itemSlug: string; quantity: number; designated?: boolean; decomposed?: boolean; enhanceExp?: number; dropped?: boolean; freed?: { itemSlug: string; enhanceExp: number }[] };
 
 export type BossRewardOutcome = {
   drops: BossDrop[];
@@ -65,7 +65,7 @@ export async function grantBossRewards(
   const { stage, boss, progress, rules, now } = input;
   const outcome: BossRewardOutcome = { drops: [], cultivation: 0, firstClear: !progress.firstClearedAt, rewarded: false, dailyRewardCount: 0, dailyRewardLimit: rules.bossDailyRewardCount, bagFull: false };
   const source = `drop:${stage.slug}`;
-  const put = async (itemSlug: string, quantity: number, overflow: boolean) => {
+  const put = async (itemSlug: string, quantity: number, overflow: boolean, designated = false) => {
     const skill = world.skills.find((row) => row.slug === itemSlug);
     if (skill) {
       const bookSlug = await ensureSkillBook(tx, { slug: skill.slug, displayName: skill.displayName ?? "名称缺失" }, null);
@@ -77,7 +77,7 @@ export async function grantBossRewards(
       throw new AppError("INVALID_INPUT", "有一件奖励已经不在后台");
     }
     const granted = await grantItem(tx, world, playerId, itemSlug, quantity, source, now, { autoDecompose: input.autoDecompose, capacity: input.capacity, overflow });
-    const drop: BossDrop = { itemSlug, quantity };
+    const drop: BossDrop = designated ? { itemSlug, quantity, designated: true } : { itemSlug, quantity };
     if (granted.decomposed > 0) {
       drop.decomposed = true;
       drop.enhanceExp = granted.enhanceExp;
@@ -93,6 +93,19 @@ export async function grantBossRewards(
     outcome.drops.push(drop);
   };
 
+  /** 指定掉落（首领首通 / 首领有奖励的重打）：每条单独按概率抽。 */
+  const rollDesignated = async (trigger: "boss_first" | "boss_repeat", overflow: boolean) => {
+    for (const row of stage.designatedDrops ?? []) {
+      if (row.trigger !== trigger || row.chanceBp <= 0 || !world.items.some((item) => item.slug === row.itemSlug)) {
+        continue;
+      }
+      if (row.chanceBp < 10000 && input.randomInt(0, 10000) >= row.chanceBp) {
+        continue;
+      }
+      await put(row.itemSlug, row.count, overflow, true);
+    }
+  };
+
   if (!progress.firstClearedAt) {
     for (const entry of boss.firstClear ?? []) {
       if (entry.kind === "cultivation") {
@@ -101,6 +114,7 @@ export async function grantBossRewards(
         await put(entry.itemSlug, entry.quantity, true);
       }
     }
+    await rollDesignated("boss_first", true);
     if (outcome.cultivation > 0) {
       await tx.update(playerStates).set({ cultivation: sqlAdd(outcome.cultivation) }).where(eq(playerStates.playerId, playerId));
     }
@@ -121,7 +135,7 @@ export async function grantBossRewards(
   const majorKey = world.realms.find((row) => row.sortOrder === stage.requiredRealmOrder)?.majorKey;
   if (boss.repeat.gear && majorKey && stage.monsterDrop) {
     const orangeBp = bossOrangeChanceBp(boss.repeat, world.globals.tuning ?? tuningOf(null));
-    const piece = rollBossRepeatGear(majorKey, stage.monsterDrop.qualityWeights, orangeBp, input.randomInt, dropMultsOf(world.items));
+    const piece = rollBossRepeatGear(majorKey, stage.monsterDrop.qualityWeights, orangeBp, input.randomInt, dropMultsOf(world.items, world.realms));
     if (piece && world.items.some((item) => item.slug === piece.slug)) {
       await put(piece.slug, 1, false);
     }
@@ -133,6 +147,7 @@ export async function grantBossRewards(
   for (const extra of extras) {
     await put(extra.itemSlug, extra.quantity, false);
   }
+  await rollDesignated("boss_repeat", false);
   return outcome;
 }
 

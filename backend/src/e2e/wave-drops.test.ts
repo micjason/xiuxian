@@ -75,7 +75,7 @@ describe("monster kill drops (5% per kill, regional quality weights, equal 6-slo
       expect(result.lastSettle.drops[0]).toMatchObject({ itemSlug: "gear_major1_helmet_green", quality: "green", dropped: false, decomposed: false });
       const rows = await bag();
       expect(rows).toHaveLength(result.lastSettle.kills);
-      expect(rows.every((row) => row.itemSlug === "gear_major1_helmet_green" && row.source === "wave:lianqi_1")).toBe(true);
+      expect(rows.every((row) => row.itemSlug === "gear_major1_helmet_green" && row.source === "stage_drop")).toBe(true);
       // 每次击杀：1 次“掉不掉”，掉了再掷品质和部位
       expect(control.calls.slice(0, 3)).toEqual(["chance", "quality", "slot"]);
       await app.close();

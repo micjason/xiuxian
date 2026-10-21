@@ -1,5 +1,7 @@
 import { and, eq, sql } from "drizzle-orm";
+import { randomUUID } from "node:crypto";
 import type { Tx } from "../../db/tx.js";
+import { grantEquipment, type GrantSource } from "../player/grant.js";
 import { playerItems, playerStates } from "../../db/schema.js";
 import { decomposeEnhanceExp, readEnhanceRules } from "../content/enhance.js";
 import type { ContentSnapshot } from "../content/validate.js";
@@ -29,7 +31,21 @@ export type GrantOptions = {
   capacity: number;
   /** 首领首通奖励：允许暂时超出容量。 */
   overflow?: boolean;
+  /** 装备走统一发放接口时记的来源（不填按 source 字符串推：wave:关卡 → stage_drop，drop:关卡 → boss_first / boss_repeat，starter → event）。 */
+  grant?: { source: GrantSource; sourceRef?: string | null };
 };
+
+/** 旧的 source 字符串 → 统一发放接口的来源。 */
+export function grantSourceOf(source: string, overflow: boolean): { source: GrantSource; sourceRef: string | null } {
+  const [kind, ref] = source.split(":", 2);
+  if (kind === "wave") {
+    return { source: "stage_drop", sourceRef: ref ?? null };
+  }
+  if (kind === "drop") {
+    return { source: overflow ? "boss_first" : "boss_repeat", sourceRef: ref ?? null };
+  }
+  return { source: "event", sourceRef: source || null };
+}
 
 export type GrantResult = {
   added: number;
@@ -158,6 +174,10 @@ export async function grantItem(
     }
     if (stackRow) {
       await tx.update(playerItems).set({ quantity: stackRow.quantity + unit }).where(eq(playerItems.id, stackRow.id));
+    } else if (isGear) {
+      // 所有装备都走统一发放接口（ADMIN_SPEC §14）：生成实例 + 写发放流水。容量 / 自动分解上面已经处理过。
+      const grant = options.grant ?? grantSourceOf(source, Boolean(options.overflow));
+      await grantEquipment(tx, { playerId, itemId: itemSlug, count: 1, source: grant.source, sourceRef: grant.sourceRef ?? null, requestId: randomUUID() });
     } else {
       await insertRow(tx, playerId, itemSlug, !isGear, unit, source, now);
     }

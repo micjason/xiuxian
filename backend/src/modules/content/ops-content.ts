@@ -1,6 +1,8 @@
 import { randomBytes } from "node:crypto";
 import { eq } from "drizzle-orm";
 import type { BossRepeatReward, BossRewardEntry, MonsterDropOverride, StageMonster } from "./combat-types.js";
+import { QUALITY_KEYS } from "./catalog.js";
+import { gearMap, readDesignated, type DesignatedInput } from "./designated-drops.js";
 import { contentDropEntries, contentDropTables, contentGlobals, contentItems, contentRealms, contentSkillCategories, contentSkills, contentStages, playerItems, type StageBoss } from "../../db/schema.js";
 import { AppError } from "../../shared/errors.js";
 import type { Db } from "../operations/record.js";
@@ -283,7 +285,7 @@ function readRecommendedPower(value: unknown): number | null | undefined {
 function stageView(
   row: typeof contentStages.$inferSelect,
   realms: { slug: string; displayName: string; sortOrder: number }[],
-  items: { slug: string; displayName: string }[],
+  items: { slug: string; displayName: string; quality?: string; slot?: string | null; origin?: string; iconKey?: string }[],
   skills: { slug: string; displayName: string }[],
   power: StagePowerView,
   tuning: Tuning,
@@ -328,6 +330,20 @@ function stageView(
       weights: Object.fromEntries(MONSTER_QUALITIES.map((key) => [key, row.monsterDrop?.qualityWeights?.[key] ?? null])),
     },
     dropCustomCount: customDropCount(row.monsterDrop),
+    designatedDrops: (row.designatedDrops ?? []).map((drop) => {
+      const item = items.find((candidate) => candidate.slug === drop.itemSlug);
+      return {
+        itemId: drop.itemSlug,
+        displayName: item?.displayName || "名称缺失",
+        quality: item?.quality ?? null,
+        slot: item?.slot ?? null,
+        origin: item?.origin ?? null,
+        iconKey: item?.iconKey ?? "",
+        trigger: drop.trigger,
+        chancePercent: drop.chanceBp / 100,
+        count: drop.count,
+      };
+    }),
     // 配置概览里的默认值（抽屉里灰字显示、「恢复默认」用）
     dropDefaults: {
       chancePercent: tuning.monsterDropChanceBp / 100,
@@ -354,7 +370,7 @@ export async function listOpsStages(db: Db) {
 
 export async function createOpsStage(
   db: Db,
-  input: { displayName?: string; realmCode?: number; recommendedPower?: number | null; bosses?: BossInput[]; monsters?: MonsterInput[]; monsterDrop?: MonsterDropInput },
+  input: { displayName?: string; realmCode?: number; recommendedPower?: number | null; bosses?: BossInput[]; monsters?: MonsterInput[]; monsterDrop?: MonsterDropInput; designatedDrops?: DesignatedInput },
   adminId: string | null,
 ) {
   const displayName = textOf(input.displayName);
@@ -372,6 +388,7 @@ export async function createOpsStage(
   const bosses = await readBosses(db, input.bosses);
   const monsters = readMonsters(input.monsters) ?? [];
   const monsterDrop = readMonsterDrop(input.monsterDrop, await tuningFor(db)) ?? null;
+  const designatedDrops = readDesignated(input.designatedDrops, await gearMap(db)) ?? [];
   const slug = newId("s");
   const now = new Date();
   const dropSlug = (suffix: string) => `${slug}_${suffix}`;
@@ -396,6 +413,7 @@ export async function createOpsStage(
     bosses,
     monsters,
     monsterDrop,
+    designatedDrops,
     bossDropTableSlug: dropSlug("boss"),
     idleDropTableSlug: dropSlug("idle"),
     firstClearDropTableSlug: dropSlug("first"),
@@ -408,7 +426,7 @@ export async function createOpsStage(
 export async function updateOpsStage(
   db: Db,
   id: string,
-  input: { displayName?: string; realmCode?: number; recommendedPower?: number | null; bosses?: BossInput[]; monsters?: MonsterInput[]; monsterDrop?: MonsterDropInput },
+  input: { displayName?: string; realmCode?: number; recommendedPower?: number | null; bosses?: BossInput[]; monsters?: MonsterInput[]; monsterDrop?: MonsterDropInput; designatedDrops?: DesignatedInput },
   adminId: string | null,
 ) {
   const [current] = await db.select().from(contentStages).where(eq(contentStages.slug, id)).limit(1);
@@ -430,6 +448,7 @@ export async function updateOpsStage(
   const bosses = await readBosses(db, input.bosses, current.bosses ?? []);
   const monsters = readMonsters(input.monsters);
   const monsterDrop = readMonsterDrop(input.monsterDrop, await tuningFor(db));
+  const designatedDrops = readDesignated(input.designatedDrops, await gearMap(db));
   const first = bosses[0];
   await db
     .update(contentStages)
@@ -447,6 +466,7 @@ export async function updateOpsStage(
       bosses,
       ...(monsters === undefined ? {} : { monsters }),
       ...(monsterDrop === undefined ? {} : { monsterDrop }),
+      ...(designatedDrops === undefined ? {} : { designatedDrops }),
       updatedAt: new Date(),
       updatedBy: adminId,
     })
@@ -474,9 +494,9 @@ export async function deleteOpsStage(db: Db, id: string) {
 
 /** 后台「物品」页能设的类型（装备、功法书各有自己的页面，不在这里改）。 */
 export const OPS_ITEM_KINDS = ["material", "pill"] as const;
-const OPS_ITEM_QUALITIES = ["white", "green", "blue", "purple", "orange"];
+const OPS_ITEM_QUALITIES: string[] = [...QUALITY_KEYS];
 
-type OpsItemInput = { displayName?: string; description?: string; kind?: string; quality?: string; stackable?: boolean };
+type OpsItemInput = { displayName?: string; description?: string; kind?: string; quality?: string; stackable?: boolean; iconKey?: string | null };
 
 function itemView(row: typeof contentItems.$inferSelect) {
   return {
@@ -486,6 +506,7 @@ function itemView(row: typeof contentItems.$inferSelect) {
     kind: row.kind ?? "",
     quality: row.quality,
     stackable: row.stackable,
+    iconKey: row.iconKey ?? "",
   };
 }
 
@@ -533,12 +554,17 @@ function itemValues(input: OpsItemInput, current: typeof contentItems.$inferSele
   if (input.stackable !== undefined && input.stackable !== null && typeof input.stackable !== "boolean") {
     throw new AppError("INVALID_INPUT", "能否叠加要填是或否");
   }
+  const iconKey = input.iconKey === undefined ? undefined : textOf(input.iconKey);
+  if (iconKey && !/^[a-z][a-z0-9_]{0,63}$/.test(iconKey)) {
+    throw new AppError("INVALID_INPUT", "图标标识只能用小写字母、数字和下划线");
+  }
   return {
     displayName,
     description: textOf(input.description),
     kind: kindRaw ?? current?.kind ?? "material",
     quality: qualityRaw ?? current?.quality ?? "white",
     stackable: typeof input.stackable === "boolean" ? input.stackable : (current?.stackable ?? true),
+    iconKey: iconKey ?? current?.iconKey ?? "",
     updatedAt: new Date(),
     updatedBy: adminId,
   };
@@ -553,6 +579,10 @@ export async function deleteOpsItem(db: Db, id: string) {
   const used = stages.some((stage) => (stage.bosses ?? []).some((boss) => boss.drops.some((drop) => drop.itemSlug === id)));
   if (used) {
     throw new AppError("INVALID_INPUT", "这个物品还挂在首领上，先拿掉");
+  }
+  const designated = stages.find((stage) => (stage.designatedDrops ?? []).some((drop) => drop.itemSlug === id));
+  if (designated) {
+    throw new AppError("INVALID_INPUT", `关卡「${designated.displayName}」的指定掉落还用着它，先拿掉`);
   }
   await db.delete(contentItems).where(eq(contentItems.slug, id));
   return { ok: true };

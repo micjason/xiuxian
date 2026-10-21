@@ -180,7 +180,7 @@ export async function readDraftGlobals(db: Db) {
 
 export async function saveDraftGlobals(
   _db: Db,
-  _input: { offlineCapSeconds?: number; bagCapacity?: number; minClientVersionCode?: number; startingRealmSlug?: string },
+  _input: { offlineCapSeconds?: number; bagCapacity?: number; startingRealmSlug?: string },
   _adminId: string | null,
 ) {
   throw new AppError("INVALID_INPUT", "请到规则页填写");

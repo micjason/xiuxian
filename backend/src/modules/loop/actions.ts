@@ -21,6 +21,7 @@ import { AppError } from "../../shared/errors.js";
 import type { Db } from "../operations/record.js";
 import { readGameRules } from "../content/rules.js";
 import { addEnhanceExp, grantItem } from "./bag.js";
+import { applySetBonus, setBonusOf } from "../content/set-bonus.js";
 import { announcementNoticesForPlayer, noticesForPlayer } from "../notices/service.js";
 import { dailyUsed, grantBossRewards, usesRewardModel } from "./boss-rewards.js";
 import { acknowledgeOfflineReport, pendingOfflineReport, recordOfflineReport } from "./offline.js";
@@ -139,10 +140,17 @@ export function combatStats(world: ContentSnapshot, realmSlug: string, itemSlugs
     hpPercent += ((definition?.hp ?? 0) / 10000) * factor;
     bonusBp += (definition?.cultivateBonusBp ?? 0) * factor;
   }
-  const attack = reached.attack * (1 + attackPercent) + gearAttack;
-  const defense = reached.defense * (1 + defensePercent) + gearDefense;
-  const hp = reached.hp * (1 + hpPercent) + gearHp;
-  const speed = reached.speed + gearSpeed;
+  // 套装加成（批次②）：按角色总属性（境界 + 功法 + 装备）算百分比，再加固定值。
+  const setBonus = setBonusOf(world, itemSlugs.map((entry) => (typeof entry === "string" ? entry : entry.slug)));
+  const { attack, defense, hp, speed } = applySetBonus(
+    {
+      attack: reached.attack * (1 + attackPercent) + gearAttack,
+      defense: reached.defense * (1 + defensePercent) + gearDefense,
+      hp: reached.hp * (1 + hpPercent) + gearHp,
+      speed: reached.speed + gearSpeed,
+    },
+    setBonus,
+  );
   if (realm.baseInterval == null || realm.baseInterval <= 0) {
     throw new AppError("INVALID_INPUT", `境界「${realm.displayName ?? realm.slug}」还没有基础出手间隔`);
   }
@@ -157,11 +165,11 @@ export function combatStats(world: ContentSnapshot, realmSlug: string, itemSlugs
     speedBase: rules.speedBase,
     weights: rules.powerWeights,
   });
-  return { attack, defense, hp, speed, interval: combat.interval, power: combat.power, bonusBp };
+  return { attack, defense, hp, speed, interval: combat.interval, power: combat.power, bonusBp, sets: setBonus.sets };
 }
 
 export type PowerSourceLine = {
-  group: "境界" | "物品" | "功法";
+  group: "境界" | "物品" | "功法" | "套装";
   name: string;
   attack: number;
   defense: number;
@@ -274,15 +282,35 @@ export function explainPlayerPower(
       note: !definition ? "后台里已经没有这门功法" : running ? "境界基础 × 百分比 × 层数系数" : "没有运转，不算战力",
     });
   }
-  const totals = lines.filter((line) => line.counted).reduce(
-    (sum, line) => ({
-      attack: sum.attack + line.attack,
-      defense: sum.defense + line.defense,
-      hp: sum.hp + line.hp,
-      speed: sum.speed + line.speed,
-    }),
-    { attack: 0, defense: 0, hp: 0, speed: 0 },
-  );
+  const sumLines = () =>
+    lines.filter((line) => line.counted).reduce(
+      (sum, line) => ({
+        attack: sum.attack + line.attack,
+        defense: sum.defense + line.defense,
+        hp: sum.hp + line.hp,
+        speed: sum.speed + line.speed,
+      }),
+      { attack: 0, defense: 0, hp: 0, speed: 0 },
+    );
+  // 套装加成：百分比按上面的总属性算，加固定值；每个套装一行。
+  const before = sumLines();
+  const setBonus = setBonusOf(world, items.filter((item) => item.equippedSlot).map((item) => item.itemSlug));
+  for (const active of setBonus.sets) {
+    const set = (world.gearSets ?? []).find((row) => row.slug === active.setSlug);
+    const one = setBonusOf({ items: world.items, gearSets: set ? [set] : [] }, items.filter((item) => item.equippedSlot).map((item) => item.itemSlug));
+    const grown = applySetBonus(before, one);
+    lines.push({
+      group: "套装",
+      name: `${active.displayName}（穿 ${active.worn} 件）`,
+      attack: grown.attack - before.attack,
+      defense: grown.defense - before.defense,
+      hp: grown.hp - before.hp,
+      speed: grown.speed - before.speed,
+      counted: active.activePieces.length > 0,
+      note: active.activePieces.length > 0 ? `${active.activePieces.map((pieces) => `${pieces} 件`).join("、")}加成生效` : "件数不够，加成没生效",
+    });
+  }
+  const totals = sumLines();
   let weights: PowerBreakdown["weights"] = null;
   let error: string | null = null;
   try {
@@ -675,7 +703,7 @@ export async function advanceRealm(tx: Tx, world: World, playerId: string, now: 
     cultivation: settled.state.cultivation,
     cost: realm.breakthroughCost,
     rateBp,
-    failLossBp: realm.failLossBp ?? 0,
+    failLossBp: 0,
     failStreak: settled.state.breakthroughFailStreak,
     roll,
   });

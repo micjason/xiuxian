@@ -51,6 +51,8 @@ export type WaveDrop = {
   /** 为了放下这件蓝/紫，分解了包里的几件白/绿。 */
   freed: { itemSlug: string; enhanceExp: number }[];
   enhanceExp: number;
+  /** 这件来自关卡的指定掉落（不是随机掉落）。 */
+  designated?: boolean;
 };
 
 export type WaveSettlement = {
@@ -109,7 +111,7 @@ export async function settleWaves(
   // 掉落的装备阶：关卡所属境界的大境界（炼气关刷炼气阶装备）。
   const majorKey = world.realms.find((row) => row.sortOrder === input.stage.requiredRealmOrder)?.majorKey ?? null;
   if (advance.kills > 0 && majorKey) {
-    const multOf = dropMultsOf(world.items);
+    const multOf = dropMultsOf(world.items, world.realms);
     for (let index = 0; index < advance.kills; index += 1) {
       const rolled = rollMonsterKillDrop(majorKey, input.stage.monsterDrop, waveRandom, multOf);
       if (!rolled || !world.items.some((item) => item.slug === rolled.slug)) {
@@ -129,6 +131,35 @@ export async function settleWaves(
       });
       if (granted.dropped > 0) {
         bagFull = true;
+      }
+    }
+  }
+  // 指定掉落（普通怪每只）：和随机掉落同时生效，每条单独按概率抽；走同样的行囊规则。
+  const designated = (input.stage.designatedDrops ?? []).filter((row) => row.trigger === "monster" && row.chanceBp > 0 && world.items.some((item) => item.slug === row.itemSlug));
+  if (advance.kills > 0 && designated.length > 0) {
+    for (let index = 0; index < advance.kills; index += 1) {
+      for (const row of designated) {
+        if (waveRandom(0, 10000) >= row.chanceBp) {
+          continue;
+        }
+        const definition = world.items.find((item) => item.slug === row.itemSlug);
+        const granted = await grantItem(tx, world, playerId, row.itemSlug, row.count, `wave:${input.stage.slug}`, input.now, {
+          autoDecompose: input.autoDecompose,
+          capacity: input.capacity,
+          grant: { source: "stage_drop", sourceRef: input.stage.slug },
+        });
+        drops.push({
+          itemSlug: row.itemSlug,
+          quality: definition?.quality ?? null,
+          decomposed: granted.decomposed > 0,
+          dropped: granted.dropped > 0,
+          freed: granted.freed,
+          enhanceExp: granted.enhanceExp,
+          designated: true,
+        });
+        if (granted.dropped > 0) {
+          bagFull = true;
+        }
       }
     }
   }

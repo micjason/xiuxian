@@ -25,8 +25,9 @@ export type ContentSnapshot = {
     enhance?: import("./enhance.js").EnhanceRules;
     tuning?: import("./tuning.js").Tuning;
     artSlotRules?: { minRealmOrder: number; slots: number }[];
-    idleKillCap?: number;
-    minClientVersionCode?: number;
+    /** 统一部位表 / 品质表（catalog.ts），游戏和后台都按这里的名字显示。 */
+    slots?: readonly import("./catalog.js").SlotRow[];
+    qualities?: readonly import("./catalog.js").QualityRow[];
   };
   realms: {
     slug: string;
@@ -36,12 +37,6 @@ export type ContentSnapshot = {
     tickSeconds: number;
     gainPerTick: number;
     breakthroughCost: number;
-    minRateBp: number;
-    baseRateBp: number;
-    maxRateBp: number;
-    failLossBp?: number;
-    pityStepBp?: number;
-    powerFactorBp?: number;
     baseAttack?: number;
     baseDefense?: number;
     baseHp?: number;
@@ -84,6 +79,8 @@ export type ContentSnapshot = {
     }[];
     monsters?: StageMonster[];
     monsterDrop?: MonsterDropConfig | null;
+    /** 指定掉落（和随机掉落同时生效）。 */
+    designatedDrops?: import("./combat-types.js").DesignatedDrop[];
     recommendedPower: number;
     enabled: boolean;
   }[];
@@ -110,7 +107,21 @@ export type ContentSnapshot = {
     iconKey?: string;
     /** 装备掉率倍数（默认 1） */
     dropMult?: number;
+    /** formula = 公式生成；manual = 后台手动新建（gear_m_0001…） */
+    origin?: "formula" | "manual";
+    /** 所属套装 */
+    setSlug?: string | null;
+    /** 参与本境界本品质的随机掉落池（手动装备默认不参与） */
+    randomDrop?: boolean;
     enabled: boolean;
+  }[];
+  /** 套装：成员是 setSlug 指向它的装备；tiers 按件数升序。 */
+  gearSets?: {
+    slug: string;
+    displayName: string;
+    description: string;
+    tiers: import("./combat-types.js").SetTier[];
+    members: string[];
   }[];
   skills: {
     slug: string;
@@ -135,7 +146,8 @@ const STAT_KEYS = ["attack", "defense", "hp", "speed"] as const;
 
 export function equipmentPowerErrors(items: ContentSnapshot["items"]): { slug: string; message: string }[] {
   const errors: { slug: string; message: string }[] = [];
-  const gear = items.filter((item) => item.kind === "equipment" && item.enabled);
+  // 手动装备数值由策划手填，不要求和公式装备成比例。
+  const gear = items.filter((item) => item.kind === "equipment" && item.enabled && item.origin !== "manual");
   const bySlot = new Map<string, ContentSnapshot["items"]>();
   for (const item of gear) {
     const slot = `${item.slot ?? ""}:${item.requiredRealmOrder ?? 0}`;

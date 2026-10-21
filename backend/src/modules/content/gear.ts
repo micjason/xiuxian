@@ -4,6 +4,8 @@ import { AppError } from "../../shared/errors.js";
 import type { Db } from "../operations/record.js";
 import { ratePower, sumReachedRealmStats } from "../combat/stats.js";
 import { tuningOf } from "./tuning.js";
+import { QUALITY_TABLE } from "./catalog.js";
+import { listManualAndSets } from "./manual-gear.js";
 
 /** 默认装备预算比例；实际值在「装备配置」里改（content_globals.tuning.gearBudgetRatio）。 */
 export const GEAR_BUDGET_RATIO = 0.55;
@@ -26,13 +28,8 @@ export const GEAR_SLOTS: { key: string; name: string; share: number; stats: read
   { key: "accessory", name: "饰品", share: 0.15, stats: ["attack", "speed"] },
 ];
 
-export const GEAR_QUALITIES = [
-  { key: "white", name: "白" },
-  { key: "green", name: "绿" },
-  { key: "blue", name: "蓝" },
-  { key: "purple", name: "紫" },
-  { key: "orange", name: "橙" },
-] as const;
+/** 装备品质（来自统一品质表 catalog.ts；name 是装备自动名称里用的简称「白/绿/…」）。 */
+export const GEAR_QUALITIES = QUALITY_TABLE.map((row) => ({ key: row.key, name: row.short }));
 
 export const DEFAULT_GEAR_QUALITY_FACTORS = {
   white: 1,
@@ -428,6 +425,8 @@ export async function listGear(db: Db) {
             descriptionCustom: item?.descriptionCustom ?? false,
             iconKey: item?.iconKey ?? "",
             dropMult: item?.dropMult ?? 1,
+            origin: "formula" as const,
+            setSlug: item?.setSlug ?? null,
             slot: slot.key,
             slotName: slot.name,
             quality: quality.key,
@@ -461,6 +460,7 @@ export async function listGear(db: Db) {
   return {
     factors,
     majors,
+    ...(await listManualAndSets(db, weights)),
     params: {
       gearBudgetRatio: tuning.gearBudgetRatio,
       gearSpeedFactor: gearSpeedFactorOf(globals?.combat?.gearSpeedFactor),

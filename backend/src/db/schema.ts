@@ -1,4 +1,4 @@
-import type { OptionalRuleValues, StageMonster, MonsterDropOverride, BossRewardEntry, BossRepeatReward } from "../modules/content/combat-types.js";
+import type { OptionalRuleValues, StageMonster, MonsterDropOverride, BossRewardEntry, BossRepeatReward, DesignatedDrop, SetTier } from "../modules/content/combat-types.js";
 import type { Tuning } from "../modules/content/tuning.js";
 import { sql } from "drizzle-orm";
 import {
@@ -229,7 +229,7 @@ export const contentGlobals = pgTable("content_globals", {
     refundBp: number;
     qualities: Partial<
       Record<
-        "white" | "green" | "blue" | "purple" | "orange" | "red",
+        "white" | "green" | "blue" | "purple" | "orange",
         {
           cap: number;
           costMult: number;
@@ -244,8 +244,6 @@ export const contentGlobals = pgTable("content_globals", {
   /** 配置概览里的默认数值（见 content/tuning.ts）；缺的项用代码默认值。 */
   tuning: jsonb("tuning").$type<Partial<Tuning>>(),
   artSlotRules: jsonb("art_slot_rules").$type<{ minRealmOrder: number; slots: number }[]>(),
-  idleKillCap: integer("idle_kill_cap"),
-  minClientVersionCode: integer("min_client_version_code").notNull().default(0),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   updatedBy: uuid("updated_by"),
 });
@@ -272,12 +270,6 @@ export const contentRealms = pgTable("content_realms", {
   breakthroughCost: doublePrecision("breakthrough_cost").notNull().default(0),
   requiredStageSlug: text("required_stage_slug"),
   recommendedPower: integer("recommended_power").notNull().default(0),
-  baseRateBp: integer("base_rate_bp").notNull().default(9000),
-  powerFactorBp: integer("power_factor_bp").notNull().default(3000),
-  minRateBp: integer("min_rate_bp").notNull().default(2000),
-  maxRateBp: integer("max_rate_bp").notNull().default(9500),
-  failLossBp: integer("fail_loss_bp").notNull().default(3000),
-  pityStepBp: integer("pity_step_bp").notNull().default(1000),
   enabled: boolean("enabled").notNull().default(true),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   updatedBy: uuid("updated_by"),
@@ -318,6 +310,12 @@ export const contentItems = pgTable("content_items", {
   /** 名称 / 描述被后台改过：重新生成装备时不覆盖。 */
   nameCustom: boolean("name_custom").notNull().default(false),
   descriptionCustom: boolean("description_custom").notNull().default(false),
+  /** formula = 公式生成的 90 件（重新生成会重算数值）；manual = 后台手动新建（gear_m_0001…，永远不被重算）。 */
+  origin: text("origin").notNull().default("formula"),
+  /** 所属套装（content_gear_sets.slug）；只有手动装备能进套装。 */
+  setSlug: text("set_slug"),
+  /** 参与本境界本品质的随机掉落池。公式装备总是参与；手动装备默认不参与（只靠指定掉落 / 补发）。 */
+  randomDrop: boolean("random_drop").notNull().default(true),
   enabled: boolean("enabled").notNull().default(true),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   updatedBy: uuid("updated_by"),
@@ -395,10 +393,22 @@ export const contentStages = pgTable("content_stages", {
   monsters: jsonb("monsters").$type<StageMonster[]>().notNull().default([]),
   /** 关卡自己改过的掉率 / 品质权重；没改的项不存（或存 null），跟随配置概览。 */
   monsterDrop: jsonb("monster_drop").$type<MonsterDropOverride | null>(),
+  /** 指定掉落：每条单独按概率抽，和随机掉落同时生效（迁移 0028）。 */
+  designatedDrops: jsonb("designated_drops").$type<DesignatedDrop[]>().notNull().default([]),
   bossDropTableSlug: text("boss_drop_table_slug").notNull(),
   idleDropTableSlug: text("idle_drop_table_slug").notNull(),
   firstClearDropTableSlug: text("first_clear_drop_table_slug").notNull(),
   enabled: boolean("enabled").notNull().default(true),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedBy: uuid("updated_by"),
+});
+
+/** 套装（迁移 0028）：成员是 content_items.set_slug 指向它的手动装备；tiers 是件数档位加成。 */
+export const contentGearSets = pgTable("content_gear_sets", {
+  slug: text("slug").primaryKey(),
+  displayName: text("display_name").notNull(),
+  description: text("description").notNull().default(""),
+  tiers: jsonb("tiers").$type<SetTier[]>().notNull().default([]),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   updatedBy: uuid("updated_by"),
 });

@@ -3,6 +3,7 @@ import { contentGlobals, contentItems } from "../../db/schema.js";
 import { AppError } from "../../shared/errors.js";
 import type { Db } from "../operations/record.js";
 import type { ContentSnapshot } from "./validate.js";
+import { QUALITY_TABLE, type QualityKey } from "./catalog.js";
 
 /**
  * 装备强化规则（强化经验 = 分解装备得到，用来给其他装备升强化等级）。
@@ -11,16 +12,10 @@ import type { ContentSnapshot } from "./validate.js";
  * 规则里的一切（等级上限、每级属性加成、经验曲线、突破节点和材料）都来自这份配置；强化经验池没有上限。
  * 所有数字都是起始值，等和客户确认后再调整，见 docs/design/enhance_rules_proposal.md。
  */
-export const ENHANCE_QUALITIES = [
-  { key: "white", name: "白" },
-  { key: "green", name: "绿" },
-  { key: "blue", name: "蓝" },
-  { key: "purple", name: "紫" },
-  { key: "orange", name: "橙" },
-  { key: "red", name: "红" },
-] as const;
+/** 强化规则按品质配置；品质来自统一品质表（catalog.ts，白→橙 5 档，红已去掉）。 */
+export const ENHANCE_QUALITIES = QUALITY_TABLE.map((row) => ({ key: row.key, name: row.short }));
 
-export type EnhanceQualityKey = (typeof ENHANCE_QUALITIES)[number]["key"];
+export type EnhanceQualityKey = QualityKey;
 
 /** 校验用的合理范围，只防止填错（例如多写几个零把后台算崩），不是玩法数值；玩法数值全在规则里。 */
 export const ENHANCE_LIMITS = { maxCap: 200, maxBreakCount: 9999 } as const;
@@ -64,7 +59,7 @@ export const STARTING_BREAK_MATERIALS = [
   { slug: "enh_stone_high", displayName: "突破石·上品", description: "装备强化到高阶突破节点时消耗的材料。", quality: "purple" },
 ] as const;
 
-/** 起始值，全部可在后台改。红（仙品）的数字是新增的起始值，没有平衡过。 */
+/** 起始值，全部可在后台改。 */
 export const STARTING_ENHANCE_RULES: EnhanceRules = {
   expBase: 60,
   expGrowth: 1.25,
@@ -90,16 +85,6 @@ export const STARTING_ENHANCE_RULES: EnhanceRules = {
       breakthroughs: [
         { level: 5, materials: [{ itemSlug: "enh_stone_low", count: 10 }] },
         { level: 10, materials: [{ itemSlug: "enh_stone_mid", count: 6 }] },
-      ],
-    },
-    red: {
-      cap: 18,
-      costMult: 2,
-      decomposeExp: 960,
-      breakthroughs: [
-        { level: 5, materials: [{ itemSlug: "enh_stone_low", count: 15 }] },
-        { level: 10, materials: [{ itemSlug: "enh_stone_mid", count: 10 }] },
-        { level: 15, materials: [{ itemSlug: "enh_stone_high", count: 5 }] },
       ],
     },
   },

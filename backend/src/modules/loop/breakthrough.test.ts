@@ -41,8 +41,7 @@ const RULES: EnhanceRules = {
     },
     blue: { cap: 4, costMult: 1, decomposeExp: 9, breakthroughs: [] },
     purple: { cap: 4, costMult: 1, decomposeExp: 9, breakthroughs: [] },
-    orange: { cap: 4, costMult: 1, decomposeExp: 9, breakthroughs: [] },
-    red: { cap: 3, costMult: 1.5, decomposeExp: 99, breakthroughs: [{ level: 1, materials: [{ itemSlug: "stone_b", count: 1 }] }] },
+    orange: { cap: 3, costMult: 1.5, decomposeExp: 99, breakthroughs: [{ level: 1, materials: [{ itemSlug: "stone_b", count: 1 }] }] },
   },
 };
 
@@ -58,7 +57,7 @@ async function seed(db: TestDb, rules: EnhanceRules | null = RULES) {
   });
   await db.insert(contentItems).values([
     { slug: "blade", displayName: "绿刃", kind: "equipment", slot: "weapon", quality: "green", attack: 100, defense: 0, hp: 0, speed: 0 },
-    { slug: "fairy_blade", displayName: "仙刃", kind: "equipment", slot: "weapon", quality: "red", attack: 100, defense: 0, hp: 0, speed: 0 },
+    { slug: "fairy_blade", displayName: "仙刃", kind: "equipment", slot: "weapon", quality: "orange", attack: 100, defense: 0, hp: 0, speed: 0 },
     { slug: "stone_a", displayName: "甲石", kind: "material", quality: "white", stackable: true },
     { slug: "stone_b", displayName: "乙石", kind: "material", quality: "white", stackable: true },
   ]);
@@ -160,7 +159,7 @@ describe("break-through nodes", () => {
     });
   });
 
-  it("uses the red (仙品) rules for red gear and its own node", async () => {
+  it("uses the orange rules for orange gear and its own node", async () => {
     await withDb(async (db) => {
       const { now, player, world } = await seed(db);
       const fairy = await give(db, player.playerId, "fairy_blade", { now });
@@ -259,7 +258,7 @@ describe("saving rules in the admin", () => {
     await withDb(async (db) => {
       await seed(db, null);
       const saved = await saveEnhanceRules(db, STARTING_ENHANCE_RULES, null);
-      expect(saved.createdMaterials.sort()).toEqual(["enh_stone_high", "enh_stone_low", "enh_stone_mid"]);
+      expect(saved.createdMaterials.sort()).toEqual(["enh_stone_low", "enh_stone_mid"]);
       const [stone] = await db.select().from(contentItems).where(eq(contentItems.slug, "enh_stone_low"));
       expect(stone).toMatchObject({ kind: "material", stackable: true });
       // 再保存一次不会重复创建

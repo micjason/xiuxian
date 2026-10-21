@@ -4,6 +4,7 @@ import {
   contentCurrent,
   contentDropEntries,
   contentDropTables,
+  contentGearSets,
   contentGlobals,
   contentItems,
   contentKnownSlugs,
@@ -18,6 +19,8 @@ import { AppError } from "../../shared/errors.js";
 import { validateContent, type ContentSnapshot } from "./validate.js";
 import { resolveMonsterDrop } from "./stage-defaults.js";
 import { tuningOf } from "./tuning.js";
+import { QUALITY_TABLE, SLOT_KEYS, SLOT_TABLE } from "./catalog.js";
+import { skillSlotRulesOf } from "./skill-slots.js";
 
 export async function loadDraftSnapshot(db: Db | Tx): Promise<ContentSnapshot> {
   const [globals] = await db.select().from(contentGlobals).limit(1);
@@ -27,6 +30,7 @@ export async function loadDraftSnapshot(db: Db | Tx): Promise<ContentSnapshot> {
   const tables = await db.select().from(contentDropTables);
   const entries = await db.select().from(contentDropEntries);
   const stages = await db.select().from(contentStages);
+  const sets = await db.select().from(contentGearSets);
   const tuning = tuningOf(globals?.tuning);
   return {
     globals: {
@@ -38,9 +42,9 @@ export async function loadDraftSnapshot(db: Db | Tx): Promise<ContentSnapshot> {
       combat: globals?.combat ?? undefined,
       enhance: globals?.enhance ?? undefined,
       tuning,
-      artSlotRules: globals?.artSlotRules ?? undefined,
-      idleKillCap: globals?.idleKillCap ?? undefined,
-      minClientVersionCode: globals?.minClientVersionCode ?? undefined,
+      artSlotRules: skillSlotRulesOf(globals?.artSlotRules),
+      slots: SLOT_TABLE,
+      qualities: QUALITY_TABLE,
     },
     realms: [...realms]
       .sort((left, right) => left.sortOrder - right.sortOrder)
@@ -52,12 +56,6 @@ export async function loadDraftSnapshot(db: Db | Tx): Promise<ContentSnapshot> {
       tickSeconds: row.tickSeconds,
       gainPerTick: row.gainPerTick,
       breakthroughCost: row.breakthroughCost,
-      minRateBp: row.minRateBp,
-      baseRateBp: row.baseRateBp,
-      maxRateBp: row.maxRateBp,
-      failLossBp: row.failLossBp,
-      pityStepBp: row.pityStepBp,
-      powerFactorBp: row.powerFactorBp,
       requiredStageSlug: row.requiredStageSlug,
       recommendedPower: row.recommendedPower,
       baseAttack: row.baseAttack,
@@ -91,6 +89,7 @@ export async function loadDraftSnapshot(db: Db | Tx): Promise<ContentSnapshot> {
       monsters: row.monsters ?? [],
       // 关卡里只存改过的项；这里合并配置概览的默认值，游戏和客户端拿到的永远是完整的掉落配置。
       monsterDrop: resolveMonsterDrop(row.monsterDrop, tuning),
+      designatedDrops: row.designatedDrops ?? [],
       // 0 = 没手动覆盖，按公式自动算（库里存 null）
       recommendedPower: row.recommendedPower ?? 0,
       enabled: row.enabled,
@@ -122,8 +121,23 @@ export async function loadDraftSnapshot(db: Db | Tx): Promise<ContentSnapshot> {
       stackable: row.stackable,
       iconKey: row.iconKey ?? "",
       dropMult: row.dropMult ?? 1,
+      origin: row.origin === "manual" ? ("manual" as const) : ("formula" as const),
+      setSlug: row.setSlug ?? null,
+      randomDrop: row.randomDrop,
       enabled: row.enabled,
     })),
+    gearSets: [...sets]
+      .sort((left, right) => left.slug.localeCompare(right.slug))
+      .map((set) => ({
+        slug: set.slug,
+        displayName: set.displayName,
+        description: set.description,
+        tiers: [...(set.tiers ?? [])].sort((left, right) => left.pieces - right.pieces),
+        members: items
+          .filter((item) => item.setSlug === set.slug)
+          .sort((left, right) => SLOT_KEYS.indexOf(left.slot as never) - SLOT_KEYS.indexOf(right.slot as never))
+          .map((item) => item.slug),
+      })),
     skills: skills.map((row) => ({
       slug: row.slug,
       displayName: row.displayName,

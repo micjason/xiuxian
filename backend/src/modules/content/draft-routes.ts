@@ -10,6 +10,7 @@ import { buildFormulaPreview } from "./formula-preview.js";
 import { loadDraftSnapshot } from "./snapshot.js";
 import { readEnhanceView, saveEnhanceRules } from "./enhance.js";
 import { listGear, removeMajorGear, resetGearPiece, saveGearQualityFactors, syncGear, updateGearPiece } from "./gear.js";
+import { createGearSet, createManualGear, deleteGearSet, updateGearSet, updateManualGear } from "./manual-gear.js";
 import { readConfigOverview, readTuning, resetStageDrop, saveConfigOverview, saveGearParams, saveTuning } from "./config-overview.js";
 import { SCHEME_TIME_LIMIT_SECONDS } from "./numeric-scheme.js";
 import {
@@ -356,6 +357,16 @@ export async function registerDraftRoutes(app: FastifyInstance, deps: { db: Db; 
       request.actor?.actorId ?? null,
     ),
   );
+  // 手动装备、套装（ADMIN_SPEC §10、§12）
+  app.post("/admin/draft/gear/manual", async (request) => createManualGear(deps.db, (request.body ?? {}) as never, request.actor?.actorId ?? null));
+  app.put("/admin/draft/gear/manual/:id", async (request) =>
+    updateManualGear(deps.db, (request.params as { id: string }).id, (request.body ?? {}) as never, request.actor?.actorId ?? null),
+  );
+  app.post("/admin/draft/gear-sets", async (request) => createGearSet(deps.db, (request.body ?? {}) as never, request.actor?.actorId ?? null));
+  app.put("/admin/draft/gear-sets/:id", async (request) =>
+    updateGearSet(deps.db, (request.params as { id: string }).id, (request.body ?? {}) as never, request.actor?.actorId ?? null),
+  );
+  app.delete("/admin/draft/gear-sets/:id", async (request) => deleteGearSet(deps.db, (request.params as { id: string }).id, request.actor?.actorId ?? null));
   app.post("/admin/draft/gear/:id/reset", async (request) =>
     resetGearPiece(deps.db, (request.params as { id: string }).id, request.actor?.actorId ?? null),
   );

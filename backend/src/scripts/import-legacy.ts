@@ -89,7 +89,6 @@ function majorOf(slug: string): string {
 export async function importLegacyContent(db: Db, idlePath: string, adventurePath: string): Promise<void> {
   const idle = JSON.parse(readFileSync(idlePath, "utf8")) as { offline_cap_seconds?: number; realms: IdleRealm[] };
   const adventure = JSON.parse(readFileSync(adventurePath, "utf8")) as Adventure;
-  const byOrder = new Map(idle.realms.map((realm) => [realm.order, realm]));
   const scale = adventure.loot_chance_scale ?? 1;
   const itemsBySlug = new Map((adventure.items ?? []).map((item) => [item.id, item]));
   await db.delete(contentDropEntries);
@@ -106,8 +105,6 @@ export async function importLegacyContent(db: Db, idlePath: string, adventurePat
     enhance: STARTING_ENHANCE_RULES,
   });
   for (const realm of idle.realms) {
-    const next = realm.next_id ? byOrder.get(realm.order + 1) : undefined;
-    const cross = next ? majorOf(realm.id) !== majorOf(next.id) : false;
     const base = adventure.realm_bases?.[realm.id] ?? {};
     await db.insert(contentRealms).values({
       slug: realm.id,
@@ -123,9 +120,6 @@ export async function importLegacyContent(db: Db, idlePath: string, adventurePat
       baseSpeed: 0,
       baseInterval: base.interval,
       breakthroughCost: realm.breakthrough_cost,
-      baseRateBp: realm.id === "mortal" ? 10000 : cross ? 6000 : 9000,
-      minRateBp: 2000,
-      maxRateBp: 10000,
     });
   }
   for (const item of adventure.items ?? []) {

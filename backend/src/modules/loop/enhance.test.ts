@@ -48,14 +48,14 @@ describe("enhance rules (pure)", () => {
 
 describe("enhance rules: configurable, red quality, break-through nodes", () => {
   const rules = STARTING_ENHANCE_RULES;
-  it("ships red (仙品) rules and nodes that all pass the strict check", () => {
+  it("ships five qualities (white → orange, no red) whose nodes all pass the strict check", () => {
     const parsed = enhanceRulesFromInput(rules);
-    expect(Object.keys(parsed.qualities)).toEqual(["white", "green", "blue", "purple", "orange", "red"]);
-    expect(enhanceCap(parsed, "red")).toBe(18);
-    expect(enhanceCost(parsed, "red", 0)).toBe(120);
-    expect(enhancedStat(100, 18, parsed, "red")).toBe(208);
-    expect(parsed.qualities.red?.breakthroughs.map((node) => node.level)).toEqual([5, 10, 15]);
+    expect(Object.keys(parsed.qualities)).toEqual(["white", "green", "blue", "purple", "orange"]);
+    expect(enhanceCap(parsed, "orange")).toBe(15);
     expect(breakMaterialProblems(parsed, STARTING_BREAK_MATERIALS.map((row) => ({ slug: row.slug, kind: "material", enabled: true })))).toEqual([]);
+    // 老数据里残留的红色规则读的时候直接忽略
+    const legacy = enhanceRulesFromInput({ ...rules, qualities: { ...rules.qualities, red: { cap: 18, costMult: 2, decomposeExp: 960, breakthroughs: [] } } } as never);
+    expect(Object.keys(legacy.qualities)).not.toContain("red");
   });
   it("lets every quality override the exp growth and the per-level stat growth", () => {
     const custom = enhanceRulesFromInput({
@@ -67,14 +67,14 @@ describe("enhance rules: configurable, red quality, break-through nodes", () => 
     // 其他品质仍用通用值
     expect(enhanceCost(custom, "white", 3)).toBe(Math.round(60 * 1.25 ** 3));
     expect(enhancedStat(100, 4, custom, "white")).toBe(124);
-    expect(() => enhanceRulesFromInput({ ...rules, qualities: { ...rules.qualities, red: { ...rules.qualities.red, expGrowth: 0.9 } } })).toThrow(/不能小于 1/);
+    expect(() => enhanceRulesFromInput({ ...rules, qualities: { ...rules.qualities, purple: { ...rules.qualities.purple, expGrowth: 0.9 } } })).toThrow(/不能小于 1/);
   });
-  it("requires all six qualities when saving but tolerates an old snapshot without red at runtime", () => {
-    const { red: _red, ...withoutRed } = rules.qualities;
-    expect(() => enhanceRulesFromInput({ ...rules, qualities: withoutRed })).toThrow(/红品质强化上限/);
-    const lenient = enhanceRulesFromInput({ ...rules, qualities: withoutRed }, { requireAll: false });
-    expect(enhanceCap(lenient, "orange")).toBe(15);
-    expect(() => enhanceCap(lenient, "red")).toThrow(/还没有红品质的强化规则/);
+  it("requires all five qualities when saving but tolerates an old snapshot missing one at runtime", () => {
+    const { orange: _orange, ...withoutOrange } = rules.qualities;
+    expect(() => enhanceRulesFromInput({ ...rules, qualities: withoutOrange })).toThrow(/橙品质强化上限/);
+    const lenient = enhanceRulesFromInput({ ...rules, qualities: withoutOrange }, { requireAll: false });
+    expect(enhanceCap(lenient, "purple")).toBe(12);
+    expect(() => enhanceCap(lenient, "orange")).toThrow(/还没有橙品质的强化规则/);
   });
   it("validates break-through nodes", () => {
     const withNodes = (breakthroughs: unknown) => ({ ...rules, qualities: { ...rules.qualities, orange: { ...rules.qualities.orange, breakthroughs } } });
@@ -95,7 +95,8 @@ describe("enhance rules: configurable, red quality, break-through nodes", () => 
       { slug: "enh_stone_mid", kind: "equipment" },
     ]);
     expect(problems.some((line) => line.includes("enh_stone_mid") && line.includes("不能是装备"))).toBe(true);
-    expect(problems.some((line) => line.includes("enh_stone_high") && line.includes("不存在"))).toBe(true);
+    // 去掉红以后默认规则不再用上品突破石，所以不会报它缺
+    expect(problems.some((line) => line.includes("enh_stone_high"))).toBe(false);
   });
   it("blocks only while the gear sits exactly on an unbroken node", () => {
     const parsed = enhanceRulesFromInput(rules);

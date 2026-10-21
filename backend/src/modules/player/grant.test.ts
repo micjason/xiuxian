@@ -139,7 +139,8 @@ describe("grantEquipment (ADMIN_SPEC §14)", () => {
     expect(entry.idx).toBe(27);
     expect(entry.when).toBeGreaterThan(1793190000000);
     expect(entry.when).toBeLessThan(1795000000000);
-    expect(Math.max(...journal.entries.map((row) => row.when))).toBe(entry.when);
+    const later = journal.entries.filter((row) => row.idx > entry.idx);
+    expect(later.every((row) => row.when > entry.when)).toBe(true);
   });
 
   it("the database rejects a source outside the enum and count < 1", async () => {

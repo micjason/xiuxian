@@ -16,9 +16,6 @@ describe("publishSnapshot", () => {
         nextRealmSlug: null,
         gainPerTick: 2,
         tickSeconds: 1,
-        baseRateBp: 10000,
-        minRateBp: 10000,
-        maxRateBp: 10000,
       });
       const published = await publishSnapshot(db, "第一版", null, new Date("2026-10-08T00:00:00.000Z"));
       expect(published.version).toBe(1);

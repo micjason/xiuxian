@@ -58,3 +58,29 @@ export type BossRepeatReward = {
 export const DEFAULT_OPTIONAL_RULES = Object.fromEntries(
   (Object.keys(OPTIONAL_RULES) as OptionalRuleKey[]).map((key) => [key, OPTIONAL_RULES[key].default]),
 ) as Required<OptionalRuleValues>;
+
+/** 指定掉落的触发时机：普通怪每只 / 首领首通 / 首领有奖励的重打。 */
+export const DESIGNATED_TRIGGERS = ["monster", "boss_first", "boss_repeat"] as const;
+export type DesignatedTrigger = (typeof DESIGNATED_TRIGGERS)[number];
+
+/** 每关指定掉落的一条：和随机掉落同时生效，每条单独按概率抽（不占随机掉落的概率）。 */
+export type DesignatedDrop = {
+  itemSlug: string;
+  trigger: DesignatedTrigger;
+  /** 万分比 1..10000 */
+  chanceBp: number;
+  /** 件数 1..10 */
+  count: number;
+};
+
+export const SET_STATS = ["attack", "defense", "hp", "speed"] as const;
+export type SetStat = (typeof SET_STATS)[number];
+
+/** 套装加成的一档：穿满 pieces 件时生效（各档叠加）。pct = 按角色总属性的百分比；flat = 直接加点数。 */
+export type SetTier = {
+  pieces: number;
+  stats: { stat: SetStat; mode: "pct" | "flat"; value: number }[];
+};
+
+/** 功法栏位规则：境界排序号 ≥ minRealmOrder 时开放 slots 个通用栏位（取满足条件里最大的那条）。 */
+export type SkillSlotRule = { minRealmOrder: number; slots: number };

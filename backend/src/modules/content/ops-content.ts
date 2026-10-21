@@ -6,7 +6,7 @@ import { gearMap, readDesignated, type DesignatedInput } from "./designated-drop
 import { contentChapters, contentDropEntries, contentDropTables, contentGlobals, contentItems, contentRealms, contentSkillCategories, contentSkills, contentStages, playerItems, type StageBoss } from "../../db/schema.js";
 import { BOSS_STAT_KEYS, compactBossRuleOverride, customRuleCount, type BossStatKey, type BossTier } from "./boss-rules.js";
 import { MONSTER_ART_KEY_SET } from "./art-keys.js";
-import { chiefStageOf } from "./stage-order.js";
+import { chiefStageOf, orderedStages } from "./stage-order.js";
 import { AppError } from "../../shared/errors.js";
 import type { Db } from "../operations/record.js";
 import { loadDraftSnapshot } from "./snapshot.js";
@@ -217,15 +217,11 @@ function readRepeat(input: BossInput["repeat"], known: Set<string>): BossRepeatR
     }
     return { itemSlug, chanceBp: Math.round(percent * 100), minQty, maxQty };
   });
-  const out: BossRepeatReward = { gear: input.gear === true, extras };
+  // 单首领「橙装概率」第三批起停用（品质按首领规则「装备品质掉率」抽），保存时清掉；传了数值直接报错，免得以为生效了
   if (input.orangeChancePercent !== undefined && input.orangeChancePercent !== null) {
-    const percent = numberOf(input.orangeChancePercent, "橙装概率");
-    if (percent > 100) {
-      throw new AppError("INVALID_INPUT", "橙装概率不能超过 100%");
-    }
-    out.orangeChanceBp = Math.round(percent * 100);
+    throw new AppError("INVALID_INPUT", "「重复奖励橙装概率」已停用，请在首领规则的装备品质掉率里改橙装");
   }
-  return out;
+  return { gear: input.gear === true, extras };
 }
 
 /** 章节和顺序：不传保持原样；新关卡默认排在本章最后。 */
@@ -513,8 +509,10 @@ export async function listOpsStages(db: Db) {
     loadDraftSnapshot(db),
   ]);
   const tuning = world.globals.tuning ?? tuningOf(null);
+  // 按游戏顺序（章节顺序 → 关卡顺序），停用的和没章节的排在后面
+  const rank = new Map(orderedStages(world).map((stage, index) => [stage.slug, index]));
   return stages
-    .sort((left, right) => left.requiredRealmOrder - right.requiredRealmOrder || left.displayName.localeCompare(right.displayName, "zh"))
+    .sort((left, right) => (rank.get(left.slug) ?? 1e9) - (rank.get(right.slug) ?? 1e9) || left.requiredRealmOrder - right.requiredRealmOrder || left.displayName.localeCompare(right.displayName, "zh"))
     .map((row) => stageView(row, realms, items, skills, stagePowerOf(world, row.slug, row.recommendedPower), tuning, world.stages.find((stage) => stage.slug === row.slug)));
 }
 

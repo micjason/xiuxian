@@ -55,7 +55,8 @@ describe("ops content", () => {
       );
       const second = await createOpsStage(db, { displayName: "后山", realmCode: 2, bosses: [] }, null);
       const rows = await listOpsStages(db);
-      expect(rows.map((row) => row.displayName)).toEqual(["后山", "山门"]);
+      // 第三批起列表按游戏顺序（章节 → 关卡顺序；没章节时境界 → 关卡顺序），先建的在前
+      expect(rows.map((row) => row.displayName)).toEqual(["山门", "后山"]);
       expect(rows.every((row) => row.realmCode === 2 && row.realmName === "练气")).toBe(true);
       expect(rows.find((row) => row.id === first.id)?.bosses[0]?.drops).toEqual([
         { itemId: sword.id, displayName: "木剑", chancePercent: 30 },

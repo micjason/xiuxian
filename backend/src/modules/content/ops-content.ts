@@ -472,11 +472,20 @@ export async function deleteOpsStage(db: Db, id: string) {
   return { ok: true };
 }
 
+/** 后台「物品」页能设的类型（装备、功法书各有自己的页面，不在这里改）。 */
+export const OPS_ITEM_KINDS = ["material", "pill"] as const;
+const OPS_ITEM_QUALITIES = ["white", "green", "blue", "purple", "orange"];
+
+type OpsItemInput = { displayName?: string; description?: string; kind?: string; quality?: string; stackable?: boolean };
+
 function itemView(row: typeof contentItems.$inferSelect) {
   return {
     id: row.slug,
     displayName: row.displayName,
     description: row.description,
+    kind: row.kind ?? "",
+    quality: row.quality,
+    stackable: row.stackable,
   };
 }
 
@@ -488,33 +497,48 @@ export async function listOpsItems(db: Db) {
     .map(itemView);
 }
 
-export async function createOpsItem(db: Db, input: { displayName?: string; description?: string }, adminId: string | null) {
-  const values = itemValues(input, adminId);
+export async function createOpsItem(db: Db, input: OpsItemInput, adminId: string | null) {
+  const values = itemValues(input, null, adminId);
   const slug = newId("i");
   await db.insert(contentItems).values({ ...values, slug });
   return { id: slug };
 }
 
-export async function updateOpsItem(db: Db, id: string, input: { displayName?: string; description?: string }, adminId: string | null) {
+export async function updateOpsItem(db: Db, id: string, input: OpsItemInput, adminId: string | null) {
   const [current] = await db.select().from(contentItems).where(eq(contentItems.slug, id)).limit(1);
   if (!current || current.kind === "equipment" || current.kind === "skill_book") {
     throw new AppError("NOT_FOUND", "没有这个物品");
   }
-  await db.update(contentItems).set(itemValues(input, adminId)).where(eq(contentItems.slug, id));
+  await db.update(contentItems).set(itemValues(input, current, adminId)).where(eq(contentItems.slug, id));
   return { id };
 }
 
-function itemValues(input: { displayName?: string; description?: string }, adminId: string | null) {
+/**
+ * 物品保存：只改传了的字段。类型 / 品质 / 能否叠加不传 = 保持原样（以前会把类型清空，突破石因此变成“没有类型”，
+ * 强化突破就认不出它是材料）。新建时默认是可叠加的白色材料。
+ */
+function itemValues(input: OpsItemInput, current: typeof contentItems.$inferSelect | null, adminId: string | null) {
   const displayName = textOf(input.displayName);
   if (!displayName) {
     throw new AppError("INVALID_INPUT", "请填写物品名称");
   }
+  const kindRaw = input.kind === undefined || input.kind === null || input.kind === "" ? undefined : String(input.kind);
+  if (kindRaw !== undefined && !(OPS_ITEM_KINDS as readonly string[]).includes(kindRaw)) {
+    throw new AppError("INVALID_INPUT", "物品类型只能是材料或丹药");
+  }
+  const qualityRaw = input.quality === undefined || input.quality === null || input.quality === "" ? undefined : String(input.quality);
+  if (qualityRaw !== undefined && !OPS_ITEM_QUALITIES.includes(qualityRaw)) {
+    throw new AppError("INVALID_INPUT", "品质不正确");
+  }
+  if (input.stackable !== undefined && input.stackable !== null && typeof input.stackable !== "boolean") {
+    throw new AppError("INVALID_INPUT", "能否叠加要填是或否");
+  }
   return {
     displayName,
     description: textOf(input.description),
-    kind: null,
-    slot: null,
-    skillSlug: null,
+    kind: kindRaw ?? current?.kind ?? "material",
+    quality: qualityRaw ?? current?.quality ?? "white",
+    stackable: typeof input.stackable === "boolean" ? input.stackable : (current?.stackable ?? true),
     updatedAt: new Date(),
     updatedBy: adminId,
   };
@@ -534,6 +558,9 @@ export async function deleteOpsItem(db: Db, id: string) {
   return { ok: true };
 }
 
+const SKILL_ROLES = ["heart", "attack", "body", "step"];
+const SKILL_RANKS = ["yellow", "xuan", "earth", "heaven"];
+
 function skillView(row: typeof contentSkills.$inferSelect, categories: { slug: string; displayName: string }[]) {
   const category = categories.find((item) => item.slug === row.skillCategorySlug);
   return {
@@ -548,6 +575,10 @@ function skillView(row: typeof contentSkills.$inferSelect, categories: { slug: s
     hp: row.hp / 100,
     speed: 0,
     cultivateBonus: row.cultivateBonusBp,
+    role: row.role ?? "",
+    rank: row.rank,
+    requiredRealmCode: row.requiredRealmOrder,
+    prerequisiteIds: row.prerequisiteSkillSlugs ?? [],
   };
 }
 
@@ -605,12 +636,16 @@ export async function createOpsSkill(
     hp?: number;
     speed?: number;
     cultivateBonus?: number;
+    role?: string;
+    rank?: string;
+    requiredRealmCode?: number;
+    prerequisiteIds?: string[];
   },
   adminId: string | null,
 ) {
   const values = await skillValues(db, input, adminId);
   const slug = newId("k");
-  await db.insert(contentSkills).values({ ...values, slug, prerequisiteSkillSlugs: [] });
+  await db.insert(contentSkills).values({ ...values, slug });
   await ensureSkillBook(db, { slug, displayName: values.displayName }, adminId);
   return { id: slug };
 }
@@ -627,6 +662,10 @@ export async function updateOpsSkill(
     hp?: number;
     speed?: number;
     cultivateBonus?: number;
+    role?: string;
+    rank?: string;
+    requiredRealmCode?: number;
+    prerequisiteIds?: string[];
   },
   adminId: string | null,
 ) {
@@ -634,7 +673,7 @@ export async function updateOpsSkill(
   if (!current) {
     throw new AppError("NOT_FOUND", "没有这个功法");
   }
-  const next = await skillValues(db, input, adminId);
+  const next = await skillValues(db, input, adminId, current);
   await db.update(contentSkills).set(next).where(eq(contentSkills.slug, id));
   await ensureSkillBook(db, { slug: id, displayName: next.displayName }, adminId);
   return { id };
@@ -659,12 +698,50 @@ async function skillValues(
     hp?: number;
     speed?: number;
     cultivateBonus?: number;
+    role?: string;
+    rank?: string;
+    requiredRealmCode?: number;
+    prerequisiteIds?: string[];
   },
   adminId: string | null,
+  current: typeof contentSkills.$inferSelect | null = null,
 ) {
   const displayName = textOf(input.displayName);
   if (!displayName) {
     throw new AppError("INVALID_INPUT", "请填写功法名称");
+  }
+  // 类型、品阶、所需境界、前置功法：不传 = 保持原样（以前每次保存都把类型和前置功法清空）。
+  const role = input.role === undefined || input.role === null || input.role === "" ? (current?.role ?? null) : String(input.role);
+  if (role !== null && !SKILL_ROLES.includes(role)) {
+    throw new AppError("INVALID_INPUT", "功法类型不正确");
+  }
+  const rank = input.rank === undefined || input.rank === null || input.rank === "" ? (current?.rank ?? "yellow") : String(input.rank);
+  if (!SKILL_RANKS.includes(rank)) {
+    throw new AppError("INVALID_INPUT", "功法品阶只能是黄、玄、地、天");
+  }
+  let requiredRealmOrder = current?.requiredRealmOrder ?? 0;
+  if (input.requiredRealmCode !== undefined && input.requiredRealmCode !== null) {
+    const order = Number(input.requiredRealmCode);
+    if (!Number.isInteger(order) || order < 0) {
+      throw new AppError("INVALID_INPUT", "所需境界不正确");
+    }
+    requiredRealmOrder = order;
+  }
+  let prerequisiteSkillSlugs = current?.prerequisiteSkillSlugs ?? [];
+  if (input.prerequisiteIds !== undefined && input.prerequisiteIds !== null) {
+    if (!Array.isArray(input.prerequisiteIds)) {
+      throw new AppError("INVALID_INPUT", "前置功法格式不正确");
+    }
+    const ids = [...new Set(input.prerequisiteIds.map((value) => String(value)).filter(Boolean))];
+    if (current && ids.includes(current.slug)) {
+      throw new AppError("INVALID_INPUT", "前置功法不能是自己");
+    }
+    const known = new Set((await db.select({ slug: contentSkills.slug }).from(contentSkills)).map((row) => row.slug));
+    const missing = ids.find((value) => !known.has(value));
+    if (missing) {
+      throw new AppError("INVALID_INPUT", `前置功法 ${missing} 不存在`);
+    }
+    prerequisiteSkillSlugs = ids;
   }
   const categoryId = textOf(input.categoryId);
   if (!categoryId) {
@@ -677,14 +754,16 @@ async function skillValues(
   return {
     displayName,
     description: textOf(input.description),
-    role: null,
+    role,
+    rank,
+    requiredRealmOrder,
     skillCategorySlug: categoryId,
     attack: percentBp(input.attack, "攻击百分比"),
     defense: percentBp(input.defense, "防御百分比"),
     hp: percentBp(input.hp, "气血百分比"),
     speed: 0,
     cultivateBonusBp: numberOf(input.cultivateBonus, "修炼加成"),
-    prerequisiteSkillSlugs: [] as string[],
+    prerequisiteSkillSlugs,
     updatedAt: new Date(),
     updatedBy: adminId,
   };

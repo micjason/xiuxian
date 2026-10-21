@@ -342,7 +342,7 @@ func _build_chips() -> void:
 		word.name = "Word"
 		word.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		row.add_child(word)
-		_at(_chips_well, chip, Vector2(86 + rarity * 168, 74), Vector2(156, 72))
+		_at(_chips_well, chip, Vector2(26 + rarity * 168, 74), Vector2(156, 72))
 		_chips.append(chip)
 
 
@@ -419,7 +419,7 @@ func _render_grid() -> void:
 	for index in list.size():
 		var item: Dictionary = list[index]
 		var cell := _cell(item)
-		cell.position = Vector2(50 + (index % COLS) * (CELL + COL_GAP), 16 + int(index / COLS) * ROW_PITCH)
+		cell.position = Vector2(10 + (index % COLS) * (CELL + COL_GAP), 16 + int(index / COLS) * ROW_PITCH)
 		_grid.add_child(cell)
 		_cells[str(item.get("id", ""))] = cell
 	var empty := UiKit.label("行囊里没有可以分解的装备（已穿戴的装备不在这里）", 30, GREY, HORIZONTAL_ALIGNMENT_CENTER)
@@ -461,7 +461,8 @@ func _cell(item: Dictionary) -> Button:
 	box.position = Vector2(CELL - 44, -12)
 	cell.add_child(box)
 	var word := UiKit.label(str(item.get("rarity_name", "")), 24, UiTokens.rarity_color(int(item.get("rarity", 0))).darkened(0.3), HORIZONTAL_ALIGNMENT_CENTER)
-	word.position = Vector2(0, CELL + 4)
+	word.position = Vector2(0, CELL - 20)
+	word.z_index = 1
 	word.size = Vector2(CELL, 30)
 	word.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	cell.add_child(word)

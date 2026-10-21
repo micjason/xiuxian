@@ -590,9 +590,11 @@ func _essence_enhance(section: Control, data: Dictionary, id: String) -> Control
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_put(row, icon, Rect2(8, 2, 108, 108))
-	_put(row, _label("消耗", ArtLib.bold_font(), 28, COLORS.muted), Rect2(124, 30, 70, 52))
-	_put(row, _label("炼器精粹", ArtLib.title_font(), 38, COLORS.text), Rect2(196, 26, 200, 60))
-	_put(row, _label("拥有 / 需要", ArtLib.bold_font(), 28, COLORS.muted), Rect2(400, 30, 150, 52))
+	_put(row, _label("消耗", ArtLib.bold_font(), 28, COLORS.muted), Rect2(124, 8, 120, 40))
+	_put(row, _label("炼器精粹", ArtLib.title_font(), 38, COLORS.text), Rect2(124, 46, 260, 56))
+	var head := _label("拥有 / 需要", ArtLib.bold_font(), 28, COLORS.muted)
+	head.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_put(row, head, Rect2(514, 8, 300, 40))
 	var nums := UiKit.hbox(6)
 	nums.name = "Pool"
 	nums.alignment = BoxContainer.ALIGNMENT_END
@@ -601,7 +603,7 @@ func _essence_enhance(section: Control, data: Dictionary, id: String) -> Control
 	have.name = "Have"
 	nums.add_child(have)
 	nums.add_child(_label("/ %s" % QKit.grouped(int(data.cost)), ArtLib.bold_font(), 34, COLORS.muted))
-	_put(row, nums, Rect2(540, 22, 274, 68))
+	_put(row, nums, Rect2(414, 40, 400, 64))
 	var one := _button("强 化", "m" if enough else "g", int(LAYOUT.enh_btn_h), 40)
 	one.name = "EnhanceOne"
 	one.pressed.connect(func() -> void: _enhance_or_short(enough, id, false))

@@ -2,7 +2,7 @@ import type { FastifyInstance } from "fastify";
 import type { Db } from "../operations/record.js";
 import { dismissNotice } from "../notices/service.js";
 import { listPlayers, openProgress, resetPlayer } from "./service.js";
-import { adminGrant, listGrants, searchGrantPlayers } from "./grant-admin.js";
+import { adminGrant, adminGrantBatch, listGrants, searchGrantPlayers } from "./grant-admin.js";
 
 export async function registerPlayerRoutes(
   app: FastifyInstance,
@@ -29,6 +29,7 @@ export async function registerPlayerRoutes(
   // 装备补发（ADMIN_SPEC §14）
   app.get("/admin/grants/players", async (request) => searchGrantPlayers(deps.db, String((request.query as { q?: string }).q ?? "")));
   app.post("/admin/grants", async (request) => adminGrant(deps.db, (request.body ?? {}) as never, request.actor!));
+  app.post("/admin/grants/batch", async (request) => adminGrantBatch(deps.db, (request.body ?? {}) as never, request.actor!));
   app.get("/admin/grants", async (request) => listGrants(deps.db, request.query as never));
 
   app.post("/admin/players/:username/reset", async (request) => {

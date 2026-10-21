@@ -14,7 +14,8 @@ import { readGameRules } from "../content/rules.js";
 import { GRANT_SOURCES, grantEquipment, type GrantSource } from "./grant.js";
 
 export const ADMIN_GRANT_MAX = 20;
-export const GRANT_REASONS = ["补偿 · 服务器故障", "补偿 · 掉落异常", "活动奖励", "测试", "其他"] as const;
+export const GRANT_REASONS = ["补偿 · 奖励未到账", "补偿 · 服务器故障", "活动奖励", "测试", "其他"] as const;
+export const GRANT_BATCH_LIMITS = { players: 100, items: 10 } as const;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export type AdminGrantInput = { playerId?: unknown; itemId?: unknown; count?: unknown; reason?: unknown; note?: unknown; requestId?: unknown };
@@ -156,3 +157,89 @@ export async function listGrants(db: Db, query: { source?: string; player?: stri
   return { rows, total: total?.n ?? 0, sources: GRANT_SOURCES };
 }
 
+
+export type AdminGrantBatchInput = { playerIds?: unknown; items?: unknown; reason?: unknown; note?: unknown; batchId?: unknown };
+
+/**
+ * 补发抽屉一次发放：多个玩家 × 多件装备，同一个事务（全部成功或全部不发）。
+ * 每个（玩家, 装备）一条 equipment_grants，requestId = admin:{补发单号}:{玩家}:{装备}，sourceRef = 补发单号；
+ * 同一个补发单号重复提交（双击、网络重试）不会多发。
+ */
+export async function adminGrantBatch(db: Db, input: AdminGrantBatchInput, actor: { actorId: string; actorName: string }) {
+  const playerIds = Array.isArray(input.playerIds) ? [...new Set(input.playerIds.map((value) => String(value)))] : [];
+  if (playerIds.length === 0) {
+    throw new AppError("INVALID_INPUT", "请选择玩家");
+  }
+  if (playerIds.length > GRANT_BATCH_LIMITS.players) {
+    throw new AppError("INVALID_INPUT", `一次最多发给 ${GRANT_BATCH_LIMITS.players} 名玩家`);
+  }
+  if (playerIds.some((id) => !UUID.test(id))) {
+    throw new AppError("INVALID_INPUT", "玩家编号不正确");
+  }
+  const rawItems = Array.isArray(input.items) ? input.items : [];
+  if (rawItems.length === 0) {
+    throw new AppError("INVALID_INPUT", "请选择要发的装备");
+  }
+  if (rawItems.length > GRANT_BATCH_LIMITS.items) {
+    throw new AppError("INVALID_INPUT", `一次最多 ${GRANT_BATCH_LIMITS.items} 种装备`);
+  }
+  const world = await loadCurrentWorld(db);
+  const seen = new Set<string>();
+  const items = rawItems.map((raw, index) => {
+    const itemId = String((raw as { itemId?: unknown })?.itemId ?? "");
+    const total = Number((raw as { count?: unknown })?.count);
+    const item = world?.items.find((row) => row.slug === itemId);
+    if (!item || item.kind !== "equipment") {
+      throw new AppError("INVALID_INPUT", `第 ${index + 1} 行：请选择装备`);
+    }
+    if (seen.has(itemId)) {
+      throw new AppError("INVALID_INPUT", `第 ${index + 1} 行：「${item.displayName}」重复了`);
+    }
+    seen.add(itemId);
+    if (!Number.isInteger(total) || total < 1 || total > ADMIN_GRANT_MAX) {
+      throw new AppError("INVALID_INPUT", `第 ${index + 1} 行：每人数量要在 1–${ADMIN_GRANT_MAX} 之间`);
+    }
+    return { itemId, count: total, displayName: item.displayName };
+  });
+  const reason = String(input.reason ?? "").trim();
+  const note = String(input.note ?? "").trim();
+  const batchId = String(input.batchId ?? "").trim();
+  if (!reason) {
+    throw new AppError("INVALID_INPUT", "请选择补发原因");
+  }
+  if (!note) {
+    throw new AppError("INVALID_INPUT", "请填写备注（写进操作日志，玩家看不到）");
+  }
+  if (reason.length > 60 || note.length > 200) {
+    throw new AppError("INVALID_INPUT", "原因最多 60 个字，备注最多 200 个字");
+  }
+  if (!/^[A-Za-z0-9_-]{8,64}$/.test(batchId)) {
+    throw new AppError("INVALID_INPUT", "缺少补发单号，请重新打开补发抽屉");
+  }
+  const known = await db.select({ id: players.id }).from(players).where(inArray(players.id, playerIds));
+  const missing = playerIds.filter((id) => !known.some((row) => row.id === id));
+  if (missing.length > 0) {
+    throw new AppError("INVALID_INPUT", `有 ${missing.length} 名玩家不存在`);
+  }
+  const granted = await db.transaction(async (tx) => {
+    let total = 0;
+    for (const playerId of playerIds) {
+      for (const item of items) {
+        const rows = await grantEquipment(tx, {
+          playerId,
+          itemId: item.itemId,
+          count: item.count,
+          source: "admin_grant",
+          sourceRef: batchId,
+          requestId: `admin:${batchId}:${playerId}:${item.itemId}`,
+          operator: actor.actorName,
+          reason,
+          note,
+        });
+        total += rows.length;
+      }
+    }
+    return total;
+  });
+  return { batchId, players: playerIds.length, items: items.map(({ itemId, count: each }) => ({ itemId, count: each })), granted };
+}

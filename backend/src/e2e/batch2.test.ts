@@ -225,7 +225,7 @@ describe("batch ② designated drops", () => {
 describe("batch ② admin reissue", () => {
   it("grants via admin_grant, is idempotent on the request id, needs a reason, and the log filters by source", async () => {
     await withDb(async (db) => {
-      const { call, playerId } = await boot(db);
+      const { call, playerId, app } = await boot(db);
       const found = await call("GET", "/admin/grants/players?q=b2_");
       expect(found.body[0]).toMatchObject({ id: playerId, username: "b2_player" });
       const requestId = randomUUID();
@@ -245,6 +245,20 @@ describe("batch ② admin reissue", () => {
       expect(log.body.rows[0]).toMatchObject({ username: "b2_player", itemSlug: "gear_major1_weapon_purple", count: 2, source: "admin_grant", operator: "owner_b2", reason: "补偿 · 服务器故障", note: "工单 7" });
       expect((await call("GET", "/admin/grants?source=stage_drop")).body.total).toBe(0);
       expect((await call("GET", "/admin/grants?source=nope")).status).toBe(400);
+
+      // 补发抽屉：多人 × 多件，一个补发单号；重复提交不多发；备注必填
+      await app.inject({ method: "POST", url: "/api/v1/auth/register", payload: { username: "b2_other", password: "correct-horse" } });
+      const [other] = await db.select().from(players).where(eq(players.usernameLower, "b2_other"));
+      const batch = { playerIds: [playerId, other!.id], items: [{ itemId: "gear_major1_weapon_blue", count: 1 }, { itemId: "gear_major1_helmet_blue", count: 2 }], reason: "补偿 · 奖励未到账", note: "工单 #2031", batchId: "batch_test_0001" };
+      const sent = await call("POST", "/admin/grants/batch", batch);
+      expect(sent.body).toMatchObject({ players: 2, granted: 6 });
+      await call("POST", "/admin/grants/batch", batch);
+      expect(await db.select().from(playerItems).where(eq(playerItems.playerId, other!.id))).toHaveLength(3);
+      const batchLog = await call("GET", "/admin/grants?source=admin_grant");
+      expect(batchLog.body.total).toBe(5);
+      expect(batchLog.body.rows.filter((row: any) => row.sourceRef === "batch_test_0001")).toHaveLength(4);
+      expect((await call("POST", "/admin/grants/batch", { ...batch, batchId: "batch_test_0002", note: "" })).status).toBe(400);
+      expect((await call("POST", "/admin/grants/batch", { ...batch, batchId: "batch_test_0003", playerIds: [randomUUID()] })).status).toBe(400);
     });
   });
 });

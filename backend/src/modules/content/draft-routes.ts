@@ -9,7 +9,8 @@ import { formulaExamples } from "./formula-examples.js";
 import { buildFormulaPreview } from "./formula-preview.js";
 import { loadDraftSnapshot } from "./snapshot.js";
 import { readEnhanceView, saveEnhanceRules } from "./enhance.js";
-import { listGear, removeMajorGear, saveGearQualityFactors, syncGear, updateGearPiece } from "./gear.js";
+import { listGear, removeMajorGear, resetGearPiece, saveGearQualityFactors, syncGear, updateGearPiece } from "./gear.js";
+import { readConfigOverview, readTuning, resetStageDrop, saveConfigOverview, saveGearParams, saveTuning } from "./config-overview.js";
 import { SCHEME_TIME_LIMIT_SECONDS } from "./numeric-scheme.js";
 import {
   createOpsItem,
@@ -351,9 +352,25 @@ export async function registerDraftRoutes(app: FastifyInstance, deps: { db: Db; 
     updateGearPiece(
       deps.db,
       (request.params as { id: string }).id,
-      request.body as { displayName?: string; description?: string; iconKey?: string },
+      request.body as { displayName?: string | null; description?: string | null; iconKey?: string | null; dropMult?: number | null },
       request.actor?.actorId ?? null,
     ),
+  );
+  app.post("/admin/draft/gear/:id/reset", async (request) =>
+    resetGearPiece(deps.db, (request.params as { id: string }).id, request.actor?.actorId ?? null),
+  );
+  app.put("/admin/draft/gear-params", async (request) => saveGearParams(deps.db, (request.body ?? {}) as never, request.actor?.actorId ?? null));
+  app.post("/admin/draft/gear/regenerate", async (request) => {
+    await syncGear(deps.db, request.actor?.actorId ?? null);
+    return { ok: true };
+  });
+  // 配置概览
+  app.get("/admin/draft/config-overview", async () => readConfigOverview(deps.db));
+  app.put("/admin/draft/config-overview", async (request) => saveConfigOverview(deps.db, (request.body ?? {}) as never, request.actor?.actorId ?? null));
+  app.get("/admin/draft/tuning", async () => readTuning(deps.db));
+  app.put("/admin/draft/tuning", async (request) => saveTuning(deps.db, (request.body ?? {}) as never, request.actor?.actorId ?? null));
+  app.post("/admin/draft/stages/:id/reset-drop", async (request) =>
+    resetStageDrop(deps.db, (request.params as { id: string }).id, request.actor?.actorId ?? null),
   );
   app.get("/admin/draft/skill-categories", async () => listSkillCategories(deps.db));
   app.post("/admin/draft/skill-categories", async (request) =>

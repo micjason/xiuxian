@@ -15,7 +15,7 @@ describe("stage list recommended power", () => {
       const empty = await createOpsStage(db, { displayName: "山门", realmCode: 2, bosses: [] }, null);
 
       const before = await listOpsStages(db);
-      expect(before.find((row) => row.id === armed.id)).toMatchObject({ recommendedPower: 0, effectivePower: null, autoPower: null });
+      expect(before.find((row) => row.id === armed.id)).toMatchObject({ recommendedPower: null, effectivePower: null, autoPower: null });
       expect(before.find((row) => row.id === armed.id)?.powerProblem?.startsWith("请先在后台填写：")).toBe(true);
 
       await db.insert(contentGlobals).values({
@@ -34,8 +34,8 @@ describe("stage list recommended power", () => {
         },
       });
       const after = await listOpsStages(db);
-      expect(after.find((row) => row.id === armed.id)).toMatchObject({ recommendedPower: 0, effectivePower: 1048, autoPower: 1048, powerProblem: null });
-      expect(after.find((row) => row.id === empty.id)).toMatchObject({ recommendedPower: 0, effectivePower: null, autoPower: null, powerProblem: null });
+      expect(after.find((row) => row.id === armed.id)).toMatchObject({ recommendedPower: null, effectivePower: 1048, autoPower: 1048, powerProblem: null });
+      expect(after.find((row) => row.id === empty.id)).toMatchObject({ recommendedPower: null, effectivePower: null, autoPower: null, powerProblem: null });
 
       // 手填的推荐战力优先，自动值只当参考
       await updateOpsStage(
@@ -52,6 +52,9 @@ describe("stage list recommended power", () => {
       await expect(
         updateOpsStage(db, armed.id, { displayName: "后山", realmCode: 2, recommendedPower: -5, bosses: [] }, null),
       ).rejects.toThrow();
+      // 传 null = 恢复自动
+      await updateOpsStage(db, armed.id, { displayName: "后山", realmCode: 2, recommendedPower: null, bosses: [{ name: "木傀", attack: 100, defense: 100, hp: 333, interval: 1.25, drops: [] }] }, null);
+      expect((await listOpsStages(db)).find((row) => row.id === armed.id)).toMatchObject({ recommendedPower: null, effectivePower: 1048 });
     });
   });
 });

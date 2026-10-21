@@ -133,7 +133,7 @@ export function combatStats(world: ContentSnapshot, realmSlug: string, itemSlugs
   let hpPercent = 0;
   for (const entry of skillLayers(skillSlugs)) {
     const definition = world.skills.find((row) => row.slug === entry.slug);
-    const factor = skillLayerFactor(entry.level);
+    const factor = skillLayerFactor(entry.level, world.globals.tuning);
     attackPercent += ((definition?.attack ?? 0) / 10000) * factor;
     defensePercent += ((definition?.defense ?? 0) / 10000) * factor;
     hpPercent += ((definition?.hp ?? 0) / 10000) * factor;
@@ -262,7 +262,7 @@ export function explainPlayerPower(
       });
       continue;
     }
-    const factor = skillLayerFactor(level);
+    const factor = skillLayerFactor(level, world.globals.tuning);
     lines.push({
       group: "功法",
       name: `${definition?.displayName || (definition ? "名称缺失" : "已删除")} · ${level}本`,
@@ -975,8 +975,8 @@ export async function useItem(tx: Tx, world: World, playerId: string, itemId: st
   }
   const existing = settled.pieces.skills.find((row) => row.skillSlug === skill.slug);
   const realm = realmOf(world, settled.state.realmSlug);
-  if (existing && existing.level >= 7) {
-    const gained = bookOverflowCultivation(skill.rank, realm.gainPerTick);
+  if (existing && existing.level >= (world.globals.tuning?.skillMaxLayers ?? 7)) {
+    const gained = bookOverflowCultivation(skill.rank, realm.gainPerTick, world.globals.tuning);
     await tx.delete(playerItems).where(eq(playerItems.id, item.id));
     await addCultivation(tx, playerId, gained);
     const after = await settleLocked(tx, playerId, world, now);

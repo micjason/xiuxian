@@ -2,7 +2,9 @@ import { and, eq, sql } from "drizzle-orm";
 import type { Tx } from "../../db/tx.js";
 import { playerItems, playerStageProgress, playerStates } from "../../db/schema.js";
 import { ensureSkillBook } from "../content/ops-content.js";
-import { repeatRewardWeights, rollGearPiece } from "../content/monster-drops.js";
+import { dropMultsOf, rollBossRepeatGear } from "../content/monster-drops.js";
+import { bossOrangeChanceBp } from "../content/stage-defaults.js";
+import { tuningOf } from "../content/tuning.js";
 import { rollDropTable } from "../content/roll-drops.js";
 import type { GameRules } from "../content/rules.js";
 import type { ContentSnapshot } from "../content/validate.js";
@@ -118,7 +120,8 @@ export async function grantBossRewards(
     .where(and(eq(playerStageProgress.playerId, playerId), eq(playerStageProgress.stageSlug, stage.slug)));
   const majorKey = world.realms.find((row) => row.sortOrder === stage.requiredRealmOrder)?.majorKey;
   if (boss.repeat.gear && majorKey && stage.monsterDrop) {
-    const piece = rollGearPiece(majorKey, repeatRewardWeights(stage.monsterDrop.qualityWeights), input.randomInt);
+    const orangeBp = bossOrangeChanceBp(boss.repeat, world.globals.tuning ?? tuningOf(null));
+    const piece = rollBossRepeatGear(majorKey, stage.monsterDrop.qualityWeights, orangeBp, input.randomInt, dropMultsOf(world.items));
     if (piece && world.items.some((item) => item.slug === piece.slug)) {
       await put(piece.slug, 1, false);
     }

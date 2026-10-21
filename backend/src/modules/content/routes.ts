@@ -54,7 +54,8 @@ export async function registerContentRoutes(
     return {
       ...world,
       stages: world.stages.map((stage) => {
-        if (!stage.bosses?.[0]) {
+        // 有首领按首领、没首领按普通怪自动算（手动覆盖的以手动为准）
+        if (!stage.bosses?.[0] && !stage.monsters?.[0]) {
           return stage;
         }
         try {

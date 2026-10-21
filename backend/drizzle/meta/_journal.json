@@ -169,6 +169,13 @@
       "when": 1793080000000,
       "tag": "0023_item_desc_fixes",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1793170000000,
+      "tag": "0024_config_overview_defaults",
+      "breakpoints": true
     }
   ]
 }

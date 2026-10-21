@@ -38,6 +38,12 @@ export type MonsterDropConfig = {
 };
 
 /** 首领奖励条目：物品（也可以填功法编号，会变成功法书）或修为。 */
+/** 关卡里存的掉落覆盖：缺的或 null 的项跟随配置概览的默认值。 */
+export type MonsterDropOverride = {
+  chanceBp?: number | null;
+  qualityWeights?: { [K in keyof QualityWeights]?: number | null };
+};
+
 export type BossRewardEntry = { kind: "item"; itemSlug: string; quantity: number } | { kind: "cultivation"; amount: number };
 
 export type BossRepeatReward = {
@@ -45,6 +51,8 @@ export type BossRepeatReward = {
   gear: boolean;
   /** 额外物品，各自按万分比独立掷骰（例如突破石）。 */
   extras: { itemSlug: string; chanceBp: number; minQty: number; maxQty: number }[];
+  /** 给的装备直接是橙色的概率（万分比）；不填 = 配置概览的「首领橙装概率」。 */
+  orangeChanceBp?: number | null;
 };
 
 export const DEFAULT_OPTIONAL_RULES = Object.fromEntries(

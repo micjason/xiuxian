@@ -16,6 +16,8 @@ import { withTransaction, type Tx } from "../../db/tx.js";
 import type { Db } from "../operations/record.js";
 import { AppError } from "../../shared/errors.js";
 import { validateContent, type ContentSnapshot } from "./validate.js";
+import { resolveMonsterDrop } from "./stage-defaults.js";
+import { tuningOf } from "./tuning.js";
 
 export async function loadDraftSnapshot(db: Db | Tx): Promise<ContentSnapshot> {
   const [globals] = await db.select().from(contentGlobals).limit(1);
@@ -25,6 +27,7 @@ export async function loadDraftSnapshot(db: Db | Tx): Promise<ContentSnapshot> {
   const tables = await db.select().from(contentDropTables);
   const entries = await db.select().from(contentDropEntries);
   const stages = await db.select().from(contentStages);
+  const tuning = tuningOf(globals?.tuning);
   return {
     globals: {
       startingRealmSlug: globals?.startingRealmSlug ?? "",
@@ -34,6 +37,7 @@ export async function loadDraftSnapshot(db: Db | Tx): Promise<ContentSnapshot> {
       powerWeights: globals?.powerWeights ?? undefined,
       combat: globals?.combat ?? undefined,
       enhance: globals?.enhance ?? undefined,
+      tuning,
       artSlotRules: globals?.artSlotRules ?? undefined,
       idleKillCap: globals?.idleKillCap ?? undefined,
       minClientVersionCode: globals?.minClientVersionCode ?? undefined,
@@ -85,8 +89,10 @@ export async function loadDraftSnapshot(db: Db | Tx): Promise<ContentSnapshot> {
       bossInterval: row.bossInterval,
       bosses: row.bosses ?? [],
       monsters: row.monsters ?? [],
-      monsterDrop: row.monsterDrop ?? null,
-      recommendedPower: row.recommendedPower,
+      // 关卡里只存改过的项；这里合并配置概览的默认值，游戏和客户端拿到的永远是完整的掉落配置。
+      monsterDrop: resolveMonsterDrop(row.monsterDrop, tuning),
+      // 0 = 没手动覆盖，按公式自动算（库里存 null）
+      recommendedPower: row.recommendedPower ?? 0,
       enabled: row.enabled,
     })),
     dropTables: tables.map((table) => ({
@@ -114,6 +120,8 @@ export async function loadDraftSnapshot(db: Db | Tx): Promise<ContentSnapshot> {
       quality: row.quality,
       requiredRealmOrder: row.requiredRealmOrder,
       stackable: row.stackable,
+      iconKey: row.iconKey ?? "",
+      dropMult: row.dropMult ?? 1,
       enabled: row.enabled,
     })),
     skills: skills.map((row) => ({

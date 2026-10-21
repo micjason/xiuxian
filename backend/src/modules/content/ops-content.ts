@@ -1,11 +1,14 @@
 import { randomBytes } from "node:crypto";
 import { eq } from "drizzle-orm";
-import type { BossRepeatReward, BossRewardEntry, MonsterDropConfig, QualityWeights, StageMonster } from "./combat-types.js";
-import { contentDropEntries, contentDropTables, contentItems, contentRealms, contentSkillCategories, contentSkills, contentStages, playerItems, type StageBoss } from "../../db/schema.js";
+import type { BossRepeatReward, BossRewardEntry, MonsterDropOverride, StageMonster } from "./combat-types.js";
+import { contentDropEntries, contentDropTables, contentGlobals, contentItems, contentRealms, contentSkillCategories, contentSkills, contentStages, playerItems, type StageBoss } from "../../db/schema.js";
 import { AppError } from "../../shared/errors.js";
 import type { Db } from "../operations/record.js";
 import { loadDraftSnapshot } from "./snapshot.js";
-import { stageAutoPower } from "./stage-power.js";
+import { stageAutoPower, stagePowerSource, stageRawPower } from "./stage-power.js";
+import { compactDropOverride, customDropCount, MONSTER_QUALITIES, resolveMonsterDrop } from "./stage-defaults.js";
+import { tuningOf, type Tuning } from "./tuning.js";
+import { readGameRules } from "./rules.js";
 import type { ContentSnapshot } from "./validate.js";
 
 type BossInput = {
@@ -18,11 +21,12 @@ type BossInput = {
   /** 首通固定奖励：物品（可填功法编号，会变成功法书）或修为。不传 = 保持原样。 */
   firstClear?: ({ kind?: string; itemId?: string; quantity?: number; amount?: number })[] | null;
   /** 首通之后每天前几次胜利的奖励。不传 = 保持原样。 */
-  repeat?: { gear?: boolean; extras?: { itemId?: string; chancePercent?: number; minQty?: number; maxQty?: number }[] } | null;
+  repeat?: { gear?: boolean; orangeChancePercent?: number | null; extras?: { itemId?: string; chancePercent?: number; minQty?: number; maxQty?: number }[] } | null;
 };
 
 type MonsterInput = { name?: string; attack?: number; defense?: number; hp?: number; interval?: number; killCultivation?: number };
-type MonsterDropInput = { chancePercent?: number; weights?: Partial<Record<"white" | "green" | "blue" | "purple", number>> } | null;
+/** 关卡掉落：null / 不填的项 = 跟随配置概览；填了和默认一样的值也按「跟随默认」存。 */
+type MonsterDropInput = { chancePercent?: number | null; weights?: Partial<Record<"white" | "green" | "blue" | "purple" | "orange", number | null>> } | null;
 
 function newId(prefix: string): string {
   return `${prefix}${randomBytes(8).toString("hex")}`;
@@ -41,6 +45,11 @@ function numberOf(value: unknown, label: string): number {
     throw new AppError("INVALID_INPUT", `${label}不能小于 0`);
   }
   return number;
+}
+
+async function tuningFor(db: Db): Promise<Tuning> {
+  const [row] = await db.select().from(contentGlobals).limit(1);
+  return tuningOf(row?.tuning);
 }
 
 async function realmByCode(db: Db, code: number) {
@@ -70,25 +79,37 @@ function readMonsters(monsters: MonsterInput[] | undefined): StageMonster[] | un
   });
 }
 
-function readMonsterDrop(input: MonsterDropInput | undefined): MonsterDropConfig | null | undefined {
+function readMonsterDrop(input: MonsterDropInput | undefined, tuning: Tuning): MonsterDropOverride | null | undefined {
   if (input === undefined) {
     return undefined;
   }
   if (input === null) {
     return null;
   }
-  const percent = numberOf(input.chancePercent ?? 0, "怪物掉率");
-  if (percent > 100) {
-    throw new AppError("INVALID_INPUT", "怪物掉率不能超过 100%");
+  const override: MonsterDropOverride = {};
+  if (input.chancePercent !== undefined && input.chancePercent !== null) {
+    const percent = numberOf(input.chancePercent, "怪物掉率");
+    if (percent > 100) {
+      throw new AppError("INVALID_INPUT", "怪物掉率不能超过 100%");
+    }
+    override.chanceBp = Math.round(percent * 100);
   }
-  const weights: QualityWeights = {};
-  for (const key of ["white", "green", "blue", "purple"] as const) {
-    weights[key] = numberOf(input.weights?.[key] ?? 0, "品质权重");
+  const weights: NonNullable<MonsterDropOverride["qualityWeights"]> = {};
+  for (const key of MONSTER_QUALITIES) {
+    const value = input.weights?.[key];
+    if (value !== undefined && value !== null) {
+      weights[key] = numberOf(value, "品质权重");
+    }
   }
-  if (percent > 0 && Object.values(weights).every((value) => value === 0)) {
+  if (input.weights?.orange) {
+    throw new AppError("INVALID_INPUT", "普通怪不掉橙装：橙装只由首领掉");
+  }
+  override.qualityWeights = weights;
+  const effective = resolveMonsterDrop(override, tuning);
+  if (effective.chanceBp > 0 && Object.values(effective.qualityWeights).every((value) => !value)) {
     throw new AppError("INVALID_INPUT", "品质权重至少有一档大于 0");
   }
-  return { chanceBp: Math.round(percent * 100), qualityWeights: weights };
+  return compactDropOverride(override, tuning);
 }
 
 function readFirstClear(entries: BossInput["firstClear"], known: Set<string>): BossRewardEntry[] | undefined {
@@ -138,7 +159,15 @@ function readRepeat(input: BossInput["repeat"], known: Set<string>): BossRepeatR
     }
     return { itemSlug, chanceBp: Math.round(percent * 100), minQty, maxQty };
   });
-  return { gear: input.gear === true, extras };
+  const out: BossRepeatReward = { gear: input.gear === true, extras };
+  if (input.orangeChancePercent !== undefined && input.orangeChancePercent !== null) {
+    const percent = numberOf(input.orangeChancePercent, "橙装概率");
+    if (percent > 100) {
+      throw new AppError("INVALID_INPUT", "橙装概率不能超过 100%");
+    }
+    out.orangeChanceBp = Math.round(percent * 100);
+  }
+  return out;
 }
 
 async function readBosses(db: Db, bosses: BossInput[] | undefined, current: StageBoss[] = []): Promise<StageBoss[]> {
@@ -201,36 +230,52 @@ async function readBosses(db: Db, bosses: BossInput[] | undefined, current: Stag
   });
 }
 
-type StagePowerView = { recommendedPower: number; effectivePower: number | null; autoPower: number | null; powerProblem: string | null };
+type StagePowerView = {
+  /** null = 自动；数字 = 手动覆盖 */
+  recommendedPower: number | null;
+  effectivePower: number | null;
+  autoPower: number | null;
+  /** 自动值怎么来的，例如「首领 噬魂老鬼 6101 × 1.05」 */
+  autoFormula: string | null;
+  powerProblem: string | null;
+};
 
-/** recommendedPower = 后台手填的值（0 = 没填，按首领自动算）；autoPower = 按首领数值算出的参考值；effectivePower = 玩家实际看到的。 */
-function stagePowerOf(world: ContentSnapshot, slug: string): StagePowerView {
+/** recommendedPower = 手动覆盖的值（null = 自动）；autoPower = 按首领（没首领按普通怪）算出的值；effectivePower = 玩家实际看到的。 */
+function stagePowerOf(world: ContentSnapshot, slug: string, manualRaw: number | null): StagePowerView {
   const stage = world.stages.find((candidate) => candidate.slug === slug);
   if (!stage) {
     throw new AppError("INTERNAL");
   }
-  const manual = Math.max(0, Math.round(Number(stage.recommendedPower ?? 0)));
-  if ((stage.bosses ?? []).length === 0) {
-    return { recommendedPower: manual, effectivePower: manual > 0 ? manual : null, autoPower: null, powerProblem: null };
+  const manual = manualRaw !== null && manualRaw > 0 ? Math.round(manualRaw) : null;
+  const source = stagePowerSource(stage);
+  if (!source) {
+    return { recommendedPower: manual, effectivePower: manual, autoPower: null, autoFormula: null, powerProblem: null };
   }
   try {
     const auto = stageAutoPower(world, stage);
-    return { recommendedPower: manual, effectivePower: manual > 0 ? manual : auto, autoPower: auto, powerProblem: null };
+    const raw = stageRawPower(world, stage);
+    const margin = readGameRules(world).recommendedPowerMargin;
+    const formula = `${source.kind === "boss" ? "首领" : "本关无首领，按普通怪"} ${source.name} ${Math.round(raw * 10) / 10} × ${margin}`;
+    return { recommendedPower: manual, effectivePower: manual ?? auto, autoPower: auto, autoFormula: formula, powerProblem: null };
   } catch (cause) {
     if (cause instanceof AppError) {
-      return { recommendedPower: manual, effectivePower: manual > 0 ? manual : null, autoPower: null, powerProblem: manual > 0 ? null : cause.message };
+      return { recommendedPower: manual, effectivePower: manual, autoPower: null, autoFormula: null, powerProblem: manual !== null ? null : cause.message };
     }
     throw cause;
   }
 }
 
-function readRecommendedPower(value: unknown): number | undefined {
-  if (value === undefined || value === null || value === "") {
+/** undefined = 不改；null（或 0、空）= 恢复自动；正整数 = 手动覆盖。 */
+function readRecommendedPower(value: unknown): number | null | undefined {
+  if (value === undefined) {
     return undefined;
+  }
+  if (value === null || value === "" || value === 0) {
+    return null;
   }
   const number = Number(value);
   if (!Number.isInteger(number) || number < 0 || number > 10_000_000) {
-    throw new AppError("INVALID_INPUT", "推荐战力要填 0 到 1000 万的整数（0 表示按首领数值自动算）");
+    throw new AppError("INVALID_INPUT", "推荐战力要填 1 到 1000 万的整数（不填 = 按公式自动算）");
   }
   return number;
 }
@@ -241,6 +286,7 @@ function stageView(
   items: { slug: string; displayName: string }[],
   skills: { slug: string; displayName: string }[],
   power: StagePowerView,
+  tuning: Tuning,
 ) {
   const realm = realms.find((candidate) => candidate.sortOrder === row.requiredRealmOrder);
   const nameOf = (slug: string) => items.find((candidate) => candidate.slug === slug)?.displayName || skills.find((candidate) => candidate.slug === slug)?.displayName || "名称缺失";
@@ -263,6 +309,7 @@ function stageView(
     repeat: boss.repeat
       ? {
           gear: boss.repeat.gear,
+          orangeChancePercent: boss.repeat.orangeChanceBp == null ? null : boss.repeat.orangeChanceBp / 100,
           extras: boss.repeat.extras.map((extra) => ({ itemId: extra.itemSlug, displayName: nameOf(extra.itemSlug), chancePercent: extra.chanceBp / 100, minQty: extra.minQty, maxQty: extra.maxQty })),
         }
       : null,
@@ -275,7 +322,18 @@ function stageView(
     realmMissing: realm == null,
     bosses,
     monsters: row.monsters ?? [],
-    monsterDrop: row.monsterDrop ? { chancePercent: row.monsterDrop.chanceBp / 100, weights: row.monsterDrop.qualityWeights } : null,
+    // 关卡自己改过的项（null = 跟随配置概览）
+    monsterDrop: {
+      chancePercent: row.monsterDrop?.chanceBp == null ? null : row.monsterDrop.chanceBp / 100,
+      weights: Object.fromEntries(MONSTER_QUALITIES.map((key) => [key, row.monsterDrop?.qualityWeights?.[key] ?? null])),
+    },
+    dropCustomCount: customDropCount(row.monsterDrop),
+    // 配置概览里的默认值（抽屉里灰字显示、「恢复默认」用）
+    dropDefaults: {
+      chancePercent: tuning.monsterDropChanceBp / 100,
+      weights: Object.fromEntries(MONSTER_QUALITIES.map((key) => [key, tuning.monsterQualityWeights[key]])),
+      orangeChancePercent: tuning.bossOrangeChanceBp / 100,
+    },
     ...power,
   };
 }
@@ -288,14 +346,15 @@ export async function listOpsStages(db: Db) {
     db.select().from(contentSkills),
     loadDraftSnapshot(db),
   ]);
+  const tuning = world.globals.tuning ?? tuningOf(null);
   return stages
     .sort((left, right) => left.requiredRealmOrder - right.requiredRealmOrder || left.displayName.localeCompare(right.displayName, "zh"))
-    .map((row) => stageView(row, realms, items, skills, stagePowerOf(world, row.slug)));
+    .map((row) => stageView(row, realms, items, skills, stagePowerOf(world, row.slug, row.recommendedPower), tuning));
 }
 
 export async function createOpsStage(
   db: Db,
-  input: { displayName?: string; realmCode?: number; recommendedPower?: number; bosses?: BossInput[]; monsters?: MonsterInput[]; monsterDrop?: MonsterDropInput },
+  input: { displayName?: string; realmCode?: number; recommendedPower?: number | null; bosses?: BossInput[]; monsters?: MonsterInput[]; monsterDrop?: MonsterDropInput },
   adminId: string | null,
 ) {
   const displayName = textOf(input.displayName);
@@ -312,7 +371,7 @@ export async function createOpsStage(
   }
   const bosses = await readBosses(db, input.bosses);
   const monsters = readMonsters(input.monsters) ?? [];
-  const monsterDrop = readMonsterDrop(input.monsterDrop) ?? null;
+  const monsterDrop = readMonsterDrop(input.monsterDrop, await tuningFor(db)) ?? null;
   const slug = newId("s");
   const now = new Date();
   const dropSlug = (suffix: string) => `${slug}_${suffix}`;
@@ -328,7 +387,7 @@ export async function createOpsStage(
     sortOrder: 0,
     nextStageSlug: null,
     requiredRealmOrder: realmCode,
-    recommendedPower: readRecommendedPower(input.recommendedPower) ?? 0,
+    recommendedPower: readRecommendedPower(input.recommendedPower) ?? null,
     bossName: first?.name ?? "",
     bossAttack: first?.attack ?? 0,
     bossDefense: first?.defense ?? 0,
@@ -349,7 +408,7 @@ export async function createOpsStage(
 export async function updateOpsStage(
   db: Db,
   id: string,
-  input: { displayName?: string; realmCode?: number; recommendedPower?: number; bosses?: BossInput[]; monsters?: MonsterInput[]; monsterDrop?: MonsterDropInput },
+  input: { displayName?: string; realmCode?: number; recommendedPower?: number | null; bosses?: BossInput[]; monsters?: MonsterInput[]; monsterDrop?: MonsterDropInput },
   adminId: string | null,
 ) {
   const [current] = await db.select().from(contentStages).where(eq(contentStages.slug, id)).limit(1);
@@ -370,7 +429,7 @@ export async function updateOpsStage(
   }
   const bosses = await readBosses(db, input.bosses, current.bosses ?? []);
   const monsters = readMonsters(input.monsters);
-  const monsterDrop = readMonsterDrop(input.monsterDrop);
+  const monsterDrop = readMonsterDrop(input.monsterDrop, await tuningFor(db));
   const first = bosses[0];
   await db
     .update(contentStages)

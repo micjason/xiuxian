@@ -1,7 +1,7 @@
 import { randomInt as cryptoRandomInt } from "node:crypto";
 import type { Tx } from "../../db/tx.js";
 import { advanceWaves, waveCycle, type WaveCycle } from "../combat/wave.js";
-import { rollMonsterKillDrop } from "../content/monster-drops.js";
+import { dropMultsOf, rollMonsterKillDrop } from "../content/monster-drops.js";
 import type { StageMonster } from "../content/combat-types.js";
 import type { ContentSnapshot } from "../content/validate.js";
 import type { GameRules } from "../content/rules.js";
@@ -109,8 +109,9 @@ export async function settleWaves(
   // 掉落的装备阶：关卡所属境界的大境界（炼气关刷炼气阶装备）。
   const majorKey = world.realms.find((row) => row.sortOrder === input.stage.requiredRealmOrder)?.majorKey ?? null;
   if (advance.kills > 0 && majorKey) {
+    const multOf = dropMultsOf(world.items);
     for (let index = 0; index < advance.kills; index += 1) {
-      const rolled = rollMonsterKillDrop(majorKey, input.stage.monsterDrop, waveRandom);
+      const rolled = rollMonsterKillDrop(majorKey, input.stage.monsterDrop, waveRandom, multOf);
       if (!rolled || !world.items.some((item) => item.slug === rolled.slug)) {
         continue;
       }

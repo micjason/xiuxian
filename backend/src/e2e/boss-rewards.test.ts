@@ -130,11 +130,27 @@ describe("boss first-clear fixed rewards", () => {
   });
 });
 
+describe("boss repeat rewards: orange gear only from bosses (配置概览「首领橙装概率」)", () => {
+  it("the repeat gear is orange when the orange roll hits (default 2%), and each slot follows the drop multipliers", async () => {
+    await withDb(async (db) => {
+      const { app, challenge, weakBear } = await boot(db, "boss_o");
+      await weakBear();
+      await challenge("lianqi_3"); // 首通
+      const body = (await challenge("lianqi_3")).json();
+      // 掷骰 0 < 200：橙装；部位等概率，掷 0 = 武器
+      expect(body.drops.map((row: { itemSlug: string }) => row.itemSlug).filter((slug: string) => slug.startsWith("gear_"))).toEqual(["gear_major1_weapon_orange"]);
+      await app.close();
+    });
+  });
+});
+
 describe("boss repeat rewards: first N wins per day (Beijing time, day starts 05:00)", () => {
   it("first clear does not use the daily count; the next 5 wins reward gear (white → green) + stones; the 6th still wins but has no reward; it resets at 05:00 Beijing", async () => {
     await withDb(async (db) => {
       const { app, challenge, state, setClock, weakBear, playerId } = await boot(db, "boss_e");
       await weakBear();
+      // 这个用例的掷骰全是 0（必中）：先把首领橙装概率关掉，只看白改绿；橙装在下面单独测
+      await db.update(contentGlobals).set({ tuning: { bossOrangeChanceBp: 0 } });
       await challenge("lianqi_3"); // 首通
       const rewarded: boolean[] = [];
       const gear: string[] = [];

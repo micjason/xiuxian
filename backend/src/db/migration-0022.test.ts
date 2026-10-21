@@ -4,6 +4,7 @@ import { eq, sql } from "drizzle-orm";
 import { contentGlobals, contentStages } from "./schema.js";
 import { applyPrototypeV12 } from "../modules/content/prototype-v12.js";
 import { withDb } from "../test/db.js";
+import { loadDraftSnapshot } from "../modules/content/snapshot.js";
 
 const text = readFileSync(new URL("../../drizzle/0022_drop_rate_5pct_stones_x2_daily5.sql", import.meta.url), "utf8");
 
@@ -23,7 +24,9 @@ describe("migration 0022 (5% kill drop, stones x2 of the original, 5 daily repea
     await withDb(async (db) => {
       await applyPrototypeV12(db);
       const stages = await db.select().from(contentStages);
-      expect(stages.every((row) => row.monsterDrop?.chanceBp === 500)).toBe(true);
+      // 0024 起关卡只存改过的项：5% 是默认值，存成「跟随默认」
+      expect(stages.every((row) => row.monsterDrop?.chanceBp == null)).toBe(true);
+      expect((await loadDraftSnapshot(db)).stages.every((row) => row.monsterDrop?.chanceBp === 500)).toBe(true);
       const extras = stages.flatMap((row) => row.bosses.flatMap((boss) => boss.repeat?.extras ?? []));
       expect(extras.filter((e) => e.itemSlug === "enh_stone_low").map((e) => e.chanceBp)).toEqual([7000, 7000, 7000]);
       expect(extras.filter((e) => e.itemSlug === "enh_stone_mid").map((e) => e.chanceBp)).toEqual([3000, 3000]);

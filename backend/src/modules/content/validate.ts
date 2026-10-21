@@ -23,6 +23,7 @@ export type ContentSnapshot = {
       gearSpeedFactor?: number;
     } & OptionalRuleValues;
     enhance?: import("./enhance.js").EnhanceRules;
+    tuning?: import("./tuning.js").Tuning;
     artSlotRules?: { minRealmOrder: number; slots: number }[];
     idleKillCap?: number;
     minClientVersionCode?: number;
@@ -105,6 +106,10 @@ export type ContentSnapshot = {
     quality?: string;
     requiredRealmOrder?: number;
     stackable?: boolean;
+    /** 后台给这件装备指定的图标（空 = 客户端按大境界 + 部位自动选） */
+    iconKey?: string;
+    /** 装备掉率倍数（默认 1） */
+    dropMult?: number;
     enabled: boolean;
   }[];
   skills: {
@@ -256,9 +261,7 @@ export function validateContent(
     if (realm.gainPerTick < 0 || realm.breakthroughCost < 0) {
       push("realm", realm.slug, "breakthroughCost", "修为数值不能为负");
     }
-    if (!(0 <= realm.minRateBp && realm.minRateBp <= realm.baseRateBp && realm.baseRateBp <= realm.maxRateBp && realm.maxRateBp <= 10000)) {
-      push("realm", realm.slug, "baseRateBp", "成功率上下限不正确");
-    }
+    // 突破必定成功（2026-10-21 Chengpeng 确认）：成功率那组列已停用，不再校验。
     if (realm.requiredStageSlug && !stageSlugs.has(realm.requiredStageSlug)) {
       push("realm", realm.slug, "requiredStageSlug", "要求的关卡不存在");
     }
@@ -276,9 +279,6 @@ export function validateContent(
     }
     if ((realm.ultDamageMultBp ?? 0) > 0 && !((realm.ultCooldownSeconds ?? 0) >= 1)) {
       push("realm", realm.slug, "ultCooldownSeconds", "有大招的境界要填大招冷却（至少 1 秒）");
-    }
-    if (realm.recommendedPower > 0 && realm.baseRateBp < 3000) {
-      warn("realm", realm.slug, "baseRateBp", "推荐战力下成功率低于 30%");
     }
   }
 

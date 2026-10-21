@@ -74,7 +74,7 @@ describe("monster gear drops", () => {
   });
 
   it("boss repeat reward merges white into green", () => {
-    expect(repeatRewardWeights(qi)).toEqual({ white: 0, green: 95, blue: 5, purple: 0 });
+    expect(repeatRewardWeights(qi)).toEqual({ white: 0, green: 95, blue: 5, purple: 0, orange: 0 });
     expect(rollGearPiece("major1", repeatRewardWeights(qi), seq(0, 0))!.quality).toBe("green");
   });
 });

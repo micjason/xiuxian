@@ -3,13 +3,15 @@ import { contentDropEntries, contentGlobals, contentItems, contentRealms, conten
 import { AppError } from "../../shared/errors.js";
 import type { Db } from "../operations/record.js";
 import { ratePower, sumReachedRealmStats } from "../combat/stats.js";
+import { tuningOf } from "./tuning.js";
 
+/** 默认装备预算比例；实际值在「装备配置」里改（content_globals.tuning.gearBudgetRatio）。 */
 export const GEAR_BUDGET_RATIO = 0.55;
 
 /**
  * 装备速度比例：鞋子、饰品上的“速度”数值按预算算出来的值再乘这个比例（0–1），
  * 省下的战力原样补到同一部位的另一项属性（鞋子补气血、饰品补攻击），所以每件装备的战力不变，只是少一点速度。
- * 1 = 不压速度（第 1 周之前的行为）；越小，出手间隔越难缩短。默认 0.1：第 1b 周模拟里，这个值让三个大境界的参考出手间隔落在 1.2 / 1.1 / 1.0 左右，和设计表 2.1 一致，普通怪击杀间隔与设计表 2.5 相差不到 10%（见 tools/sim 报告）。
+ * 1 = 不压速度（第 1 周之前的行为）；越小，出手间隔越难缩短。默认 0.3（第 1 周模拟时是 0.1）：第 1b 周模拟里，这个值让三个大境界的参考出手间隔落在 1.2 / 1.1 / 1.0 左右，和设计表 2.1 一致，普通怪击杀间隔与设计表 2.5 相差不到 10%（见 tools/sim 报告）。
  */
 export const DEFAULT_GEAR_SPEED_FACTOR = 0.3;
 
@@ -87,11 +89,12 @@ export function gearSpeedFactorOf(value: unknown): number {
   return number;
 }
 
-export function splitGearBudget(input: { budget: Stats; slotKey: string; factor: number; weights: Weights; speedFactor?: number }): Stats {
-  const slot = GEAR_SLOTS.find((row) => row.key === input.slotKey);
-  if (!slot) {
+export function splitGearBudget(input: { budget: Stats; slotKey: string; factor: number; weights: Weights; speedFactor?: number; shares?: Record<string, number> }): Stats {
+  const found = GEAR_SLOTS.find((row) => row.key === input.slotKey);
+  if (!found) {
     throw new AppError("INVALID_INPUT", "请选择部位：武器、头冠、衣服、鞋子、饰品");
   }
+  const slot = { ...found, share: input.shares?.[found.key] ?? found.share };
   const budgetPower =
     input.budget.attack * input.weights.attack +
     input.budget.defense * input.weights.defense +
@@ -125,6 +128,7 @@ export function splitGearBudget(input: { budget: Stats; slotKey: string; factor:
 export function gearBudgetOf(
   realms: { sortOrder: number; baseAttack: number; baseDefense: number; baseHp: number; baseSpeed: number }[],
   majorOrders: number[],
+  ratio: number = GEAR_BUDGET_RATIO,
 ): Stats {
   const ordered = [...majorOrders].sort((left, right) => left - right);
   const earlyOrder = ordered[0];
@@ -142,10 +146,10 @@ export function gearBudgetOf(
   const early = sumReachedRealmStats(rows, earlyOrder);
   const speed = sumReachedRealmStats(rows, speedOrder);
   return {
-    attack: early.attack * GEAR_BUDGET_RATIO,
-    defense: early.defense * GEAR_BUDGET_RATIO,
-    hp: early.hp * GEAR_BUDGET_RATIO,
-    speed: speed.speed * GEAR_BUDGET_RATIO,
+    attack: early.attack * ratio,
+    defense: early.defense * ratio,
+    hp: early.hp * ratio,
+    speed: speed.speed * ratio,
   };
 }
 
@@ -213,6 +217,16 @@ function weightsOf(weights: Weights | null | undefined): Weights {
   };
 }
 
+/** 装备的默认名称和描述（例如「炼气·蓝·武器」「炼气武器，品质蓝」）。 */
+export function gearDefaultTexts(majorName: string, slotKey: string, qualityKey: string): { displayName: string; description: string } {
+  const slot = GEAR_SLOTS.find((row) => row.key === slotKey);
+  const quality = GEAR_QUALITIES.find((row) => row.key === qualityKey);
+  return {
+    displayName: `${majorName}·${quality?.name ?? qualityKey}·${slot?.name ?? slotKey}`,
+    description: `${majorName}${slot?.name ?? slotKey}，品质${quality?.name ?? qualityKey}`,
+  };
+}
+
 export function majorGearSlugs(majorKey: string): string[] {
   return GEAR_SLOTS.flatMap((slot) => GEAR_QUALITIES.map((quality) => gearPieceSlug(majorKey, slot.key, quality.key)));
 }
@@ -222,6 +236,7 @@ export async function syncGear(db: Db, adminId: string | null): Promise<void> {
   const [globals] = await db.select().from(contentGlobals).where(eq(contentGlobals.id, 1)).limit(1);
   const weights = weightsOf(globals?.powerWeights);
   const speedFactor = gearSpeedFactorOf(globals?.combat?.gearSpeedFactor);
+  const tuning = tuningOf(globals?.tuning);
   const realms = await db.select().from(contentRealms);
   const items = await db.select().from(contentItems);
   const groups = new Map<string, typeof realms>();
@@ -240,14 +255,18 @@ export async function syncGear(db: Db, adminId: string | null): Promise<void> {
         await db.update(contentRealms).set({ majorKey, updatedAt: now, updatedBy: adminId }).where(eq(contentRealms.slug, realm.slug));
       }
     }
-    const budget = gearBudgetOf(realms, rows.map((realm) => realm.sortOrder));
+    const budget = gearBudgetOf(realms, rows.map((realm) => realm.sortOrder), tuning.gearBudgetRatio);
     const requiredRealmOrder = Math.min(...rows.map((realm) => realm.sortOrder));
     for (const slot of GEAR_SLOTS) {
       for (const quality of GEAR_QUALITIES) {
         const slug = gearPieceSlug(majorKey, slot.key, quality.key);
-        const stats = splitGearBudget({ budget, slotKey: slot.key, factor: factors[quality.key], weights, speedFactor });
+        const stats = splitGearBudget({ budget, slotKey: slot.key, factor: factors[quality.key], weights, speedFactor, shares: tuning.slotShares });
         const current = items.find((item) => item.slug === slug);
+        const defaults = gearDefaultTexts(majorName, slot.key, quality.key);
+        // 重新生成只更新属性；后台改过的名称、描述、图标、掉率倍数不动，没改过的名称/描述跟着默认走。
         const values = {
+          ...(current && !current.nameCustom ? { displayName: defaults.displayName } : {}),
+          ...(current && !current.descriptionCustom ? { description: defaults.description } : {}),
           ...stats,
           quality: quality.key,
           slot: slot.key,
@@ -265,8 +284,8 @@ export async function syncGear(db: Db, adminId: string | null): Promise<void> {
           await db.insert(contentItems).values({
             ...values,
             slug,
-            displayName: `${majorName}·${quality.name}·${slot.name}`,
-            description: `${majorName}${slot.name}，品质${quality.name}`,
+            displayName: defaults.displayName,
+            description: defaults.description,
             iconKey: "",
             enabled: true,
           });
@@ -290,31 +309,66 @@ export async function saveGearQualityFactors(db: Db, input: Record<string, unkno
   return factors;
 }
 
+export const GEAR_DROP_MULT_MAX = 100;
+
+/**
+ * 改单件装备：名称、描述、图标、掉率倍数。
+ * 名称 / 描述填空或填回默认值 = 恢复默认（之后重新生成会跟着默认走）；图标填空 = 客户端按大境界 + 部位自动选。
+ */
 export async function updateGearPiece(
   db: Db,
   slug: string,
-  input: { displayName?: string; description?: string; iconKey?: string },
+  input: { displayName?: string | null; description?: string | null; iconKey?: string | null; dropMult?: number | null },
   adminId: string | null,
 ): Promise<{ id: string }> {
   const [current] = await db.select().from(contentItems).where(eq(contentItems.slug, slug)).limit(1);
   if (!current || current.kind !== "equipment") {
     throw new AppError("NOT_FOUND", "没有这件装备");
   }
-  const displayName = typeof input.displayName === "string" ? input.displayName.trim() : "";
-  if (!displayName) {
-    throw new AppError("INVALID_INPUT", "请填写装备名称");
+  const defaults = await gearDefaultsFor(db, current);
+  const set: Partial<typeof contentItems.$inferInsert> = { updatedAt: new Date(), updatedBy: adminId };
+  if (input.displayName !== undefined) {
+    const name = typeof input.displayName === "string" ? input.displayName.trim() : "";
+    if (name.length > 40) {
+      throw new AppError("INVALID_INPUT", "装备名称最多 40 个字");
+    }
+    const custom = name !== "" && name !== defaults.displayName;
+    set.displayName = custom ? name : defaults.displayName;
+    set.nameCustom = custom;
   }
-  await db
-    .update(contentItems)
-    .set({
-      displayName,
-      description: typeof input.description === "string" ? input.description.trim() : "",
-      iconKey: typeof input.iconKey === "string" ? input.iconKey.trim() : "",
-      updatedAt: new Date(),
-      updatedBy: adminId,
-    })
-    .where(eq(contentItems.slug, slug));
+  if (input.description !== undefined) {
+    const text = typeof input.description === "string" ? input.description.trim() : "";
+    const custom = text !== "" && text !== defaults.description;
+    set.description = custom ? text : defaults.description;
+    set.descriptionCustom = custom;
+  }
+  if (input.iconKey !== undefined) {
+    const icon = typeof input.iconKey === "string" ? input.iconKey.trim() : "";
+    if (icon && !/^[a-z][a-z0-9_]{0,63}$/.test(icon)) {
+      throw new AppError("INVALID_INPUT", "图标标识只能用小写字母、数字和下划线");
+    }
+    set.iconKey = icon;
+  }
+  if (input.dropMult !== undefined) {
+    const mult = input.dropMult === null ? 1 : Number(input.dropMult);
+    if (!Number.isFinite(mult) || mult < 0 || mult > GEAR_DROP_MULT_MAX) {
+      throw new AppError("INVALID_INPUT", `掉率倍数要在 0 到 ${GEAR_DROP_MULT_MAX} 之间`);
+    }
+    set.dropMult = Math.round(mult * 100) / 100;
+  }
+  await db.update(contentItems).set(set).where(eq(contentItems.slug, slug));
   return { id: slug };
+}
+
+/** 全部恢复默认：名称、描述、图标、掉率倍数。 */
+export async function resetGearPiece(db: Db, slug: string, adminId: string | null): Promise<{ id: string }> {
+  return updateGearPiece(db, slug, { displayName: null, description: null, iconKey: null, dropMult: null }, adminId);
+}
+
+async function gearDefaultsFor(db: Db, item: typeof contentItems.$inferSelect) {
+  const realms = await db.select().from(contentRealms);
+  const realm = realms.find((row) => row.sortOrder === item.requiredRealmOrder);
+  return gearDefaultTexts(realm?.majorName.trim() || "", item.slot ?? "", item.quality);
 }
 
 export async function removeMajorGear(db: Db, majorKey: string): Promise<void> {
@@ -338,6 +392,7 @@ export async function listGear(db: Db) {
   const factors = await readGearQualityFactors(db);
   const [globals] = await db.select().from(contentGlobals).where(eq(contentGlobals.id, 1)).limit(1);
   const weights = globals?.powerWeights ? weightsOf(globals.powerWeights) : null;
+  const tuning = tuningOf(globals?.tuning);
   const realms = await db.select().from(contentRealms);
   const items = await db.select().from(contentItems);
   const groups = new Map<string, typeof realms>();
@@ -362,11 +417,17 @@ export async function listGear(db: Db) {
             hp: item?.hp ?? 0,
             speed: item?.speed ?? 0,
           };
+          const defaults = gearDefaultTexts(majorName, slot.key, quality.key);
           return {
             id: slug,
             displayName: item?.displayName ?? "",
             description: item?.description ?? "",
+            defaultName: defaults.displayName,
+            defaultDescription: defaults.description,
+            nameCustom: item?.nameCustom ?? false,
+            descriptionCustom: item?.descriptionCustom ?? false,
             iconKey: item?.iconKey ?? "",
+            dropMult: item?.dropMult ?? 1,
             slot: slot.key,
             slotName: slot.name,
             quality: quality.key,
@@ -377,8 +438,36 @@ export async function listGear(db: Db) {
           };
         }),
       );
-      return { majorName, majorKey, requiredRealmOrder, pieces };
+      const budget = (() => {
+        try {
+          return gearBudgetOf(realms, rows.map((realm) => realm.sortOrder), tuning.gearBudgetRatio);
+        } catch {
+          return null;
+        }
+      })();
+      const sorted = [...rows].sort((left, right) => left.sortOrder - right.sortOrder);
+      return {
+        majorName,
+        majorKey,
+        requiredRealmOrder,
+        budgetRealm: sorted[0]?.displayName ?? "",
+        speedRealm: (sorted[1] ?? sorted[0])?.displayName ?? "",
+        budget,
+        budgetPower: budget && weights ? Math.round((budget.attack * weights.attack + budget.defense * weights.defense + budget.hp * weights.hp + budget.speed * weights.speed) * 100) / 100 : null,
+        pieces,
+      };
     })
     .sort((left, right) => left.requiredRealmOrder - right.requiredRealmOrder);
-  return { factors, majors };
+  return {
+    factors,
+    majors,
+    params: {
+      gearBudgetRatio: tuning.gearBudgetRatio,
+      gearSpeedFactor: gearSpeedFactorOf(globals?.combat?.gearSpeedFactor),
+      slotShares: tuning.slotShares,
+      qualityFactors: factors,
+      powerWeights: weights,
+    },
+    slots: GEAR_SLOTS.map((slot) => ({ key: slot.key, name: slot.name, stats: slot.stats })),
+  };
 }

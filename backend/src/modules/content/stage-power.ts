@@ -5,8 +5,35 @@ import type { ContentSnapshot } from "./validate.js";
 
 type Stage = ContentSnapshot["stages"][number];
 
-function priceStage(world: ContentSnapshot, stage: Stage): { realmOrder: number; power: number } {
+/** 推荐战力按谁算：有首领按首领，没有首领按普通怪（和首领同一个公式）。 */
+export function stagePowerSource(stage: Stage): { kind: "boss" | "monster"; name: string; attack: number; defense: number; hp: number; interval: number } | null {
   const boss = stage.bosses?.[0];
+  if (boss) {
+    return { kind: "boss", name: boss.name, attack: boss.attack, defense: boss.defense, hp: boss.hp, interval: boss.interval };
+  }
+  const monster = stage.monsters?.[0];
+  if (monster) {
+    return { kind: "monster", name: monster.name, attack: monster.attack, defense: monster.defense, hp: monster.hp, interval: monster.interval };
+  }
+  return null;
+}
+
+/** 首领（或普通怪）战力，乘推荐战力倍数之前的原始值。 */
+export function stageRawPower(world: ContentSnapshot, stage: Stage): number {
+  const source = stagePowerSource(stage);
+  if (!source) {
+    throw new AppError("INVALID_INPUT", "这个关卡还没有首领和普通怪");
+  }
+  const realm = world.realms.find((row) => row.sortOrder === stage.requiredRealmOrder);
+  if (!realm?.baseInterval) {
+    throw new AppError("INVALID_INPUT", "关卡的境界没有基础出手间隔");
+  }
+  const rules = readGameRules(world);
+  return bossPower(source, { baseInterval: realm.baseInterval, speedBase: rules.speedBase, weights: rules.powerWeights });
+}
+
+function priceStage(world: ContentSnapshot, stage: Stage): { realmOrder: number; power: number } {
+  const boss = stagePowerSource(stage);
   if (!boss) {
     throw new AppError("INVALID_INPUT", "这个关卡还没有首领");
   }
@@ -23,7 +50,7 @@ function priceStage(world: ContentSnapshot, stage: Stage): { realmOrder: number;
   return { realmOrder: realm.sortOrder, power: Math.round(raw * rules.recommendedPowerMargin) };
 }
 
-/** 按首领自身数值算出的推荐战力（战力 × 推荐战力倍数）。后台“推荐战力”填 0 时用它；也在表单里当参考值显示。 */
+/** 按首领（没有首领时按普通怪）数值算出的推荐战力（战力 × 推荐战力倍数）。没有手动覆盖时用它。 */
 export function stageAutoPower(world: ContentSnapshot, stage: Stage): number {
   return priceStage(world, stage).power;
 }

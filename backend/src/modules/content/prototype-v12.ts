@@ -6,6 +6,8 @@ import { STARTING_BREAK_MATERIALS, STARTING_ENHANCE_RULES } from "./enhance.js";
 import { syncGear } from "./gear.js";
 import { ensureSkillBook } from "./ops-content.js";
 import { gearPieceSlug } from "./gear.js";
+import { compactDropOverride } from "./stage-defaults.js";
+import { DEFAULT_TUNING } from "./tuning.js";
 
 /**
  * 原型数值表 v1.2（/workspace/prototype_design_numbers.md）的内容数据：9 层 3 个大境界、9 个关卡、3 个首领、3 门功法。
@@ -168,7 +170,7 @@ export async function applyPrototypeV12(db: Db): Promise<{ stageSlugs: string[];
       sortOrder: index + 1,
       nextStageSlug: PROTOTYPE_STAGES[index + 1]?.slug ?? null,
       requiredRealmOrder: index + 1,
-      recommendedPower: stage.boss?.recommendedPower ?? 0,
+      recommendedPower: stage.boss?.recommendedPower ?? null,
       bossName: boss?.name ?? "",
       bossAttack: boss?.attack ?? 0,
       bossDefense: boss?.defense ?? 0,
@@ -176,7 +178,8 @@ export async function applyPrototypeV12(db: Db): Promise<{ stageSlugs: string[];
       bossInterval: boss?.interval ?? 0,
       bosses: boss ? [boss] : [],
       monsters: [{ name: stage.monster.name, attack: stage.monster.attack, defense: stage.monster.defense, hp: stage.monster.hp, interval: stage.monster.interval, killCultivation: stage.monster.killXp }],
-      monsterDrop: { chanceBp: 500, qualityWeights: PROTOTYPE_MAJORS[major]!.weights },
+      // 只存和配置概览默认值不同的项（炼气 = 默认值，存 null = 跟随默认）
+      monsterDrop: compactDropOverride({ chanceBp: 500, qualityWeights: PROTOTYPE_MAJORS[major]!.weights }, DEFAULT_TUNING),
       bossDropTableSlug: "proto_boss",
       idleDropTableSlug: "proto_idle",
       firstClearDropTableSlug: "proto_first",

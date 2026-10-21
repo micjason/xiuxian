@@ -1,4 +1,5 @@
-import type { OptionalRuleValues, StageMonster, MonsterDropConfig, BossRewardEntry, BossRepeatReward } from "../modules/content/combat-types.js";
+import type { OptionalRuleValues, StageMonster, MonsterDropOverride, BossRewardEntry, BossRepeatReward } from "../modules/content/combat-types.js";
+import type { Tuning } from "../modules/content/tuning.js";
 import { sql } from "drizzle-orm";
 import {
   bigint,
@@ -240,6 +241,8 @@ export const contentGlobals = pgTable("content_globals", {
       >
     >;
   }>(),
+  /** 配置概览里的默认数值（见 content/tuning.ts）；缺的项用代码默认值。 */
+  tuning: jsonb("tuning").$type<Partial<Tuning>>(),
   artSlotRules: jsonb("art_slot_rules").$type<{ minRealmOrder: number; slots: number }[]>(),
   idleKillCap: integer("idle_kill_cap"),
   minClientVersionCode: integer("min_client_version_code").notNull().default(0),
@@ -310,6 +313,11 @@ export const contentItems = pgTable("content_items", {
   weaponCategorySlug: text("weapon_category_slug"),
   stackable: boolean("stackable").notNull().default(false),
   iconKey: text("icon_key").notNull().default(""),
+  /** 装备掉率倍数：同大境界、同品质 6 件按倍数分配被抽中的机会（默认 1）。 */
+  dropMult: doublePrecision("drop_mult").notNull().default(1),
+  /** 名称 / 描述被后台改过：重新生成装备时不覆盖。 */
+  nameCustom: boolean("name_custom").notNull().default(false),
+  descriptionCustom: boolean("description_custom").notNull().default(false),
   enabled: boolean("enabled").notNull().default(true),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   updatedBy: uuid("updated_by"),
@@ -375,7 +383,8 @@ export const contentStages = pgTable("content_stages", {
   sortOrder: integer("sort_order").notNull().default(0),
   nextStageSlug: text("next_stage_slug"),
   requiredRealmOrder: integer("required_realm_order").notNull().default(0),
-  recommendedPower: integer("recommended_power").notNull().default(0),
+  /** null = 按公式自动算；数字 = 后台手动覆盖。 */
+  recommendedPower: integer("recommended_power"),
   bossName: text("boss_name").notNull().default(""),
   bossAttack: doublePrecision("boss_attack").notNull().default(1),
   bossDefense: doublePrecision("boss_defense").notNull().default(0),
@@ -384,7 +393,8 @@ export const contentStages = pgTable("content_stages", {
   bosses: jsonb("bosses").$type<StageBoss[]>().notNull().default([]),
   /** 普通怪（每个关卡一种），空 = 这个关卡没有波次。 */
   monsters: jsonb("monsters").$type<StageMonster[]>().notNull().default([]),
-  monsterDrop: jsonb("monster_drop").$type<MonsterDropConfig | null>(),
+  /** 关卡自己改过的掉率 / 品质权重；没改的项不存（或存 null），跟随配置概览。 */
+  monsterDrop: jsonb("monster_drop").$type<MonsterDropOverride | null>(),
   bossDropTableSlug: text("boss_drop_table_slug").notNull(),
   idleDropTableSlug: text("idle_drop_table_slug").notNull(),
   firstClearDropTableSlug: text("first_clear_drop_table_slug").notNull(),

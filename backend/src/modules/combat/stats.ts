@@ -1,3 +1,4 @@
+import { DEFAULT_TUNING, layerFactorOf, type Tuning } from "../content/tuning.js";
 export type StatInput = {
   attack: number;
   defense: number;
@@ -33,17 +34,9 @@ export function ratePower(
   return Math.round(stats.attack * weights.attack + stats.defense * weights.defense + stats.hp * weights.hp + stats.speed * weights.speed);
 }
 
-export function skillLayerFactor(level: number): number {
-  if (level >= 7) {
-    return 1.6;
-  }
-  if (level >= 4) {
-    return 1.35;
-  }
-  if (level >= 2) {
-    return 1.15;
-  }
-  return 1;
+/** 功法层数系数（第 1 层 / 2–3 层 / 4–6 层 / 7 层起），数值在配置概览里改；不传就用默认值。 */
+export function skillLayerFactor(level: number, tuning: Pick<Tuning, "skillLayerFactors"> = DEFAULT_TUNING): number {
+  return layerFactorOf(tuning, level);
 }
 
 export function computePower(input: StatInput): { interval: number; power: number } {

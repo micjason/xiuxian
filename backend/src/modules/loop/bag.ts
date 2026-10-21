@@ -7,7 +7,13 @@ import type { ContentSnapshot } from "../content/validate.js";
 type World = ContentSnapshot & { version: number };
 
 /** 自动分解只动这两种品质（蓝、紫、橙永远不自动分解）。 */
+/** 默认自动分解白、绿；配置概览里可以改（world.globals.tuning.autoDecomposeQualities）。 */
 export const AUTO_DECOMPOSE_QUALITIES = new Set(["white", "green"]);
+
+function autoQualities(world: World): Set<string> {
+  const list = world.globals.tuning?.autoDecomposeQualities;
+  return list ? new Set<string>(list) : AUTO_DECOMPOSE_QUALITIES;
+}
 
 export async function addEnhanceExp(tx: Tx, playerId: string, amount: number) {
   await tx
@@ -52,7 +58,7 @@ export async function pickAutoDecomposeCandidate(tx: Tx, world: World, playerId:
   const candidates = rows
     .filter((row) => !row.equippedSlot && row.enhanceLevel === 0)
     .map((row) => ({ row, def: world.items.find((item) => item.slug === row.itemSlug) }))
-    .filter((entry) => entry.def?.kind === "equipment" && entry.def.slot && AUTO_DECOMPOSE_QUALITIES.has(entry.def.quality ?? "white"));
+    .filter((entry) => entry.def?.kind === "equipment" && entry.def.slot && autoQualities(world).has(entry.def.quality ?? "white"));
   candidates.sort((left, right) => {
     const quality = (left.def?.quality === "white" ? 0 : 1) - (right.def?.quality === "white" ? 0 : 1);
     return quality !== 0 ? quality : left.row.acquiredAt.getTime() - right.row.acquiredAt.getTime();
@@ -127,7 +133,7 @@ export async function grantItem(
     if (needsSlot && !options.overflow && isGear) {
       const used = await bagUsedSlots(tx, playerId);
       if (used >= options.capacity) {
-        const newIsAutoQuality = isGear && AUTO_DECOMPOSE_QUALITIES.has(definition.quality ?? "white");
+        const newIsAutoQuality = isGear && autoQualities(world).has(definition.quality ?? "white");
         if (!options.autoDecompose) {
           result.dropped += 1;
           result.reason = "BAG_FULL";

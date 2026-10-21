@@ -1,3 +1,4 @@
+import type { Tuning } from "./tuning.js";
 import { AppError } from "../../shared/errors.js";
 import { FEATURED_SLOTS, gearSlug, schemeBookSlugs } from "./numeric-scheme.js";
 
@@ -96,10 +97,19 @@ export function decomposeCultivation(quality: string, gainPerTick: number): numb
   return secondsCultivation(factor, gainPerTick);
 }
 
-export function bookOverflowCultivation(rank: string | null | undefined, gainPerTick: number): number {
-  const factor = RANK_CULTIVATION[rank as keyof typeof RANK_CULTIVATION];
+/** 满层后多余功法书折算的修为 = 秒数 × 每秒修为 × 品阶系数（配置概览里改，不传用默认 30 秒、黄 1 / 玄 2 / 地 4 / 天 8）。 */
+export function bookOverflowCultivation(
+  rank: string | null | undefined,
+  gainPerTick: number,
+  tuning?: Pick<Tuning, "bookOverflowSeconds" | "bookOverflowRankFactors">,
+): number {
+  const factors: Record<string, number> = tuning?.bookOverflowRankFactors ?? RANK_CULTIVATION;
+  const factor = factors[String(rank)];
   if (factor === undefined) {
     throw new AppError("INVALID_INPUT", "请先在后台填写：功法品阶");
   }
-  return secondsCultivation(factor, gainPerTick);
+  if (!(gainPerTick > 0)) {
+    throw new AppError("INVALID_INPUT", "请先在后台填写：每秒修为");
+  }
+  return Math.round((tuning?.bookOverflowSeconds ?? 30) * gainPerTick * factor);
 }

@@ -68,9 +68,23 @@ export type WaveSettlement = {
   bagFull: boolean;
   progress: number;
   deathsInRow: number;
+  /** 第四批：这次结算里打完了几波（挂机刷首领按波数算）。 */
+  wavesCompleted: number;
 };
 
-export const EMPTY_WAVES: WaveSettlement = { online: false, stageSlug: null, monsterName: null, kills: 0, deaths: 0, killCultivation: 0, drops: [], bagFull: false, progress: 0, deathsInRow: 0 };
+export const EMPTY_WAVES: WaveSettlement = { online: false, stageSlug: null, monsterName: null, kills: 0, deaths: 0, killCultivation: 0, drops: [], bagFull: false, progress: 0, deathsInRow: 0, wavesCompleted: 0 };
+
+/**
+ * 第四批：从「当前波次已进行 progress 秒」再过 seconds 秒，打完了几整波（和 advanceWaves 的整波数一致；
+ * 3 秒一次的轮询和一次性算出来的总波数相同）。离线时 progress 传 0（离线不推进波次，只按时长折算波数）。
+ */
+export function wavesCompletedIn(progress: number, seconds: number, cycle: WaveCycle): number {
+  if (!(cycle.cycleSeconds > 0) || seconds <= 0) {
+    return 0;
+  }
+  const start = Math.min(Math.max(0, progress), cycle.cycleSeconds - 1e-9);
+  return Math.floor((start + seconds + 1e-9) / cycle.cycleSeconds);
+}
 
 export function cycleFor(rules: GameRules, stats: { attack: number; defense: number; hp: number; interval: number }, monster: StageMonster): WaveCycle {
   return waveCycle(
@@ -107,6 +121,7 @@ export async function settleWaves(
   }
   const cycle = cycleFor(input.rules, input.stats, monster);
   const advance = advanceWaves(input.progress, input.consumedSeconds, cycle, input.deathsInRow);
+  const wavesCompleted = wavesCompletedIn(input.progress, input.consumedSeconds, cycle);
   const drops: WaveDrop[] = [];
   let bagFull = false;
   // 掉落的装备阶：关卡所属境界的大境界（炼气关刷炼气阶装备）。
@@ -175,5 +190,6 @@ export async function settleWaves(
     bagFull,
     progress: advance.progress,
     deathsInRow: advance.deathsInRow,
+    wavesCompleted,
   };
 }

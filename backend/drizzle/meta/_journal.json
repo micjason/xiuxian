@@ -232,6 +232,13 @@
       "when": 1795000400000,
       "tag": "0044_elite_art_backfill",
       "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1795000500000,
+      "tag": "0045_boss_single_rules",
+      "breakpoints": true
     }
   ]
 }

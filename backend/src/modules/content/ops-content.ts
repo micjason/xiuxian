@@ -4,9 +4,9 @@ import type { BossRepeatReward, BossRewardEntry, MonsterDropOverride, StageMonst
 import { QUALITY_KEYS } from "./catalog.js";
 import { gearMap, readDesignated, type DesignatedInput } from "./designated-drops.js";
 import { contentChapters, contentDropEntries, contentDropTables, contentGlobals, contentItems, contentRealms, contentSkillCategories, contentSkills, contentStages, playerItems, type StageBoss } from "../../db/schema.js";
-import { BOSS_STAT_KEYS, compactBossRuleOverride, customRuleCount, type BossStatKey, type BossTier } from "./boss-rules.js";
+import { BOSS_STAT_KEYS, compactBossRuleOverride, customRuleCount, type BossStatKey } from "./boss-rules.js";
 import { MONSTER_ART_KEY_SET } from "./art-keys.js";
-import { chiefStageOf, orderedStages } from "./stage-order.js";
+import { orderedStages } from "./stage-order.js";
 import { AppError } from "../../shared/errors.js";
 import type { Db } from "../operations/record.js";
 import { loadDraftSnapshot } from "./snapshot.js";
@@ -255,27 +255,13 @@ async function readPlacement(db: Db, slug: string, input: StagePlacementInput, c
   return { chapterSlug, sortOrder };
 }
 
-/** 保存后这一关的首领是精英还是章末（按保存后的章节和顺序算）。没有章节的关卡单独算一章 = 章末。 */
-async function prospectiveTier(db: Db, slug: string, placement: { chapterSlug: string | null; sortOrder: number }): Promise<BossTier> {
-  if (!placement.chapterSlug) {
-    return "chief";
-  }
-  const [chapter] = await db.select().from(contentChapters).where(eq(contentChapters.slug, placement.chapterSlug)).limit(1);
-  const stages = (await db.select().from(contentStages)).filter((row) => row.slug !== slug);
-  const [own] = await db.select().from(contentStages).where(eq(contentStages.slug, slug)).limit(1);
-  stages.push({ ...(own ?? { slug, requiredRealmOrder: 0, enabled: true }), chapterSlug: placement.chapterSlug, sortOrder: placement.sortOrder } as (typeof stages)[number]);
-  const chief = chiefStageOf({ slug: placement.chapterSlug, chiefStageSlugSetting: chapter?.chiefStageSlug ?? null }, stages);
-  return chief === slug ? "chief" : "elite";
-}
-
-/** 首领规则的单关覆盖：传了才改（null = 全部恢复默认），按保存后的档次校验，只存和默认不同的项。 */
-async function applyBossRules(db: Db, slug: string, placement: { chapterSlug: string | null; sortOrder: number }, input: BossInput[] | undefined, bosses: StageBoss[]): Promise<StageBoss[]> {
+/** 首领规则的单关覆盖：传了才改（null = 全部恢复默认），对照配置概览的一套默认值校验，只存和默认不同的项。 */
+async function applyBossRules(db: Db, input: BossInput[] | undefined, bosses: StageBoss[]): Promise<StageBoss[]> {
   const raw = input?.[0]?.rules;
   if (raw === undefined || bosses.length === 0) {
     return bosses;
   }
-  const tier = await prospectiveTier(db, slug, placement);
-  const override = raw === null ? null : compactBossRuleOverride(raw, (await tuningFor(db)).bossRules[tier], tier);
+  const override = raw === null ? null : compactBossRuleOverride(raw, (await tuningFor(db)).bossRules);
   const [first, ...rest] = bosses;
   const next: StageBoss = { ...first! };
   if (override) {
@@ -538,7 +524,7 @@ export async function createOpsStage(
   }
   const slug = newId("s");
   const placement = await readPlacement(db, slug, input, null);
-  const bosses = await applyBossRules(db, slug, placement, input.bosses, await readBosses(db, input.bosses));
+  const bosses = await applyBossRules(db, input.bosses, await readBosses(db, input.bosses));
   const monsters = readMonsters(input.monsters) ?? [];
   const monsterDrop = readMonsterDrop(input.monsterDrop, await tuningFor(db)) ?? null;
   const designatedDrops = readDesignated(input.designatedDrops, await gearMap(db)) ?? [];
@@ -599,7 +585,7 @@ export async function updateOpsStage(
     throw new AppError("INVALID_INPUT", "没有这个境界");
   }
   const placement = await readPlacement(db, id, input, current);
-  const bosses = await applyBossRules(db, id, placement, input.bosses, await readBosses(db, input.bosses, current.bosses ?? []));
+  const bosses = await applyBossRules(db, input.bosses, await readBosses(db, input.bosses, current.bosses ?? []));
   const monsters = readMonsters(input.monsters, current.monsters ?? []);
   const monsterDrop = readMonsterDrop(input.monsterDrop, await tuningFor(db));
   const designatedDrops = readDesignated(input.designatedDrops, await gearMap(db));

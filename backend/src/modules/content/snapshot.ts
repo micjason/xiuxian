@@ -84,11 +84,11 @@ export async function loadDraftSnapshot(db: Db | Tx): Promise<ContentSnapshot> {
     })),
     stages: withDerivedNextStage(stages.map((row) => {
       const chapter = row.chapterSlug ? chapterBySlug.get(row.chapterSlug) : undefined;
-      // 没有章节（老数据）的关卡单独算一章：首领按章末规则（和第三批之前一样，发布校验会报「没有所属章节」）。
+      // 首领外观档次（第四批起只管画面，规则只有一套）：章末关 = chief，其余 = elite；没有章节（老数据）的关卡单独算一章 = chief。
       const tier = chapter && chapter.chiefStageSlug !== row.slug ? ("elite" as const) : ("chief" as const);
       const monster = row.monsters?.[0];
       const bosses = (row.bosses ?? []).map((boss) => {
-        const rules = resolveBossRules(tuning.bossRules[tier], boss.rules ?? null);
+        const rules = resolveBossRules(tuning.bossRules, boss.rules ?? null);
         const stats = expandBossStats(boss, monster, rules);
         const { rules: ruleOverride, ...rest } = boss;
         return {
@@ -99,7 +99,7 @@ export async function loadDraftSnapshot(db: Db | Tx): Promise<ContentSnapshot> {
           tier,
           rules,
           ruleOverride: ruleOverride ?? null,
-          statsAuto: rules.statMode === "auto",
+          statsAuto: rules.statMode === "auto" && Boolean(monster),
           ...(stats ? {} : { statsProblem: `首领「${boss.name}」设成按普通怪自动算属性，但本关没有普通怪` }),
         };
       });

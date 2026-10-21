@@ -183,19 +183,21 @@ export async function applyPrototypeV12(db: Db): Promise<{ stageSlugs: string[];
   }
   for (const [index, stage] of PROTOTYPE_STAGES.entries()) {
     const major = Math.floor(index / 3);
-    // 章末关是原来的大首领（手填数值）；第 1、2 关是本关小怪的精英版（属性按首领规则自动算，这里存一份按默认倍率算好的数方便后台看）
+    // 第四批：一套首领规则。章末关是原来的大首领（手填数值 → 单关覆盖「属性 = 手填」）；
+    // 第 1、2 关是本关小怪的精英版（属性按首领规则自动算，这里存一份按默认倍率算好的数方便后台看），重复奖励 = 1 件装备 + 70% 突破石·下品
     const boss: StageBoss = stage.boss
-      ? { ...bosses[stage.boss.slug]!, artKey: stage.boss.art }
+      ? { ...bosses[stage.boss.slug]!, artKey: stage.boss.art, rules: { statMode: "manual" } }
       : {
           name: `精英·${stage.monster.name}`,
           // 立绘写明（和本关小怪同一张，客户端按精英加金边 / 用 elite_<key> 图）；后台不再显示成「没配图」
           artKey: stage.monster.art,
-          attack: Math.round(stage.monster.attack * DEFAULT_BOSS_RULES.elite.statMul.attack),
-          defense: Math.round(stage.monster.defense * DEFAULT_BOSS_RULES.elite.statMul.defense),
-          hp: Math.round(stage.monster.hp * DEFAULT_BOSS_RULES.elite.statMul.hp),
+          attack: Math.round(stage.monster.attack * DEFAULT_BOSS_RULES.statMul.attack),
+          defense: Math.round(stage.monster.defense * DEFAULT_BOSS_RULES.statMul.defense),
+          hp: Math.round(stage.monster.hp * DEFAULT_BOSS_RULES.statMul.hp),
           interval: stage.monster.interval,
           drops: [],
           firstClear: [{ kind: "spiritStones", amount: PROTOTYPE_ELITE_STONES[major]! }, stone("enh_stone_low", 1), { kind: "gear", count: 1 }],
+          repeat: { gear: true, extras: [{ itemSlug: "enh_stone_low", chanceBp: 7000, minQty: 1, maxQty: 1 }] },
         };
     await db.insert(contentStages).values({
       slug: stage.slug,

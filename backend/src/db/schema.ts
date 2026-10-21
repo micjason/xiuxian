@@ -476,6 +476,9 @@ export const playerStates = pgTable("player_states", {
   waveProgress: doublePrecision("wave_progress").notNull().default(0),
   /** 连续阵亡次数（打赢一只就清零），客户端 ≥3 时提示去强化或切低关。 */
   waveDeathsInRow: integer("wave_deaths_in_row").notNull().default(0),
+  /** 第四批：每日首领挑战总次数今天（按每日重置整点算）已经用了几次，和对应的日期（所有首领合计）。 */
+  bossDailyCount: integer("boss_daily_count").notNull().default(0),
+  bossDailyDay: text("boss_daily_day"),
 });
 
 export const playerItems = pgTable(
@@ -563,11 +566,13 @@ export const playerStageProgress = pgTable(
     firstClearedAt: timestamp("first_cleared_at", { withTimezone: true }),
     clearCount: integer("clear_count").notNull().default(0),
     bestClearSeconds: doublePrecision("best_clear_seconds"),
-    /** 首领每日奖励：今天（按每日重置整点算）已经拿过几次，和对应的日期。 */
+    /** 第三批的每关每日奖励次数（第四批起改成全局的 player_states.boss_daily_count，这两列不再读写，留着只为老数据）。 */
     dailyRewardCount: integer("daily_reward_count").notNull().default(0),
     dailyRewardDay: text("daily_reward_day"),
     /** 上一次自动挑战（输了）的时间：隔「自动挑战重试间隔」再试。 */
     autoChallengeAt: timestamp("auto_challenge_at", { withTimezone: true }),
+    /** 第四批：首领已击败后，在本关挂机累计的小怪波数（攒够「每多少波刷一次首领」就打一场，余数留着）。 */
+    idleWaves: integer("idle_waves").notNull().default(0),
   },
   (table) => [primaryKey({ columns: [table.playerId, table.stageSlug] })],
 );

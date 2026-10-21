@@ -3,7 +3,7 @@
  *
  * 顺序：章节 sortOrder → 关卡 sortOrder → 所需境界 → 编号。没有章节的关卡排在最后（发布校验会报错）。
  * 章末关：章节手动指定的 chiefStageSlug；没指定 = 本章（启用的）关卡里排最后的一关（sortOrder 最大）。
- * 档次：章末关的首领是大首领（chief），其余是小首领（elite）。没有章节的关卡单独算一章，所以是 chief（和第三批之前一样）。
+ * 档次（第四批起只管画面，规则只有一套）：章末关 = chief，其余 = elite。没有章节的关卡单独算一章，所以是 chief。
  *
  * 解锁（ADMIN_SPEC §11「解锁下一关」，规则取上一关首领的生效规则）：
  * - 第一关默认解锁；
@@ -11,7 +11,7 @@
  *   上一关没有首领（老数据）时只看境界；
  * - 能进（挂机、挑战）= 已解锁 且（不要求境界 / 境界 ≥ 本关所需境界）。第一关永远要求境界。
  */
-import { DEFAULT_BOSS_RULES, resolveBossRules, type BossRuleSet, type BossTier } from "./boss-rules.js";
+import { DEFAULT_BOSS_RULES, bossRulesOf, resolveBossRules, type BossRuleSet, type BossRules, type BossTier } from "./boss-rules.js";
 import type { ContentSnapshot } from "./validate.js";
 
 type Stage = ContentSnapshot["stages"][number];
@@ -66,15 +66,19 @@ export function stageTier(world: Pick<ContentSnapshot, "chapters">, stage: Pick<
   return chapter.chiefStageSlug === stage.slug ? "chief" : "elite";
 }
 
-/** 首领生效的规则：快照里合并好的直接用；手写的世界按档次取配置概览默认值 + 单关覆盖。 */
+/** 首领生效的规则（第四批：一套）：快照里合并好的直接用；手写的世界取配置概览默认值 + 单关覆盖。 */
 export function bossRulesFor(world: ContentSnapshot, stage: Stage): BossRuleSet {
   const boss = stage.bosses?.[0];
   if (boss?.rules) {
     return boss.rules;
   }
-  const tier = stageTier(world, stage);
-  const defaults = world.globals.tuning?.bossRules?.[tier] ?? DEFAULT_BOSS_RULES[tier];
-  return resolveBossRules(defaults, boss?.ruleOverride ?? null);
+  return resolveBossRules(globalBossRules(world), boss?.ruleOverride ?? null);
+}
+
+/** 全局首领规则（含每日首领挑战总次数等全局项）。手写世界里存的老格式（两档）也认。 */
+export function globalBossRules(world: Pick<ContentSnapshot, "globals">): BossRules {
+  const raw = world.globals.tuning?.bossRules;
+  return raw ? bossRulesOf(raw) : DEFAULT_BOSS_RULES;
 }
 
 export type StageProgressRow = { stageSlug: string; firstClearedAt: Date | null };

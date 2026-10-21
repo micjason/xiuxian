@@ -38,10 +38,8 @@ export async function registerLoopRoutes(
     const playerId = request.actor!.actorId;
     const params = request.params as { slug: string };
     return withIdempotency(deps.db, playerId, idempotencyKey(request.headers["idempotency-key"]), "challenge", deps.now(), (tx, world) =>
-      challengeStage(tx, world, playerId, params.slug, deps.now(), deps.randomInt, {
-        ultTaps: (request.body as { ultTaps?: unknown } | undefined)?.ultTaps,
-        ultWaits: (request.body as { ultWaits?: unknown } | undefined)?.ultWaits,
-      }),
+      // 第四批：大招全自动，body 里的 ultTaps / ultWaits（老客户端）不再使用
+      challengeStage(tx, world, playerId, params.slug, deps.now(), deps.randomInt),
     );
   });
 

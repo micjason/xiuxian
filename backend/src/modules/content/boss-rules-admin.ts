@@ -1,52 +1,45 @@
 /**
- * 首领规则的后台读写（第三批）：配置概览「首领规则」两列（tuning.bossRules）和单关「恢复默认」。
- * 配置概览页的这一块由子组件 BossRulesSection.vue 调这里的接口（后台页面下一步做）。
+ * 首领规则的后台读写（第四批：一套规则）：配置概览「首领规则」（tuning.bossRules）和单关「恢复默认」。
+ * 配置概览页的这一块是子组件 BossRulesSection.vue。
  */
 import { eq } from "drizzle-orm";
 import { contentGlobals, contentStages } from "../../db/schema.js";
 import { AppError } from "../../shared/errors.js";
 import type { Db } from "../operations/record.js";
-import { BOSS_RULE_KEYS, BOSS_TIERS, DEFAULT_BOSS_RULES, bossRulesFromInput, customRuleCount, type BossRuleOverride, type BossRules } from "./boss-rules.js";
+import { BOSS_GLOBAL_KEYS, BOSS_GROUP_KEYS, BOSS_RULE_KEYS, DEFAULT_BOSS_RULES, bossRulesFromInput, customRuleCount, type BossRuleOverride, type BossRules } from "./boss-rules.js";
 import { saveTuning } from "./config-overview.js";
 import { loadDraftSnapshot } from "./snapshot.js";
 import { tuningOf } from "./tuning.js";
 
-/** 两列默认值 + 每列被几关使用、几关改过。 */
+/** 默认值 + 被几关使用、几关改过。 */
 export async function readBossRules(db: Db) {
   const [row] = await db.select().from(contentGlobals).where(eq(contentGlobals.id, 1)).limit(1);
   const rules = tuningOf(row?.tuning).bossRules;
   const world = await loadDraftSnapshot(db);
-  const usage = Object.fromEntries(
-    BOSS_TIERS.map((tier) => {
-      const stages = world.stages.filter((stage) => stage.bosses?.[0] && stage.tier === tier);
-      const customized = stages.filter((stage) => customRuleCount(stage.bosses?.[0]?.ruleOverride ?? null) > 0);
-      return [tier, { stages: stages.length, customized: customized.length, customizedStages: customized.map((stage) => ({ id: stage.slug, displayName: stage.displayName ?? stage.slug, customCount: customRuleCount(stage.bosses?.[0]?.ruleOverride ?? null) })) }];
-    }),
-  );
+  const stages = world.stages.filter((stage) => stage.bosses?.[0]);
+  const customized = stages.filter((stage) => customRuleCount(stage.bosses?.[0]?.ruleOverride ?? null) > 0);
+  const usage = {
+    stages: stages.length,
+    customized: customized.length,
+    customizedStages: customized.map((stage) => ({ id: stage.slug, displayName: stage.displayName ?? stage.slug, customCount: customRuleCount(stage.bosses?.[0]?.ruleOverride ?? null) })),
+  };
   return { rules, defaults: DEFAULT_BOSS_RULES, usage };
 }
 
-/** 保存首领规则：传哪一列存哪一列，每列只合并传了的项；全部校验通过才写。 */
+/** 保存首领规则：只合并传了的项（分组的按小项）；全部校验通过才写。 */
 export async function saveBossRules(db: Db, input: Partial<Record<keyof BossRules, unknown>>, adminId: string | null) {
   const [row] = await db.select().from(contentGlobals).where(eq(contentGlobals.id, 1)).limit(1);
   if (!row) {
     throw new AppError("INVALID_INPUT", "请先新建境界");
   }
   const before = tuningOf(row.tuning).bossRules;
-  const merged = Object.fromEntries(
-    BOSS_TIERS.map((tier) => {
-      const raw = (input?.[tier] ?? {}) as Record<string, unknown>;
-      return [
-        tier,
-        {
-          ...before[tier],
-          ...Object.fromEntries(Object.entries(raw).filter(([key, value]) => BOSS_RULE_KEYS.includes(key as never) && value !== undefined && value !== null && key !== "statMul" && key !== "gearQualityPct")),
-          statMul: { ...before[tier].statMul, ...((raw.statMul ?? {}) as object) },
-          gearQualityPct: { ...before[tier].gearQualityPct, ...((raw.gearQualityPct ?? {}) as object) },
-        },
-      ];
-    }),
-  );
+  const raw = (input ?? {}) as Record<string, unknown>;
+  const known = [...BOSS_RULE_KEYS, ...BOSS_GLOBAL_KEYS] as string[];
+  const merged: Record<string, unknown> = { ...before };
+  for (const [key, value] of Object.entries(raw)) {
+    if (!known.includes(key) || value === undefined || value === null) continue;
+    merged[key] = (BOSS_GROUP_KEYS as readonly string[]).includes(key) ? { ...(before[key as keyof BossRules] as object), ...(value as object) } : value;
+  }
   const rules = bossRulesFromInput(merged, before);
   await saveTuning(db, { bossRules: rules }, adminId);
   return readBossRules(db);

@@ -15,7 +15,7 @@ import { validateContent } from "../modules/content/validate.js";
 import { withDb } from "../test/db.js";
 
 type TestDb = Parameters<Parameters<typeof withDb>[0]>[0];
-const TAGS = ["0040_chapters", "0041_boss_tier_art", "0042_boss_rules_defaults", "0043_unlock_backfill", "0044_elite_art_backfill"];
+const TAGS = ["0040_chapters", "0041_boss_tier_art", "0042_boss_rules_defaults", "0043_unlock_backfill", "0044_elite_art_backfill", "0045_boss_single_rules", "0046_boss_names_art_battle_bg"];
 const files = TAGS.map((tag) => readFileSync(new URL(`../../drizzle/${tag}.sql`, import.meta.url), "utf8"));
 const start = new Date("2026-10-08T03:00:00.000Z");
 
@@ -56,7 +56,7 @@ async function player(db: TestDb, app: Awaited<ReturnType<typeof buildApp>>, nam
 const progressOf = async (db: TestDb, playerId: string) =>
   (await db.select().from(playerStageProgress).where(eq(playerStageProgress.playerId, playerId))).map((row) => row.stageSlug).sort();
 
-describe("migrations 0040–0044 (第三批：章节、每关首领、首领规则、解锁补齐、精英立绘)", () => {
+describe("migrations 0040–0045 (第三批：章节、每关首领、首领规则、解锁补齐、精英立绘；第四批：一套首领规则)", () => {
   it("are in the journal, in order, after everything else (when ≥ 1795000000000)", () => {
     const journal = JSON.parse(readFileSync(new URL("../../drizzle/meta/_journal.json", import.meta.url), "utf8")) as { entries: { idx: number; tag: string; when: number }[] };
     const ours = TAGS.map((tag) => journal.entries.find((row) => row.tag === tag));
@@ -103,15 +103,19 @@ describe("migrations 0040–0044 (第三批：章节、每关首领、首领规�
           boss: row.bosses?.map((b) => ({ name: b.name, attack: b.attack, defense: b.defense, hp: b.hp, interval: b.interval, artKey: b.artKey, firstClear: b.firstClear })),
         }));
       expect(shape(once)).toEqual(shape(seed));
-      expect((await db.select().from(contentStages).where(eq(contentStages.slug, "lianqi_2")))[0]).toMatchObject({ sortOrder: 2, bossName: "精英·赤眼狐妖", bossHp: 625 });
-      // 0044：精英的立绘写进库里（后台不再显示成「没配图」）；章末首领用自己的
+      expect((await db.select().from(contentStages).where(eq(contentStages.slug, "lianqi_2")))[0]).toMatchObject({ sortOrder: 2, bossName: "赤眼妖狐", bossHp: 625 });
+      // 0044：精英的立绘写进库里（后台不再显示成「没配图」）；章末首领用自己的；0046 再换成统一首领立绘 boss_*
       const stored = new Map((await db.select().from(contentStages)).map((row) => [row.slug, row.bosses?.[0]?.artKey]));
-      expect(Object.fromEntries(stored)).toEqual({ lianqi_1: "wolf", lianqi_2: "fox", lianqi_3: "bear", zhuji_1: "ghost", zhuji_2: "bone_golem", zhuji_3: "ghost_elder", jindan_1: "lava_lizard", jindan_2: "fire_crow", jindan_3: "fire_jiao" });
+      expect(Object.fromEntries(stored)).toEqual({ lianqi_1: "boss_wolf", lianqi_2: "boss_fox", lianqi_3: "boss_bear", zhuji_1: "boss_ghost", zhuji_2: "boss_bone_golem", zhuji_3: "boss_ghost_elder", jindan_1: "boss_lava_lizard", jindan_2: "boss_fire_crow", jindan_3: "boss_fire_jiao" });
       expect(validateContent(once).errors).toEqual([]);
 
-      // 首领规则默认值；章末每日次数沿用原来的 4
+      // 首领规则（0045 起一套）：每日首领挑战总次数沿用原来章末的 4；库里存的就是新格式
       const [globals] = await db.select().from(contentGlobals);
-      expect(tuningOf(globals!.tuning).bossRules).toEqual({ elite: DEFAULT_BOSS_RULES.elite, chief: { ...DEFAULT_BOSS_RULES.chief, dailyRewardLimit: 4 } });
+      expect(tuningOf(globals!.tuning).bossRules).toEqual({ ...DEFAULT_BOSS_RULES, dailyChallengeTotal: 4 });
+      expect((globals!.tuning as { bossRules: Record<string, unknown> }).bossRules).toEqual({ ...DEFAULT_BOSS_RULES, dailyChallengeTotal: 4 });
+      // 0045：章末关补「属性 = 手填」，精英补重复奖励；和新种子一样
+      const rulesAndRepeat = (world: typeof once) => [...world.stages].sort((a, b) => a.slug.localeCompare(b.slug)).map((row) => [row.slug, row.bosses?.[0]?.ruleOverride ?? null, row.bosses?.[0]?.repeat]);
+      expect(rulesAndRepeat(once)).toEqual(rulesAndRepeat(seed));
 
       // 解锁补齐：所需境界 ≤ 当前境界的关卡都有一行；已有记录原样保留
       expect(await progressOf(db, fresh)).toEqual(["lianqi_1"]);

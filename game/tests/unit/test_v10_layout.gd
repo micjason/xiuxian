@@ -166,13 +166,59 @@ func test_lianqi_2_points_to_lianqi_3_and_the_bear_king() -> void:
 	var card := stage_page.find_child("Stage_lianqi_3", true, false)
 	var text := "\n".join(_texts(card))
 	assert_true(text.contains("黑风熊王"), text)
-	assert_true(text.contains("章末首领"), text)
-	assert_true(text.contains("击败精英「精英·赤眼狐妖」"), text)
+	assert_true(text.contains("首领"), text)
+	assert_true(text.contains("击败首领「精英·赤眼狐妖」"), text)
 	assert_true(text.contains("达到炼气三层"), text)
 	var youming := stage_page.find_child("ChapterTab_youming", true, false) as Button
 	assert_true(youming.disabled, "幽冥古道还没解锁")
 	assert_true("\n".join(_texts(youming)).contains("黑风熊王"), "页签写明解锁条件")
 	assert_not_null(stage_page.find_child("IdleStageCard", true, false), "挂机刷怪地点仍然在")
+
+
+## 第四批：每日首领挑战次数是全局的——列表顶上一条「今日首领挑战 剩余/总数」，卡片上不再有按关的次数胶囊；
+## 用完以后已击败的首领「明日再来」不能点，没击败过的首领第一次挑战照常能点（不耗次数）。
+func test_global_daily_total_sits_above_the_cards_and_spent_only_locks_beaten_bosses() -> void:
+	var scene := await _boot_in(Vector2i(1080, 2340), "gate")
+	var content: Dictionary = scene.get("_content")
+	# 第四批默认：重复奖励开（演示数据里精英还是第三批的「不发重复奖励」）
+	for stage in content.get("stages", []):
+		if str(stage.get("slug", "")) == "lianqi_1":
+			(stage.bosses[0].rules as Dictionary)["repeatRewards"] = true
+	var state := _state_for("lianqi_2", content)
+	state["bossDailyTotal"] = {"used": 2, "limit": 5, "idleWaves": []}
+	scene.set("_state", state)
+	scene.set("_selected_stage", "")
+	scene.set("_selected_realm", "")
+	scene.call("_render")
+	await get_tree().process_frame
+	var stage_page := scene.get("_stage_page") as StagePage
+	assert_null(stage_page.find_child("DailyChip", true, false), "卡片上没有按关的次数")
+	var chip := stage_page.find_child("DailyTotalChip", true, false)
+	assert_not_null(chip, "列表顶上有全局次数")
+	assert_eq(_texts(chip), ["今日首领挑战 3/5"])
+	var bar := stage_page.find_child("DailyTotalBar", true, false) as Control
+	var tabs := stage_page.find_child("ChapterTabs", true, false) as Control
+	var list := stage_page.find_child("StageCards", true, false) as Control
+	assert_true(bar.get_index() == tabs.get_index() + 1 and list.get_index() == bar.get_index() + 1, "在章节页签和关卡卡片之间")
+	var again := stage_page.challenge_button_for("lianqi_1")
+	assert_false(again.disabled)
+	var card_text := "\n".join(_texts(stage_page.find_child("Stage_lianqi_1", true, false)))
+	assert_false(card_text.contains("用 1 次"), card_text)
+	assert_false(card_text.contains("今日 "), card_text)
+	# 用完
+	state["bossDailyTotal"] = {"used": 5, "limit": 5, "idleWaves": []}
+	scene.set("_state", state)
+	scene.call("_render")
+	await get_tree().process_frame
+	assert_eq(_texts(stage_page.find_child("DailyTotalChip", true, false)), ["今日首领挑战 0/5"])
+	assert_true("\n".join(_texts(stage_page.find_child("DailyTotalBar", true, false))).contains("今日次数已用完"))
+	again = stage_page.challenge_button_for("lianqi_1")
+	assert_true(again.disabled, "已击败的首领：次数用完不能再打")
+	assert_eq(again.text, "明日再来")
+	assert_true("\n".join(_texts(stage_page.find_child("Stage_lianqi_1", true, false))).contains("今日次数已用完"))
+	var first := stage_page.challenge_button_for("lianqi_2")
+	assert_false(first.disabled, "没击败过的首领：第一次挑战不耗次数，照常能打")
+	assert_eq(first.text, "挑 战")
 
 
 ## 演示数据的修为不能超过本境界突破所需（曾出现「3,300 / 300」）。最高境界没有 cost，不检查。

@@ -6,6 +6,9 @@ extends RefCounted
 const TABLE := {
 	"badge_idle_reward": [56, 28, 40, 46, true],
 	"badge_realm_mint": [33, 30, 33, 31, true],
+	"bar_boss_bg_64": [32, 32, 32, 32, true],
+	"bar_boss_fill_48": [24, 24, 24, 24, true],
+	"bar_boss_trail_48": [24, 24, 24, 24, true],
 	"bar_bg_30": [19, 14, 19, 14, true],
 	"bar_bg_40": [24, 19, 24, 19, true],
 	"bar_bg_xiuwei_52": [30, 25, 30, 25, true],

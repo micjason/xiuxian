@@ -7,28 +7,42 @@ extends Node2D
 ##   play_intro()  → 等 intro_finished      —— 点「开始挑战」后先播登场，再开始计时
 ##   on_event(event)                         —— BossFight 的每个事件（我方普攻 / 我方大招 / 首领攻击）
 ##   play_result(win, reason) → 等 result_finished —— 战斗结束
+##   set_ult_charge(v)                       —— 大招蓄力 0..1（BossFight.ult_charge()），主角脚下聚气环跟着填；蓄满由 BossFight 自动放大招（ult 事件）
+## 主角：页面给的主角是 player_fight*.png 的 TextureRect（或直接给 hero_battle.tscn 实例）时，自动换成主角战斗动画
+## （anim_q/battle_hero：待机呼吸 / 前冲出剑 / 受击闪白击退 / 蓄力聚气 / 大招蓄势 / 失败变灰 / 胜利小跳）。其他主角节点照旧整体位移、染色。
+## 首领：不再区分精英 / 章末首领，一律统一首领外观 +「首领来袭」（unified_boss = true；tier 只为兼容保留，被忽略）。
 ## 伤害数字 = 事件里的 damage 四舍五入（和战报一致）。只有大招用大号数字和强震屏；数字旁不加任何文字。
 ## 所有节点预先建好、循环复用；运行时不创建节点、不用 Tween；_process 没有内存分配。
 
 signal intro_finished
 signal result_finished
 signal number_shown(side: String, damage: int)   ## side: "boss"（打在首领身上）/ "hero"（打在主角身上）
+## 大招剑扇真正打中首领的那一刻（ult 事件之后约 ult_impact_delay() 秒）。页面可以等这个信号再扣首领血条，血条和剑同步。
+signal ult_landed(damage: int)
 
 const ULT_LAUNCH := 0.48    ## 大招：剑扇停留到第一把剑射出的时间
 const ULT_STAGGER := 0.05
 const MonsterRig := preload("res://anim_q/battle_idle/monster_rig.gd")
 
-## 首领档次（每关只设这一个）：1 = 精英（每关首领，本关小怪放大 + 金边，金色「精英来袭」、不压暗、震屏减半）；
-## 2 = 章末大首领（红边 + 火焰光圈 + 红名牌，红色压暗 +「首领来袭」，震屏全额）。
-## 由关卡数据决定：tier = BossBattleFx.tier_for_boss(boss 字典)（见 README）。0 = 普通怪外观（一般不用）。
+## 统一首领（SPEC_Q §17.1 / §17.10）：每关一个首领，外观、登场一律首领样式（红描边 + 光圈 + 红色压暗 +「首领来袭」）。
+## true（默认）时下面的 tier 被忽略，始终按 2 处理。
+@export var unified_boss := true:
+	set(v):
+		unified_boss = v
+		if is_node_ready():
+			boss.tier = _tier()
+			_layout()
+## 【已废弃，仅兼容】旧的首领档次：1 = 精英、2 = 章末首领。unified_boss = true 时不起作用，页面不用再设。
 @export_enum("普通:0", "精英:1", "章末首领:2") var tier := 2:
 	set(v):
 		tier = v
 		if is_node_ready():
-			boss.tier = tier
+			boss.tier = _tier()
 			_layout()
-## 精英的所有震屏乘这个系数（约减半）
+## 【已废弃】旧精英的震屏系数（unified_boss = false 且 tier = 1 时才用）
 @export var elite_shake_scale := 0.5
+## 页面给的主角是 player_fight*.png 时自动换成主角战斗动画（anim_q/battle_hero/hero_battle.tscn）
+@export var use_hero_rig := true
 @export var shake_light := 5.0      ## 普攻、首领攻击
 @export var shake_medium := 9.0     ## 首领落地
 @export var shake_strong := 16.0    ## 只有大招
@@ -64,6 +78,13 @@ const MonsterRig := preload("res://anim_q/battle_idle/monster_rig.gd")
 @onready var _band: Sprite2D = $Front/Banner/Band
 
 var hero: CanvasItem
+## 主角战斗动画（hero_battle.tscn 实例；没有 = null，退回整体位移 / 染色）
+var hero_rig: Node2D
+var _rig_base := Vector2.ZERO
+var _rig_owned := false
+var _ult_w := 0.0            # 大招前主角蓄势的时长（剑扇推迟这么久出现）
+var _ult_charge := 0.0
+const HERO_RIG_PATH := "res://anim_q/battle_hero/hero_battle.tscn"
 var boss_art: Control
 var arena: Control
 var _attach_pending := false
@@ -131,7 +152,7 @@ var _dust_t := 9.0
 var _magic_t := 9.0
 
 var _tex_warn: Texture2D = preload("res://anim_q/battle_boss/art/banner_warning.png")
-var _tex_elite: Texture2D = preload("res://anim_q/battle_boss/art/banner_elite.png")
+var _tex_elite: Texture2D   # 旧精英横幅，只在 unified_boss = false 时按需加载
 var _tex_win: Texture2D = preload("res://anim_q/battle_boss/art/banner_win.png")
 var _tex_lose: Texture2D = preload("res://anim_q/battle_boss/art/banner_lose.png")
 
@@ -158,7 +179,7 @@ func _ready() -> void:
 		_lines.append(l as Sprite2D)
 	$Front/SpeedLines.visible = false
 	boss.attack_impact.connect(_on_boss_impact)
-	boss.tier = tier
+	boss.tier = _tier()
 	for n in [_hit, _hero_hit, _crescent, _dust, _big, _alert, _banner, _land, _tele, _magic]:
 		(n as CanvasItem).visible = false
 	_sword.visible = false
@@ -170,6 +191,7 @@ func _ready() -> void:
 
 ## 关卡首领字典 → tier。优先用数据里的字段（tier / kind / type："elite" 或 "chief"/"boss"）；
 ## 没有字段时按名字：「精英·xxx」= 精英，其他 = 章末大首领（现有数据里的黑风熊王等）。
+## 【已废弃】首领已统一，现在页面不需要再调用；unified_boss = true 时结果不起作用。保留只为旧代码不报错。
 static func tier_for_boss(boss_data: Dictionary) -> int:
 	for key in ["tier", "kind", "type", "bossType"]:
 		var v := str(boss_data.get(key, "")).to_lower()
@@ -182,10 +204,17 @@ static func tier_for_boss(boss_data: Dictionary) -> int:
 	return 1 if str(boss_data.get("name", "")).begins_with("精英") else 2
 
 
+## 实际使用的档次：统一首领时恒为 2。
+func _tier() -> int:
+	return 2 if unified_boss else tier
+
+
 func _notification(what: int) -> void:
 	# Back 被挪到了战场底层；本节点被释放时一起释放
 	if what == NOTIFICATION_PREDELETE and _back != null and is_instance_valid(_back) and _back.get_parent() != self:
 		_back.queue_free()
+	if what == NOTIFICATION_PREDELETE and _rig_owned and hero_rig != null and is_instance_valid(hero_rig):
+		hero_rig.queue_free()
 
 
 ## 接到战场上。hero_node = 主角（BattleHero 或退回的头像图），boss_node = 页面原来的首领 TextureRect。
@@ -209,11 +238,50 @@ func _do_attach() -> void:
 		remove_child(_back)
 		arena.add_child(_back)
 	arena.move_child(_back, 0)
+	_setup_hero_rig()
 	if not arena.resized.is_connected(_layout):
 		arena.resized.connect(_layout, CONNECT_DEFERRED)
 	_layout()
 	if boss_art is TextureRect and (boss_art as TextureRect).texture != null:
 		set_boss_from_art()
+
+
+## 主角：直接给的 hero_battle 实例，或 player_fight*.png 的 TextureRect（换成动画，原 TextureRect 隐藏，只用它的框定位）。
+func _setup_hero_rig() -> void:
+	if hero_rig != null:
+		return
+	if hero != null and hero.has_method("play_ult") and hero is Node2D:
+		hero_rig = hero as Node2D
+	elif use_hero_rig and hero is TextureRect and (hero as TextureRect).texture != null \
+			and (hero as TextureRect).texture.resource_path.get_file().begins_with("player_fight") and ResourceLoader.exists(HERO_RIG_PATH):
+		var rect := hero as TextureRect
+		hero_rig = (load(HERO_RIG_PATH) as PackedScene).instantiate() as Node2D
+		hero_rig.name = "HeroRig"
+		_rig_owned = true
+		var parent := rect.get_parent()
+		parent.add_child(hero_rig)
+		parent.move_child(hero_rig, rect.get_index() + 1)
+		hero_rig.set_texture(rect.texture)
+		rect.self_modulate.a = 0.0
+	if hero_rig != null:
+		hero_rig.attack_release.connect(_on_rig_attack_release)
+
+
+func _on_rig_attack_release() -> void:
+	pass
+
+
+## 大招蓄力 0..1（页面刷新大招圆盘时一起调）。learned = false：本境界没学会大招，聚气环不显示。
+func set_ult_charge(v: float, learned: bool = true) -> void:
+	_ult_charge = v
+	if hero_rig != null:
+		hero_rig.set_ult_charge(v, learned)
+
+
+## 收到 ult 事件到剑扇打中首领的时间（秒，1 倍速）：主角蓄势 + 剑扇停留 + 依次射出 + 飞行。
+func ult_impact_delay() -> float:
+	var w: float = hero_rig.WINDUP if hero_rig != null else 0.0
+	return w + ULT_LAUNCH + float(maxi(_ult_swords.size() - 1, 0)) * ULT_STAGGER + 0.16
 
 
 ## 换首领图（open_stage 之后调用；会从 _boss_art 取贴图、翻转、颜色）。首领站在原来立绘的位置待机，点开始后 play_intro 跳起再落下。
@@ -223,7 +291,7 @@ func set_boss_from_art() -> void:
 	boss.set_texture(boss_art.texture if boss_art is TextureRect else null, (boss_art as TextureRect).flip_h if boss_art is TextureRect else false)
 	_boss_spr.self_modulate = boss_art.modulate
 	boss_art.visible = false
-	boss.tier = tier
+	boss.tier = _tier()
 	_layout()
 	reset()
 
@@ -241,6 +309,8 @@ func reset() -> void:
 	_hero_gray = 0.0
 	_hero_gray_target = 0.0
 	_hero_sink = 0.0
+	if hero_rig != null:
+		hero_rig.reset()
 	_intro_t = -1.0
 	_result_t = -1.0
 	_ult_t = -1.0
@@ -276,10 +346,21 @@ func _layout() -> void:
 		c.pivot_offset = Vector2(c.size.x * 0.5, c.size.y)
 	elif hero is Node2D:
 		_hero_base = (hero as Node2D).position
+	if hero_rig != null:
+		if hero_rig != hero:
+			# 动画主角放在原 TextureRect 的框里：脚底 = 框底边中点
+			hero_rig.box = _hero_rect.size
+			_rig_base = Vector2(_hero_rect.get_center().x, _hero_rect.end.y - _hero_rect.size.y * 0.055)
+		else:
+			_rig_base = hero_rig.position
+			var b: Vector2 = hero_rig.box
+			_hero_rect = Rect2(_rig_base - Vector2(b.x * 0.5, b.y * 0.95), b)
+		hero_rig.position = _rig_base
+		hero_rig.ground_room = _size.y - _rig_base.y if arena != null and arena.clip_contents else 10000.0
 	if boss_art != null:
 		_boss_rect = boss_art.get_rect()
 	# 精英会被怪物模板放大 1.2 倍（脚底不动、往上长）：框的宽度先除以 1.2，放大后不会超出页面原来的首领框左右
-	boss.box = Vector2(_boss_rect.size.x / 1.2, _boss_rect.size.y) if tier == 1 else _boss_rect.size
+	boss.box = Vector2(_boss_rect.size.x / 1.2, _boss_rect.size.y) if _tier() == 1 else _boss_rect.size
 	boss._fit()
 	boss.position = _boss_rect.get_center()
 	_dim.size = _size
@@ -301,6 +382,8 @@ func _boss_center() -> Vector2:
 
 
 func _sword_home() -> Vector2:
+	if hero_rig != null:
+		return _rig_base + hero_rig.sword_home_local()
 	return Vector2(_hero_rect.end.x + 20, _hero_rect.get_center().y - 20)
 
 
@@ -326,7 +409,10 @@ func _player_attack(dmg: int) -> void:
 	_sw_t = 0.0
 	_sword.visible = true
 	_sword_trail.emitting = true
-	_hero_lean = 1.0
+	if hero_rig != null:
+		hero_rig.play_attack()
+	else:
+		_hero_lean = 1.0
 
 
 func _on_boss_attack(dmg: int) -> void:
@@ -358,8 +444,11 @@ func _on_boss_impact() -> void:
 	_hero_hit.modulate = Color(1, 0.6, 0.6) if heavy else Color(1, 0.85, 0.85)
 	_hero_hit_t = 0.0
 	_hero_hit.visible = true
-	_hero_flash = 1.0
-	_hero_knock = 1.0
+	if hero_rig != null:
+		hero_rig.play_hit(heavy)
+	else:
+		_hero_flash = 1.0
+		_hero_knock = 1.0
 	_kick_shake(shake_light * (1.4 if heavy else 1.0), 0.16)
 
 
@@ -368,12 +457,14 @@ func play_intro() -> void:
 	_layout()
 	_intro_t = 0.0
 	_intro_landed = false
-	var elite := tier != 2
+	var elite := _tier() != 2
 	# 精英：金色横幅、不压暗不泛红、金色落点圈；章末首领：红色压暗 + 暗角 +「首领来袭」
 	_dim_target = 0.0 if elite else 0.32
 	_vig_target = 0.0 if elite else 0.5
 	_land.self_modulate = Color(1.0, 0.86, 0.4) if elite else Color.WHITE
-	_show_banner(_tex_elite if elite else _tex_warn, 0.85)
+	if elite and _tex_elite == null and ResourceLoader.exists("res://anim_q/battle_boss/art/banner_elite.png"):
+		_tex_elite = load("res://anim_q/battle_boss/art/banner_elite.png")
+	_show_banner(_tex_elite if elite and _tex_elite != null else _tex_warn, 0.85)
 	_alert.visible = true
 	_alert.scale = Vector2.ZERO
 	_land.visible = true
@@ -408,7 +499,7 @@ func _show_banner(tex: Texture2D, hold: float) -> void:
 
 
 func _kick_shake(amp: float, dur: float) -> void:
-	if tier != 2:
+	if _tier() != 2:
 		amp *= elite_shake_scale
 	if _shake <= 0.0 or amp >= _shake_amp:
 		_shake_amp = amp
@@ -421,8 +512,13 @@ func _start_ult(dmg: int) -> void:
 	_ult_dmg = dmg
 	_ult_done = false
 	_dim_target = 0.24
-	_magic_t = 0.0
-	_magic.visible = true
+	# 主角先后仰蓄势（约 0.32 秒，脚下聚气环闪亮），剑扇随后出现；没有主角动画时照旧立即出剑、脚下放法阵
+	_ult_w = 0.0
+	if hero_rig != null:
+		_ult_w = hero_rig.play_ult()
+	else:
+		_magic_t = 0.0
+		_magic.visible = true
 	# 六把剑在主角头顶排成扇形（剑尖朝外），停一下再依次转向首领射出
 	var pivot := Vector2(_hero_rect.get_center().x + 30.0, _hero_rect.position.y + 40.0)
 	var n := _ult_swords.size()
@@ -435,14 +531,15 @@ func _start_ult(dmg: int) -> void:
 		_ult_swords[i].visible = true
 		_ult_swords[i].scale = Vector2.ZERO
 	$Front/SpeedLines.visible = true
-	_hero_lean = 1.0
+	if hero_rig == null:
+		_hero_lean = 1.0
 
 
 func _update_ult(delta: float) -> void:
 	if _ult_t < 0.0:
 		return
 	_ult_t += delta
-	var t := _ult_t
+	var t := _ult_t - _ult_w    # 蓄势期间 t < 0：剑还没出现
 	var target := _boss_center()
 	var n := _ult_swords.size()
 	for i in n:
@@ -498,6 +595,7 @@ func _update_ult(delta: float) -> void:
 		_big_t = 0.0
 		_big.visible = true
 		number_shown.emit("boss", _ult_dmg)
+		ult_landed.emit(_ult_dmg)
 	if t > impact + 0.25:
 		_dim_target = 0.0
 	if t > impact + 0.6:
@@ -540,6 +638,18 @@ func _update_sword(delta: float) -> void:
 		_show_boss_number(_sw_dmg)
 		_kick_shake(shake_light, 0.12)
 		_sw_dmg = -1
+	elif hero_rig != null and _sw_queue.is_empty():
+		# 有主角动画：剑打中后弧线飞回主角手边（0.24 秒），最后一段淡掉，和手里的剑合上
+		var p := clampf((_sw_t - 0.18) / 0.24, 0.0, 1.0)
+		var e := p * p * (3.0 - 2.0 * p)
+		_sword.position = target.lerp(home, e) + Vector2(0, -70.0 * sin(PI * p))
+		_sword.rotation = lerp_angle(ang, (home - target).angle() + PI * 0.25, minf(1.0, p * 3.0))
+		_sword.modulate.a = 1.0 if p < 0.7 else 1.0 - (p - 0.7) / 0.3
+		if p >= 1.0:
+			_sword_trail.emitting = false
+			_sword.visible = false
+			_sword.modulate.a = 1.0
+			_sw_t = -1.0
 	else:
 		var p := clampf((_sw_t - 0.18) / 0.2, 0.0, 1.0)
 		_sword.position = target + Vector2(-60.0 * p, -40.0 * sin(PI * p))
@@ -750,9 +860,13 @@ func _update_result(delta: float) -> void:
 			_kick_shake(shake_light, 0.15)
 		if prev < 0.75 and t >= 0.75:
 			_show_banner(_tex_win, 0.9)
+			if hero_rig != null:
+				hero_rig.play_victory()
 	else:
 		if prev < 0.05 and t >= 0.05:
 			_hero_gray_target = 1.0
+			if hero_rig != null:
+				hero_rig.play_defeat()
 		if prev < 0.4 and t >= 0.4:
 			_show_banner(_tex_lose, 0.9)
 	if t > 1.9:
@@ -813,6 +927,9 @@ func _update_hero_and_shake(delta: float) -> void:
 		_shake_amp = 0.0
 	_front.position = off
 	_back.position = off
+	if hero_rig != null:
+		hero_rig.position = _rig_base + off
+		return
 	if hero == null:
 		return
 	var hk := Vector2(10.0 * sin(PI * _hero_lean) - 16.0 * sin(PI * _hero_knock), 14.0 * _hero_gray * (1.0 if _result_dead else 0.0))

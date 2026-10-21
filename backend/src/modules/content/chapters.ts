@@ -7,7 +7,7 @@ import { eq } from "drizzle-orm";
 import { contentChapters, contentStages } from "../../db/schema.js";
 import { AppError } from "../../shared/errors.js";
 import type { Db } from "../operations/record.js";
-import { CHAPTER_BG_KEY_SET, CHAPTER_BOSS_FX_SET } from "./art-keys.js";
+import { CHAPTER_BATTLE_BG_KEY_SET, CHAPTER_BG_KEY_SET, CHAPTER_BOSS_FX_SET } from "./art-keys.js";
 import { chiefStageOf } from "./stage-order.js";
 
 const SLUG = /^[a-z][a-z0-9_]{1,47}$/;
@@ -18,6 +18,8 @@ export type ChapterInput = {
   sortOrder?: number;
   bgKey?: string;
   bossFx?: string;
+  /** 第四批：首领战斗页背景；null / 空 = 跟随 bgKey */
+  battleBgKey?: string | null;
   /** null / 空 = 自动（本章 sortOrder 最大的一关） */
   chiefStageSlug?: string | null;
   enabled?: boolean;
@@ -42,6 +44,7 @@ export async function listChapters(db: Db) {
         sortOrder: row.sortOrder,
         bgKey: row.bgKey,
         bossFx: row.bossFx,
+        battleBgKey: row.battleBgKey ?? null,
         /** 后台手动指定的章末关（null = 自动） */
         chiefStageSlug: row.chiefStageSlug ?? null,
         /** 实际的章末关 */
@@ -76,6 +79,10 @@ function readFields(input: ChapterInput, current: typeof contentChapters.$inferS
   if (!CHAPTER_BOSS_FX_SET.has(bossFx)) {
     throw new AppError("INVALID_INPUT", `首领特效只能是 ${[...CHAPTER_BOSS_FX_SET].join(" / ")}`);
   }
+  const battleBgKey = input.battleBgKey === undefined ? (current?.battleBgKey ?? null) : text(input.battleBgKey) || null;
+  if (battleBgKey && !CHAPTER_BATTLE_BG_KEY_SET.has(battleBgKey)) {
+    throw new AppError("INVALID_INPUT", `战斗背景要从 ${[...CHAPTER_BATTLE_BG_KEY_SET].join(" / ")} 里选（留空 = 跟随章节背景）`);
+  }
   let sortOrder = current?.sortOrder ?? 0;
   if (input.sortOrder !== undefined && input.sortOrder !== null) {
     sortOrder = Number(input.sortOrder);
@@ -85,7 +92,7 @@ function readFields(input: ChapterInput, current: typeof contentChapters.$inferS
   }
   const chiefStageSlug = input.chiefStageSlug === undefined ? (current?.chiefStageSlug ?? null) : text(input.chiefStageSlug) || null;
   const enabled = input.enabled === undefined ? (current?.enabled ?? true) : input.enabled === true;
-  return { displayName, bgKey, bossFx, sortOrder, chiefStageSlug, enabled };
+  return { displayName, bgKey, bossFx, battleBgKey, sortOrder, chiefStageSlug, enabled };
 }
 
 export async function createChapter(db: Db, input: ChapterInput, adminId: string | null) {

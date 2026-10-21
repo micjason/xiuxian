@@ -26,20 +26,18 @@ func _gate_slug(scene: Node) -> String:
 	return str(((scene.get("_state") as Dictionary).breakthrough.requiredStage as Dictionary).slug)
 
 
-func _run_fight(scene: Node, tap_when_ready: bool) -> void:
+func _run_fight(scene: Node, _unused: bool = false) -> void:
 	var page := scene.get("_battle_page") as BattlePage
 	page._on_start()
 	assert_eq(page.phase, BattlePage.Phase.RUNNING)
 	var guard := 0
 	while page.phase == BattlePage.Phase.RUNNING and guard < 400:
 		page.step(0.25)
-		if tap_when_ready and page.fight.ult_ready():
-			page._on_ult_tapped()
 		guard += 1
 	await wait_frames(3)
 
 
-func test_chain1_boss_fight_sends_taps_and_shows_the_server_result() -> void:
+func test_chain1_boss_fight_submits_and_shows_the_server_result() -> void:
 	var scene := await _boot("ready")
 	var slug := _gate_slug(scene)
 	scene.call("_open_battle", slug)
@@ -49,8 +47,7 @@ func test_chain1_boss_fight_sends_taps_and_shows_the_server_result() -> void:
 	watch_signals(page)
 	await _run_fight(scene, true)
 	assert_signal_emitted(page, "submit_requested")
-	var taps: Array = get_signal_parameters(page, "submit_requested")[1]
-	assert_gt(taps.size(), 0, "手动点了大招，点击时间被上报")
+	assert_eq(get_signal_parameters(page, "submit_requested"), [slug], "第四批：只带关卡，不再上报大招点击")
 	assert_eq(page.phase, BattlePage.Phase.RESULT, "结果以服务器（这里是 ProtoMock）返回为准")
 	var view := page.last_view()
 	assert_true(["挑战成功", "挑战失败"].has(str(view.title)))
@@ -65,8 +62,7 @@ func test_chain1_without_taps_the_ultimate_still_auto_casts() -> void:
 	var page := scene.get("_battle_page") as BattlePage
 	watch_signals(page)
 	await _run_fight(scene, false)
-	var taps: Array = get_signal_parameters(page, "submit_requested")[1]
-	assert_eq(taps.size(), 0)
+	assert_eq((get_signal_parameters(page, "submit_requested") as Array).size(), 1)
 	assert_eq(page.phase, BattlePage.Phase.RESULT)
 	assert_gt(page.fight.casts.size(), 0, "冷却完毕自动释放")
 
@@ -128,7 +124,7 @@ func test_bag_full_does_not_block_the_fight_and_the_result_shows_the_prompt() ->
 	assert_eq(page.phase, BattlePage.Phase.RESULT)
 	var view: Dictionary = page.last_view()
 	assert_true(bool(view.win))
-	assert_true((view.notes as Array).any(func(n: String) -> bool: return n.begins_with("背包已满")))
+	assert_true((view.notes as Array).any(func(n: String) -> bool: return n.begins_with("行囊已满")))
 	assert_true((view.loot as Array).any(func(l: Dictionary) -> bool: return str(l.text).contains("背包已满，没有掉落")))
 	assert_true((scene.get("_popup") as GamePopup).visible, "结果里有没掉落的装备：弹背包已满提示")
 

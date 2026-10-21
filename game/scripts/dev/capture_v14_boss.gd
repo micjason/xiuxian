@@ -39,7 +39,7 @@ func _initialize() -> void:
 		await process_frame
 		n += 1
 		if fight.ult_ready() and int(page.get("phase")) == 1:
-			page.call("_on_ult_tapped")
+			pass  # 第四批：大招全自动，没有点击
 		if not hit_shot and hits[0] >= 1 and not big.visible:
 			for k in 3:
 				await process_frame

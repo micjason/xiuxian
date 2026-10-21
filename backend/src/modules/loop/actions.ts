@@ -8,7 +8,7 @@ import {
   playerStates,
   players,
 } from "../../db/schema.js";
-import { cleanUltTaps, simulateBossFight, type UltConfig, type UltPlan } from "../combat/battle.js";
+import { simulateBossFight, type UltConfig } from "../combat/battle.js";
 import { computePower, ratePower, resolveBreakthrough, skillLayerFactor, sumReachedRealmStats } from "../combat/stats.js";
 import { ensureSkillBook } from "../content/ops-content.js";
 import { loadCurrentWorld } from "../content/snapshot.js";
@@ -24,10 +24,10 @@ import { addEnhanceExp, grantItem } from "./bag.js";
 import { applySetBonus, setBonusOf } from "../content/set-bonus.js";
 import { maxSkillSlots, nextSkillSlotRule, openSkillSlots } from "../content/skill-slots.js";
 import { announcementNoticesForPlayer, noticesForPlayer } from "../notices/service.js";
-import { dailyUsed, grantBossRewards, usesRewardModel } from "./boss-rewards.js";
+import { bossDailyUsed, grantBossRewards, usesRewardModel } from "./boss-rewards.js";
 import { acknowledgeOfflineReport, pendingOfflineReport, recordOfflineReport } from "./offline.js";
-import { EMPTY_WAVES, cycleFor, farmableStages, resolveFarmStage, settleWaves, waveRandomInt, type WaveSettlement } from "./waves.js";
-import { bossRulesFor, nextStageOf, orderedStages, stageAccessList, stageTier, type StageAccess } from "../content/stage-order.js";
+import { EMPTY_WAVES, cycleFor, farmableStages, resolveFarmStage, settleWaves, waveRandomInt, wavesCompletedIn, type WaveSettlement } from "./waves.js";
+import { bossRulesFor, globalBossRules, nextStageOf, orderedStages, stageAccessList, stageTier, type StageAccess } from "../content/stage-order.js";
 import { stageRecommendedPower } from "../content/stage-power.js";
 
 type World = ContentSnapshot & { version: number };
@@ -446,6 +446,25 @@ async function settleLocked(tx: Tx, playerId: string, world: World, now: Date, o
   if (waves.drops.length > 0 || waves.kills > 0) {
     pieces = { ...pieces, items: (await loadPieces(tx, playerId)).items };
   }
+  // 第四批 · 挂机刷首领：本关首领已击败时，这次结算里打完的波数累计到本关计数，攒够 N 波打一场（在线按实际推进的波数；
+  // 离线不推进波次，按计入的时长 ÷ 一波的秒数折算）。先算好再自动挑战，这样刚被自动挑战打赢的首领，这次的波数不算。
+  let idleWaves = 0;
+  if (stage && consumedSeconds > 0) {
+    if (online) {
+      idleWaves = waves.wavesCompleted;
+    } else if (stage.monsters?.[0]) {
+      idleWaves = wavesCompletedIn(0, consumedSeconds, cycleFor(rules, stats, stage.monsters[0]));
+    }
+  }
+  let idleBoss: IdleBossResult | null = null;
+  if (stage && idleWaves > 0) {
+    idleBoss = await settleIdleBosses(tx, world, playerId, { state: kept, stats, pieces, access }, stage, idleWaves, now);
+    if (idleBoss) {
+      const [fresh] = await tx.select().from(playerStates).where(eq(playerStates.playerId, playerId)).limit(1);
+      kept = fresh ?? kept;
+    }
+    pieces = await loadPieces(tx, playerId);
+  }
   // 自动挑战（首领规则「允许自动挑战」）：挂机关卡的首领还没击败、战力 ≥ 推荐战力 × 比例时，结算里直接打一场。
   let autoChallenge: AutoChallengeResult | null = null;
   if (options.autoChallenge !== false && stage) {
@@ -466,6 +485,7 @@ async function settleLocked(tx: Tx, playerId: string, world: World, now: Date, o
     stage,
     access,
     autoChallenge,
+    idleBoss,
     gapSeconds,
     now,
     offlineReport,
@@ -535,6 +555,7 @@ function stateDto(world: World, playerId: string, settled: Awaited<ReturnType<ty
       : null,
     ult: ultOf(world, settled.state.realmSlug),
     bossDaily: bossDailyDto(world, settled),
+    bossDailyTotal: bossDailyTotalDto(world, settled),
     lastSettle: {
       online: settled.waves.online,
       seconds: Math.floor(settled.gapSeconds),
@@ -545,6 +566,7 @@ function stateDto(world: World, playerId: string, settled: Awaited<ReturnType<ty
       drops: settled.waves.drops,
       bagFull: settled.waves.bagFull,
       autoChallenge: settled.autoChallenge,
+      idleBoss: settled.idleBoss,
     },
   };
 }
@@ -594,22 +616,38 @@ function breakthroughPreview(world: World, next: World["realms"][number] | undef
 }
 
 /** 每个已首通、重打给奖励（首领规则）且配了重复挑战奖励的首领：今天已经领了几次、一共几次。 */
+/**
+ * 第三批的「每关每日次数」格式（老客户端 0.17.0 还在读）：第四批起每关都显示同一个全局次数。
+ * 新客户端读 bossDailyTotal。
+ */
 function bossDailyDto(world: World, settled: Awaited<ReturnType<typeof settleLocked>>) {
-  const rules = readGameRules(world);
-  const now = settled.now;
+  const total = bossDailyTotalDto(world, settled);
   return settled.pieces.stages.flatMap((row) => {
     const stage = world.stages.find((candidate) => candidate.slug === row.stageSlug);
     const boss = stage?.bosses?.[0];
-    if (!stage || !row.firstClearedAt || !boss?.repeat) {
+    if (!stage || !row.firstClearedAt || !boss?.repeat || !bossRulesFor(world, stage).repeatRewards || total.limit <= 0) {
       return [];
     }
-    const bossRules = bossRulesFor(world, stage);
-    const limit = bossRules.repeatRewards ? bossRules.dailyRewardLimit : 0;
-    if (limit <= 0) {
-      return [];
-    }
-    return [{ stageSlug: row.stageSlug, used: dailyUsed(row, rules, now), limit }];
+    return [{ stageSlug: row.stageSlug, used: total.used, limit: total.limit }];
   });
+}
+
+/** 第四批：每日首领挑战总次数（所有首领合计）：今天已用 / 总数；挂机刷首领每关进度（已击败的关）。 */
+function bossDailyTotalDto(world: World, settled: Awaited<ReturnType<typeof settleLocked>>) {
+  const rules = readGameRules(world);
+  const global = globalBossRules(world);
+  return {
+    used: bossDailyUsed(settled.state, rules, settled.now),
+    limit: global.dailyChallengeTotal,
+    idleWaves: settled.pieces.stages
+      .filter((row) => row.firstClearedAt)
+      .flatMap((row) => {
+        const stage = world.stages.find((candidate) => candidate.slug === row.stageSlug);
+        if (!stage?.bosses?.[0]) return [];
+        const bossRules = bossRulesFor(world, stage);
+        return bossRules.idleSpawn ? [{ stageSlug: row.stageSlug, waves: row.idleWaves, every: bossRules.idleSpawnWaves, countsDaily: bossRules.idleSpawnCountsDaily }] : [];
+      }),
+  };
 }
 
 /** 普通怪波次的当前状态：在哪个关卡刷、一波多久、进行到哪、可以切到哪些关卡。 */
@@ -804,14 +842,10 @@ export function ultOf(world: World, realmSlug: string): (UltConfig & { name: str
   };
 }
 
-export type ChallengeOptions = {
-  /** 客户端上报的大招点击时间（从开战算起的秒数）。服务端只用它重新模拟，客户端画面只是预演。 */
-  ultTaps?: unknown;
-  /** 或者：每次释放等待了几秒（0 到自动释放窗口）。 */
-  ultWaits?: unknown;
-};
+/** 第四批：大招全自动释放（冷却好后过「自动释放等待」秒放出），不再接收客户端上报的点击时间；老客户端传的 ultTaps / ultWaits 忽略。 */
+export type ChallengeOptions = Record<string, never>;
 
-export async function challengeStage(tx: Tx, world: World, playerId: string, stageSlug: string, now: Date, randomInt: RandomInt, options: ChallengeOptions = {}) {
+export async function challengeStage(tx: Tx, world: World, playerId: string, stageSlug: string, now: Date, randomInt: RandomInt, _options: ChallengeOptions = {}) {
   // 手动挑战前的结算不触发自动挑战（否则点「挑战」时可能先被自动打掉，这一场变成重打）
   const settled = await settleLocked(tx, playerId, world, now, { autoChallenge: false });
   const stage = world.stages.find((row) => row.slug === stageSlug);
@@ -834,8 +868,7 @@ export async function challengeStage(tx: Tx, world: World, playerId: string, sta
   if (cooldown > 0 && settled.state.lastChallengeAt && now.getTime() - settled.state.lastChallengeAt.getTime() < cooldown * 1000) {
     throw new AppError("CHALLENGE_COOLDOWN", `挑战冷却中，要间隔 ${cooldown} 秒`);
   }
-  const plan: UltPlan = options.ultWaits !== undefined && Array.isArray(options.ultWaits) ? { waits: (options.ultWaits as unknown[]).slice(0, 50).map(Number) } : cleanUltTaps(options.ultTaps);
-  const fought = await fightStageBoss(tx, world, playerId, settled, stage, now, randomInt, plan);
+  const fought = await fightStageBoss(tx, world, playerId, settled, stage, now, randomInt, { mode: "manual" });
   const after = await settleLocked(tx, playerId, world, now);
   return { ...fought, state: stateDto(world, playerId, after) };
 }
@@ -843,10 +876,11 @@ export async function challengeStage(tx: Tx, world: World, playerId: string, sta
 type FightInput = Pick<Awaited<ReturnType<typeof settleLocked>>, "state" | "stats" | "pieces">;
 
 /**
- * 打一场首领（手动挑战和自动挑战共用）：模拟战斗、发奖励、记进度、解锁下一关。调用方已经检查过能不能打。
- * 首领规则「允许重打」关掉时，已击败的首领不能再打。
+ * 打一场首领（手动挑战、自动挑战、挂机刷首领共用）：模拟战斗（大招自动释放）、发奖励、记进度、解锁下一关。调用方已经检查过能不能打。
+ * 首领规则「允许重打」关掉时，已击败的首领不能手动再打（挂机刷首领只看「挂机刷首领」开关）。
+ * mode = idle（挂机刷出来的）：不占挑战冷却，奖励按「挂机首领算每日次数」开关决定消不消耗每日次数。
  */
-async function fightStageBoss(tx: Tx, world: World, playerId: string, settled: FightInput, stage: World["stages"][number], now: Date, randomInt: RandomInt, plan: UltPlan) {
+async function fightStageBoss(tx: Tx, world: World, playerId: string, settled: FightInput, stage: World["stages"][number], now: Date, randomInt: RandomInt, fight: { mode: "manual" | "idle" }) {
   const stageSlug = stage.slug;
   const rules = readGameRules(world);
   let progress = settled.pieces.stages.find((row) => row.stageSlug === stageSlug);
@@ -862,6 +896,7 @@ async function fightStageBoss(tx: Tx, world: World, playerId: string, settled: F
       dailyRewardCount: 0,
       dailyRewardDay: null,
       autoChallengeAt: null,
+      idleWaves: 0,
     };
   }
   // 行囊满不再拒绝挑战：装备掉落满包时不掉落（客户端提示），首通固定奖励允许超出容量。
@@ -874,7 +909,7 @@ async function fightStageBoss(tx: Tx, world: World, playerId: string, settled: F
     throw new AppError("INVALID_INPUT", boss.statsProblem);
   }
   const bossRules = bossRulesFor(world, stage);
-  if (progress.firstClearedAt && !bossRules.allowRepeat) {
+  if (fight.mode === "manual" && progress.firstClearedAt && !bossRules.allowRepeat) {
     throw new AppError("BOSS_REPEAT_DISABLED");
   }
   const bossAttack = boss ? boss.attack : (stage.bossAttack ?? 1);
@@ -887,7 +922,7 @@ async function fightStageBoss(tx: Tx, world: World, playerId: string, settled: F
   const fighter = { attack: settled.stats.attack, defense: settled.stats.defense, hp: settled.stats.hp, interval: settled.stats.interval };
   const monsterSide = { attack: bossAttack, defense: bossDefense, hp: bossHp, interval: bossInterval };
   const ult = ultOf(world, settled.state.realmSlug);
-  const battle = simulateBossFight(fighter, monsterSide, battleConfigOf(world), ult, plan);
+  const battle = simulateBossFight(fighter, monsterSide, battleConfigOf(world), ult, []);
   const drops: { itemSlug: string; quantity: number; decomposed?: boolean; enhanceExp?: number; dropped?: boolean; freed?: { itemSlug: string; enhanceExp: number }[] }[] = [];
   let nextPity: Record<string, number> | undefined;
   let bagFullNotice = false;
@@ -899,6 +934,8 @@ async function fightStageBoss(tx: Tx, world: World, playerId: string, settled: F
       progress,
       rules,
       bossRules,
+      dailyTotal: globalBossRules(world).dailyChallengeTotal,
+      mode: fight.mode,
       autoDecompose: settled.state.autoDecompose,
       capacity: bagCapacity,
       now,
@@ -992,10 +1029,12 @@ async function fightStageBoss(tx: Tx, world: World, playerId: string, settled: F
       await tx.insert(playerStageProgress).values({ playerId, stageSlug: next.slug, unlockedAt: now }).onConflictDoNothing();
     }
   }
-  await tx
-    .update(playerStates)
-    .set(nextPity ? { lastChallengeAt: now, dropPity: nextPity } : { lastChallengeAt: now })
-    .where(eq(playerStates.playerId, playerId));
+  if (fight.mode === "manual" || nextPity) {
+    await tx
+      .update(playerStates)
+      .set({ ...(fight.mode === "manual" ? { lastChallengeAt: now } : {}), ...(nextPity ? { dropPity: nextPity } : {}) })
+      .where(eq(playerStates.playerId, playerId));
+  }
   return {
     battle,
     drops,
@@ -1006,6 +1045,7 @@ async function fightStageBoss(tx: Tx, world: World, playerId: string, settled: F
           cultivation: rewardInfo.cultivation,
           spiritStones: rewardInfo.spiritStones,
           rewarded: rewardInfo.rewarded,
+          countedDaily: rewardInfo.countedDaily,
           dailyRewardCount: rewardInfo.dailyRewardCount,
           dailyRewardLimit: rewardInfo.dailyRewardLimit,
         }
@@ -1016,17 +1056,20 @@ async function fightStageBoss(tx: Tx, world: World, playerId: string, settled: F
 export type AutoChallengeResult = {
   stageSlug: string;
   bossName: string;
+  /** 只管画面（见 boss-rules.ts BossTier）。 */
   tier: "elite" | "chief";
   win: boolean;
   durationSeconds: number;
   drops: Awaited<ReturnType<typeof fightStageBoss>>["drops"];
   reward: Awaited<ReturnType<typeof fightStageBoss>>["reward"];
+  /** 行囊已满、装备没拾取（grantEquipment skipped='bag_full'），客户端提示「行囊已满」。 */
+  bagFull: boolean;
 };
 
 /**
  * 结算里的自动挑战（Chengpeng 定：在服务端结算里触发）。条件全部满足才打，一次结算最多打一场：
  * 挂机关卡能进、首领规则允许自动挑战、本关首领还没首通、战力 ≥ 推荐战力 × 自动挑战比例、
- * 挑战冷却已过、上一次自动挑战失败已过「重试间隔」。大招按自动释放。
+ * 挑战冷却已过、上一次自动挑战失败已过「重试间隔」。大招自动释放。首通不算每日首领挑战次数。
  * 推荐战力算不出来（配置有问题）就不自动打，手动挑战会把错误报出来。
  */
 async function tryAutoChallenge(
@@ -1070,7 +1113,7 @@ async function tryAutoChallenge(
   if (progress?.autoChallengeAt && now.getTime() - progress.autoChallengeAt.getTime() < bossRules.autoChallengeRetrySeconds * 1000) {
     return null;
   }
-  const fought = await fightStageBoss(tx, world, playerId, settled, stage, now, waveRandomInt, []);
+  const fought = await fightStageBoss(tx, world, playerId, settled, stage, now, waveRandomInt, { mode: "manual" });
   if (!fought.battle.win) {
     await tx
       .update(playerStageProgress)
@@ -1085,7 +1128,108 @@ async function tryAutoChallenge(
     durationSeconds: fought.battle.durationSeconds,
     drops: fought.drops,
     reward: fought.reward,
+    bagFull: fought.bagFull,
   };
+}
+
+export type IdleBossResult = {
+  stageSlug: string;
+  bossName: string;
+  /** 只管画面（见 boss-rules.ts BossTier）。 */
+  tier: "elite" | "chief";
+  /** 这次结算算进来的波数、刷出几只首领、打赢 / 输了几只；超过「一次结算最多刷几只」没打的几只。 */
+  waves: number;
+  spawns: number;
+  wins: number;
+  losses: number;
+  skipped: number;
+  /** 有奖励的几只（重复奖励关着、或开关算次数且次数用完时没有奖励）、消耗了几次每日次数。 */
+  rewarded: number;
+  countedDaily: number;
+  /** 本关计数（余下的波数）/ 每多少波刷一次。 */
+  idleWaves: number;
+  every: number;
+  durationSeconds: number;
+  drops: Awaited<ReturnType<typeof fightStageBoss>>["drops"];
+  /** 行囊满，有装备没发（grantEquipment 返回 skipped: bag_full）——客户端显示「行囊已满」；没发的那几件在 drops 里 dropped: true。 */
+  bagFull: boolean;
+};
+
+/**
+ * 第四批 · 挂机刷首领（在线、离线共用，在结算里调用）：本关首领已击败、规则「挂机刷首领」开着时，
+ * 把这次的 waves 波加到本关计数，每满 idleSpawnWaves 波刷出一只首领直接打（大招自动释放，不占挑战冷却），余数留到下次。
+ * 一次结算最多打 idleSpawnMaxPerSettle 只（全局），多出来的不补（计数只留余数）。
+ * 战斗是确定性的（同样的属性结果一样）：第一只输了，这次刷出来的都算输，不再重复模拟。
+ * 奖励走首领重复奖励（装备来源 boss_repeat，requestId = 战斗报告 id，每赢一只 clear_count +1，所以每只单号不同、重放不重复发）。
+ * 本关关掉「挂机刷首领」时不累计波数。
+ */
+async function settleIdleBosses(
+  tx: Tx,
+  world: World,
+  playerId: string,
+  settled: FightInput & { access: StageAccess[] },
+  stage: World["stages"][number],
+  waves: number,
+  now: Date,
+): Promise<IdleBossResult | null> {
+  const boss = stage.bosses?.[0];
+  if (!boss || boss.statsProblem || waves <= 0) {
+    return null;
+  }
+  const access = settled.access.find((row) => row.slug === stage.slug);
+  const progress = settled.pieces.stages.find((row) => row.stageSlug === stage.slug);
+  if (!access?.playable || !access.cleared || !progress) {
+    return null;
+  }
+  const bossRules = bossRulesFor(world, stage);
+  if (!bossRules.idleSpawn) {
+    return null;
+  }
+  const every = Math.max(1, bossRules.idleSpawnWaves);
+  const total = progress.idleWaves + waves;
+  const due = Math.floor(total / every);
+  const remainder = total - due * every;
+  const spawns = Math.min(due, globalBossRules(world).idleSpawnMaxPerSettle);
+  await tx
+    .update(playerStageProgress)
+    .set({ idleWaves: remainder })
+    .where(and(eq(playerStageProgress.playerId, playerId), eq(playerStageProgress.stageSlug, stage.slug)));
+  const result: IdleBossResult = {
+    stageSlug: stage.slug,
+    bossName: boss.name,
+    tier: stageTier(world, stage),
+    waves,
+    spawns,
+    wins: 0,
+    losses: 0,
+    skipped: due - spawns,
+    rewarded: 0,
+    countedDaily: 0,
+    idleWaves: remainder,
+    every,
+    durationSeconds: 0,
+    drops: [],
+    bagFull: false,
+  };
+  if (spawns === 0) {
+    return null;
+  }
+  let pieces = settled.pieces;
+  for (let index = 0; index < spawns; index += 1) {
+    const fought = await fightStageBoss(tx, world, playerId, { ...settled, pieces }, stage, now, waveRandomInt, { mode: "idle" });
+    result.durationSeconds = fought.battle.durationSeconds;
+    if (!fought.battle.win) {
+      result.losses = spawns - index;
+      break;
+    }
+    result.wins += 1;
+    result.drops.push(...fought.drops);
+    if (fought.bagFull) result.bagFull = true;
+    if (fought.reward?.rewarded) result.rewarded += 1;
+    if (fought.reward?.countedDaily) result.countedDaily += 1;
+    pieces = await loadPieces(tx, playerId);
+  }
+  return result;
 }
 
 export async function equipItem(tx: Tx, world: World, playerId: string, itemId: string, now: Date) {

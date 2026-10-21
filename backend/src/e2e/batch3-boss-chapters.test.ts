@@ -56,17 +56,17 @@ describe("第三批：章节与每关首领", () => {
     await withDb(async (db) => {
       const { app, admin } = await boot(db, "b3_snap");
       const world = await loadDraftSnapshot(db);
-      expect(world.chapters?.find((row) => row.slug === "chiyan")).toMatchObject({ bossFx: "chiyan", bgKey: "chiyan", chiefStageSlug: "jindan_3", chiefStageSlugSetting: null });
+      expect(world.chapters?.find((row) => row.slug === "chiyan")).toMatchObject({ bossFx: "chiyan", bgKey: "chiyan", battleBgKey: "chiyan", chiefStageSlug: "jindan_3", chiefStageSlugSetting: null });
       expect(world.stages.map((row) => [row.slug, row.chapterSlug, row.tier, row.bosses?.[0]?.artKey])).toEqual([
-        ["lianqi_1", "heifeng", "elite", "wolf"],
-        ["lianqi_2", "heifeng", "elite", "fox"],
-        ["lianqi_3", "heifeng", "chief", "bear"],
-        ["zhuji_1", "youming", "elite", "ghost"],
-        ["zhuji_2", "youming", "elite", "bone_golem"],
-        ["zhuji_3", "youming", "chief", "ghost_elder"],
-        ["jindan_1", "chiyan", "elite", "lava_lizard"],
-        ["jindan_2", "chiyan", "elite", "fire_crow"],
-        ["jindan_3", "chiyan", "chief", "fire_jiao"],
+        ["lianqi_1", "heifeng", "elite", "boss_wolf"],
+        ["lianqi_2", "heifeng", "elite", "boss_fox"],
+        ["lianqi_3", "heifeng", "chief", "boss_bear"],
+        ["zhuji_1", "youming", "elite", "boss_ghost"],
+        ["zhuji_2", "youming", "elite", "boss_bone_golem"],
+        ["zhuji_3", "youming", "chief", "boss_ghost_elder"],
+        ["jindan_1", "chiyan", "elite", "boss_lava_lizard"],
+        ["jindan_2", "chiyan", "elite", "boss_fire_crow"],
+        ["jindan_3", "chiyan", "chief", "boss_fire_jiao"],
       ]);
       // 后台手动指定章末关：只能选本章的关卡
       expect((await app.inject({ method: "PUT", url: "/admin/draft/chapters/heifeng", headers: admin, payload: { chiefStageSlug: "zhuji_1" } })).statusCode).toBe(400);
@@ -98,7 +98,7 @@ describe("第三批：章节与每关首领", () => {
     });
   });
 
-  it("unlock chain: the next stage needs the previous boss beaten (and the realm); elite first clear = spirit stones + low stone + 1 gear rolled at 0/70/25/5/0; elites give nothing on repeat", async () => {
+  it("unlock chain: the next stage needs the previous boss beaten (and the realm); elite first clear = spirit stones + low stone + 1 gear rolled at 0/70/25/5/0; a repeat win now gives the repeat reward and uses the daily total (第四批)", async () => {
     await withDb(async (db) => {
       const { challenge, state, monster, app } = await boot(db, "b3_unlock");
       const before = await state();
@@ -113,7 +113,7 @@ describe("第三批：章节与每关首领", () => {
         ["jindan_2", false],
         ["jindan_3", false],
       ]);
-      expect(before.stageAccess[1]).toMatchObject({ tier: "elite", chapterSlug: "heifeng", needs: { bossWin: { stageSlug: "lianqi_1", bossName: "精英·青鬃狼", tier: "elite", met: false }, realm: { order: 2, met: true } } });
+      expect(before.stageAccess[1]).toMatchObject({ tier: "elite", chapterSlug: "heifeng", needs: { bossWin: { stageSlug: "lianqi_1", bossName: "青鬃狼王", tier: "elite", met: false }, realm: { order: 2, met: true } } });
       const locked = await challenge("lianqi_2");
       expect(locked.statusCode).toBe(409);
       expect(locked.json().error.code).toBe("STAGE_LOCKED");
@@ -128,11 +128,11 @@ describe("第三批：章节与每关首领", () => {
       expect(slugs.filter((slug: string) => slug.startsWith("gear_"))).toEqual(["gear_major1_weapon_green"]); // 掷 0 = 精英最低一档有概率的品质（白 0%）= 绿
       expect(body.state.spiritStones).toBe(before.spiritStones + 50);
       expect(body.state.stageAccess.find((row: { slug: string }) => row.slug === "lianqi_2")).toMatchObject({ unlocked: true, playable: true });
-      // 精英可以重复打，但没有奖励
+      // 第四批：一套规则，重打有重复奖励（1 件装备按 0/50/35/13/2 + 70% 突破石·下品），消耗 1 次每日首领挑战总次数
       const again = (await challenge("lianqi_1")).json();
       expect(again.battle.win).toBe(true);
-      expect(again.reward).toMatchObject({ firstClear: false, rewarded: false });
-      expect(again.drops).toEqual([]);
+      expect(again.reward).toMatchObject({ firstClear: false, rewarded: true, countedDaily: true, dailyRewardCount: 1, dailyRewardLimit: 5 });
+      expect(again.drops.map((row: { itemSlug: string }) => row.itemSlug)).toEqual(["gear_major1_weapon_green", "enh_stone_low"]);
       await app.close();
     });
   });
@@ -152,20 +152,20 @@ describe("第三批：章节与每关首领", () => {
     });
   });
 
-  it("BOSS_REPEAT_DISABLED when the rules forbid repeats; a chief is never auto-challenged by default", async () => {
+  it("BOSS_REPEAT_DISABLED when the rules forbid repeats; a per-stage override can turn auto-challenge off for one boss", async () => {
     await withDb(async (db) => {
       const { app, admin, challenge, monster, at, state, playerId } = await boot(db, "b3_repeat");
       await monster("lianqi_1", { hp: 2, attack: 1, defense: 0 });
       expect((await challenge("lianqi_1")).json().battle.win).toBe(true);
-      const saved = await app.inject({ method: "PUT", url: "/admin/draft/boss-rules", headers: admin, payload: { elite: { allowRepeat: false } } });
+      const saved = await app.inject({ method: "PUT", url: "/admin/draft/boss-rules", headers: admin, payload: { allowRepeat: false } });
       expect(saved.statusCode).toBe(200);
       const refused = await challenge("lianqi_1");
       expect(refused.statusCode).toBe(409);
       expect(refused.json().error.code).toBe("BOSS_REPEAT_DISABLED");
-      // 章末首领（黑风熊王）再弱也不会在结算里自动打
+      // 第四批：章末首领默认也自动挑战；这一关单独关掉自动挑战后，再弱也不会在结算里自动打
       await db.insert(playerStageProgress).values({ playerId, stageSlug: "lianqi_2", unlockedAt: start, firstClearedAt: start, clearCount: 1 }).onConflictDoUpdate({ target: [playerStageProgress.playerId, playerStageProgress.stageSlug], set: { firstClearedAt: start, clearCount: 1 } });
       const [bear] = await db.select().from(contentStages).where(eq(contentStages.slug, "lianqi_3"));
-      await db.update(contentStages).set({ bosses: [{ ...bear!.bosses![0]!, hp: 2, attack: 1 }], recommendedPower: 1 }).where(eq(contentStages.slug, "lianqi_3"));
+      await db.update(contentStages).set({ bosses: [{ ...bear!.bosses![0]!, hp: 2, attack: 1, rules: { ...bear!.bosses![0]!.rules, autoChallenge: false } }], recommendedPower: 1 }).where(eq(contentStages.slug, "lianqi_3"));
       at(3);
       const polled = await state();
       expect(polled.wave.stageSlug).toBe("lianqi_3");
@@ -191,7 +191,7 @@ describe("第三批：章节与每关首领", () => {
       const { app, admin, state, at, monster, progress } = await boot(db, "b3_auto2", "lianqi_1");
       // 2) 门槛改成 1%，精英打不过：输了记下时间，60 秒内不再自动打
       await monster("lianqi_1", { hp: 3000, attack: 1, defense: 0 }); // 精英 15000 血，20 秒打不完
-      expect((await app.inject({ method: "PUT", url: "/admin/draft/boss-rules", headers: admin, payload: { elite: { autoChallengePowerPct: 1 } } })).statusCode).toBe(200);
+      expect((await app.inject({ method: "PUT", url: "/admin/draft/boss-rules", headers: admin, payload: { autoChallengePowerPct: 1 } })).statusCode).toBe(200);
       at(3);
       const lost = await state();
       expect(lost.lastSettle.autoChallenge).toMatchObject({ stageSlug: "lianqi_1", win: false });
@@ -203,7 +203,7 @@ describe("第三批：章节与每关首领", () => {
       at(63);
       expect((await state()).lastSettle.autoChallenge).toMatchObject({ win: false });
       // 3) 关掉自动挑战：不再打
-      expect((await app.inject({ method: "PUT", url: "/admin/draft/boss-rules", headers: admin, payload: { elite: { autoChallenge: false } } })).statusCode).toBe(200);
+      expect((await app.inject({ method: "PUT", url: "/admin/draft/boss-rules", headers: admin, payload: { autoChallenge: false } })).statusCode).toBe(200);
       at(140);
       at(150);
       expect((await state()).lastSettle.autoChallenge).toBeNull();
@@ -234,7 +234,7 @@ describe("第三批：首领装备走统一发放接口 grantEquipment", () => {
       expect((await db.select().from(playerItems).where(eq(playerItems.playerId, playerId))).filter((row) => row.itemSlug.startsWith("gear_"))).toHaveLength(1);
       // 同一场胜利（同一个战斗报告 id + 序号）再调一次发放：返回原来的实例，不重复发
       const again = await withTransaction(db, (tx) => grantBossEquipment(tx, { playerId, itemSlug: "gear_major1_weapon_green", count: 1, source: "boss_first", stageSlug: "lianqi_1", battleId: bossBattleId(playerId, "lianqi_1", before!), index: 0 }));
-      expect(again.map((row) => row.id)).toEqual(grants[0]!.instanceIds);
+      expect(again).toEqual({ count: grants[0]!.instanceIds.length, skipped: null });
       expect(await db.select().from(equipmentGrants)).toHaveLength(1);
       await app.close();
     });
@@ -299,34 +299,38 @@ describe("第三批后台接口", () => {
     });
   });
 
-  it("boss rules: GET returns both columns + usage; PUT merges per column and validates; per-stage override via the stage API and reset-boss-rule", async () => {
+  it("boss rules: GET returns the one rule set + usage; PUT merges and validates; per-stage override via the stage API and reset-boss-rule", async () => {
     await withDb(async (db) => {
       const { app, admin } = await boot(db, "b3_rules");
       const read = (await app.inject({ method: "GET", url: "/admin/draft/boss-rules", headers: admin })).json();
-      expect(read.rules.chief.dailyRewardLimit).toBe(5);
-      expect(read.usage).toMatchObject({ elite: { stages: 6, customized: 0 }, chief: { stages: 3, customized: 0 } });
+      expect(read.rules.dailyChallengeTotal).toBe(5);
+      expect(read.rules.idleSpawnWaves).toBe(1000);
+      // 原章末 3 关存了「属性 = 手填」
+      expect(read.usage).toMatchObject({ stages: 9, customized: 3 });
       const put = (payload: Record<string, unknown>) => app.inject({ method: "PUT", url: "/admin/draft/boss-rules", headers: admin, payload });
-      const saved = await put({ chief: { dailyRewardLimit: 3, gearQualityPct: { green: 48, orange: 4 } } });
+      const saved = await put({ dailyChallengeTotal: 3, idleSpawnCountsDaily: true, repeatGearQualityPct: { green: 48, orange: 4 } });
       expect(saved.statusCode).toBe(200);
-      expect(saved.json().rules.chief).toMatchObject({ dailyRewardLimit: 3, gearQualityPct: { white: 0, green: 48, blue: 35, purple: 13, orange: 4 } });
-      expect(saved.json().rules.elite.statMul).toEqual({ hp: 5, attack: 1.3, defense: 1.2 });
-      const bad = await put({ elite: { gearQualityPct: { green: 90 } } });
+      expect(saved.json().rules).toMatchObject({ dailyChallengeTotal: 3, idleSpawnCountsDaily: true, repeatGearQualityPct: { white: 0, green: 48, blue: 35, purple: 13, orange: 4 } });
+      expect(saved.json().rules.statMul).toEqual({ hp: 5, attack: 1.3, defense: 1.2 });
+      const bad = await put({ gearQualityPct: { green: 90 } });
       expect(bad.statusCode).toBe(400);
       expect(bad.json().error.message).toContain("100%");
       // 单关覆盖：关卡接口 bosses[0].rules，只存和默认值不同的项
       const stages = (await app.inject({ method: "GET", url: "/admin/draft/stages", headers: admin })).json();
       const wolfStage = stages.find((row: { id: string }) => row.id === "lianqi_1");
-      const boss = { ...wolfStage.bosses[0], rules: { autoChallenge: false, statMul: { hp: 6, attack: 1.3 } } };
+      const boss = { ...wolfStage.bosses[0], rules: { autoChallenge: false, statMul: { hp: 6, attack: 1.3 }, idleSpawnWaves: 300 } };
       const updated = await app.inject({ method: "PUT", url: "/admin/draft/stages/lianqi_1", headers: admin, payload: { displayName: wolfStage.displayName, realmCode: 1, bosses: [boss] } });
       expect(updated.statusCode).toBe(200);
       let world = await loadDraftSnapshot(db);
       let elite = world.stages.find((row) => row.slug === "lianqi_1")!.bosses![0]!;
-      expect(elite.ruleOverride).toEqual({ autoChallenge: false, statMul: { hp: 6 } });
+      expect(elite.ruleOverride).toEqual({ autoChallenge: false, statMul: { hp: 6 }, idleSpawnWaves: 300 });
       expect(elite).toMatchObject({ hp: 660, attack: 31 });
-      expect((await app.inject({ method: "GET", url: "/admin/draft/boss-rules", headers: admin })).json().usage.elite).toMatchObject({ customized: 1, customizedStages: [{ id: "lianqi_1", customCount: 2 }] });
+      expect(elite.rules).toMatchObject({ idleSpawnWaves: 300, idleSpawnCountsDaily: true });
+      expect((await app.inject({ method: "GET", url: "/admin/draft/boss-rules", headers: admin })).json().usage).toMatchObject({ customized: 4 });
+      expect((await app.inject({ method: "GET", url: "/admin/draft/boss-rules", headers: admin })).json().usage.customizedStages).toContainEqual({ id: "lianqi_1", displayName: wolfStage.displayName, customCount: 3 });
       // 只恢复一项
       const partial = await app.inject({ method: "POST", url: "/admin/draft/stages/lianqi_1/reset-boss-rule", headers: admin, payload: { keys: ["statMul"] } });
-      expect(partial.json()).toEqual({ id: "lianqi_1", ruleOverride: { autoChallenge: false } });
+      expect(partial.json()).toEqual({ id: "lianqi_1", ruleOverride: { autoChallenge: false, idleSpawnWaves: 300 } });
       expect((await app.inject({ method: "POST", url: "/admin/draft/stages/lianqi_1/reset-boss-rule", headers: admin, payload: { keys: ["nope"] } })).statusCode).toBe(400);
       // 全部恢复
       const all = await app.inject({ method: "POST", url: "/admin/draft/stages/lianqi_1/reset-boss-rule", headers: admin, payload: {} });
@@ -346,6 +350,10 @@ describe("第三批后台接口", () => {
       expect(body.monsters).toHaveLength(12);
       expect(body.monsters[0]).toEqual({ key: "wolf", name: "青鬃狼", sprite: "sprites/mon_wolf.png" });
       expect(body.chapterBackgrounds.map((row: { key: string }) => row.key)).toEqual(["heifeng", "youming", "chiyan"]);
+      // 第四批：统一首领立绘 9 张、章节战斗背景 3 张
+      expect(body.bosses.map((row: { key: string }) => row.key)).toHaveLength(9);
+      expect(body.bosses[0]).toEqual({ key: "boss_wolf", name: "首领·青鬃狼", sprite: "sprites/boss_wolf.png" });
+      expect(body.battleBackgrounds.map((row: { image: string }) => row.image)).toEqual(["bg/bg_battle_heifeng_1080x1640.webp", "bg/bg_battle_youming_1080x1640.webp", "bg/bg_battle_chiyan_1080x1640.webp"]);
       expect(body.bossFx.map((row: { key: string }) => row.key)).toEqual(["default", "chiyan"]);
       expect((await app.inject({ method: "GET", url: "/admin/draft/art-keys", headers })).statusCode).toBeGreaterThanOrEqual(401);
       await app.close();

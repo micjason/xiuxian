@@ -54,12 +54,24 @@
           <FormRow label="启用" help="停用的章节和它的关卡不出现在游戏里。"><el-switch v-model="form.enabled" /></FormRow>
         </div>
       </SectionCard>
-      <SectionCard title="战斗区" desc="历练页上半部（0–960）的背景，和本章首领的光圈 / 描边特效">
+      <SectionCard title="战斗区" desc="历练页上半部（0–960）的背景、首领战斗页的竖版背景，和本章首领的光圈 / 描边特效">
         <div class="rows">
           <FormRow label="背景" help="游戏里是 bg/bg_{key}_1080x960.webp；没配时用黑风岭。">
             <div class="bg-options">
               <button v-for="bg in art?.chapterBackgrounds ?? []" :key="bg.key" type="button" class="bg-option" :class="{ on: form.bgKey === bg.key }" @click="form.bgKey = bg.key">
                 <img :src="chapterBgThumb(bg.key)" alt="" />
+                <span>{{ bg.name }} <em>{{ bg.key }}</em></span>
+              </button>
+            </div>
+          </FormRow>
+          <FormRow label="首领战斗背景" help="首领战斗页上半部（0–1640）的竖版背景，游戏里是 bg/bg_battle_{key}_1080x1640.webp。不选 = 跟随上面的章节背景（同名的战斗背景）。">
+            <div class="bg-options">
+              <button type="button" class="bg-option" :class="{ on: !form.battleBgKey }" @click="form.battleBgKey = null">
+                <img :src="battleBgThumb(form.bgKey)" alt="" class="tall" />
+                <span>跟随章节背景</span>
+              </button>
+              <button v-for="bg in art?.battleBackgrounds ?? []" :key="bg.key" type="button" class="bg-option" :class="{ on: form.battleBgKey === bg.key }" @click="form.battleBgKey = bg.key">
+                <img :src="battleBgThumb(bg.key)" alt="" class="tall" />
                 <span>{{ bg.name }} <em>{{ bg.key }}</em></span>
               </button>
             </div>
@@ -109,10 +121,10 @@ import NumInput from "../../components/NumInput.vue";
 import PageHeader from "../../components/PageHeader.vue";
 import SectionCard from "../../components/SectionCard.vue";
 import TierTag from "../../components/TierTag.vue";
-import { chapterBgThumb, loadArtKeys, loadChapters, type ArtCatalog, type ChapterRow } from "../../composables/bossRules";
+import { battleBgThumb, chapterBgThumb, loadArtKeys, loadChapters, type ArtCatalog, type ChapterRow } from "../../composables/bossRules";
 import { refreshDraftStatus } from "../../composables/draftStatus";
 
-type Form = { id: string; displayName: string; sortOrder: number | null; bgKey: string; bossFx: string; chiefStageSlug: string | null; enabled: boolean };
+type Form = { id: string; displayName: string; sortOrder: number | null; bgKey: string; bossFx: string; battleBgKey: string | null; chiefStageSlug: string | null; enabled: boolean };
 
 const loading = ref(false);
 const saving = ref(false);
@@ -129,7 +141,7 @@ const lastSlug = computed(() => original.value?.stages.at(-1)?.id ?? "");
 
 function blank(): Form {
   const next = rows.value.reduce((max, row) => Math.max(max, row.sortOrder), 0) + 1;
-  return { id: "", displayName: "", sortOrder: next, bgKey: "heifeng", bossFx: "default", chiefStageSlug: null, enabled: true };
+  return { id: "", displayName: "", sortOrder: next, bgKey: "heifeng", bossFx: "default", battleBgKey: null, chiefStageSlug: null, enabled: true };
 }
 function bgName(key: string): string {
   return art.value?.chapterBackgrounds.find((row) => row.key === key)?.name ?? key;
@@ -174,7 +186,7 @@ function openCreate(): void {
 function openEdit(row: ChapterRow): void {
   mode.value = "edit";
   original.value = row;
-  form.value = { id: row.id, displayName: row.displayName, sortOrder: row.sortOrder, bgKey: row.bgKey, bossFx: row.bossFx, chiefStageSlug: row.chiefStageSlug, enabled: row.enabled };
+  form.value = { id: row.id, displayName: row.displayName, sortOrder: row.sortOrder, bgKey: row.bgKey, bossFx: row.bossFx, battleBgKey: row.battleBgKey ?? null, chiefStageSlug: row.chiefStageSlug, enabled: row.enabled };
   baseline.value = JSON.stringify(form.value);
   drawer.value = true;
 }
@@ -186,7 +198,7 @@ async function save(): Promise<void> {
   }
   saving.value = true;
   try {
-    const body = { displayName: form.value.displayName, sortOrder: form.value.sortOrder, bgKey: form.value.bgKey, bossFx: form.value.bossFx, chiefStageSlug: form.value.chiefStageSlug ?? "", enabled: form.value.enabled };
+    const body = { displayName: form.value.displayName, sortOrder: form.value.sortOrder, bgKey: form.value.bgKey, bossFx: form.value.bossFx, battleBgKey: form.value.battleBgKey ?? "", chiefStageSlug: form.value.chiefStageSlug ?? "", enabled: form.value.enabled };
     if (mode.value === "create") {
       await api("/admin/draft/chapters", { method: "POST", body: JSON.stringify({ ...body, slug: form.value.id || undefined }) });
     } else {
@@ -311,5 +323,9 @@ onMounted(reload);
   width: 20px;
   color: var(--xx-text-placeholder);
   text-align: right;
+}
+.bg-option img.tall {
+  height: 120px;
+  object-fit: cover;
 }
 </style>

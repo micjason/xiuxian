@@ -28,7 +28,8 @@ describe("migration 0022 (5% kill drop, stones x2 of the original, 5 daily repea
       expect(stages.every((row) => row.monsterDrop?.chanceBp == null)).toBe(true);
       expect((await loadDraftSnapshot(db)).stages.every((row) => row.monsterDrop?.chanceBp === 500)).toBe(true);
       const extras = stages.flatMap((row) => row.bosses.flatMap((boss) => boss.repeat?.extras ?? []));
-      expect(extras.filter((e) => e.itemSlug === "enh_stone_low").map((e) => e.chanceBp)).toEqual([7000, 7000, 7000]);
+      // 第四批：6 个原精英也有重复奖励（70% 突破石·下品），3 + 6 = 9 条
+      expect(extras.filter((e) => e.itemSlug === "enh_stone_low").map((e) => e.chanceBp)).toEqual(Array(9).fill(7000));
       expect(extras.filter((e) => e.itemSlug === "enh_stone_mid").map((e) => e.chanceBp)).toEqual([3000, 3000]);
       const [globals] = await db.select().from(contentGlobals);
       expect(globals?.combat?.bossDailyRewardCount).toBe(5);

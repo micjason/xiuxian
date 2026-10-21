@@ -18,11 +18,14 @@
 </template>
 
 <script setup lang="ts">
-/** 立绘下拉（怪物 / 首领 artKey，带缩略图）。null = 没选（精英跟随本关普通怪，inheritKey 灰显）。 */
+/**
+ * 立绘下拉（怪物 / 首领 artKey，带缩略图）。null = 没选（首领跟随本关普通怪，inheritKey 灰显）。
+ * boss=true（首领区）：先列统一首领立绘 boss_*（第四批，SPEC_Q §17.10），再列普通怪立绘（游戏里现场描边）。
+ */
 import { onMounted, ref } from "vue";
 import { loadArtKeys, monsterThumb, type ArtCatalog } from "../composables/bossRules";
 
-withDefaults(defineProps<{ modelValue: string | null | undefined; inheritKey?: string | null; tier?: "elite" | "chief" | null; width?: number; clearable?: boolean }>(), { width: 200, clearable: false, tier: null, inheritKey: null });
+const props = withDefaults(defineProps<{ modelValue: string | null | undefined; inheritKey?: string | null; tier?: "elite" | "chief" | null; width?: number; clearable?: boolean; boss?: boolean }>(), { width: 200, clearable: false, tier: null, inheritKey: null, boss: false });
 const emit = defineEmits<{ "update:modelValue": [value: string | null] }>();
 const options = ref<ArtCatalog["monsters"]>([]);
 
@@ -31,7 +34,8 @@ function nameOf(key: string): string {
 }
 
 onMounted(async () => {
-  options.value = (await loadArtKeys()).monsters;
+  const catalog = await loadArtKeys();
+  options.value = props.boss ? [...(catalog.bosses ?? []), ...catalog.monsters] : catalog.monsters;
 });
 </script>
 

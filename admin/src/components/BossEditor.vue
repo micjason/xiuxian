@@ -38,8 +38,8 @@
         </div>
         <div class="rrow">
           <span class="rl">立绘<HelpTip title="首领立绘" text="游戏里首领用的怪物贴图（精英会自动放大 1.2 倍并加金边金光，章末首领加红边红光）。不选：精英跟随本关第一只普通怪，章末首领按名字匹配。" /></span>
-          <ArtKeySelect v-model="boss.artKey" :tier="tier" :inherit-key="tier === 'elite' ? monster?.artKey : null" :width="240" clearable />
-          <span v-if="!boss.artKey" class="side-note inline">{{ tier === "elite" ? (monster?.artKey ? "跟随本关普通怪" : "本关普通怪也没选立绘，按名字匹配") : "没选时游戏按名字匹配" }}</span>
+          <ArtKeySelect v-model="boss.artKey" boss :inherit-key="monster?.artKey ?? null" :width="260" clearable />
+          <span v-if="!boss.artKey" class="side-note inline">{{ monster?.artKey ? "跟随本关普通怪（游戏里现场描边）" : "本关普通怪也没选立绘，按名字匹配" }}</span>
         </div>
 
         <table class="grid">
@@ -93,58 +93,72 @@
               <el-button link type="primary" @click="boss.rules = null">全部恢复默认</el-button>
             </template>
             <CustomTag v-else kind="default">跟随默认</CustomTag>
-            <el-button link type="primary" @click="$emit('open-overview')">配置概览 · {{ tier === "chief" ? "大首领" : "小首领" }} ›</el-button>
+            <el-button link type="primary" @click="$emit('open-overview')">配置概览 · 首领规则 ›</el-button>
           </header>
           <div class="rules">
             <div class="rrow">
-              <span class="rl">允许重打<HelpTip title="允许重打" :text="RULE_HELP.allowRepeat" /></span>
+              <span class="rl">允许手动重打<HelpTip title="允许手动重打" :text="RULE_HELP.allowRepeat" /></span>
               <el-switch :model-value="eff(boss).allowRepeat" :class="{ cus: isCustom(boss, 'allowRepeat') }" @update:model-value="(value: string | number | boolean) => setKey(boss, 'allowRepeat', !!value)" />
               <span class="sw-text" :class="{ faint: !isCustom(boss, 'allowRepeat') }">{{ eff(boss).allowRepeat ? "允许" : "不允许" }}</span>
               <RuleMark :custom="isCustom(boss, 'allowRepeat')" @reset="resetKey(boss, 'allowRepeat')" />
             </div>
             <div class="rrow">
-              <span class="rl">重打给奖励<HelpTip title="重打给奖励" :text="RULE_HELP.repeatRewards" /></span>
-              <el-switch :model-value="eff(boss).repeatRewards" :disabled="!eff(boss).allowRepeat" @update:model-value="(value: string | number | boolean) => setKey(boss, 'repeatRewards', !!value)" />
-              <span class="sw-text" :class="{ faint: !isCustom(boss, 'repeatRewards') }">{{ eff(boss).repeatRewards ? "给 · 消耗每日次数" : "不给 · 只有首通奖励" }}</span>
+              <span class="rl">重复奖励<HelpTip title="重复奖励" :text="RULE_HELP.repeatRewards" /></span>
+              <el-switch :model-value="eff(boss).repeatRewards" @update:model-value="(value: string | number | boolean) => setKey(boss, 'repeatRewards', !!value)" />
+              <span class="sw-text" :class="{ faint: !isCustom(boss, 'repeatRewards') }">{{ eff(boss).repeatRewards ? "给 · 手动重打和挂机首领都有" : "不给 · 只有首通奖励" }}</span>
               <RuleMark :custom="isCustom(boss, 'repeatRewards')" @reset="resetKey(boss, 'repeatRewards')" />
             </div>
             <div class="rrow">
-              <span class="rl">每日次数<HelpTip title="每日次数" :text="RULE_HELP.dailyRewardLimit" /></span>
-              <NumInput
-                :model-value="boss.rules?.dailyRewardLimit ?? null"
-                :inherit-value="defaults.dailyRewardLimit"
-                :custom="isCustom(boss, 'dailyRewardLimit')"
-                :readonly="!eff(boss).repeatRewards"
-                :width="120"
-                unit="次"
-                :precision="0"
-                :max="99"
-                @update:model-value="(value: number | null) => setKey(boss, 'dailyRewardLimit', value)"
-              />
-              <span class="side-note inline">{{ eff(boss).repeatRewards ? `每天前 ${eff(boss).dailyRewardLimit} 次胜利有奖励` : "0 = 不限、不给" }}</span>
-              <RuleMark :custom="isCustom(boss, 'dailyRewardLimit')" @reset="resetKey(boss, 'dailyRewardLimit')" />
+              <span class="rl">每日次数<HelpTip title="每日首领挑战总次数" :text="RULE_HELP.dailyChallengeTotal" /></span>
+              <span class="side-note inline">全局 {{ defaults.dailyChallengeTotal }} 次（所有首领合计，首次挑战不算），只能在配置概览改</span>
             </div>
-            <div class="rrow top">
-              <span class="rl">装备品质掉率<HelpTip title="装备品质掉率" :text="RULE_HELP.gearQualityPct" /></span>
+            <div v-for="group in QUALITY_GROUPS" :key="group.key" class="rrow top">
+              <span class="rl">{{ group.label }}<HelpTip :title="group.label" :text="RULE_HELP[group.key]" /></span>
               <div>
                 <div class="mults">
                   <div v-for="quality in GEAR_QUALITIES" :key="quality.key" class="mult">
                     <span class="mini"><i class="dot" :style="{ background: quality.color }" />{{ quality.name }}</span>
                     <NumInput
-                      :model-value="boss.rules?.gearQualityPct?.[quality.key] ?? null"
-                      :inherit-value="defaults.gearQualityPct[quality.key]"
-                      :custom="isSubCustom(boss, 'gearQualityPct', quality.key)"
+                      :model-value="boss.rules?.[group.key]?.[quality.key] ?? null"
+                      :inherit-value="defaults[group.key][quality.key]"
+                      :custom="isSubCustom(boss, group.key, quality.key)"
                       :width="88"
                       unit="%"
                       :precision="2"
                       :max="100"
-                      @update:model-value="(value: number | null) => setSub(boss, 'gearQualityPct', quality.key, value)"
+                      @update:model-value="(value: number | null) => setSub(boss, group.key, quality.key, value)"
                     />
                   </div>
                 </div>
-                <span class="side-note" :class="{ bad: qualityTotal(eff(boss).gearQualityPct) !== 100 }">合计 {{ qualityTotal(eff(boss).gearQualityPct) }}%{{ qualityTotal(eff(boss).gearQualityPct) !== 100 ? "，必须 100%" : "" }}</span>
+                <span class="side-note" :class="{ bad: qualityTotal(eff(boss)[group.key]) !== 100 }">合计 {{ qualityTotal(eff(boss)[group.key]) }}%{{ qualityTotal(eff(boss)[group.key]) !== 100 ? "，必须 100%" : "" }}</span>
               </div>
-              <RuleMark :custom="subCount(boss, 'gearQualityPct') > 0" :count="subCount(boss, 'gearQualityPct')" class="mt" @reset="resetKey(boss, 'gearQualityPct')" />
+              <RuleMark :custom="subCount(boss, group.key) > 0" :count="subCount(boss, group.key)" class="mt" @reset="resetKey(boss, group.key)" />
+            </div>
+            <div class="rrow">
+              <span class="rl">挂机刷首领<HelpTip title="挂机刷首领" :text="RULE_HELP.idleSpawn" /></span>
+              <el-switch :model-value="eff(boss).idleSpawn" @update:model-value="(value: string | number | boolean) => setKey(boss, 'idleSpawn', !!value)" />
+              <span class="sw-text" :class="{ faint: !isCustom(boss, 'idleSpawn') }">{{ eff(boss).idleSpawn ? "开" : "关" }}</span>
+              <span class="mini gap">每</span>
+              <NumInput
+                :model-value="boss.rules?.idleSpawnWaves ?? null"
+                :inherit-value="defaults.idleSpawnWaves"
+                :custom="isCustom(boss, 'idleSpawnWaves')"
+                :readonly="!eff(boss).idleSpawn"
+                :width="160"
+                unit="波"
+                :precision="0"
+                :min="1"
+                :max="1000000"
+                @update:model-value="(value: number | null) => setKey(boss, 'idleSpawnWaves', value)"
+              />
+              <span class="mini">刷一次（已击败后、离线也算）</span>
+              <RuleMark :custom="isCustom(boss, 'idleSpawn') || isCustom(boss, 'idleSpawnWaves')" @reset="resetKey(boss, 'idleSpawn'); resetKey(boss, 'idleSpawnWaves')" />
+            </div>
+            <div class="rrow">
+              <span class="rl">挂机首领算次数<HelpTip title="挂机首领算不算每日次数" :text="RULE_HELP.idleSpawnCountsDaily" /></span>
+              <el-switch :model-value="eff(boss).idleSpawnCountsDaily" :disabled="!eff(boss).idleSpawn" @update:model-value="(value: string | number | boolean) => setKey(boss, 'idleSpawnCountsDaily', !!value)" />
+              <span class="sw-text" :class="{ faint: !isCustom(boss, 'idleSpawnCountsDaily') }">{{ eff(boss).idleSpawnCountsDaily ? "算 · 用完后挂机首领没奖励" : "不算 · 不消耗次数，一直有奖励" }}</span>
+              <RuleMark :custom="isCustom(boss, 'idleSpawnCountsDaily')" @reset="resetKey(boss, 'idleSpawnCountsDaily')" />
             </div>
             <div class="rrow">
               <span class="rl">允许自动挑战<HelpTip title="允许自动挑战" :text="RULE_HELP.autoChallenge" /></span>
@@ -225,12 +239,12 @@
         </div>
 
         <!-- 重复奖励（只有规则允许重打且给奖励时生效） -->
-        <div v-if="eff(boss).allowRepeat && eff(boss).repeatRewards" class="sub-card">
-          <header class="sub-head"><strong>重复奖励</strong><span class="muted">之后每次胜利；每日前 {{ eff(boss).dailyRewardLimit }} 次有奖励</span></header>
+        <div v-if="eff(boss).repeatRewards" class="sub-card">
+          <header class="sub-head"><strong>重复奖励</strong><span class="muted">击败后每次胜利：手动重打消耗每日次数（全局 {{ defaults.dailyChallengeTotal }} 次）；挂机首领{{ eff(boss).idleSpawnCountsDaily ? "也消耗" : "不消耗" }}</span></header>
           <div class="repeat-line">
             <el-switch :model-value="!!boss.repeat?.gear" @update:model-value="(on: string | number | boolean) => (repeat(boss).gear = !!on)" />
             <span>每次给 1 件本境界装备</span>
-            <span class="muted">品质按上面「装备品质掉率」抽（橙 {{ eff(boss).gearQualityPct.orange }}%）</span>
+            <span class="muted">品质按上面「重复奖励装备品质」抽（橙 {{ eff(boss).repeatGearQualityPct.orange }}%）</span>
           </div>
           <table class="grid">
             <thead>
@@ -261,7 +275,7 @@
           <button type="button" class="add-row" @click="repeat(boss).extras.push({ itemId: '', chancePercent: 30, minQty: 1, maxQty: 1 })">＋ 添加额外物品</button>
         </div>
         <div v-else class="dashed-note">
-          重复奖励：本关{{ tier === "chief" ? "大首领" : "小首领" }}{{ eff(boss).allowRepeat ? "重打不给奖励（只有首通奖励）" : "不能重打" }}。要给的话，在上面「首领规则」打开「重打给奖励」，或在配置概览改默认。
+          重复奖励：本关首领击败后再赢不给奖励（只有首通奖励）。要给的话，在上面「首领规则」打开「重复奖励」，或在配置概览改默认。
         </div>
 
         <!-- 旧版按概率掉落（老内容才有；新内容走首通 / 重复奖励） -->
@@ -284,10 +298,11 @@
 /**
  * 关卡抽屉 · 首领（ADMIN_SPEC §11，第三批）：属性方式（自动 = 普通怪 × 倍率 / 手填）、立绘、首领规则覆盖（灰字跟随配置概览，
  * 改了算「已自定义」可恢复）、首通奖励（含随机装备 / 灵石）、重复奖励（规则允许时才有）。
- * 旧的「首领每日奖励次数」（rules.bossDailyRewardCount）和单首领「橙装概率」已停用。
+ * 旧的「首领每日奖励次数」（rules.bossDailyRewardCount）、第三批的每关每日次数和单首领「橙装概率」已停用；
+ * 第四批：一套首领规则，每日首领挑战总次数是全局的（只读显示）；加了重复奖励装备品质、挂机刷首领。
  */
 import { defineComponent, h } from "vue";
-import { GEAR_QUALITIES, RULE_HELP, STAT_MULS, overrideCount, qualityTotal, resolveRules, type BossRuleOverride, type BossRuleSet, type BossTier, type GearQuality, type ScalarRuleKey, type StatMulKey } from "../composables/bossRules";
+import { GEAR_QUALITIES, RULE_HELP, STAT_MULS, overrideCount, qualityTotal, resolveRules, type BossRuleOverride, type BossRuleSet, type BossRules, type BossTier, type GearQuality, type GroupRuleKey, type ScalarRuleKey, type StatMulKey } from "../composables/bossRules";
 import type { Named } from "../composables/lookups";
 import ArtKeySelect from "./ArtKeySelect.vue";
 import CustomTag from "./CustomTag.vue";
@@ -320,15 +335,20 @@ const props = defineProps<{
   showAllErrors?: boolean;
   powerOf: (boss: BossRow) => number | null;
   weights: { attack: number; defense: number; hp: number; speed: number };
-  /** 本关首领档次（精英 / 章末），决定跟随哪一列默认规则 */
+  /** 本关首领外观档次（第四批起只管立绘边框 / 特效，规则只有一套） */
   tier: BossTier;
-  /** 配置概览里这一档的默认规则 */
-  defaults: BossRuleSet;
+  /** 配置概览里的默认规则（一套 + 全局项，例如每日首领挑战总次数） */
+  defaults: BossRules;
   /** 本关第一只普通怪（自动属性的基准） */
   monster?: MonsterLike | null;
 }>();
 const bosses = defineModel<BossRow[]>({ required: true });
 defineEmits<{ trial: [boss: BossRow]; "open-overview": [] }>();
+
+const QUALITY_GROUPS: { key: "gearQualityPct" | "repeatGearQualityPct"; label: string }[] = [
+  { key: "gearQualityPct", label: "首通装备品质" },
+  { key: "repeatGearQualityPct", label: "重复奖励装备品质" },
+];
 
 const STAT_KEYS: { key: BossStatKey; unit?: string; precision?: number; min: number }[] = [
   { key: "attack", min: 0 },
@@ -358,11 +378,11 @@ function eff(boss: BossRow): BossRuleSet {
 function isCustom(boss: BossRow, key: ScalarRuleKey): boolean {
   return boss.rules?.[key] !== undefined && boss.rules?.[key] !== null;
 }
-function isSubCustom(boss: BossRow, group: "statMul" | "gearQualityPct", key: string): boolean {
+function isSubCustom(boss: BossRow, group: GroupRuleKey, key: string): boolean {
   const value = (boss.rules?.[group] as Record<string, number | undefined> | undefined)?.[key];
   return value !== undefined && value !== null;
 }
-function subCount(boss: BossRow, group: "statMul" | "gearQualityPct"): number {
+function subCount(boss: BossRow, group: GroupRuleKey): number {
   return Object.values((boss.rules?.[group] as Record<string, number | undefined> | undefined) ?? {}).filter((value) => value !== undefined && value !== null).length;
 }
 function commit(boss: BossRow, next: BossRuleOverride): void {
@@ -374,7 +394,7 @@ function setKey<K extends ScalarRuleKey>(boss: BossRow, key: K, value: BossRuleS
   else next[key] = value;
   commit(boss, next);
 }
-function setSub(boss: BossRow, group: "statMul" | "gearQualityPct", key: StatMulKey | GearQuality, value: number | null): void {
+function setSub(boss: BossRow, group: GroupRuleKey, key: StatMulKey | GearQuality, value: number | null): void {
   const next: BossRuleOverride = { ...(boss.rules ?? {}) };
   const part: Record<string, number> = { ...((next[group] as Record<string, number> | undefined) ?? {}) };
   if (value === null || value === (props.defaults[group] as Record<string, number>)[key]) delete part[key];

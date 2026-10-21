@@ -107,6 +107,8 @@ static func state(scene: String = "") -> Dictionary:
 	out["lastSettle"] = {"online": true, "seconds": 0, "passiveGained": 0, "kills": 0, "deaths": 0, "killCultivation": 0, "drops": [], "bagFull": false}
 	out["offlineReport"] = _offline_report(realm_name) if which == "ready" else null
 	out["bossDaily"] = []
+	# 第四批：每日首领挑战总次数（全局，所有首领共用；挂机刷出的首领默认不算）
+	out["bossDailyTotal"] = {"used": 0, "limit": 5, "idleWaves": []}
 	out["challengeCooldownSeconds"] = 0
 	UiMock.recompute(out, content_data)
 	_sync_preview(out, content_data)
@@ -241,8 +243,8 @@ static func _challenge(slug: String, body: Dictionary, state_data: Dictionary, c
 	var bag := BagModel.from_state(state_data, content_data, {})
 	var items: Array = state_data.get("items", [])
 	var fight := BossFight.from_state(state_data, content_data, stage)
-	var taps: Array = body.get("ultTaps", []) if typeof(body.get("ultTaps", null)) == TYPE_ARRAY else []
-	_play(fight, taps)
+	# 第四批：大招全自动，服务器不再接收 ultTaps（传了也忽略）
+	_play(fight, [])
 	var drops: Array = []
 	var bag_full := false
 	if fight.win:
@@ -284,7 +286,7 @@ static func mark_cleared(state_data: Dictionary, slug: String) -> void:
 			acc["playable"] = bool(acc.get("realmOk", false))
 
 
-## 首通之后再打赢：今日奖励次数 +1（只算发奖励的首领）。
+## 首通之后再打赢：今日首领挑战次数 +1（全局 bossDailyTotal；只算发奖励的首领；按关的 bossDaily 给老客户端看，同一个数）。
 static func _count_daily(state_data: Dictionary, stage: Dictionary, slug: String) -> void:
 	var cleared := false
 	for row in state_data.get("stageAccess", []):
@@ -294,12 +296,17 @@ static func _count_daily(state_data: Dictionary, stage: Dictionary, slug: String
 	var rules: Dictionary = boss.get("rules", {}) if typeof(boss.get("rules", null)) == TYPE_DICTIONARY else {}
 	if not cleared or not bool(rules.get("allowRepeat", true)) or not bool(rules.get("repeatRewards", true)):
 		return
+	var total: Dictionary = state_data.get("bossDailyTotal", {"used": 0, "limit": 5, "idleWaves": []})
+	if int(total.get("used", 0)) >= int(total.get("limit", 0)):
+		return
+	total["used"] = int(total.get("used", 0)) + 1
+	state_data["bossDailyTotal"] = total
 	var daily: Array = state_data.get("bossDaily", [])
 	for row in daily:
 		if str((row as Dictionary).get("stageSlug", "")) == slug:
-			(row as Dictionary)["used"] = int((row as Dictionary).get("used", 0)) + 1
+			(row as Dictionary)["used"] = int(total.used)
 			return
-	daily.append({"stageSlug": slug, "used": 1, "limit": int(rules.get("dailyRewardLimit", 0))})
+	daily.append({"stageSlug": slug, "used": int(total.used), "limit": int(total.get("limit", 0))})
 	state_data["bossDaily"] = daily
 
 

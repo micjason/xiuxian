@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { buildApp } from "../app.js";
 import { contentGlobals, contentRealms, contentStages, equipmentGrants, playerItems, playerStageProgress, playerStates, players } from "../db/schema.js";
@@ -94,6 +94,8 @@ describe("boss first-clear fixed rewards", () => {
       expect(gearDrops).toHaveLength(1);
       expect(gearDrops[0].dropped).toBeUndefined();
       expect(gearDrops[0].decomposed).toBeUndefined();
+      // 现在的 grantEquipment 不返回 skipped / bagFull（主程序行囊满判断没上线）→ 当没跳过：照发，bagFull 是 false
+      expect(body.bagFull).toBe(false);
       const grants = await db.select().from(equipmentGrants).where(eq(equipmentGrants.playerId, playerId));
       // 批次②之后所有装备入包都记发放流水：首通的固定装备（饰品）记 boss_first，这次重打抽到的记 boss_repeat
       const rows = grants.filter((row) => row.sourceRef === "lianqi_3").map((row) => [row.source, row.sourceRef, row.itemSlug, row.count]);
@@ -151,8 +153,8 @@ async function setBossRules(db: TestDb, patch: (rules: BossRules) => void) {
   await db.update(contentGlobals).set({ tuning: { ...(globals?.tuning ?? {}), bossRules: rules } });
 }
 
-describe("boss repeat rewards: gear quality follows 首领规则「装备品质掉率」(章末默认 0/50/35/13/2)", () => {
-  it("the repeat gear quality is rolled from the chief gearQualityPct, and each slot follows the drop multipliers", async () => {
+describe("boss repeat rewards: gear quality follows 首领规则「重复奖励装备品质」(默认 0/50/35/13/2)", () => {
+  it("the repeat gear quality is rolled from repeatGearQualityPct, and each slot follows the drop multipliers", async () => {
     await withDb(async (db) => {
       const { app, challenge, weakBear } = await boot(db, "boss_o");
       await weakBear();
@@ -161,7 +163,7 @@ describe("boss repeat rewards: gear quality follows 首领规则「装备品质�
       // 掷骰 0 = 最低一档有概率的品质：默认章末白 0% → 绿；部位等概率，掷 0 = 武器
       expect(first.drops.map((row: { itemSlug: string }) => row.itemSlug).filter((slug: string) => slug.startsWith("gear_"))).toEqual(["gear_major1_weapon_green"]);
       await setBossRules(db, (rules) => {
-        rules.chief.gearQualityPct = { white: 0, green: 0, blue: 0, purple: 0, orange: 100 };
+        rules.repeatGearQualityPct = { white: 0, green: 0, blue: 0, purple: 0, orange: 100 };
       });
       const body = (await challenge("lianqi_3")).json();
       expect(body.drops.map((row: { itemSlug: string }) => row.itemSlug).filter((slug: string) => slug.startsWith("gear_"))).toEqual(["gear_major1_weapon_orange"]);
@@ -170,7 +172,7 @@ describe("boss repeat rewards: gear quality follows 首领规则「装备品质�
   });
 });
 
-describe("boss repeat rewards: first N wins per day (Beijing time, day starts 05:00)", () => {
+describe("boss repeat rewards: one global daily boss challenge total (Beijing time, day starts 05:00)", () => {
   it("first clear does not use the daily count; the next 5 wins reward gear (white → green) + stones; the 6th still wins but has no reward; it resets at 05:00 Beijing", async () => {
     await withDb(async (db) => {
       const { app, challenge, state, setClock, weakBear, playerId } = await boot(db, "boss_e");
@@ -188,9 +190,11 @@ describe("boss repeat rewards: first N wins per day (Beijing time, day starts 05
       expect(rewarded).toEqual([true, true, true, true, true, false]);
       // roll 0 = 最低一档有概率的品质：章末默认白 0%，所以是绿
       expect(gear).toEqual(Array(5).fill("gear_major1_weapon_green"));
-      let progress = (await db.select().from(playerStageProgress).where(and(eq(playerStageProgress.playerId, playerId), eq(playerStageProgress.stageSlug, "lianqi_3"))))[0]!;
-      expect(progress).toMatchObject({ dailyRewardCount: 5, dailyRewardDay: "2026-10-08" });
-      expect((await state()).bossDaily).toEqual([{ stageSlug: "lianqi_3", used: 5, limit: 5 }]);
+      let daily = (await db.select().from(playerStates).where(eq(playerStates.playerId, playerId)))[0]!;
+      expect(daily).toMatchObject({ bossDailyCount: 5, bossDailyDay: "2026-10-08" });
+      expect((await state()).bossDailyTotal).toMatchObject({ used: 5, limit: 5 });
+      // 老客户端的每关格式：每个已击败、有重复奖励的关都显示同一个全局次数
+      expect((await state()).bossDaily).toEqual(["lianqi_1", "lianqi_2", "lianqi_3"].map((stageSlug) => ({ stageSlug, used: 5, limit: 5 })));
       // 北京 10-09 04:59:59（UTC 10-08 20:59:59）仍是同一天
       setClock(new Date("2026-10-08T20:59:59.000Z"));
       expect((await challenge("lianqi_3")).json().reward.rewarded).toBe(false);
@@ -198,8 +202,8 @@ describe("boss repeat rewards: first N wins per day (Beijing time, day starts 05
       setClock(new Date("2026-10-08T21:00:00.000Z"));
       const fresh = (await challenge("lianqi_3")).json();
       expect(fresh.reward).toMatchObject({ rewarded: true, dailyRewardCount: 1 });
-      progress = (await db.select().from(playerStageProgress).where(and(eq(playerStageProgress.playerId, playerId), eq(playerStageProgress.stageSlug, "lianqi_3"))))[0]!;
-      expect(progress).toMatchObject({ dailyRewardCount: 1, dailyRewardDay: "2026-10-09" });
+      daily = (await db.select().from(playerStates).where(eq(playerStates.playerId, playerId)))[0]!;
+      expect(daily).toMatchObject({ bossDailyCount: 1, bossDailyDay: "2026-10-09" });
       await app.close();
     });
   });
@@ -211,7 +215,7 @@ describe("boss repeat rewards: first N wins per day (Beijing time, day starts 05
       const [globals] = await db.select().from(contentGlobals);
       await db.update(contentGlobals).set({ combat: { ...globals!.combat!, dayStartHour: 0 } });
       await setBossRules(db, (rules) => {
-        rules.chief.dailyRewardLimit = 1; // 第三批：每日奖励次数从 combat.bossDailyRewardCount 挪到首领规则
+        rules.dailyChallengeTotal = 1; // 第四批：全局每日首领挑战总次数
       });
       await challenge("lianqi_3");
       expect((await challenge("lianqi_3")).json().reward.rewarded).toBe(true);
@@ -234,20 +238,20 @@ describe("boss repeat rewards: first N wins per day (Beijing time, day starts 05
       const lost = (await challenge("lianqi_3")).json();
       expect(lost.battle.win).toBe(false);
       expect(lost.drops).toEqual([]);
-      const [progress] = await db.select().from(playerStageProgress).where(and(eq(playerStageProgress.playerId, playerId), eq(playerStageProgress.stageSlug, "lianqi_3")));
-      expect(progress?.dailyRewardCount).toBe(0);
+      const [daily] = await db.select().from(playerStates).where(eq(playerStates.playerId, playerId));
+      expect(daily?.bossDailyCount).toBe(0);
       await app.close();
     });
   });
 });
 
-describe("boss ultimate: server re-simulates from the tap timestamps", () => {
+describe("boss ultimate: fully automatic (第四批)", () => {
   async function tuned(db: TestDb, name: string) {
     const ctx = await boot(db, name);
     const state = await ctx.state();
     const fighter = { attack: state.attack, defense: state.defense, hp: state.hp, interval: state.interval };
-    const ult = { multBp: 40000, cooldownSeconds: 20, firstCooldownSeconds: 8, autoCastWindowSeconds: 2 };
-    expect(state.ult).toMatchObject({ name: "剑诀·破军", multBp: 40000, cooldownSeconds: 20, firstCooldownSeconds: 8, autoCastWindowSeconds: 2 });
+    const ult = { multBp: 40000, cooldownSeconds: 20, firstCooldownSeconds: 8, autoCastWindowSeconds: 0 };
+    expect(state.ult).toMatchObject({ name: "剑诀·破军", multBp: 40000, cooldownSeconds: 20, firstCooldownSeconds: 8, autoCastWindowSeconds: 0 });
     const config = { timeLimitSeconds: 45, defenseConstant: 1 };
     // 找到“带大招（全自动）刚好能赢、不带大招会超时”的最大气血
     const [boss0] = (await db.select().from(contentStages).where(eq(contentStages.slug, "lianqi_3")))[0]!.bosses;
@@ -271,7 +275,7 @@ describe("boss ultimate: server re-simulates from the tap timestamps", () => {
       const response = (await challenge("lianqi_3")).json();
       expect(response.battle.win).toBe(true);
       expect(response.battle.ultCasts.length).toBeGreaterThanOrEqual(1);
-      expect(response.battle.ultCasts[0]).toMatchObject({ t: 10, readyAt: 8, manual: false });
+      expect(response.battle.ultCasts[0]).toMatchObject({ t: 8, readyAt: 8, manual: false });
       expect(response.battle.ultCasts[0].damage).toBeGreaterThan(0);
       expect(response.battle.log.some((event: { kind?: string }) => event.kind === "ult")).toBe(true);
       expect(response.battle.durationSeconds).toBe(simulateBossFight(fighter, boss, config, ult, []).durationSeconds);
@@ -279,22 +283,14 @@ describe("boss ultimate: server re-simulates from the tap timestamps", () => {
     });
   });
 
-  it("a tap inside the window casts at the tap time (manual); early/spam/garbage taps cannot beat 'tap exactly when ready'", async () => {
+  it("taps / waits sent by old clients are ignored: every cast is automatic (ready + auto-cast window, default 0 = at once)", async () => {
     await withDb(async (db) => {
       const { app, challenge } = await tuned(db, "ult_b");
-      const manual = (await challenge("lianqi_3", { ultTaps: [8.5] })).json();
-      expect(manual.battle.ultCasts[0]).toMatchObject({ t: 8.5, manual: true });
-      const exact = (await challenge("lianqi_3", { ultTaps: [8] })).json();
-      expect(exact.battle.ultCasts[0]).toMatchObject({ t: 8, manual: true });
-      const spam = (await challenge("lianqi_3", { ultTaps: [0, 0.1, 1, 2, 3, 4, 5, 6, 7, 7.99, "x", null, -3, 1e9] })).json();
-      expect(spam.battle.ultCasts[0]).toMatchObject({ t: 10, manual: false }); // 冷却好之前的点击无效 → 自动在 10 秒
-      const garbage = await challenge("lianqi_3", { ultTaps: "hacked" });
-      expect(garbage.statusCode).toBe(200);
-      expect(garbage.json().battle.ultCasts[0].t).toBe(10);
-      const waits = (await challenge("lianqi_3", { ultWaits: [0.25] })).json();
-      expect(waits.battle.ultCasts[0]).toMatchObject({ t: 8.25, manual: true });
-      const tooLong = (await challenge("lianqi_3", { ultWaits: [50] })).json();
-      expect(tooLong.battle.ultCasts[0].t).toBe(10);
+      for (const payload of [{ ultTaps: [8.5] }, { ultTaps: [8] }, { ultTaps: "hacked" }, { ultWaits: [0.25] }, {}]) {
+        const response = await challenge("lianqi_3", payload);
+        expect(response.statusCode).toBe(200);
+        expect(response.json().battle.ultCasts[0]).toMatchObject({ t: 8, readyAt: 8, manual: false });
+      }
       await app.close();
     });
   });

@@ -383,7 +383,7 @@ func _stages_signature() -> int:
 	return hash([_chapters, selected, _tab, int(_state.get("power", 0)), str(_state.get("realmName", "")),
 		wave.get("stageSlug", null), wave.get("chosenStageSlug", null), wave.get("selectable", []),
 		_state.get("challengeCooldownSeconds", null), _state.get("bossDaily", null),
-		busy, _dropdown_open])
+		StageAccessView.daily_total(_state), busy, _dropdown_open])
 
 
 func set_busy(value: bool) -> void:
@@ -495,6 +495,9 @@ func _render_stages() -> void:
 		_stage_box.add_child(empty.panel)
 		return
 	_stage_box.add_child(_chapter_tabs())
+	var total_bar := _daily_total_bar()
+	if total_bar != null:
+		_stage_box.add_child(total_bar)
 	var list := UiKit.vbox(16)
 	list.name = "StageCards"
 	_stage_box.add_child(list)
@@ -614,7 +617,7 @@ func _chapter_tabs() -> Control:
 		label.clip_text = true
 		column.add_child(label)
 		if not open and not str(chapter.lock_text).is_empty():
-			var hint := UiKit.label(str(chapter.lock_text).replace("击败章末首领", "需击败").replace("击败精英", "需击败").replace("「", "").replace("」", ""), 24, UiTokens.TEXT_DISABLED, HORIZONTAL_ALIGNMENT_CENTER)
+			var hint := UiKit.label(str(chapter.lock_text).replace("击败章末首领", "需击败").replace("击败首领", "需击败").replace("击败精英", "需击败").replace("「", "").replace("」", ""), 24, UiTokens.TEXT_DISABLED, HORIZONTAL_ALIGNMENT_CENTER)
 			hint.clip_text = true
 			column.add_child(hint)
 		tab.disabled = not open
@@ -623,8 +626,33 @@ func _chapter_tabs() -> Control:
 	return row
 
 
+## 第四批：章节页签下面一条「今日首领挑战 剩余/总数」（全局，所有首领共用；首次挑战不耗）。
+## 奶油底条 + 沙漏 + 红胶囊（用完灰）+ 说明；服务器没给 bossDailyTotal 就不显示。
+func _daily_total_bar() -> Control:
+	var info := StageAccessView.daily_total_text(_state)
+	if info.is_empty():
+		return null
+	var bar := QKit.panel(UiTokens.Q_CREAM, 30, 22, 8)
+	bar.panel.name = "DailyTotalBar"
+	var row := UiKit.hbox(12)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bar.body.add_child(row)
+	row.add_child(QKit.cut_rect("icon_hourglass", Vector2(40, 44)))
+	var spent := bool(info.spent)
+	var chip := QKit.tag(str(info.chip), "grey" if spent else "red", 26, 16)
+	chip.name = "DailyTotalChip"
+	row.add_child(chip)
+	var hint := UiKit.label(str(info.hint), 24, UiTokens.Q_RED if spent else UiTokens.TEXT_MUTED)
+	hint.name = "DailyTotalHint"
+	hint.clip_text = true
+	hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hint.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	row.add_child(hint)
+	return bar.panel
+
+
 ## 竖排关卡卡（第四批统一首领样式，SPEC_Q §17.10，替换 §14.5 的精英 / 章末两套）：小怪头像（挂机）▶ 首领头像
-## （boss_* + ring_chief_204 + badge_chief + plate_chief + 光圈）+ 关卡名、首领名（白字红描边）、今日次数、推荐战力、
+## （boss_* + ring_chief_204 + badge_chief + plate_chief + 光圈）+ 关卡名、首领名（白字红描边）、推荐战力、
 ## 解锁条件（✓/✗）、按钮（挑战 / 再战 / 未解锁）。可挑战 / 选中的卡金底，未解锁灰底；选中的卡展开首通 / 重复奖励。
 func _stage_card(card_data: Dictionary, power: int) -> Control:
 	var slug := str(card_data.slug)
@@ -698,12 +726,7 @@ func _stage_card(card_data: Dictionary, power: int) -> Control:
 	boss_name.clip_text = true
 	boss_name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	name_row.add_child(boss_name)
-	# SPEC_Q §17.10：首领名后跟红色胶囊「今日 n/总」（第四批起是全局总次数，未解锁不显示；用完变灰）
-	var day := StageAccessView.daily(card_data, _state)
-	if not day.is_empty() and playable:
-		var chip := QKit.tag("今日 %d/%d" % [int(day.left), int(day.limit)], "red" if int(day.left) > 0 else "grey", 22, 12)
-		chip.name = "DailyChip"
-		name_row.add_child(chip)
+	# 第四批：次数是全局的，卡片上不再显示「今日 n/总」（只在列表顶上 DailyTotalBar 显示一次）
 	var recommended := int(card_data.recommended)
 	if recommended > 0:
 		var status := power_status(power, recommended)

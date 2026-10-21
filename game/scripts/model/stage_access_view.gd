@@ -129,9 +129,35 @@ static func daily(card_data: Dictionary, state: Dictionary) -> Dictionary:
 	return {"used": used, "limit": limit, "left": maxi(0, limit - used)}
 
 
+## 第四批：全局的今日首领挑战次数 {used, limit, left}（state.bossDailyTotal）；没有（老服务器 / 总数 0）返回空字典。
+## 关卡列表顶上只显示这一个「今日首领挑战 剩余/总数」，卡片上不再按关显示次数（免得看成每个首领各有次数）。
+static func daily_total(state: Dictionary) -> Dictionary:
+	var total: Variant = state.get("bossDailyTotal", null)
+	if typeof(total) != TYPE_DICTIONARY:
+		return {}
+	var cap := int((total as Dictionary).get("limit", 0))
+	if cap <= 0:
+		return {}
+	var spent := int((total as Dictionary).get("used", 0))
+	return {"used": spent, "limit": cap, "left": maxi(0, cap - spent)}
+
+
+## 列表顶上的总次数文字：{chip, hint, spent}。
+static func daily_total_text(state: Dictionary) -> Dictionary:
+	var day := daily_total(state)
+	if day.is_empty():
+		return {}
+	var spent := int(day.left) <= 0
+	return {
+		"chip": "今日首领挑战 %d/%d" % [int(day.left), int(day.limit)],
+		"hint": "今日次数已用完 · 没击败过的首领仍可挑战" if spent else "所有首领共用 · 首次挑战不耗次数",
+		"spent": spent,
+	}
+
+
 ## 卡片按钮：{text, sub, kind(o/m/g), enabled, state(locked/new/repeat/done)}。
 ## 未解锁 → 灰「未解锁」；没打过 → 橙「挑 战」+ 首通奖励；打过且能重复：有奖励次数 → 橙「再 战」，
-## 次数用完 → 灰「明日再来」，不发重复奖励 → 薄荷「再 战」+ 无奖励；不能重复 → 灰「已击败」。
+## 全局次数用完 → 灰「明日再来」+「今日次数已用完」（不能点）；没击败过的首领第一次挑战不耗次数，照常可点；不发重复奖励 → 薄荷「再 战」+ 无奖励；不能重复 → 灰「已击败」。
 static func button(card_data: Dictionary, state: Dictionary) -> Dictionary:
 	if not bool(card_data.get("has_boss", false)):
 		return {"text": "无首领", "sub": "", "kind": "g", "enabled": false, "state": "none"}
@@ -144,11 +170,11 @@ static func button(card_data: Dictionary, state: Dictionary) -> Dictionary:
 		return {"text": "已击败", "sub": "", "kind": "g", "enabled": false, "state": "done"}
 	if not bool(rules.get("repeatRewards", true)):
 		return {"text": "再 战", "sub": "首通已领 · 无奖励", "kind": "m", "enabled": true, "state": "repeat"}
-	# 次数本身写在卡片首领名后的「今日 n/总」胶囊里（SPEC_Q §17.10），按钮下只写「用 1 次」/「今日次数已用完」
+	# 次数是全局的，只在列表顶上显示一次（daily_total_text）；按钮下只写「消耗今日次数」/「今日次数已用完」
 	var day := daily(card_data, state)
 	if not day.is_empty() and int(day.left) <= 0:
 		return {"text": "明日再来", "sub": "今日次数已用完", "kind": "g", "enabled": false, "state": "spent"}
-	return {"text": "再 战", "sub": "用 1 次" if not day.is_empty() else "", "kind": "o", "enabled": true, "state": "repeat"}
+	return {"text": "再 战", "sub": "消耗今日次数" if not day.is_empty() else "", "kind": "o", "enabled": true, "state": "repeat"}
 
 
 ## 默认打开哪个章节：挂机所在关的章节 → 第一个有「能打没打过」关卡的章节 → 最后一个解锁的章节。

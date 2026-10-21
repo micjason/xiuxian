@@ -106,7 +106,7 @@ func test_button_states_follow_boss_rules_and_daily_limit() -> void:
 	var state := {"bossDaily": [{"stageSlug": "s", "used": 2, "limit": 5}]}
 	var b := StageAccessView.button(card, state)
 	assert_eq(b.text, "再 战")
-	assert_eq(b.sub, "用 1 次")
+	assert_eq(b.sub, "消耗今日次数")
 	assert_eq(StageAccessView.daily(card, state).left, 3)
 	assert_true(bool(b.enabled))
 	state.bossDaily[0]["used"] = 5
@@ -146,7 +146,26 @@ func test_idle_boss_text_and_global_daily_total() -> void:
 	var card := {"slug": "s", "has_boss": true, "playable": true, "cleared": true, "rules": {"allowRepeat": true, "repeatRewards": true}}
 	var state := {"bossDailyTotal": {"used": 4, "limit": 5}, "bossDaily": [{"stageSlug": "s", "used": 0, "limit": 9}]}
 	assert_eq(StageAccessView.daily(card, state), {"used": 4, "limit": 5, "left": 1})
-	assert_eq(StageAccessView.button(card, state).sub, "用 1 次")
+	assert_eq(StageAccessView.button(card, state).sub, "消耗今日次数")
+	# 列表顶上的全局次数：剩余/总数；用完了已击败的首领不能点，没击败过的照常能点
+	assert_eq(StageAccessView.daily_total(state), {"used": 4, "limit": 5, "left": 1})
+	assert_eq(StageAccessView.daily_total_text(state).chip, "今日首领挑战 1/5")
+	assert_false(bool(StageAccessView.daily_total_text(state).spent))
+	assert_true(StageAccessView.daily_total({}).is_empty(), "老服务器没有总次数就不显示")
+	assert_true(StageAccessView.daily_total({"bossDailyTotal": {"used": 0, "limit": 0}}).is_empty())
+	state.bossDailyTotal["used"] = 5
+	var spent := StageAccessView.daily_total_text(state)
+	assert_eq(spent.chip, "今日首领挑战 0/5")
+	assert_true(bool(spent.spent))
+	assert_true(str(spent.hint).begins_with("今日次数已用完"))
+	var b := StageAccessView.button(card, state)
+	assert_false(bool(b.enabled))
+	assert_eq(b.sub, "今日次数已用完")
+	var fresh := card.duplicate(true)
+	fresh["cleared"] = false
+	b = StageAccessView.button(fresh, state)
+	assert_true(bool(b.enabled), "首次挑战不耗次数，用完也能打")
+	assert_eq(b.text, "挑 战")
 
 
 func test_art_key_first_then_name() -> void:

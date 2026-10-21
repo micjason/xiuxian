@@ -145,6 +145,12 @@ func test_dialog_confirm_flow_keeps_selection_on_think_again() -> void:
 	var before := dialog.model.selected_count()
 	dialog.press_confirm()
 	assert_true(dialog.is_confirming_rare(), "含紫：先二次确认")
+	var rare := dialog.find_child("RareConfirm", true, false) as CanvasItem
+	var top_word := 0
+	for node in dialog.find_children("*", "Label", true, false):
+		if not rare.is_ancestor_of(node):
+			top_word = maxi(top_word, (node as CanvasItem).z_index)
+	assert_gt(rare.z_index, top_word, "二次确认层要压在格子里的品质字上面（0.18.0 线上截图里品质字透出来）")
 	assert_eq(get_signal_emit_count(dialog, "decompose_requested"), 1)
 	dialog.rare_think_again()
 	assert_false(dialog.is_confirming_rare())

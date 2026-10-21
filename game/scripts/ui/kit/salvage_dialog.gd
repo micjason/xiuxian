@@ -578,6 +578,8 @@ func _build_rare_confirm() -> void:
 	_rare.name = "RareConfirm"
 	_rare.visible = false
 	_rare.set_anchors_preset(Control.PRESET_FULL_RECT)
+	# 格子里的品质字 z_index = 1（防止被下一行盖住），确认层要压在它们上面
+	_rare.z_index = 10
 	_rare.mouse_filter = Control.MOUSE_FILTER_STOP
 	var dim := ColorRect.new()
 	dim.color = Color(30.0 / 255.0, 20.0 / 255.0, 15.0 / 255.0, 0.55)

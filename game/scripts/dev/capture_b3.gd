@@ -2,6 +2,7 @@ extends Node
 ## 开发用：第三批截图（连本地 / 测试服务器，不用演示数据）。服务器地址 XIUXIAN_API_BASE，账号 XIUXIAN_TEST_USER / XIUXIAN_TEST_PASS。
 ## 用法：godot --path game --resolution 1080x2340 res://scenes/dev/capture_b3.tscn -- <输出目录> <模式> [关卡 slug] [文件名]
 ##   list：  历练页（章节页签 + 竖排关卡卡）→ <文件名>
+##   scene： 历练页不滚动（场景区 + 右下角精英预览小卡）→ <文件名>
 ##   battle：点关卡卡上的按钮进首领战，点开始，登场后截图 → <文件名>（截完就退出，不提交战斗）
 
 var _out := "/tmp/b3_shots"
@@ -33,7 +34,11 @@ func _ready() -> void:
 	if not stage.is_empty():
 		scene.call("_select_stage", stage)
 		await get_tree().create_timer(0.6).timeout
-	if mode == "list":
+	if mode == "scene":
+		await get_tree().create_timer(0.4).timeout
+		print("B3 preview visible=%s slug=%s" % [str(page.preview_card().visible), page.preview_slug()])
+		await _shot(file)
+	elif mode == "list":
 		# 滚到章节页签那里，让关卡卡多露一些
 		var view := page.get("_stage_view") as ScrollContainer
 		var tabs := page.find_child("ChapterTabs", true, false) as Control

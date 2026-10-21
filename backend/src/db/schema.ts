@@ -471,6 +471,33 @@ export const playerItems = pgTable(
   ],
 );
 
+/** 「发放指定装备」流水（ADMIN_SPEC §14，迁移 0027）：每次发放一行，request_id 唯一（幂等键）。 */
+export const equipmentGrants = pgTable(
+  "equipment_grants",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    requestId: text("request_id").notNull(),
+    playerId: uuid("player_id")
+      .notNull()
+      .references(() => players.id),
+    itemSlug: text("item_slug").notNull(),
+    count: integer("count").notNull(),
+    source: text("source").notNull(),
+    sourceRef: text("source_ref"),
+    operator: text("operator"),
+    reason: text("reason"),
+    note: text("note"),
+    /** 这次发放生成的 player_items.id（按生成顺序）。 */
+    instanceIds: jsonb("instance_ids").$type<string[]>().notNull().default([]),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("equipment_grants_request_id").on(table.requestId),
+    index("equipment_grants_player_idx").on(table.playerId, table.createdAt),
+    index("equipment_grants_source_idx").on(table.source, table.createdAt),
+  ],
+);
+
 export const playerSkills = pgTable(
   "player_skills",
   {

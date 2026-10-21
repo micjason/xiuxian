@@ -391,6 +391,8 @@ export const contentChapters = pgTable("content_chapters", {
   bgKey: text("bg_key").notNull(),
   /** 章节首领特效（art-keys.ts CHAPTER_BOSS_FX）：default | chiyan。 */
   bossFx: text("boss_fx").notNull().default("default"),
+  /** 第四批：首领战斗页背景（art-keys.ts CHAPTER_BATTLE_BG_KEYS，竖版 1080×1640）；null = 跟随 bgKey。 */
+  battleBgKey: text("battle_bg_key"),
   /** 手动指定章末关；null = 自动取本章 sortOrder 最大的一关。 */
   chiefStageSlug: text("chief_stage_slug"),
   enabled: boolean("enabled").notNull().default(true),

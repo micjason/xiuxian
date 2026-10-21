@@ -239,6 +239,13 @@
       "when": 1795000500000,
       "tag": "0045_boss_single_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1795000600000,
+      "tag": "0046_boss_names_art_battle_bg",
+      "breakpoints": true
     }
   ]
 }

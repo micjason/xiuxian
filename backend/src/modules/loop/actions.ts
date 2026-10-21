@@ -1062,6 +1062,8 @@ export type AutoChallengeResult = {
   durationSeconds: number;
   drops: Awaited<ReturnType<typeof fightStageBoss>>["drops"];
   reward: Awaited<ReturnType<typeof fightStageBoss>>["reward"];
+  /** 行囊已满、装备没拾取（grantEquipment skipped='bag_full'），客户端提示「行囊已满」。 */
+  bagFull: boolean;
 };
 
 /**
@@ -1126,6 +1128,7 @@ async function tryAutoChallenge(
     durationSeconds: fought.battle.durationSeconds,
     drops: fought.drops,
     reward: fought.reward,
+    bagFull: fought.bagFull,
   };
 }
 

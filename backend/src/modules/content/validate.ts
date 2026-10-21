@@ -2,7 +2,7 @@ import { breakMaterialProblems, enhanceRulesFromInput } from "./enhance.js";
 import { stagePowerErrors } from "./stage-power.js";
 import type { BossRepeatReward, BossRewardEntry, MonsterDropConfig, OptionalRuleValues, StageMonster } from "./combat-types.js";
 import { bossRuleProblems, type BossRuleOverride, type BossRuleSet, type BossStatKey, type BossTier } from "./boss-rules.js";
-import { CHAPTER_BG_KEY_SET, CHAPTER_BOSS_FX_SET, MONSTER_ART_KEY_SET } from "./art-keys.js";
+import { BOSS_ART_KEY_SET, CHAPTER_BATTLE_BG_KEY_SET, CHAPTER_BG_KEY_SET, CHAPTER_BOSS_FX_SET, MONSTER_ART_KEY_SET } from "./art-keys.js";
 
 const SLUG = /^[a-z][a-z0-9_]{1,47}$/;
 
@@ -110,6 +110,8 @@ export type ContentSnapshot = {
     sortOrder: number;
     bgKey: string;
     bossFx: string;
+    /** 第四批：首领战斗页背景（null = 跟随 bgKey）。 */
+    battleBgKey?: string | null;
     /** 后台手动指定的章末关（null = 自动）。 */
     chiefStageSlugSetting: string | null;
     chiefStageSlug: string | null;
@@ -567,6 +569,9 @@ function chapterAndBossErrors(draft: ContentSnapshot, push: (kind: string, slug:
     if (!CHAPTER_BOSS_FX_SET.has(chapter.bossFx)) {
       push("chapter", chapter.slug, "bossFx", `首领特效只能是 ${[...CHAPTER_BOSS_FX_SET].join(" / ")}`);
     }
+    if (chapter.battleBgKey && !CHAPTER_BATTLE_BG_KEY_SET.has(chapter.battleBgKey)) {
+      push("chapter", chapter.slug, "battleBgKey", `战斗背景「${chapter.battleBgKey}」不在可选列表里`);
+    }
     if (chapter.chiefStageSlugSetting) {
       const chief = draft.stages.find((row) => row.slug === chapter.chiefStageSlugSetting);
       if (!chief || chief.chapterSlug !== chapter.slug) {
@@ -601,7 +606,7 @@ function chapterAndBossErrors(draft: ContentSnapshot, push: (kind: string, slug:
     if ((stage.bosses?.length ?? 0) > 1) {
       push("stage", stage.slug, "bosses", "每个关卡只能有一个首领");
     }
-    if (boss.artKey && !MONSTER_ART_KEY_SET.has(boss.artKey)) {
+    if (boss.artKey && !BOSS_ART_KEY_SET.has(boss.artKey)) {
       push("stage", stage.slug, "bosses", `首领「${boss.name}」的立绘「${boss.artKey}」不在可选列表里`);
     } else if (!boss.artKey) {
       push("stage", stage.slug, "bosses", `首领「${boss.name}」还没选立绘`);

@@ -15,7 +15,7 @@ import { validateContent } from "../modules/content/validate.js";
 import { withDb } from "../test/db.js";
 
 type TestDb = Parameters<Parameters<typeof withDb>[0]>[0];
-const TAGS = ["0040_chapters", "0041_boss_tier_art", "0042_boss_rules_defaults", "0043_unlock_backfill", "0044_elite_art_backfill", "0045_boss_single_rules"];
+const TAGS = ["0040_chapters", "0041_boss_tier_art", "0042_boss_rules_defaults", "0043_unlock_backfill", "0044_elite_art_backfill", "0045_boss_single_rules", "0046_boss_names_art_battle_bg"];
 const files = TAGS.map((tag) => readFileSync(new URL(`../../drizzle/${tag}.sql`, import.meta.url), "utf8"));
 const start = new Date("2026-10-08T03:00:00.000Z");
 
@@ -103,10 +103,10 @@ describe("migrations 0040–0045 (第三批：章节、每关首领、首领规�
           boss: row.bosses?.map((b) => ({ name: b.name, attack: b.attack, defense: b.defense, hp: b.hp, interval: b.interval, artKey: b.artKey, firstClear: b.firstClear })),
         }));
       expect(shape(once)).toEqual(shape(seed));
-      expect((await db.select().from(contentStages).where(eq(contentStages.slug, "lianqi_2")))[0]).toMatchObject({ sortOrder: 2, bossName: "精英·赤眼狐妖", bossHp: 625 });
-      // 0044：精英的立绘写进库里（后台不再显示成「没配图」）；章末首领用自己的
+      expect((await db.select().from(contentStages).where(eq(contentStages.slug, "lianqi_2")))[0]).toMatchObject({ sortOrder: 2, bossName: "赤眼妖狐", bossHp: 625 });
+      // 0044：精英的立绘写进库里（后台不再显示成「没配图」）；章末首领用自己的；0046 再换成统一首领立绘 boss_*
       const stored = new Map((await db.select().from(contentStages)).map((row) => [row.slug, row.bosses?.[0]?.artKey]));
-      expect(Object.fromEntries(stored)).toEqual({ lianqi_1: "wolf", lianqi_2: "fox", lianqi_3: "bear", zhuji_1: "ghost", zhuji_2: "bone_golem", zhuji_3: "ghost_elder", jindan_1: "lava_lizard", jindan_2: "fire_crow", jindan_3: "fire_jiao" });
+      expect(Object.fromEntries(stored)).toEqual({ lianqi_1: "boss_wolf", lianqi_2: "boss_fox", lianqi_3: "boss_bear", zhuji_1: "boss_ghost", zhuji_2: "boss_bone_golem", zhuji_3: "boss_ghost_elder", jindan_1: "boss_lava_lizard", jindan_2: "boss_fire_crow", jindan_3: "boss_fire_jiao" });
       expect(validateContent(once).errors).toEqual([]);
 
       // 首领规则（0045 起一套）：每日首领挑战总次数沿用原来章末的 4；库里存的就是新格式

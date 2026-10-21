@@ -5,7 +5,7 @@ import { QUALITY_KEYS } from "./catalog.js";
 import { gearMap, readDesignated, type DesignatedInput } from "./designated-drops.js";
 import { contentChapters, contentDropEntries, contentDropTables, contentGlobals, contentItems, contentRealms, contentSkillCategories, contentSkills, contentStages, playerItems, type StageBoss } from "../../db/schema.js";
 import { BOSS_STAT_KEYS, compactBossRuleOverride, customRuleCount, type BossStatKey } from "./boss-rules.js";
-import { MONSTER_ART_KEY_SET } from "./art-keys.js";
+import { BOSS_ART_KEY_SET, MONSTER_ART_KEY_SET } from "./art-keys.js";
 import { orderedStages } from "./stage-order.js";
 import { AppError } from "../../shared/errors.js";
 import type { Db } from "../operations/record.js";
@@ -41,12 +41,13 @@ type MonsterInput = { name?: string; attack?: number; defense?: number; hp?: num
 /** 关卡的章节和顺序（第三批）。不传 = 保持原样。 */
 type StagePlacementInput = { chapterSlug?: string | null; sortOrder?: number };
 
-function readArtKey(value: unknown, label: string): string | undefined {
+function readArtKey(value: unknown, label: string, boss = false): string | undefined {
   const key = textOf(value);
   if (!key) {
     return undefined;
   }
-  if (!MONSTER_ART_KEY_SET.has(key)) {
+  // 第四批：首领还可以选统一首领立绘 boss_*
+  if (!(boss ? BOSS_ART_KEY_SET : MONSTER_ART_KEY_SET).has(key)) {
     throw new AppError("INVALID_INPUT", `${label}的立绘「${key}」不在可选列表里`);
   }
   return key;
@@ -323,7 +324,7 @@ async function readBosses(db: Db, bosses: BossInput[] | undefined, current: Stag
       out.reward = previous.reward;
     }
     // 第三批字段：没传就保持原样（rules 在 applyBossRules 里另外校验和保存）
-    const artKey = boss.artKey === undefined ? previous?.artKey : readArtKey(boss.artKey, `首领「${name}」`);
+    const artKey = boss.artKey === undefined ? previous?.artKey : readArtKey(boss.artKey, `首领「${name}」`, true);
     if (artKey) {
       out.artKey = artKey;
     }

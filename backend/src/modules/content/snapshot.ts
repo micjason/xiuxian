@@ -39,7 +39,7 @@ export async function loadDraftSnapshot(db: Db | Tx): Promise<ContentSnapshot> {
   const chapters = [...chapterRows]
     .sort((left, right) => left.sortOrder - right.sortOrder || left.slug.localeCompare(right.slug))
     .map((row) => {
-      const chapter = { slug: row.slug, displayName: row.displayName, sortOrder: row.sortOrder, bgKey: row.bgKey, bossFx: row.bossFx, chiefStageSlugSetting: row.chiefStageSlug ?? null, enabled: row.enabled };
+      const chapter = { slug: row.slug, displayName: row.displayName, sortOrder: row.sortOrder, bgKey: row.bgKey, bossFx: row.bossFx, battleBgKey: row.battleBgKey ?? null, chiefStageSlugSetting: row.chiefStageSlug ?? null, enabled: row.enabled };
       return { ...chapter, chiefStageSlug: chiefStageOf(chapter, stages) };
     });
   const chapterBySlug = new Map(chapters.map((row) => [row.slug, row]));

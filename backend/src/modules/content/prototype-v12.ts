@@ -54,10 +54,20 @@ export const PROTOTYPE_STAGES: { slug: string; name: string; monster: Mob; boss?
 
 /** 三章（第三批）：每章 3 关，第 3 关是章末（大首领），第 1、2 关的首领是本关小怪的精英版。 */
 export const PROTOTYPE_CHAPTERS = [
-  { slug: "heifeng", name: "黑风岭", bgKey: "heifeng", bossFx: "default" },
-  { slug: "youming", name: "幽冥古道", bgKey: "youming", bossFx: "default" },
-  { slug: "chiyan", name: "赤炎火山", bgKey: "chiyan", bossFx: "chiyan" },
+  { slug: "heifeng", name: "黑风岭", bgKey: "heifeng", bossFx: "default", battleBgKey: "heifeng" },
+  { slug: "youming", name: "幽冥古道", bgKey: "youming", bossFx: "default", battleBgKey: "youming" },
+  { slug: "chiyan", name: "赤炎火山", bgKey: "chiyan", bossFx: "chiyan", battleBgKey: "chiyan" },
 ] as const;
+
+/** 第四批：第 1、2 关首领的默认名字（策划定，后台可改；章末关的名字不变）。迁移 0046 用同一张表。 */
+export const PROTOTYPE_BOSS_NAMES: Record<string, string> = {
+  lianqi_1: "青鬃狼王",
+  lianqi_2: "赤眼妖狐",
+  zhuji_1: "游魂统领",
+  zhuji_2: "白骨傀将",
+  jindan_1: "炎鳞蜥皇",
+  jindan_2: "焚天火鸦",
+};
 
 /** 精英首通奖励的灵石（起始值，后台可改）：炼气 50 / 筑基 150 / 金丹 450。 */
 export const PROTOTYPE_ELITE_STONES = [50, 150, 450] as const;
@@ -179,18 +189,18 @@ export async function applyPrototypeV12(db: Db): Promise<{ stageSlugs: string[];
     },
   };
   for (const [index, chapter] of PROTOTYPE_CHAPTERS.entries()) {
-    await db.insert(contentChapters).values({ slug: chapter.slug, displayName: chapter.name, sortOrder: index + 1, bgKey: chapter.bgKey, bossFx: chapter.bossFx, updatedAt: now });
+    await db.insert(contentChapters).values({ slug: chapter.slug, displayName: chapter.name, sortOrder: index + 1, bgKey: chapter.bgKey, bossFx: chapter.bossFx, battleBgKey: chapter.battleBgKey, updatedAt: now });
   }
   for (const [index, stage] of PROTOTYPE_STAGES.entries()) {
     const major = Math.floor(index / 3);
     // 第四批：一套首领规则。章末关是原来的大首领（手填数值 → 单关覆盖「属性 = 手填」）；
     // 第 1、2 关是本关小怪的精英版（属性按首领规则自动算，这里存一份按默认倍率算好的数方便后台看），重复奖励 = 1 件装备 + 70% 突破石·下品
     const boss: StageBoss = stage.boss
-      ? { ...bosses[stage.boss.slug]!, artKey: stage.boss.art, rules: { statMode: "manual" } }
+      ? { ...bosses[stage.boss.slug]!, artKey: `boss_${stage.boss.art}`, rules: { statMode: "manual" } }
       : {
-          name: `精英·${stage.monster.name}`,
-          // 立绘写明（和本关小怪同一张，客户端按精英加金边 / 用 elite_<key> 图）；后台不再显示成「没配图」
-          artKey: stage.monster.art,
+          // 第四批：策划定的首领名（后台可改）；统一首领立绘 boss_<本关小怪>（SPEC_Q §17.10）
+          name: PROTOTYPE_BOSS_NAMES[stage.slug] ?? `首领·${stage.monster.name}`,
+          artKey: `boss_${stage.monster.art}`,
           attack: Math.round(stage.monster.attack * DEFAULT_BOSS_RULES.statMul.attack),
           defense: Math.round(stage.monster.defense * DEFAULT_BOSS_RULES.statMul.defense),
           hp: Math.round(stage.monster.hp * DEFAULT_BOSS_RULES.statMul.hp),

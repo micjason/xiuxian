@@ -56,17 +56,17 @@ describe("第三批：章节与每关首领", () => {
     await withDb(async (db) => {
       const { app, admin } = await boot(db, "b3_snap");
       const world = await loadDraftSnapshot(db);
-      expect(world.chapters?.find((row) => row.slug === "chiyan")).toMatchObject({ bossFx: "chiyan", bgKey: "chiyan", chiefStageSlug: "jindan_3", chiefStageSlugSetting: null });
+      expect(world.chapters?.find((row) => row.slug === "chiyan")).toMatchObject({ bossFx: "chiyan", bgKey: "chiyan", battleBgKey: "chiyan", chiefStageSlug: "jindan_3", chiefStageSlugSetting: null });
       expect(world.stages.map((row) => [row.slug, row.chapterSlug, row.tier, row.bosses?.[0]?.artKey])).toEqual([
-        ["lianqi_1", "heifeng", "elite", "wolf"],
-        ["lianqi_2", "heifeng", "elite", "fox"],
-        ["lianqi_3", "heifeng", "chief", "bear"],
-        ["zhuji_1", "youming", "elite", "ghost"],
-        ["zhuji_2", "youming", "elite", "bone_golem"],
-        ["zhuji_3", "youming", "chief", "ghost_elder"],
-        ["jindan_1", "chiyan", "elite", "lava_lizard"],
-        ["jindan_2", "chiyan", "elite", "fire_crow"],
-        ["jindan_3", "chiyan", "chief", "fire_jiao"],
+        ["lianqi_1", "heifeng", "elite", "boss_wolf"],
+        ["lianqi_2", "heifeng", "elite", "boss_fox"],
+        ["lianqi_3", "heifeng", "chief", "boss_bear"],
+        ["zhuji_1", "youming", "elite", "boss_ghost"],
+        ["zhuji_2", "youming", "elite", "boss_bone_golem"],
+        ["zhuji_3", "youming", "chief", "boss_ghost_elder"],
+        ["jindan_1", "chiyan", "elite", "boss_lava_lizard"],
+        ["jindan_2", "chiyan", "elite", "boss_fire_crow"],
+        ["jindan_3", "chiyan", "chief", "boss_fire_jiao"],
       ]);
       // 后台手动指定章末关：只能选本章的关卡
       expect((await app.inject({ method: "PUT", url: "/admin/draft/chapters/heifeng", headers: admin, payload: { chiefStageSlug: "zhuji_1" } })).statusCode).toBe(400);
@@ -113,7 +113,7 @@ describe("第三批：章节与每关首领", () => {
         ["jindan_2", false],
         ["jindan_3", false],
       ]);
-      expect(before.stageAccess[1]).toMatchObject({ tier: "elite", chapterSlug: "heifeng", needs: { bossWin: { stageSlug: "lianqi_1", bossName: "精英·青鬃狼", tier: "elite", met: false }, realm: { order: 2, met: true } } });
+      expect(before.stageAccess[1]).toMatchObject({ tier: "elite", chapterSlug: "heifeng", needs: { bossWin: { stageSlug: "lianqi_1", bossName: "青鬃狼王", tier: "elite", met: false }, realm: { order: 2, met: true } } });
       const locked = await challenge("lianqi_2");
       expect(locked.statusCode).toBe(409);
       expect(locked.json().error.code).toBe("STAGE_LOCKED");
@@ -350,6 +350,10 @@ describe("第三批后台接口", () => {
       expect(body.monsters).toHaveLength(12);
       expect(body.monsters[0]).toEqual({ key: "wolf", name: "青鬃狼", sprite: "sprites/mon_wolf.png" });
       expect(body.chapterBackgrounds.map((row: { key: string }) => row.key)).toEqual(["heifeng", "youming", "chiyan"]);
+      // 第四批：统一首领立绘 9 张、章节战斗背景 3 张
+      expect(body.bosses.map((row: { key: string }) => row.key)).toHaveLength(9);
+      expect(body.bosses[0]).toEqual({ key: "boss_wolf", name: "首领·青鬃狼", sprite: "sprites/boss_wolf.png" });
+      expect(body.battleBackgrounds.map((row: { image: string }) => row.image)).toEqual(["bg/bg_battle_heifeng_1080x1640.webp", "bg/bg_battle_youming_1080x1640.webp", "bg/bg_battle_chiyan_1080x1640.webp"]);
       expect(body.bossFx.map((row: { key: string }) => row.key)).toEqual(["default", "chiyan"]);
       expect((await app.inject({ method: "GET", url: "/admin/draft/art-keys", headers })).statusCode).toBeGreaterThanOrEqual(401);
       await app.close();

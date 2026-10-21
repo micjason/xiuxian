@@ -42,7 +42,7 @@ describe("prototype v1.2 content", () => {
         ["chiyan", "赤炎火山", "chiyan", "chiyan", "jindan_3"],
       ]);
       const wolfElite = world.stages.find((row) => row.slug === "lianqi_1")!.bosses![0]!;
-      expect(wolfElite).toMatchObject({ name: "精英·青鬃狼", tier: "elite", artKey: "wolf", hp: 550, attack: 31, defense: 17, interval: 1.5 });
+      expect(wolfElite).toMatchObject({ name: "青鬃狼王", tier: "elite", artKey: "boss_wolf", hp: 550, attack: 31, defense: 17, interval: 1.5 });
       expect(wolfElite.firstClear).toEqual([{ kind: "spiritStones", amount: 50 }, { kind: "item", itemSlug: "enh_stone_low", quantity: 1 }, { kind: "gear", count: 1 }]);
       const check = validateContent(world);
       expect(check.errors).toEqual([]);

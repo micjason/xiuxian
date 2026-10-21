@@ -426,6 +426,16 @@ func _render_grid() -> void:
 		cell.position = Vector2(10 + (index % COLS) * (CELL + COL_GAP), 16 + int(index / COLS) * ROW_PITCH)
 		_grid.add_child(cell)
 		_cells[str(item.get("id", ""))] = cell
+	# 品质字统一挪到所有格子后面画（下一行的格子不会盖住上一行的字；不用 z_index，底部渐隐和二次确认层照样盖得住）
+	for id in _cells:
+		var cell := _cells[id] as Control
+		var word := cell.get_node_or_null("Quality") as Control
+		if word == null:
+			continue
+		cell.remove_child(word)
+		word.name = "Quality_" + str(id)
+		word.position += cell.position
+		_grid.add_child(word)
 	var empty := UiKit.label("行囊里没有可以分解的装备（已穿戴的装备不在这里）", 30, GREY, HORIZONTAL_ALIGNMENT_CENTER)
 	empty.name = "EmptyHint"
 	empty.visible = list.is_empty()
@@ -470,8 +480,9 @@ func _cell(item: Dictionary) -> Button:
 	# 不设 z_index：要让底部渐隐 / 二次确认层盖得住。
 	var word := UiKit.label(str(item.get("rarity_name", "")), 24, word_color, HORIZONTAL_ALIGNMENT_CENTER)
 	word.name = "Quality"
-	word.position = Vector2(-10, CELL + 4)
-	word.size = Vector2(CELL + 20, 28)
+	# 品质字（UiKit 最小字号 32）Label 高 45、字形在中间约 29px：框顶放在 CELL-7，字形落在格子下方约 1–30px（稿 yy+SZ+4），不压到下一行格子（186）
+	word.position = Vector2(-10, CELL - 7)
+	word.size = Vector2(CELL + 20, 45)
 	word.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	cell.add_child(word)
 	return cell

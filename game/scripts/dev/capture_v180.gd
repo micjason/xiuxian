@@ -29,6 +29,7 @@ func _ready() -> void:
 		scene.call("open_salvage")
 		await _settle(20)
 		var d := scene.call("salvage_dialog") as SalvageDialog
+		await _shot(args[3] if args.size() > 3 else "1c_salvage_bottom_fixed")
 		d.toggle_quality(2)
 		d.toggle_quality(3)
 		d.toggle_quality(4)

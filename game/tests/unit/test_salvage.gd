@@ -231,10 +231,15 @@ func test_quality_words_sit_under_the_slot_and_the_bottom_fade_covers_the_last_v
 	assert_gt(cells.size(), 20)
 	for index in 20:
 		var cell := cells[index] as Control
-		var word := cell.find_child("Quality", false, false) as Control
+		var word := dialog.find_child("Quality_" + str(cell.name).trim_prefix("Cell_"), true, false) as Control
 		var slot := cell.find_child("Slot", false, false) as Control
 		assert_eq(word.z_index, 0, "品质字不抬层")
-		assert_true(word.position.y >= slot.position.y + slot.size.y, "品质字在格子下面，不叠在格子上")
+		# 字形（框中线 ± 字形高/2；中文字形约 0.9 个字号（UiKit 最小字号 32），无头模式字体度量不准，不用 get_height）在格子底边和下一行格子顶之间
+		var font_h := (word as Label).get_theme_font_size("font_size") * 0.9
+		var mid := word.position.y + word.size.y / 2.0
+		assert_true(mid - font_h / 2.0 >= cell.position.y + slot.position.y + slot.size.y, "品质字在格子下面，不叠在格子上（mid %s h %s）" % [mid, font_h])
+		assert_true(mid + font_h / 2.0 <= cell.position.y + SalvageDialog.ROW_PITCH, "品质字不压到下一行格子（mid %s h %s）" % [mid, font_h])
+		assert_gt(word.get_index(), (cells[cells.size() - 1] as Node).get_index(), "品质字画在所有格子后面，下一行盖不住")
 		if index >= 15:
 			var center := word.get_global_rect().get_center() - hint.global_position
 			assert_between(center.y, 0.0, hint.size.y, "最后一行的字落在渐隐范围内")

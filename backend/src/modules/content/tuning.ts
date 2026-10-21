@@ -1,6 +1,6 @@
 /**
  * 配置概览里的「默认数值」（content_globals.tuning，JSON）。
- * 以前写死在服务端代码里的数（装备预算比例、部位占比、功法层数系数、自动分解范围、满层功法书折算修为），
+ * 以前写死在服务端代码里的数（装备预算比例、部位占比、功法层数系数、行囊满时不发装备的来源、满层功法书折算修为），
  * 以及会被关卡继承的默认掉率 / 品质权重、首领橙装概率，都放在这里。没存的项一律用 DEFAULT_TUNING。
  * 只放类型、默认值和校验，不依赖数据库，validate.ts / snapshot.ts / 游戏循环都可以引用。
  */
@@ -13,6 +13,9 @@ export const TUNING_SLOTS = ["weapon", "clothes", "helmet", "gloves", "shoes", "
 export type TuningSlot = (typeof TUNING_SLOTS)[number];
 export const SKILL_RANKS = ["yellow", "xuan", "earth", "heaven"] as const;
 export type SkillRank = (typeof SKILL_RANKS)[number];
+/** 装备发放来源（和 player/grant.ts 的 GRANT_SOURCES 相同；这里单独写一份，tuning.ts 不依赖数据库模块）。 */
+export const BAG_FULL_SOURCES = ["stage_drop", "boss_first", "boss_repeat", "admin_grant", "event", "mail"] as const;
+export type BagFullSource = (typeof BAG_FULL_SOURCES)[number];
 
 export type Tuning = {
   /** 装备预算 = 大境界第一层累计属性 × 这个比例 */
@@ -23,8 +26,12 @@ export type Tuning = {
   skillLayerFactors: [number, number, number, number];
   /** 功法满层；满层后再用功法书折算成修为 */
   skillMaxLayers: number;
-  /** 行囊满时自动分解哪些品质 */
-  autoDecomposeQualities: TuningQuality[];
+  /**
+   * 第五批：行囊满时「不发装备」的来源（grantEquipment 里判断，返回 skipped: "bag_full"）。默认 关卡掉落 / 首领首通 / 首领重复；
+   * 后台补发、邮件、活动不在里面 = 满包照发（可以超出容量）。以前的「行囊满时自动分解」（autoDecomposeQualities）已去掉：
+   * 分解改为玩家自己选（SPEC_Q §17.2）。老数据里的 autoDecomposeQualities 读的时候忽略。
+   */
+  bagFullSkipSources: BagFullSource[];
   /** 满层多余功法书折算修为 = 秒数 × 每秒修为 × 品阶系数 */
   bookOverflowSeconds: number;
   bookOverflowRankFactors: Record<SkillRank, number>;
@@ -46,7 +53,7 @@ export const DEFAULT_TUNING: Tuning = {
   slotShares: { weapon: 0.25, clothes: 0.2, helmet: 0.13, gloves: 0.12, shoes: 0.15, accessory: 0.15 },
   skillLayerFactors: [1, 1.15, 1.35, 1.6],
   skillMaxLayers: 7,
-  autoDecomposeQualities: ["white", "green"],
+  bagFullSkipSources: ["stage_drop", "boss_first", "boss_repeat"],
   bookOverflowSeconds: 30,
   bookOverflowRankFactors: { yellow: 1, xuan: 2, earth: 4, heaven: 8 },
   monsterDropChanceBp: 500,
@@ -89,9 +96,9 @@ export function tuningFromInput(raw: Raw): Tuning {
     throw new AppError("INVALID_INPUT", "功法层数系数要填 4 档");
   }
   const skillLayerFactors = layers.map((value) => num(value, "功法层数系数", 0.01, 100)) as Tuning["skillLayerFactors"];
-  const autoRaw = pick(raw, "autoDecomposeQualities", DEFAULT_TUNING.autoDecomposeQualities);
-  if (!Array.isArray(autoRaw) || autoRaw.some((key) => !TUNING_QUALITIES.includes(key as TuningQuality))) {
-    throw new AppError("INVALID_INPUT", "自动分解范围不正确");
+  const skipRaw = pick(raw, "bagFullSkipSources", DEFAULT_TUNING.bagFullSkipSources);
+  if (!Array.isArray(skipRaw) || skipRaw.some((key) => !BAG_FULL_SOURCES.includes(key as BagFullSource))) {
+    throw new AppError("INVALID_INPUT", "行囊满时不发装备的来源不正确");
   }
   const rankRaw = pick(raw, "bookOverflowRankFactors", DEFAULT_TUNING.bookOverflowRankFactors) as Record<string, unknown>;
   const weightRaw = pick(raw, "monsterQualityWeights", DEFAULT_TUNING.monsterQualityWeights) as Record<string, unknown>;
@@ -106,7 +113,7 @@ export function tuningFromInput(raw: Raw): Tuning {
     slotShares,
     skillLayerFactors,
     skillMaxLayers: num(pick(raw, "skillMaxLayers", DEFAULT_TUNING.skillMaxLayers), "功法满层", 1, 99, true),
-    autoDecomposeQualities: TUNING_QUALITIES.filter((q) => (autoRaw as string[]).includes(q)),
+    bagFullSkipSources: BAG_FULL_SOURCES.filter((key) => (skipRaw as string[]).includes(key)),
     bookOverflowSeconds: num(pick(raw, "bookOverflowSeconds", DEFAULT_TUNING.bookOverflowSeconds), "多余功法书折算秒数", 0, 86400),
     bookOverflowRankFactors: Object.fromEntries(
       SKILL_RANKS.map((rank) => [rank, num(rankRaw?.[rank] ?? DEFAULT_TUNING.bookOverflowRankFactors[rank], "功法品阶系数", 0, 1000)]),

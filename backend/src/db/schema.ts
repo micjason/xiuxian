@@ -241,6 +241,18 @@ export const contentGlobals = pgTable("content_globals", {
         }
       >
     >;
+    /** 第五批：炼器精粹（见 content/enhance.ts EssenceRules）。 */
+    essence?: {
+      itemSlug: string;
+      yields: Record<"white" | "green" | "blue" | "purple" | "orange", number>;
+      slotMultBp: Partial<Record<string, number>>;
+      slotOverrides: Partial<Record<string, Partial<Record<string, number>>>>;
+      refundPerLevel: number;
+      costBase: number;
+      costGrowth: number;
+      costTable: Partial<Record<string, number[]>>;
+      migrationRatioBp: number;
+    };
   }>(),
   /** 配置概览里的默认数值（见 content/tuning.ts）；缺的项用代码默认值。 */
   tuning: jsonb("tuning").$type<Partial<Tuning>>(),
@@ -512,6 +524,21 @@ export const playerItems = pgTable(
 );
 
 /** 「发放指定装备」流水（ADMIN_SPEC §14，迁移 0027）：每次发放一行，request_id 唯一（幂等键）。 */
+/**
+ * 第五批：一次性迁移「强化经验 → 炼器精粹」的记录（每个玩家最多一行，主键保证只迁一次）。
+ * 迁移在玩家下次结算时做（actions.ts settleLocked），后台「装备强化」也能一键给所有玩家做完。
+ */
+export const enhanceExpMigrations = pgTable("enhance_exp_migrations", {
+  playerId: uuid("player_id")
+    .primaryKey()
+    .references(() => players.id, { onDelete: "cascade" }),
+  enhanceExp: bigint("enhance_exp", { mode: "number" }).notNull(),
+  essence: bigint("essence", { mode: "number" }).notNull(),
+  ratioBp: integer("ratio_bp").notNull(),
+  itemSlug: text("item_slug").notNull(),
+  migratedAt: timestamp("migrated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const equipmentGrants = pgTable(
   "equipment_grants",
   {

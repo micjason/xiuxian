@@ -27,7 +27,8 @@ async function boot(db: TestDb, name: string) {
   const headers = { authorization: `Bearer ${registered.json().token as string}` };
   const [player] = await db.select().from(players).where(eq(players.usernameLower, name));
   const playerId = player!.id;
-  await db.update(playerStates).set({ realmSlug: "lianqi_1" }).where(eq(playerStates.playerId, playerId));
+  // 行囊放大：第五批起满包时关卡掉落 / 首领装备不发（这里测的是刷首领本身，不让行囊满干扰）
+  await db.update(playerStates).set({ realmSlug: "lianqi_1", bagBonus: 100000 }).where(eq(playerStates.playerId, playerId));
   // 本关小怪很弱（首领 = 小怪 × 倍率，也很弱）
   const [row] = await db.select().from(contentStages).where(eq(contentStages.slug, "lianqi_1"));
   await db.update(contentStages).set({ monsters: row!.monsters!.map((m) => ({ ...m, hp: 2, attack: 1, defense: 0 })) }).where(eq(contentStages.slug, "lianqi_1"));

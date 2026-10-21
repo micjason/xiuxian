@@ -1,4 +1,4 @@
-import { STARTING_BREAK_MATERIALS, STARTING_ENHANCE_RULES } from "./enhance.js";
+import { STARTING_BREAK_MATERIALS, STARTING_ENHANCE_RULES, STARTING_ESSENCE_ITEM } from "./enhance.js";
 import { bossPower } from "../combat/stats.js";
 import { DEFAULT_GEAR_QUALITY_FACTORS, GEAR_BUDGET_RATIO, GEAR_SLOTS, splitGearBudget } from "./gear.js";
 import { stageRecommendedPower } from "./stage-power.js";
@@ -353,7 +353,7 @@ export function buildScheme(): SchemeContent {
       }
     }
   }
-  for (const material of STARTING_BREAK_MATERIALS) {
+  for (const material of [...STARTING_BREAK_MATERIALS, STARTING_ESSENCE_ITEM]) {
     items.push({
       slug: material.slug,
       displayName: material.displayName,

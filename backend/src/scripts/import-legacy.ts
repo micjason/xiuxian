@@ -1,4 +1,4 @@
-import { STARTING_BREAK_MATERIALS, STARTING_ENHANCE_RULES } from "../modules/content/enhance.js";
+import { STARTING_BREAK_MATERIALS, STARTING_ENHANCE_RULES, STARTING_ESSENCE_ITEM } from "../modules/content/enhance.js";
 import { readFileSync } from "node:fs";
 import { eq } from "drizzle-orm";
 import {
@@ -138,8 +138,8 @@ export async function importLegacyContent(db: Db, idlePath: string, adventurePat
       stackable: item.stackable ?? item.kind !== "equipment",
     });
   }
-  for (const material of STARTING_BREAK_MATERIALS) {
-    // 强化规则里的起始突破节点要用这三种材料；旧数据里没有，所以一起建好。
+  for (const material of [...STARTING_BREAK_MATERIALS, STARTING_ESSENCE_ITEM]) {
+    // 强化规则里的起始突破节点要用这三种材料（第五批加炼器精粹）；旧数据里没有，所以一起建好。
     await db.insert(contentItems).values({
       slug: material.slug,
       displayName: material.displayName,

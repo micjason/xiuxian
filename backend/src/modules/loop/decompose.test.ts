@@ -1,15 +1,15 @@
 import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
-import { contentGlobals, contentItems, contentRealms, playerItems, playerStates } from "../../db/schema.js";
+import { contentGlobals, contentItems, contentRealms, playerItems } from "../../db/schema.js";
 import { withTransaction } from "../../db/tx.js";
 import { withDb } from "../../test/db.js";
 import { registerPlayer } from "../auth/service.js";
-import { STARTING_ENHANCE_RULES } from "../content/enhance.js";
+import { STARTING_ENHANCE_RULES, STARTING_ESSENCE_ITEM } from "../content/enhance.js";
 import { loadCurrentWorld } from "../content/snapshot.js";
-import { decomposeItem, setAutoDecompose } from "./actions.js";
+import { decomposeItem } from "./actions.js";
 
 describe("equipment decompose", () => {
-  it("turns a spare piece into enhancement exp and remembers the switch", async () => {
+  it("turns a spare piece into 炼器精粹 (a stackable material) and leaves worn gear alone", async () => {
     await withDb(async (db) => {
       await db.insert(contentRealms).values({
         slug: "1",
@@ -38,6 +38,7 @@ describe("equipment decompose", () => {
       await db.insert(contentItems).values([
         { slug: "worn", displayName: "身上", kind: "equipment", slot: "weapon", quality: "green", attack: 10, defense: 0, hp: 0, speed: 0 },
         { slug: "spare", displayName: "背包", kind: "equipment", slot: "weapon", quality: "white", attack: 4, defense: 0, hp: 0, speed: 0 },
+        { slug: STARTING_ESSENCE_ITEM.slug, displayName: STARTING_ESSENCE_ITEM.displayName, kind: "material", quality: "orange", stackable: true },
       ]);
       const now = new Date("2026-10-10T12:00:00.000Z");
       const player = await registerPlayer(db, { username: "reader", password: "correct-horse", now });
@@ -59,14 +60,12 @@ describe("equipment decompose", () => {
         throw new Error("准备数据失败");
       }
       const decomposed = await withTransaction(db, (tx) => decomposeItem(tx, world, player.playerId, spare.id, now));
-      expect(decomposed.gainedEnhanceExp).toBe(30);
-      expect(decomposed.state.enhanceExp).toBe(30);
+      expect(decomposed.gainedEssence).toBe(20);
+      expect(decomposed.gainedEnhanceExp).toBe(0);
+      expect(decomposed.state.essence).toEqual({ itemSlug: "refine_essence", count: 20 });
+      expect(decomposed.state.enhanceExp).toBe(0);
       const left = await db.select().from(playerItems).where(eq(playerItems.playerId, player.playerId));
-      expect(left.map((row) => row.itemSlug)).toEqual(["worn"]);
-      const switched = await withTransaction(db, (tx) => setAutoDecompose(tx, world, player.playerId, true, now));
-      expect(switched.state.autoDecompose).toBe(true);
-      const [state] = await db.select().from(playerStates).where(eq(playerStates.playerId, player.playerId));
-      expect(state?.autoDecompose).toBe(true);
+      expect(left.map((row) => [row.itemSlug, row.quantity]).sort()).toEqual([["refine_essence", 20], ["worn", 1]]);
     });
   });
 });

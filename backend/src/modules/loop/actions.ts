@@ -14,13 +14,14 @@ import { ensureSkillBook } from "../content/ops-content.js";
 import { loadCurrentWorld } from "../content/snapshot.js";
 import { rollDropTable } from "../content/roll-drops.js";
 import { bookOverflowCultivation, rollSchemeReward } from "../content/scheme-drops.js";
-import { decomposeEnhanceExp, enhanceCap, enhanceCost, enhancedStat, pendingBreakNode, qualityRule, readEnhanceRules } from "../content/enhance.js";
+import { enhanceCap, enhancedStat, essenceCost, essenceRules, essenceYield, pendingBreakNode, qualityRule, readEnhanceRules } from "../content/enhance.js";
 import type { ContentSnapshot } from "../content/validate.js";
 import { settleTicks } from "../progress/settle.js";
 import { AppError } from "../../shared/errors.js";
 import type { Db } from "../operations/record.js";
 import { readGameRules } from "../content/rules.js";
-import { addEnhanceExp, grantItem } from "./bag.js";
+import { bagUsedSlots, decomposeRows, grantItem, stackCount, takeStack } from "./bag.js";
+import { migratePlayerEnhanceExp } from "./essence-migration.js";
 import { applySetBonus, setBonusOf } from "../content/set-bonus.js";
 import { maxSkillSlots, nextSkillSlotRule, openSkillSlots } from "../content/skill-slots.js";
 import { announcementNoticesForPlayer, noticesForPlayer } from "../notices/service.js";
@@ -375,6 +376,10 @@ export function battleConfigOf(world: ContentSnapshot) {
 
 async function settleLocked(tx: Tx, playerId: string, world: World, now: Date, options: { autoChallenge?: boolean } = {}) {
   const { state } = await lockedState(tx, playerId);
+  // 第五批：剩余强化经验一次性换成炼器精粹（幂等，见 essence-migration.ts）
+  if (await migratePlayerEnhanceExp(tx, world, playerId, state, now)) {
+    state.enhanceExp = 0;
+  }
   let pieces = await loadPieces(tx, playerId);
   const stats = statsOf(world, state.realmSlug, pieces.items, pieces.skills);
   const rules = readGameRules(world);
@@ -405,7 +410,6 @@ async function settleLocked(tx: Tx, playerId: string, world: World, now: Date, o
       progress: state.waveProgress,
       deathsInRow: state.waveDeathsInRow,
       consumedSeconds,
-      autoDecompose: state.autoDecompose,
       capacity: rules.bagCapacity + state.bagBonus,
       now,
     });
@@ -526,8 +530,11 @@ function stateDto(world: World, playerId: string, settled: Awaited<ReturnType<ty
     cultivationRate: { bonusBp: settled.stats.bonusBp, gainPerTick: realm.gainPerTick },
     breakthrough: { rateBp, cost: realm.breakthroughCost, nextSlug: realm.nextRealmSlug, requiredStage: gateOf(world, realm, settled.pieces.stages), preview: breakthroughPreview(world, next, settled) },
     challengeCooldownSeconds: readGameRules(world).challengeCooldownSeconds,
-    autoDecompose: settled.state.autoDecompose,
+    /** 旧的强化经验（第五批起迁移成精粹后恒为 0，留着给老客户端）。 */
     enhanceExp: settled.state.enhanceExp,
+    /** 炼器精粹：物品编号 + 拥有数量（也在 items 里作为堆叠材料出现）。 */
+    essence: essenceDto(world, settled.pieces.items),
+    bagUsed: settled.pieces.items.filter((item) => !item.equippedSlot).length,
     bagBonus: settled.state.bagBonus,
     bagCapacity: readGameRules(world).bagCapacity + settled.state.bagBonus,
     items: settled.pieces.items,
@@ -572,6 +579,15 @@ function stateDto(world: World, playerId: string, settled: Awaited<ReturnType<ty
 }
 
 /** 历练页用：每关能不能进、为什么不能进（解锁条件两项分别满足没有）、首领档次。 */
+function essenceDto(world: World, items: { itemSlug: string; isStack: boolean; quantity: number }[]) {
+  try {
+    const slug = essenceRules(readEnhanceRules(world)).itemSlug;
+    return { itemSlug: slug, count: stackCount(items, slug) };
+  } catch {
+    return null;
+  }
+}
+
 function accessDto(world: World, access: StageAccess) {
   const stage = world.stages.find((row) => row.slug === access.slug);
   return {
@@ -724,7 +740,7 @@ export async function initializeProgress(tx: Tx, playerId: string, now: Date) {
     await tx.insert(playerStageProgress).values({ playerId, stageSlug: first.slug, unlockedAt: now }).onConflictDoNothing();
   }
   for (const starter of world.globals.starterItems ?? []) {
-    await grantItem(tx, world, playerId, starter.itemSlug, starter.quantity, "starter", now, { autoDecompose: false, capacity: Number.MAX_SAFE_INTEGER, overflow: true });
+    await grantItem(tx, world, playerId, starter.itemSlug, starter.quantity, "starter", now, { capacity: Number.MAX_SAFE_INTEGER, overflow: true });
   }
 }
 
@@ -936,7 +952,6 @@ async function fightStageBoss(tx: Tx, world: World, playerId: string, settled: F
       bossRules,
       dailyTotal: globalBossRules(world).dailyChallengeTotal,
       mode: fight.mode,
-      autoDecompose: settled.state.autoDecompose,
       capacity: bagCapacity,
       now,
       randomInt,
@@ -994,7 +1009,6 @@ async function fightStageBoss(tx: Tx, world: World, playerId: string, settled: F
         throw new AppError("INVALID_INPUT", "有一件掉落已经不在后台");
       }
       const granted = await grantItem(tx, world, playerId, drop.itemSlug, drop.quantity, `drop:${stage.slug}`, now, {
-        autoDecompose: settled.state.autoDecompose,
         capacity: bagCapacity,
         // 首领首通奖励允许暂时超出行囊容量（设计表 2.6）。
         overflow: !progress.firstClearedAt,
@@ -1340,24 +1354,27 @@ export async function useItem(tx: Tx, world: World, playerId: string, itemId: st
   return { state: stateDto(world, playerId, after), learned: { displayName: skill.displayName ?? "名称缺失", level } };
 }
 
+/** 单件分解（装备详情里的「分解」）：和批量分解同一套规则，得到炼器精粹。 */
 export async function decomposeItem(tx: Tx, world: World, playerId: string, itemId: string, now: Date) {
-  const settled = await settleLocked(tx, playerId, world, now);
-  const item = settled.pieces.items.find((row) => row.id === itemId);
-  if (!item) {
-    throw new AppError("NOT_FOUND");
-  }
-  if (item.equippedSlot) {
-    throw new AppError("EQUIPPED_CANNOT_DECOMPOSE", `已穿戴的装备不能分解，请先脱下「${world.items.find((row) => row.slug === item.itemSlug)?.displayName ?? "这件装备"}」`);
-  }
-  const definition = world.items.find((row) => row.slug === item.itemSlug);
-  if (!definition || definition.kind !== "equipment" || !definition.slot) {
-    throw new AppError("NOT_EQUIPMENT", "这不是装备，不能分解");
-  }
-  const gained = decomposeEnhanceExp(readEnhanceRules(world), definition.quality, item.enhanceLevel) * item.quantity;
-  await tx.delete(playerItems).where(eq(playerItems.id, item.id));
-  await addEnhanceExp(tx, playerId, gained);
-  const after = await settleLocked(tx, playerId, world, now);
-  return { state: stateDto(world, playerId, after), gainedEnhanceExp: gained };
+  const result = await decomposeItems(tx, world, playerId, [itemId], now);
+  return { ...result, gainedEnhanceExp: 0 };
+}
+
+/**
+ * 批量分解（分解界面，SPEC_Q §17.2）：玩家勾选的装备，已穿戴的不能分解；得到的炼器精粹 = Σ品质（部位）产出 + Σ强化等级 × 每级返还。
+ * 不会自动替玩家选任何东西。
+ */
+export async function decomposeItems(tx: Tx, world: World, playerId: string, itemIds: string[], now: Date) {
+  await settleLocked(tx, playerId, world, now, { autoChallenge: false });
+  const done = await decomposeRows(tx, world, playerId, itemIds, now);
+  const after = await settleLocked(tx, playerId, world, now, { autoChallenge: false });
+  return {
+    state: stateDto(world, playerId, after),
+    decomposed: done.pieces,
+    gainedEssence: done.essence,
+    essenceItemSlug: done.itemSlug,
+    bagUsed: await bagUsedSlots(tx, playerId),
+  };
 }
 
 function materialLabel(world: World, itemSlug: string): string {
@@ -1369,7 +1386,7 @@ function breakRequirementText(world: World, node: { level: number; materials: { 
 }
 
 /**
- * 用强化经验给一件装备升级；一次升一级，toMax 为真时尽量升到上限、经验用完或遇到突破节点为止。
+ * 用炼器精粹给一件装备升级（第五批：消耗表见 enhance.ts essenceCost，后台可改）；一次升一级，toMax 为真时尽量升到上限、精粹用完或遇到突破节点为止。
  * 强化不会失败。装备强化到突破节点后必须先突破（breakthroughItem）才能继续。
  */
 export async function enhanceItem(tx: Tx, world: World, playerId: string, itemId: string, now: Date, options?: { toMax?: boolean }) {
@@ -1387,8 +1404,10 @@ export async function enhanceItem(tx: Tx, world: World, playerId: string, itemId
   if (item.enhanceLevel >= cap) {
     throw new AppError("INVALID_INPUT", `已强化到上限 +${cap}`);
   }
+  const essenceSlug = essenceRules(rules).itemSlug;
   let level = item.enhanceLevel;
-  let pool = settled.state.enhanceExp;
+  const owned = stackCount(settled.pieces.items, essenceSlug);
+  let pool = owned;
   let spent = 0;
   let blockedBy: { level: number; materials: { itemSlug: string; count: number }[] } | null;
   do {
@@ -1396,7 +1415,7 @@ export async function enhanceItem(tx: Tx, world: World, playerId: string, itemId
     if (blockedBy) {
       break;
     }
-    const cost = enhanceCost(rules, definition.quality, level);
+    const cost = essenceCost(rules, definition.quality, level);
     if (pool < cost) {
       break;
     }
@@ -1411,14 +1430,15 @@ export async function enhanceItem(tx: Tx, world: World, playerId: string, itemId
     if (blockedBy) {
       throw new AppError("BREAKTHROUGH_REQUIRED", `已到突破节点 +${blockedBy.level}，需要先突破：${breakRequirementText(world, blockedBy)}`, { node: blockedBy });
     }
-    throw new AppError("INVALID_INPUT", `强化经验不足，下一级需要 ${enhanceCost(rules, definition.quality, level)}`);
+    const need = essenceCost(rules, definition.quality, level);
+    throw new AppError("ESSENCE_SHORT", `炼器精粹不足，分解装备可获得（下一级需要 ${need}，拥有 ${owned}）`, { need, have: owned });
   }
   await tx.update(playerItems).set({ enhanceLevel: level }).where(eq(playerItems.id, item.id));
-  await tx.update(playerStates).set({ enhanceExp: pool }).where(eq(playerStates.playerId, playerId));
+  await takeStack(tx, settled.pieces.items, essenceSlug, spent);
   const after = await settleLocked(tx, playerId, world, now);
   return {
     state: stateDto(world, playerId, after),
-    enhanced: { itemId: item.id, fromLevel: item.enhanceLevel, toLevel: level, spentExp: spent, blockedByBreakthrough: blockedBy ? blockedBy.level : null },
+    enhanced: { itemId: item.id, fromLevel: item.enhanceLevel, toLevel: level, spentEssence: spent, spentExp: 0, blockedByBreakthrough: blockedBy ? blockedBy.level : null },
   };
 }
 
@@ -1474,6 +1494,7 @@ export async function breakthroughItem(tx: Tx, world: World, playerId: string, i
   return { state: stateDto(world, playerId, after), broken: { itemId: item.id, level: node.level, materials: node.materials } };
 }
 
+/** 第五批起不再有「满包自动分解」：老客户端还会调这个接口，只记下开关、不再起任何作用。 */
 export async function setAutoDecompose(tx: Tx, world: World, playerId: string, enabled: boolean, now: Date) {
   await settleLocked(tx, playerId, world, now);
   await tx.update(playerStates).set({ autoDecompose: enabled }).where(eq(playerStates.playerId, playerId));

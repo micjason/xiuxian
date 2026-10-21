@@ -43,6 +43,19 @@ const RULES: EnhanceRules = {
     purple: { cap: 4, costMult: 1, decomposeExp: 9, breakthroughs: [] },
     orange: { cap: 3, costMult: 1.5, decomposeExp: 99, breakthroughs: [{ level: 1, materials: [{ itemSlug: "stone_b", count: 1 }] }] },
   },
+  // 第五批：强化消耗炼器精粹。这里让精粹曲线和上面的经验曲线一样，迁移比例 1:1，
+  // 这样测试里直接写 enhanceExp，下次结算就原样变成精粹（顺带测了一次性迁移）。
+  essence: {
+    itemSlug: "refine_essence",
+    yields: { white: 5, green: 7, blue: 9, purple: 9, orange: 99 },
+    slotMultBp: {},
+    slotOverrides: {},
+    refundPerLevel: 10,
+    costBase: 10,
+    costGrowth: 2,
+    costTable: {},
+    migrationRatioBp: 10000,
+  },
 };
 
 async function seed(db: TestDb, rules: EnhanceRules | null = RULES) {
@@ -60,6 +73,7 @@ async function seed(db: TestDb, rules: EnhanceRules | null = RULES) {
     { slug: "fairy_blade", displayName: "仙刃", kind: "equipment", slot: "weapon", quality: "orange", attack: 100, defense: 0, hp: 0, speed: 0 },
     { slug: "stone_a", displayName: "甲石", kind: "material", quality: "white", stackable: true },
     { slug: "stone_b", displayName: "乙石", kind: "material", quality: "white", stackable: true },
+    { slug: "refine_essence", displayName: "炼器精粹", kind: "material", quality: "orange", stackable: true },
   ]);
   const now = new Date("2026-10-10T12:00:00.000Z");
   const player = await registerPlayer(db, { username: "smith", password: "correct-horse", now });
@@ -98,7 +112,7 @@ describe("break-through nodes", () => {
 
       // 一键强化遇到 +2 节点就停下，并告诉界面是哪个节点
       const first = await withTransaction(db, (tx) => enhanceItem(tx, world, player.playerId, blade.id, now, { toMax: true }));
-      expect(first.enhanced).toMatchObject({ fromLevel: 0, toLevel: 2, spentExp: 10 + 20, blockedByBreakthrough: 2 });
+      expect(first.enhanced).toMatchObject({ fromLevel: 0, toLevel: 2, spentEssence: 10 + 20, blockedByBreakthrough: 2 });
       // 再强化被拒绝，错误里写明要什么
       await expect(withTransaction(db, (tx) => enhanceItem(tx, world, player.playerId, blade.id, now))).rejects.toMatchObject({
         code: "BREAKTHROUGH_REQUIRED",
@@ -134,8 +148,9 @@ describe("break-through nodes", () => {
       });
       const stoneB = await give(db, player.playerId, "stone_b", { stack: 1, now });
       await withTransaction(db, (tx) => breakthroughItem(tx, world, player.playerId, blade.id, now));
+      // 突破石用光（行被删除）；剩下的堆叠只有炼器精粹
       const rows = await db.select().from(playerItems).where(and(eq(playerItems.playerId, player.playerId), eq(playerItems.isStack, true)));
-      expect(rows).toEqual([]);
+      expect(rows.map((row) => row.itemSlug)).toEqual(["refine_essence"]);
       expect(stoneB.id).toBeTruthy();
       // 突破后一路升到上限 +6，没有失败、没有掉级
       const last = await withTransaction(db, (tx) => enhanceItem(tx, world, player.playerId, blade.id, now, { toMax: true }));
@@ -165,14 +180,15 @@ describe("break-through nodes", () => {
       const fairy = await give(db, player.playerId, "fairy_blade", { now });
       await db.update(playerStates).set({ enhanceExp: 1_000 }).where(eq(playerStates.playerId, player.playerId));
       const one = await withTransaction(db, (tx) => enhanceItem(tx, world, player.playerId, fairy.id, now));
-      expect(one.enhanced).toMatchObject({ toLevel: 1, spentExp: 15, blockedByBreakthrough: 1 });
+      expect(one.enhanced).toMatchObject({ toLevel: 1, spentEssence: 15, blockedByBreakthrough: 1 });
       await expect(withTransaction(db, (tx) => enhanceItem(tx, world, player.playerId, fairy.id, now))).rejects.toMatchObject({ code: "BREAKTHROUGH_REQUIRED" });
       await give(db, player.playerId, "stone_b", { stack: 1, now });
       await withTransaction(db, (tx) => breakthroughItem(tx, world, player.playerId, fairy.id, now));
       const max = await withTransaction(db, (tx) => enhanceItem(tx, world, player.playerId, fairy.id, now, { toMax: true }));
       expect(max.enhanced.toLevel).toBe(3);
       const gone = await withTransaction(db, (tx) => decomposeItem(tx, world, player.playerId, fairy.id, now));
-      expect(gone.gainedEnhanceExp).toBe(99 + Math.floor(((15 + 30 + 60) * 5000) / 10000));
+      // 精粹：品质产出 + 强化等级 × 每级返还（+3 × 10）
+      expect(gone.gainedEssence).toBe(99 + 3 * 10);
     });
   });
 
@@ -206,7 +222,7 @@ describe("worn gear cannot be decomposed", () => {
   });
 });
 
-describe("enhance exp pool has no cap", () => {
+describe("炼器精粹 has no cap", () => {
   it("keeps growing far past any round number and still pays for enhancing", async () => {
     await withDb(async (db) => {
       const { now, player, world } = await seed(db);
@@ -215,10 +231,11 @@ describe("enhance exp pool has no cap", () => {
       const huge = 9_000_000_000_000;
       await db.update(playerStates).set({ enhanceExp: huge }).where(eq(playerStates.playerId, player.playerId));
       const decomposed = await withTransaction(db, (tx) => decomposeItem(tx, world, player.playerId, spare.id, now));
-      expect(decomposed.state.enhanceExp).toBe(huge + 7);
-      await withTransaction(db, (tx) => enhanceItem(tx, world, player.playerId, blade.id, now));
+      expect(decomposed.state.essence).toEqual({ itemSlug: "refine_essence", count: huge + 7 });
+      const enhanced = await withTransaction(db, (tx) => enhanceItem(tx, world, player.playerId, blade.id, now));
+      expect(enhanced.state.essence?.count).toBe(huge + 7 - 10);
       const [state] = await db.select().from(playerStates).where(eq(playerStates.playerId, player.playerId));
-      expect(state?.enhanceExp).toBe(huge + 7 - 10);
+      expect(state?.enhanceExp).toBe(0);
     });
   });
 });
@@ -240,13 +257,14 @@ describe("enhance rules come only from content", () => {
         expBase: 100,
         expGrowth: 1,
         qualities: { ...RULES.qualities, green: { cap: 2, costMult: 1, decomposeExp: 1, statGrowthBp: 5000, breakthroughs: [] } },
+        essence: { ...RULES.essence!, costBase: 100, costGrowth: 1 },
       };
       const { now, player, world } = await seed(db, edited);
       const blade = await give(db, player.playerId, "blade", { equippedSlot: "weapon", now });
       await db.update(playerStates).set({ enhanceExp: 1_000 }).where(eq(playerStates.playerId, player.playerId));
       const before = (await readState(db, player.playerId, now)).attack;
       const result = await withTransaction(db, (tx) => enhanceItem(tx, world, player.playerId, blade.id, now, { toMax: true }));
-      expect(result.enhanced).toMatchObject({ toLevel: 2, spentExp: 200 });
+      expect(result.enhanced).toMatchObject({ toLevel: 2, spentEssence: 200 });
       expect(result.state.attack - before).toBeCloseTo(100, 5);
       await expect(withTransaction(db, (tx) => enhanceItem(tx, world, player.playerId, blade.id, now))).rejects.toThrow(/上限 \+2/);
     });

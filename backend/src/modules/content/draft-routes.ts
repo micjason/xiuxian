@@ -7,8 +7,9 @@ import { saveDraftDropTable } from "./draft-service.js";
 import { readRules, readGameRules, rulesForSave, rulesFromInput, saveRules } from "./rules.js";
 import { formulaExamples } from "./formula-examples.js";
 import { buildFormulaPreview } from "./formula-preview.js";
-import { loadDraftSnapshot } from "./snapshot.js";
+import { loadCurrentWorld, loadDraftSnapshot } from "./snapshot.js";
 import { readEnhanceView, saveEnhanceRules } from "./enhance.js";
+import { enhanceExpMigrationStatus, migrateAllEnhanceExp } from "../loop/essence-migration.js";
 import { listGear, removeMajorGear, resetGearPiece, saveGearQualityFactors, syncGear, updateGearPiece } from "./gear.js";
 import { createGearSet, createManualGear, deleteGearSet, updateGearSet, updateManualGear } from "./manual-gear.js";
 import { readConfigOverview, readTuning, resetStageDrop, saveConfigOverview, saveGearParams, saveTuning } from "./config-overview.js";
@@ -347,7 +348,15 @@ export async function registerDraftRoutes(app: FastifyInstance, deps: { db: Db; 
     updateOpsSkill(deps.db, (request.params as { id: string }).id, request.body as never, request.actor?.actorId ?? null),
   );
   app.delete("/admin/draft/skills/:id", async (request) => deleteOpsSkill(deps.db, (request.params as { id: string }).id));
-  app.get("/admin/draft/enhance", async () => readEnhanceView(deps.db));
+  app.get("/admin/draft/enhance", async () => ({ ...(await readEnhanceView(deps.db)), migration: await enhanceExpMigrationStatus(deps.db) }));
+  // 第五批：一键把所有玩家剩余的强化经验换成炼器精粹（每人只迁一次；不点也会在玩家下次结算时自动迁）
+  app.post("/admin/draft/enhance/migrate-exp", async () => {
+    const world = await loadCurrentWorld(deps.db);
+    if (!world) {
+      throw new AppError("INVALID_INPUT", "请先新建境界");
+    }
+    return migrateAllEnhanceExp(deps.db, world, new Date());
+  });
   app.put("/admin/draft/enhance", async (request) => saveEnhanceRules(deps.db, request.body, request.actor?.actorId ?? null));
   app.get("/admin/draft/gear", async () => listGear(deps.db));
   app.put("/admin/draft/gear-qualities", async (request) =>

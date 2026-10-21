@@ -50,7 +50,65 @@ export type EnhanceRules = {
   refundBp: number;
   /** 强化经验池没有上限，所以这里也没有对应字段。 */
   qualities: Partial<Record<EnhanceQualityKey, EnhanceQualityRule>>;
+  /**
+   * 第五批（SPEC_Q §17.2 / 17.3）：分解得「炼器精粹」、强化消耗精粹。老快照没有这一项（迁移 0050 会补上）；
+   * 缺了的话分解 / 强化报错「请先在后台填写炼器精粹」，其他照常。上面的 expBase / expGrowth / decomposeExp / refundBp
+   * 是旧的「强化经验」规则，只留着给一次性迁移（强化经验 → 精粹）算比例，游戏不再用它们结算。
+   */
+  essence?: EssenceRules;
 };
+
+/** 装备部位（和 tuning.ts 的 TUNING_SLOTS 相同；这里单独写一份，免得 enhance.ts 依赖 tuning.ts）。 */
+export const ESSENCE_SLOTS = ["weapon", "clothes", "helmet", "gloves", "shoes", "accessory"] as const;
+export type EssenceSlot = (typeof ESSENCE_SLOTS)[number];
+
+export type EssenceRules = {
+  /** 精粹对应的物品编号（可堆叠材料），默认 refine_essence。 */
+  itemSlug: string;
+  /** 分解一件未强化装备得到的精粹（按品质）。 */
+  yields: Record<EnhanceQualityKey, number>;
+  /** 部位倍数（万分比，不填 = 10000 = 1 倍）：产出 = round(品质产出 × 倍数)。 */
+  slotMultBp: Partial<Record<EssenceSlot, number>>;
+  /** 单独指定「某品质某部位」的产出（填了就不再乘部位倍数）。 */
+  slotOverrides: Partial<Record<EnhanceQualityKey, Partial<Record<EssenceSlot, number>>>>;
+  /** 强化返还：每 1 级强化额外返还多少精粹（SPEC_Q §17.2：预览数 = Σ品质产出 + Σ(强化等级 × 返还)）。 */
+  refundPerLevel: number;
+  /** 强化 0→1 级消耗的精粹（品质倍数 costMult 为 1 时）。 */
+  costBase: number;
+  /** 每升一级，消耗乘以这个倍数。 */
+  costGrowth: number;
+  /** 单独指定的每级消耗（下标 = 当前等级，即 +L → +L+1）；没填的等级按公式算。 */
+  costTable: Partial<Record<EnhanceQualityKey, number[]>>;
+  /** 一次性迁移：玩家剩余强化经验 × 这个万分比（向上取整）= 得到的精粹。 */
+  migrationRatioBp: number;
+};
+
+/**
+ * 起始精粹规则（后台可改）。产出按负责人定的 白20 / 绿60 / 蓝150 / 紫400 / 橙1000、返还每级 40。
+ * 消耗 = round(40 × 1.25^级 × 品质倍数)：和旧经验曲线同形状，正好是旧经验消耗的 2/3（旧基础 60）。
+ * 迁移比例 7000（0.7）＞ 每一级「精粹消耗 / 旧经验消耗」的最大值（约 0.67，四舍五入造成），所以
+ * 迁移后的精粹一定买得起迁移前那点经验买得起的任何一串升级 —— 没有人变弱（证明见 docs/changes/2026-10-22/salvage-essence.md）。
+ */
+export const STARTING_ESSENCE_RULES: EssenceRules = {
+  itemSlug: "refine_essence",
+  yields: { white: 20, green: 60, blue: 150, purple: 400, orange: 1000 },
+  slotMultBp: {},
+  slotOverrides: {},
+  refundPerLevel: 40,
+  costBase: 40,
+  costGrowth: 1.25,
+  costTable: {},
+  migrationRatioBp: 7000,
+};
+
+/** 精粹物品（迁移 0050 / 后台「填入建议起始值」时没有就创建）。 */
+export const STARTING_ESSENCE_ITEM = {
+  slug: "refine_essence",
+  displayName: "炼器精粹",
+  description: "分解装备得到，用来强化装备。",
+  quality: "orange",
+  iconKey: "refine_essence",
+} as const;
 
 /** 起始突破材料：后台“填入建议起始值”时如果物品里还没有，会一并创建。数字和名称都只是起始值。 */
 export const STARTING_BREAK_MATERIALS = [
@@ -88,6 +146,7 @@ export const STARTING_ENHANCE_RULES: EnhanceRules = {
       ],
     },
   },
+  essence: STARTING_ESSENCE_RULES,
 };
 
 function positive(value: unknown, label: string, integer = false): number {
@@ -200,12 +259,90 @@ export function enhanceRulesFromInput(input: unknown, options: { requireAll?: bo
   if (expGrowth < 1) {
     throw new AppError("INVALID_INPUT", "经验增长倍数不能小于 1");
   }
-  return {
+  const rules: EnhanceRules = {
     expBase: positive(raw.expBase, "基础经验", true),
     expGrowth,
     statGrowthBp: positive(raw.statGrowthBp, "每级属性加成", true),
     refundBp,
     qualities,
+  };
+  if (raw.essence !== undefined && raw.essence !== null) {
+    rules.essence = essenceRulesFromInput(raw.essence);
+  }
+  return rules;
+}
+
+function nonNegativeInt(value: unknown, label: string, max = 100_000_000): number {
+  const number = Number(value);
+  if (value === undefined || value === null || value === "" || !Number.isInteger(number) || number < 0 || number > max) {
+    throw new AppError("INVALID_INPUT", `${label}要填 0 到 ${max} 的整数`);
+  }
+  return number;
+}
+
+/** 炼器精粹规则校验（后台保存 / 运行时读快照都用这一个）。 */
+export function essenceRulesFromInput(input: unknown): EssenceRules {
+  if (typeof input !== "object" || input === null) {
+    throw new AppError("INVALID_INPUT", "炼器精粹规则格式不正确");
+  }
+  const raw = input as Record<string, unknown>;
+  const itemSlug = typeof raw.itemSlug === "string" ? raw.itemSlug.trim() : "";
+  if (!itemSlug) {
+    throw new AppError("INVALID_INPUT", "请选择炼器精粹对应的物品");
+  }
+  const yieldsRaw = (raw.yields ?? {}) as Record<string, unknown>;
+  const yields = Object.fromEntries(ENHANCE_QUALITIES.map((q) => [q.key, nonNegativeInt(yieldsRaw[q.key], `${q.name}品质分解产出`)])) as EssenceRules["yields"];
+  const slotMultBp: EssenceRules["slotMultBp"] = {};
+  const multRaw = (raw.slotMultBp ?? {}) as Record<string, unknown>;
+  for (const slot of ESSENCE_SLOTS) {
+    const value = multRaw[slot];
+    if (value !== undefined && value !== null && value !== "") {
+      slotMultBp[slot] = nonNegativeInt(value, "部位产出倍数", 1_000_000);
+    }
+  }
+  const slotOverrides: EssenceRules["slotOverrides"] = {};
+  const overRaw = (raw.slotOverrides ?? {}) as Record<string, Record<string, unknown> | undefined>;
+  for (const q of ENHANCE_QUALITIES) {
+    for (const slot of ESSENCE_SLOTS) {
+      const value = overRaw[q.key]?.[slot];
+      if (value !== undefined && value !== null && value !== "") {
+        (slotOverrides[q.key] ??= {})[slot] = nonNegativeInt(value, `${q.name}品质单独指定的部位产出`);
+      }
+    }
+  }
+  const costTable: EssenceRules["costTable"] = {};
+  const tableRaw = (raw.costTable ?? {}) as Record<string, unknown>;
+  for (const q of ENHANCE_QUALITIES) {
+    const list = tableRaw[q.key];
+    if (list === undefined || list === null) {
+      continue;
+    }
+    if (!Array.isArray(list)) {
+      throw new AppError("INVALID_INPUT", `${q.name}品质的每级消耗表格式不正确`);
+    }
+    // 空格子（null / ""）= 这一级按公式；填了就必须 ≥ 1。
+    const levels = list.map((value) => (value === null || value === "" || value === undefined ? null : positive(value, `${q.name}品质每级精粹消耗`, true)));
+    while (levels.length > 0 && levels[levels.length - 1] === null) {
+      levels.pop();
+    }
+    if (levels.length > 0) {
+      costTable[q.key] = levels as number[];
+    }
+  }
+  const costGrowth = positive(raw.costGrowth, "精粹消耗增长倍数");
+  if (costGrowth < 1) {
+    throw new AppError("INVALID_INPUT", "精粹消耗增长倍数不能小于 1");
+  }
+  return {
+    itemSlug,
+    yields,
+    slotMultBp,
+    slotOverrides,
+    refundPerLevel: nonNegativeInt(raw.refundPerLevel, "每级强化返还"),
+    costBase: positive(raw.costBase, "强化基础精粹消耗", true),
+    costGrowth,
+    costTable,
+    migrationRatioBp: nonNegativeInt(raw.migrationRatioBp, "强化经验转精粹比例", 10_000_000),
   };
 }
 
@@ -314,9 +451,71 @@ export function nextBreakNode(rules: EnhanceRules, quality: string | null | unde
   return row.breakthroughs.find((node) => node.level >= level && node.level > brokenLevel && node.level < row.cap) ?? null;
 }
 
+/** 炼器精粹规则；快照里没有就报错（迁移 0050 会补上，后台「装备强化」也能填）。 */
+export function essenceRules(rules: EnhanceRules): EssenceRules {
+  if (!rules.essence) {
+    throw new AppError("INVALID_INPUT", "请先在后台「装备强化」填写炼器精粹规则并重新发布");
+  }
+  return rules.essence;
+}
+
+/** 分解一件装备得到的精粹：品质（+部位）产出 + 强化等级 × 每级返还。已穿戴的不能分解（调用方保证）。 */
+export function essenceYield(rules: EnhanceRules, quality: string | null | undefined, slot: string | null | undefined, level: number): number {
+  const essence = essenceRules(rules);
+  const key = qualityKeyOf(quality);
+  const slotKey = slot as EssenceSlot;
+  const override = essence.slotOverrides[key]?.[slotKey];
+  const base = override ?? Math.round((essence.yields[key] * (essence.slotMultBp[slotKey] ?? 10000)) / 10000);
+  return base + Math.max(0, level) * essence.refundPerLevel;
+}
+
+/** 从 level 级升到 level+1 级要多少精粹：先看单独指定的表，没有就按公式 round(基础 × 增长^级 × 品质倍数)。 */
+export function essenceCost(rules: EnhanceRules, quality: string | null | undefined, level: number): number {
+  const essence = essenceRules(rules);
+  const row = qualityRule(rules, quality);
+  const fixed = essence.costTable[qualityKeyOf(quality)]?.[level];
+  if (typeof fixed === "number" && fixed > 0) {
+    return fixed;
+  }
+  return Math.max(1, Math.round(essence.costBase * essence.costGrowth ** level * row.costMult));
+}
+
+/** 一次性迁移：剩余强化经验 → 精粹（向上取整）。 */
+export function migratedEssence(rules: EnhanceRules, enhanceExp: number): number {
+  if (enhanceExp <= 0) {
+    return 0;
+  }
+  return Math.ceil((enhanceExp * essenceRules(rules).migrationRatioBp) / 10000);
+}
+
+/**
+ * 「没人变弱」的最低迁移比例（万分比，向上取整）：所有品质、所有等级里「精粹消耗 / 旧经验消耗」的最大值。
+ * 迁移比例 ≥ 它时，旧经验能买的任何一串升级，换成精粹后也一定买得起（每一级都不更贵，加起来也不更贵）。后台用它提示。
+ */
+export function minSafeMigrationRatioBp(rules: EnhanceRules): number {
+  let worst = 0;
+  for (const quality of ENHANCE_QUALITIES) {
+    const row = rules.qualities[quality.key];
+    if (!row) {
+      continue;
+    }
+    for (let level = 0; level < row.cap; level += 1) {
+      worst = Math.max(worst, essenceCost(rules, quality.key, level) / enhanceCost(rules, quality.key, level));
+    }
+  }
+  return Math.ceil(worst * 10000);
+}
+
 export async function readEnhanceView(db: Db) {
   const [row] = await db.select().from(contentGlobals).where(eq(contentGlobals.id, 1)).limit(1);
-  return { rules: row?.enhance ?? null, starting: STARTING_ENHANCE_RULES, startingMaterials: STARTING_BREAK_MATERIALS };
+  const rules = row?.enhance ?? null;
+  let minSafeRatioBp: number | null = null;
+  try {
+    minSafeRatioBp = rules?.essence ? minSafeMigrationRatioBp(enhanceRulesFromInput(rules, { requireAll: false })) : null;
+  } catch {
+    minSafeRatioBp = null;
+  }
+  return { rules, starting: STARTING_ENHANCE_RULES, startingMaterials: STARTING_BREAK_MATERIALS, essenceItem: STARTING_ESSENCE_ITEM, minSafeRatioBp };
 }
 
 export async function saveEnhanceRules(db: Db, input: unknown, adminId: string | null) {
@@ -343,10 +542,31 @@ export async function saveEnhanceRules(db: Db, input: unknown, adminId: string |
       created.push(starter.slug);
     }
   }
+  if (rules.essence?.itemSlug === STARTING_ESSENCE_ITEM.slug && !items.some((item) => item.slug === STARTING_ESSENCE_ITEM.slug)) {
+    await db.insert(contentItems).values({
+      slug: STARTING_ESSENCE_ITEM.slug,
+      displayName: STARTING_ESSENCE_ITEM.displayName,
+      description: STARTING_ESSENCE_ITEM.description,
+      kind: "material",
+      quality: STARTING_ESSENCE_ITEM.quality,
+      iconKey: STARTING_ESSENCE_ITEM.iconKey,
+      stackable: true,
+      updatedBy: adminId,
+    });
+    created.push(STARTING_ESSENCE_ITEM.slug);
+  }
   if (created.length > 0) {
     items = await db.select({ slug: contentItems.slug, kind: contentItems.kind, enabled: contentItems.enabled }).from(contentItems);
   }
   const problems = breakMaterialProblems(rules, items);
+  if (rules.essence) {
+    const item = items.find((row) => row.slug === rules.essence?.itemSlug);
+    if (!item) {
+      problems.push(`炼器精粹物品 ${rules.essence.itemSlug} 在物品里不存在`);
+    } else if (item.kind === "equipment" || item.kind === "skill_book") {
+      problems.push(`炼器精粹物品 ${rules.essence.itemSlug} 不能是装备或功法书`);
+    }
+  }
   if (problems.length > 0) {
     throw new AppError("INVALID_INPUT", problems[0] ?? "突破材料不正确", { problems });
   }

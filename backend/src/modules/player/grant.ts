@@ -1,14 +1,19 @@
 import { and, eq, inArray } from "drizzle-orm";
 import type { Tx } from "../../db/tx.js";
-import { contentItems, equipmentGrants, playerItems, players } from "../../db/schema.js";
+import { contentItems, equipmentGrants, playerItems, playerStates, players } from "../../db/schema.js";
 import { AppError } from "../../shared/errors.js";
+import { loadCurrentWorld } from "../content/snapshot.js";
+import { readGameRules } from "../content/rules.js";
+import { tuningOf } from "../content/tuning.js";
 
 /**
  * 「发放指定装备」统一接口（ADMIN_SPEC §14）。关卡掉落、首领奖励、后台补发（以后活动、邮件）都走这里。
  * - 装备不堆叠：count 件 = count 个 player_items 实例（is_stack = false，source = 本次 source）。
  * - 幂等：requestId 全局唯一；同一个 requestId 再调用不再发，返回第一次生成、现在还在的实例。
  *   同一个 requestId 但玩家 / 装备 / 件数 / source 不一样 → GRANT_REQUEST_CONFLICT（409）。
- * - 行囊满照放（允许超出容量），不自动分解。
+ * - 行囊满（第五批）：来源在配置概览「行囊满时不发装备的来源」里（默认 stage_drop / boss_first / boss_repeat）时，
+ *   放不下就整笔不发、不写流水、不占 requestId，返回空数组并带 skipped: "bag_full"、bagFull: true（不报错，离线 / 挂机同样）。
+ *   其他来源（admin_grant / mail / event）照发，可以超出容量。不再自动分解（分解由玩家自己选）。
  * - 每次发放写一行 equipment_grants 流水（后台操作日志按 source 筛）。
  * 必须在调用方的事务里调用（tx），和调用方的其他写入一起提交或回滚。
  */
@@ -38,12 +43,40 @@ export type GrantEquipmentInput = {
   reason?: string | null;
   /** 只有 admin_grant 用 */
   note?: string | null;
+  /**
+   * 行囊规则（容量已含 bagBonus；skipSources = 满包不发的来源）。游戏循环里调用时传进来，省得每件都重新读一次配置；
+   * 不传就按当前内容 + 玩家状态现算。
+   */
+  bag?: { capacity: number; skipSources: readonly string[] };
 };
 
 /** 生成的装备实例（player_items 行）。 */
 export type GrantedEquipment = typeof playerItems.$inferSelect;
 
-export async function grantEquipment(tx: Tx, input: GrantEquipmentInput): Promise<GrantedEquipment[]> {
+/** 返回值：发出的实例数组；行囊满被跳过时是空数组，并带 skipped / bagFull（boss-rewards.ts 的 readGrantResult 读这两个）。 */
+export type GrantEquipmentResult = GrantedEquipment[] & { skipped?: "bag_full"; bagFull?: boolean };
+
+/** 行囊里占格的行数（没穿戴的所有行：装备、每个堆叠各占一格；和 loop/bag.ts 的 bagUsedSlots 相同）。 */
+async function usedSlots(tx: Tx, playerId: string): Promise<number> {
+  const rows = await tx.select({ equippedSlot: playerItems.equippedSlot }).from(playerItems).where(eq(playerItems.playerId, playerId));
+  return rows.filter((row) => !row.equippedSlot).length;
+}
+
+/** 没传 bag 时现算：容量 = 规则 bagCapacity + 玩家 bagBonus，来源列表读配置概览。读不到内容就不拦（照发）。 */
+async function bagPolicy(tx: Tx, playerId: string): Promise<{ capacity: number; skipSources: readonly string[] } | null> {
+  const world = await loadCurrentWorld(tx);
+  if (!world) {
+    return null;
+  }
+  const [state] = await tx.select({ bagBonus: playerStates.bagBonus }).from(playerStates).where(eq(playerStates.playerId, playerId)).limit(1);
+  return { capacity: readGameRules(world).bagCapacity + (state?.bagBonus ?? 0), skipSources: tuningOf(world.globals.tuning).bagFullSkipSources };
+}
+
+function skippedBagFull(): GrantEquipmentResult {
+  return Object.assign([] as GrantedEquipment[], { skipped: "bag_full" as const, bagFull: true });
+}
+
+export async function grantEquipment(tx: Tx, input: GrantEquipmentInput): Promise<GrantEquipmentResult> {
   const requestId = typeof input.requestId === "string" ? input.requestId.trim() : "";
   if (!requestId) {
     throw new AppError("INVALID_INPUT", "缺少 requestId", { field: "requestId" });
@@ -78,6 +111,14 @@ export async function grantEquipment(tx: Tx, input: GrantEquipmentInput): Promis
   }
   if (item.kind !== "equipment" || !item.slot) {
     throw new AppError("NOT_EQUIPMENT", undefined, { field: "itemId", itemId: input.itemId });
+  }
+
+  // 行囊满：配置里的来源（默认关卡掉落 / 首领）放不下就不发。
+  const bag = input.bag ?? (await bagPolicy(tx, input.playerId));
+  if (bag && bag.skipSources.includes(input.source)) {
+    if ((await usedSlots(tx, input.playerId)) + input.count > bag.capacity) {
+      return skippedBagFull();
+    }
   }
 
   // 占 requestId（唯一索引）。并发的同号请求会在这里等前一个事务提交，然后什么都不插入 → 走重复请求分支。

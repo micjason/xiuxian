@@ -44,6 +44,20 @@ status: 占位
 notes: 月亮、山峰与云线构成；正式美术确定后替换
 ```
 
+## breakthrough_tribulation_2026_10_22
+
+```yaml
+id: breakthrough_tribulation_2026_10_22
+file: game/anim_q/breakthrough_tribulation/
+type_and_purpose: 突破成功「天雷渡劫」特效（约 10 秒）：场景、脚本、雷电/云/金光贴图、横幅绶带
+source: 2026-10-22 天雷渡劫交付包；部分贴图与 game/anim_q/breakthrough/ 同名文件字节相同
+license: 特效图按既有突破特效登记为项目程序生成、可商用；横幅字体不另存，改指 assets/fonts/ZCOOLQingKeHuangYou-Regular.subset.woff2（SIL OFL 1.1）。逐文件见 game/assets/art_q_license_list.csv
+acquired_at: 2026-10-22
+budget: PNG 合计约 1.4 MB（最大单张 fx_magic_circle 512×512，约 312 KB）；落雷约 220×520；节点约 40，CPUParticles2D，无 Spine
+status: 已接入突破成功路径
+notes: 未提交预览 mp4。未使用的 fx_pillar.png、fx_ripple.png 是旧图副本。交付自带的 8 MB 庆科黄油体 TTF 不入库。
+```
+
 ## 登记模板
 
 每项素材使用一个二级标题并复制以下字段：

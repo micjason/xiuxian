@@ -1,0 +1,417 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://anim_q/breakthrough_tribulation/tribulation_fx.gd" id="1_xclfv"]
+[ext_resource type="Texture2D" path="res://anim_q/breakthrough_tribulation/fx/fx_sky_glow.png" id="2_eenha"]
+[ext_resource type="Texture2D" path="res://anim_q/breakthrough_tribulation/fx/fx_storm_cloud.png" id="3_14axi"]
+[ext_resource type="Texture2D" path="res://anim_q/breakthrough_tribulation/fx/fx_magic_circle.png" id="4_3e8r1"]
+[ext_resource type="Texture2D" path="res://anim_q/breakthrough_tribulation/fx/fx_dot_cyan.png" id="5_dft6n"]
+[ext_resource type="Texture2D" path="res://anim_q/breakthrough_tribulation/fx/fx_bolt_0.png" id="6_v2jbq"]
+[ext_resource type="Texture2D" path="res://anim_q/breakthrough_tribulation/fx/fx_bolt_1.png" id="7_robs0"]
+[ext_resource type="Texture2D" path="res://anim_q/breakthrough_tribulation/fx/fx_bolt_2.png" id="8_qk0q0"]
+[ext_resource type="Texture2D" path="res://anim_q/breakthrough_tribulation/fx/fx_bolt_3.png" id="9_xg1ge"]
+[ext_resource type="Texture2D" path="res://anim_q/breakthrough_tribulation/fx/fx_bolt_4.png" id="10_jip4f"]
+[ext_resource type="Texture2D" path="res://anim_q/breakthrough_tribulation/fx/fx_bolt_purple.png" id="11_7p4qg"]
+[ext_resource type="Texture2D" path="res://anim_q/breakthrough_tribulation/fx/fx_bolt_final.png" id="12_fvt7r"]
+[ext_resource type="Texture2D" path="res://anim_q/breakthrough_tribulation/fx/fx_thunder_impact.png" id="13_8gbtr"]
+[ext_resource type="Texture2D" path="res://anim_q/breakthrough_tribulation/fx/fx_glow.png" id="14_2llq6"]
+[ext_resource type="Texture2D" path="res://anim_q/breakthrough_tribulation/fx/fx_sparkle_cyan.png" id="15_nqjp2"]
+[ext_resource type="Texture2D" path="res://anim_q/breakthrough_tribulation/fx/fx_particle_dot.png" id="16_7lggx"]
+[ext_resource type="Texture2D" path="res://anim_q/breakthrough_tribulation/fx/fx_gold_bloom.png" id="17_fl7k1"]
+[ext_resource type="Texture2D" path="res://anim_q/breakthrough_tribulation/fx/fx_pillar_gold.png" id="18_hp2yf"]
+[ext_resource type="Texture2D" path="res://anim_q/breakthrough_tribulation/fx/fx_sunburst.png" id="19_ci6hh"]
+[ext_resource type="Texture2D" path="res://anim_q/breakthrough_tribulation/fx/fx_ring.png" id="20_h2lng"]
+[ext_resource type="Texture2D" path="res://anim_q/breakthrough_tribulation/fx/fx_sparkle_gold.png" id="21_3c4yw"]
+[ext_resource type="Texture2D" path="res://anim_q/breakthrough_tribulation/fx/fx_banner_glow.png" id="22_44jxo"]
+[ext_resource type="Texture2D" path="res://anim_q/breakthrough_tribulation/art/ribbon_title_104.png" id="23_bi533"]
+[ext_resource type="FontFile" path="res://assets/fonts/ZCOOLQingKeHuangYou-Regular.subset.woff2" id="24_vh0s3"]
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_rvi68"]
+blend_mode = 1
+
+[sub_resource type="Curve" id="Curve_n5uvc"]
+_data = [Vector2(0, 0.3), 0.0, 0.0, 0, 0, Vector2(0.4, 1), 0.0, 0.0, 0, 0, Vector2(1, 0.15), 0.0, 0.0, 0, 0]
+point_count = 3
+
+[sub_resource type="Gradient" id="Gradient_b76mu"]
+offsets = PackedFloat32Array(0, 0.25, 1)
+colors = PackedColorArray(1, 1, 1, 0, 0.75, 0.85, 1, 1, 1, 1, 1, 0.2)
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_h6wf3"]
+blend_mode = 1
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_0r71v"]
+blend_mode = 1
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_qcgbe"]
+blend_mode = 1
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_76sf5"]
+blend_mode = 1
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_2t5po"]
+blend_mode = 1
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_3lsq3"]
+blend_mode = 1
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_p2v2o"]
+blend_mode = 1
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_t5jyb"]
+blend_mode = 1
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_gycpu"]
+blend_mode = 1
+
+[sub_resource type="Gradient" id="Gradient_lyiq2"]
+colors = PackedColorArray(1, 1, 1, 1, 1, 1, 1, 0)
+
+[sub_resource type="Gradient" id="Gradient_a3wcr"]
+colors = PackedColorArray(1, 1, 1, 1, 1, 1, 1, 0)
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_dg4qp"]
+blend_mode = 1
+
+[sub_resource type="Gradient" id="Gradient_fvhw3"]
+offsets = PackedFloat32Array(0, 0.55, 1)
+colors = PackedColorArray(1, 1, 1, 1, 1, 0.95, 0.7, 1, 1, 1, 1, 0)
+
+[sub_resource type="Gradient" id="Gradient_75l71"]
+offsets = PackedFloat32Array(0, 0.15, 1)
+colors = PackedColorArray(1, 1, 1, 0, 1, 0.95, 0.7, 1, 1, 1, 1, 0)
+
+[sub_resource type="LabelSettings" id="LabelSettings_atekl"]
+font = ExtResource("24_vh0s3")
+font_size = 76
+font_color = Color(1, 0.98, 0.88, 1)
+outline_size = 20
+outline_color = Color(0.41960785, 0.2901961, 0.22745098, 1)
+
+[node name="TribulationFx" type="Node2D" unique_id=853712905]
+script = ExtResource("1_xclfv")
+
+[node name="FxLayer" type="CanvasLayer" parent="." unique_id=535044208]
+layer = 50
+
+[node name="ScreenFlash" type="ColorRect" parent="FxLayer" unique_id=1109866535]
+offset_right = 1080.0
+offset_bottom = 2340.0
+mouse_filter = 2
+color = Color(1, 1, 1, 0)
+
+[node name="World" type="Node2D" parent="." unique_id=2140187381]
+
+[node name="Back" type="Node2D" parent="World" unique_id=1127422880]
+
+[node name="Dim" type="ColorRect" parent="World/Back" unique_id=1749102934]
+z_index = -20
+offset_left = -540.0
+offset_top = -892.0
+offset_right = 540.0
+offset_bottom = 1448.0
+mouse_filter = 2
+color = Color(0.05, 0.02, 0.12, 0)
+
+[node name="SkyGlow" type="Sprite2D" parent="World/Back" unique_id=1739609255]
+modulate = Color(0.45, 0.55, 1, 0)
+material = SubResource("CanvasItemMaterial_rvi68")
+position = Vector2(0, -420)
+scale = Vector2(3.2, 2.6)
+texture = ExtResource("2_eenha")
+
+[node name="Clouds" type="Node2D" parent="World/Back" unique_id=1587433811]
+position = Vector2(0, -360)
+
+[node name="C0" type="Sprite2D" parent="World/Back/Clouds" unique_id=2119494203]
+modulate = Color(1, 1, 1, 0)
+position = Vector2(-260, -60)
+scale = Vector2(1.45, 1.1)
+texture = ExtResource("3_14axi")
+metadata/home_x = -260.0
+
+[node name="C1" type="Sprite2D" parent="World/Back/Clouds" unique_id=1561863183]
+modulate = Color(1, 1, 1, 0)
+position = Vector2(20, -100)
+scale = Vector2(1.45, 1.1)
+texture = ExtResource("3_14axi")
+metadata/home_x = 20.0
+
+[node name="C2" type="Sprite2D" parent="World/Back/Clouds" unique_id=2116876515]
+modulate = Color(1, 1, 1, 0)
+position = Vector2(280, -40)
+scale = Vector2(1.45, 1.1)
+texture = ExtResource("3_14axi")
+metadata/home_x = 280.0
+
+[node name="C3" type="Sprite2D" parent="World/Back/Clouds" unique_id=234462499]
+modulate = Color(1, 1, 1, 0)
+position = Vector2(-100, 30)
+scale = Vector2(1.45, 1.1)
+texture = ExtResource("3_14axi")
+metadata/home_x = -100.0
+
+[node name="C4" type="Sprite2D" parent="World/Back/Clouds" unique_id=1849571059]
+modulate = Color(1, 1, 1, 0)
+position = Vector2(200, 40)
+scale = Vector2(1.45, 1.1)
+texture = ExtResource("3_14axi")
+metadata/home_x = 200.0
+
+[node name="MagicGround" type="Node2D" parent="World/Back" unique_id=529337626]
+position = Vector2(0, -62)
+scale = Vector2(1, 0.32)
+
+[node name="Circle" type="Sprite2D" parent="World/Back/MagicGround" unique_id=1765760117]
+modulate = Color(0.55, 0.7, 1, 0)
+scale = Vector2(1.5, 1.5)
+texture = ExtResource("4_3e8r1")
+
+[node name="QiGather" type="CPUParticles2D" parent="World/Back" unique_id=662803786]
+position = Vector2(0, -200)
+emitting = false
+amount = 28
+texture = ExtResource("5_dft6n")
+emission_shape = 6
+emission_ring_inner_radius = 280.0
+emission_ring_radius = 380.0
+gravity = Vector2(0, 0)
+radial_accel_min = -700.0
+radial_accel_max = -500.0
+scale_amount_min = 0.5
+scale_amount_curve = SubResource("Curve_n5uvc")
+color_ramp = SubResource("Gradient_b76mu")
+
+[node name="HeroSlot" type="Node2D" parent="World" unique_id=2004426202]
+
+[node name="Bolts" type="Node2D" parent="World" unique_id=1206824075]
+
+[node name="Bolt0" type="Sprite2D" parent="World/Bolts" unique_id=484844260]
+modulate = Color(1, 1, 1, 0)
+material = SubResource("CanvasItemMaterial_h6wf3")
+position = Vector2(0, -260)
+scale = Vector2(1.3, 1.3)
+texture = ExtResource("6_v2jbq")
+
+[node name="Bolt1" type="Sprite2D" parent="World/Bolts" unique_id=2024316800]
+modulate = Color(1, 1, 1, 0)
+material = SubResource("CanvasItemMaterial_0r71v")
+position = Vector2(0, -260)
+scale = Vector2(1.3, 1.3)
+texture = ExtResource("7_robs0")
+
+[node name="Bolt2" type="Sprite2D" parent="World/Bolts" unique_id=1038479211]
+modulate = Color(1, 1, 1, 0)
+material = SubResource("CanvasItemMaterial_qcgbe")
+position = Vector2(0, -260)
+scale = Vector2(1.3, 1.3)
+texture = ExtResource("8_qk0q0")
+
+[node name="Bolt3" type="Sprite2D" parent="World/Bolts" unique_id=2022480662]
+modulate = Color(1, 1, 1, 0)
+material = SubResource("CanvasItemMaterial_76sf5")
+position = Vector2(0, -260)
+scale = Vector2(1.3, 1.3)
+texture = ExtResource("9_xg1ge")
+
+[node name="Bolt4" type="Sprite2D" parent="World/Bolts" unique_id=2003299010]
+modulate = Color(1, 1, 1, 0)
+material = SubResource("CanvasItemMaterial_2t5po")
+position = Vector2(0, -260)
+scale = Vector2(1.3, 1.3)
+texture = ExtResource("10_jip4f")
+
+[node name="Bolt5" type="Sprite2D" parent="World/Bolts" unique_id=1449144618]
+modulate = Color(1, 1, 1, 0)
+material = SubResource("CanvasItemMaterial_3lsq3")
+position = Vector2(0, -260)
+scale = Vector2(1.3, 1.3)
+texture = ExtResource("11_7p4qg")
+
+[node name="Bolt6" type="Sprite2D" parent="World/Bolts" unique_id=1296152127]
+modulate = Color(1, 1, 1, 0)
+material = SubResource("CanvasItemMaterial_p2v2o")
+position = Vector2(0, -260)
+scale = Vector2(1.3, 1.3)
+texture = ExtResource("12_fvt7r")
+
+[node name="StrikeImpact" type="Sprite2D" parent="World" unique_id=1284100865]
+modulate = Color(1, 1, 1, 0)
+material = SubResource("CanvasItemMaterial_t5jyb")
+texture = ExtResource("13_8gbtr")
+
+[node name="StrikeGlow" type="Sprite2D" parent="World" unique_id=1895244205]
+modulate = Color(0.7, 0.85, 1, 0)
+material = SubResource("CanvasItemMaterial_gycpu")
+scale = Vector2(2, 2)
+texture = ExtResource("14_2llq6")
+
+[node name="Sparks" type="CPUParticles2D" parent="World" unique_id=1648591294]
+emitting = false
+amount = 22
+texture = ExtResource("15_nqjp2")
+lifetime = 0.55
+one_shot = true
+explosiveness = 0.95
+spread = 180.0
+gravity = Vector2(0, 400)
+initial_velocity_min = 180.0
+initial_velocity_max = 520.0
+damping_min = 200.0
+damping_max = 320.0
+scale_amount_min = 0.2
+scale_amount_max = 0.55
+color_ramp = SubResource("Gradient_lyiq2")
+
+[node name="Embers" type="CPUParticles2D" parent="World" unique_id=237395802]
+emitting = false
+amount = 18
+texture = ExtResource("16_7lggx")
+lifetime = 0.7
+one_shot = true
+explosiveness = 0.9
+spread = 180.0
+gravity = Vector2(0, 120)
+initial_velocity_min = 120.0
+initial_velocity_max = 360.0
+scale_amount_min = 0.4
+scale_amount_max = 1.1
+color = Color(0.7, 0.85, 1, 1)
+color_ramp = SubResource("Gradient_a3wcr")
+
+[node name="Front" type="Node2D" parent="World" unique_id=1479380887]
+
+[node name="HeroAura" type="Sprite2D" parent="World/Front" unique_id=955050830]
+modulate = Color(1, 0.9, 0.55, 0)
+position = Vector2(0, -200)
+scale = Vector2(1.6, 1.8)
+texture = ExtResource("17_fl7k1")
+
+[node name="PillarWide" type="Sprite2D" parent="World/Front" unique_id=279678531]
+modulate = Color(1, 0.92, 0.55, 0)
+position = Vector2(0, -40)
+scale = Vector2(1e-05, 1.15)
+texture = ExtResource("18_hp2yf")
+offset = Vector2(0, -320)
+
+[node name="Pillar" type="Sprite2D" parent="World/Front" unique_id=577847225]
+modulate = Color(1, 1, 1, 0)
+position = Vector2(0, -20)
+scale = Vector2(1e-05, 1.2)
+texture = ExtResource("18_hp2yf")
+offset = Vector2(0, -320)
+
+[node name="GoldBloom" type="Sprite2D" parent="World/Front" unique_id=1810359817]
+modulate = Color(1, 0.95, 0.7, 0)
+position = Vector2(0, -230)
+scale = Vector2(0.6, 0.6)
+texture = ExtResource("17_fl7k1")
+
+[node name="Flash" type="Sprite2D" parent="World/Front" unique_id=2030151132]
+modulate = Color(1, 1, 0.92, 0)
+material = SubResource("CanvasItemMaterial_dg4qp")
+position = Vector2(0, -230)
+texture = ExtResource("14_2llq6")
+
+[node name="Sunburst" type="Sprite2D" parent="World/Front" unique_id=1763320569]
+modulate = Color(1, 0.9, 0.55, 0)
+position = Vector2(0, -230)
+scale = Vector2(0.35, 0.35)
+texture = ExtResource("19_ci6hh")
+
+[node name="Ring1" type="Sprite2D" parent="World/Front" unique_id=7126758]
+modulate = Color(1, 0.88, 0.45, 0)
+position = Vector2(0, -230)
+scale = Vector2(0.12, 0.12)
+texture = ExtResource("20_h2lng")
+
+[node name="Ring2" type="Sprite2D" parent="World/Front" unique_id=952157263]
+modulate = Color(1, 0.88, 0.45, 0)
+position = Vector2(0, -230)
+scale = Vector2(0.12, 0.12)
+texture = ExtResource("20_h2lng")
+
+[node name="Ring3" type="Sprite2D" parent="World/Front" unique_id=1657602859]
+modulate = Color(1, 0.88, 0.45, 0)
+position = Vector2(0, -230)
+scale = Vector2(0.12, 0.12)
+texture = ExtResource("20_h2lng")
+
+[node name="Ring4" type="Sprite2D" parent="World/Front" unique_id=2104053142]
+modulate = Color(1, 0.88, 0.45, 0)
+position = Vector2(0, -230)
+scale = Vector2(0.12, 0.12)
+texture = ExtResource("20_h2lng")
+
+[node name="GoldBurst" type="CPUParticles2D" parent="World/Front" unique_id=627792867]
+position = Vector2(0, -230)
+emitting = false
+amount = 56
+texture = ExtResource("21_3c4yw")
+lifetime = 1.5
+one_shot = true
+explosiveness = 0.95
+spread = 180.0
+gravity = Vector2(0, 180)
+initial_velocity_min = 360.0
+initial_velocity_max = 920.0
+angular_velocity_min = -200.0
+angular_velocity_max = 200.0
+damping_min = 160.0
+damping_max = 280.0
+scale_amount_min = 0.28
+scale_amount_max = 0.75
+color_ramp = SubResource("Gradient_fvhw3")
+
+[node name="RisingGold" type="CPUParticles2D" parent="World/Front" unique_id=1637949963]
+position = Vector2(0, -60)
+emitting = false
+amount = 32
+texture = ExtResource("21_3c4yw")
+lifetime = 1.8
+emission_shape = 1
+emission_sphere_radius = 100.0
+direction = Vector2(0, -1)
+spread = 28.0
+gravity = Vector2(0, -80)
+initial_velocity_min = 90.0
+initial_velocity_max = 200.0
+scale_amount_min = 0.22
+scale_amount_max = 0.55
+color_ramp = SubResource("Gradient_75l71")
+
+[node name="Title" type="Node2D" parent="World/Front" unique_id=1032464930]
+position = Vector2(0, 42)
+scale = Vector2(1e-05, 1e-05)
+
+[node name="BannerGlow" type="Sprite2D" parent="World/Front/Title" unique_id=1559878951]
+modulate = Color(1, 0.9, 0.5, 0)
+z_index = -1
+scale = Vector2(1.7, 1.4)
+texture = ExtResource("22_44jxo")
+
+[node name="Box" type="Control" parent="World/Front/Title" unique_id=115597113]
+layout_mode = 3
+anchors_preset = 0
+offset_left = -310.0
+offset_top = -61.0
+offset_right = 310.0
+offset_bottom = 61.0
+
+[node name="Ribbon" type="NinePatchRect" parent="World/Front/Title/Box" unique_id=1337242850]
+layout_mode = 0
+offset_right = 620.0
+offset_bottom = 122.0
+texture = ExtResource("23_bi533")
+patch_margin_left = 100
+patch_margin_top = 60
+patch_margin_right = 100
+patch_margin_bottom = 60
+
+[node name="Text" type="Label" parent="World/Front/Title/Box" unique_id=601942886]
+layout_mode = 0
+offset_right = 620.0
+offset_bottom = 104.0
+text = "突破成功"
+label_settings = SubResource("LabelSettings_atekl")
+horizontal_alignment = 1
+vertical_alignment = 1

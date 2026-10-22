@@ -25,7 +25,7 @@ func _static_hero_rects(root: Node, out: Array[Node] = []) -> Array[Node]:
 
 
 func test_all_five_animation_scenes_are_installed() -> void:
-	for path in [QFx.HERO, QFx.BREAK_ORB, QFx.BUTTON_BOUNCE, QFx.POPUP, QFx.FLOAT_NUMBER, QFx.DROP_FLY, QFx.BAG_PULSE, QFx.BREAKTHROUGH, QFx.CHEST]:
+	for path in [QFx.HERO, QFx.BREAK_ORB, QFx.BUTTON_BOUNCE, QFx.POPUP, QFx.FLOAT_NUMBER, QFx.DROP_FLY, QFx.BAG_PULSE, QFx.BREAKTHROUGH, QFx.TRIBULATION, QFx.CHEST]:
 		assert_true(QFx.has(path), path)
 
 
@@ -173,9 +173,17 @@ func test_breakthrough_plays_charge_then_success_then_the_result_popup() -> void
 	await get_tree().process_frame
 	assert_eq(QFx.player(page.break_fx()).current_animation, "charge")
 	var success := scene.get("_success_popup") as BreakthroughSuccess
-	assert_false(success.visible, "特效播完前不出结算")
-	await wait_until(func() -> bool: return success.visible, 8.0)
+	assert_false(success.visible, "天雷播完前不出结算")
+	# 天雷 duration 10s；不再额外等旧 charge 的 2s
+	await wait_until(func() -> bool: return success.visible, 14.0)
 	assert_true(success.visible)
+	var trib := page.tribulation_fx()
+	assert_not_null(trib, "成功路径挂了天雷")
+	if trib != null:
+		assert_eq(trib.banner_text, "突破成功")
+		assert_false(trib.is_playing())
+		assert_false(trib.banner_text.contains("暴击"))
+	assert_ne(QFx.player(page.break_fx()).current_animation, "success")
 	var title := success.title_label()
 	assert_not_null(title)
 	assert_eq(title.text, "突破成功")

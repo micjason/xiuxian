@@ -11,7 +11,11 @@ const POPUP := DIR + "ui_fx/ui_popup.tscn"
 const FLOAT_NUMBER := DIR + "float_drop/float_number.tscn"
 const DROP_FLY := DIR + "float_drop/drop_fly.tscn"
 const BAG_PULSE := DIR + "float_drop/bag_pulse.tscn"
+## 短特效：舞台待机 / 充能，以及结算弹窗上的循环装饰。正式突破成功路径不播它的 success。
 const BREAKTHROUGH := DIR + "breakthrough/breakthrough_fx.tscn"
+## 天雷渡劫。服务端确认突破成功后播放，时长见 TRIBULATION_SECONDS（与 TribulationFx.DURATION 一致）。
+const TRIBULATION := DIR + "breakthrough_tribulation/tribulation_fx.tscn"
+const TRIBULATION_SECONDS := 10.0
 const CHEST := DIR + "chest_open/chest_open.tscn"
 
 ## 通用按钮按下 / 松开回弹（照 ui_button_bounce 的 press / release 关键帧：0.08s 缩到 0.93；松开 0.12s 到 1.07 → 0.98 → 1）。

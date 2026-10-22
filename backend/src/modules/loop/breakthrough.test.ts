@@ -14,7 +14,7 @@ import {
 import { withTransaction } from "../../db/tx.js";
 import { withDb } from "../../test/db.js";
 import { registerPlayer } from "../auth/service.js";
-import { enhanceRulesFromInput, saveEnhanceRules, STARTING_ENHANCE_RULES, type EnhanceRules } from "../content/enhance.js";
+import { DEFAULT_REALM_YIELD_MULT, enhanceRulesFromInput, saveEnhanceRules, STARTING_ENHANCE_RULES, type EnhanceRules } from "../content/enhance.js";
 import { buildScheme } from "../content/numeric-scheme.js";
 import { loadCurrentWorld } from "../content/snapshot.js";
 import { breakthroughItem, challengeStage, decomposeItem, enhanceItem, readState } from "./actions.js";
@@ -51,7 +51,7 @@ const RULES: EnhanceRules = {
     slotMultBp: {},
     slotOverrides: {},
     refundPerLevel: 10,
-    realmYieldMult: { qi: 0.25, foundation: 0.45, core: 1 },
+    realmYieldMult: { ...DEFAULT_REALM_YIELD_MULT },
     costBase: 10,
     costGrowth: 2,
     costTable: {},
@@ -60,7 +60,7 @@ const RULES: EnhanceRules = {
 };
 
 async function seed(db: TestDb, rules: EnhanceRules | null = RULES) {
-  await db.insert(contentRealms).values({ slug: "1", displayName: "凡人", sortOrder: 1, nextRealmSlug: null, baseAttack: 10, baseInterval: 1.5, gainPerTick: 1 });
+  await db.insert(contentRealms).values({ slug: "1", displayName: "凡人", majorName: "金丹", majorKey: "core", sortOrder: 0, nextRealmSlug: null, baseAttack: 10, baseInterval: 1.5, gainPerTick: 1 });
   await db.insert(contentGlobals).values({
     id: 1,
     offlineCapSeconds: 3600,

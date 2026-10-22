@@ -16,6 +16,7 @@ export type ContentSnapshot = {
     bagCapacity?: number;
     powerWeights?: { attack: number; defense: number; hp: number; speed: number };
     combat?: {
+      baseInterval?: number;
       minInterval?: number;
       challengeCooldownSeconds?: number;
       timeLimitSeconds?: number;

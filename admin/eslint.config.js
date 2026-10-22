@@ -36,6 +36,8 @@ export default tseslint.config(
         BeforeUnloadEvent: "readonly",
         setTimeout: "readonly",
         clearTimeout: "readonly",
+        requestAnimationFrame: "readonly",
+        cancelAnimationFrame: "readonly",
         URLSearchParams: "readonly",
         fetch: "readonly",
         window: "readonly",

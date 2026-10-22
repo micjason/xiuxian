@@ -7,6 +7,7 @@ const rules: GameRules = {
   offlineCapSeconds: 36000,
   bagCapacity: 20,
   powerWeights: { attack: 4.7, defense: 1.6, hp: 0.95, speed: 2.6 },
+  baseInterval: 1.5,
   minInterval: 0.5,
   challengeCooldownSeconds: 0,
   timeLimitSeconds: 20,

@@ -9,14 +9,15 @@
 ## 改动
 
 - `backend/src/modules/content/realm-factory.ts`：24 行出厂表、可编辑字段、金色 diff。
-- `backend/src/modules/content/realm-seed.ts`：缺行补出厂数字。已有行的数字和下一境不动。
+- `backend/src/modules/content/realm-seed.ts`：缺行补出厂数字。已有行的修为、属性和关卡不动。打开境界列表时把 `nextRealmSlug` 接成炼气一层到大乘三层。
+- 精粹 `realmYieldMult` 覆盖八个大境界键。元婴及以后出厂倍率是 1。
 - `backend/src/modules/content/draft-routes.ts`：`GET /admin/draft/realms` 只返回这 24 行。`PUT` 只接受白名单。去掉 `POST /admin/draft/realms`、`POST /admin/draft/realms/major`、`GET .../major-preview`、`DELETE`。
 - `admin/src/views/config/RealmsView.vue`：列表列序为名称、本境每秒修为、升下层所需修为、速度、攻击、防御、气血、预计时长、已调/完整。横幅为「固定炼气→大乘 · 每天按 6 小时有效挂机估时长 · 改过标金」。抽屉只渲染可改字段；大乘三层不显示突破修为；只有各大境三层显示突破前通关。
 - 删掉 `realm-major.ts`（新建大境界预填）。
 
 ## 还没做
 
-- 打开页面不会把已经存在的金丹三层改成指向元婴。新补上的 15 层彼此按顺序接好，但现有原型链的尽头仍是金丹三层。要把线上进度接到大乘，需要单独的具名修复，这次不做。
 - 出厂表没有给元婴及以后配关卡。这些层的突破关卡出厂为空。
-- 保存数字时仍会同步公式装备。五阶新大境界在第一次保存后会生成各自的公式装备。
+- 元婴及以后的精粹倍率出厂先与金丹同为 1。后台配置概览可以改，这次没有另做数值曲线。
+- 保存数字时仍会同步公式装备。五阶新大境界在第一次保存后会生成各自的公式装备。这次没有改装备生成。
 - 库里如果曾经改过境界名称，列表按固定表显示名称，这次不会把库里的旧名称改回去。

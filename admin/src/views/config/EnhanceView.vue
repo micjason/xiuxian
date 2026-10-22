@@ -256,7 +256,7 @@ type Material = { itemSlug: string; count: number | null };
 type Node = { level: number | null; materials: Material[] };
 type QualityRule = { cap: number | null; costMult: number | null; decomposeExp: number | null; expGrowth?: number | null; statGrowthBp?: number | null; breakthroughs: Node[] };
 type SlotKey = "weapon" | "clothes" | "helmet" | "gloves" | "shoes" | "accessory";
-type RealmMajor = "qi" | "foundation" | "core";
+type RealmMajor = "qi" | "foundation" | "core" | "nascent" | "spirit" | "void" | "unity" | "mahayana";
 type Essence = {
   itemSlug: string;
   yields: Record<QualityKey, number | null>;
@@ -269,7 +269,7 @@ type Essence = {
   costTable: Partial<Record<QualityKey, (number | null)[]>>;
   migrationRatioBp: number | null;
 };
-const DEFAULT_REALM_MULT: Record<RealmMajor, number> = { qi: 0.25, foundation: 0.45, core: 1 };
+const DEFAULT_REALM_MULT: Record<RealmMajor, number> = { qi: 0.25, foundation: 0.45, core: 1, nascent: 1, spirit: 1, void: 1, unity: 1, mahayana: 1 };
 type Rules = { expBase: number | null; expGrowth: number | null; statGrowthBp: number | null; refundBp: number | null; qualities: Record<QualityKey, QualityRule>; essence: Essence | null };
 type StartingMaterial = { slug: string; displayName: string };
 type Migration = { migratedPlayers: number; migratedEnhanceExp: number; migratedEssence: number; pendingPlayers: number };

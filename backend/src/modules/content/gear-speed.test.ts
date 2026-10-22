@@ -61,6 +61,7 @@ describe("gear speed factor in the rules", () => {
     defenseWeight: 1.6,
     hpWeight: 0.95,
     speedWeight: 2.6,
+    baseInterval: 1.5,
     minInterval: 0.5,
     challengeCooldownSeconds: 0,
     timeLimitSeconds: 45,

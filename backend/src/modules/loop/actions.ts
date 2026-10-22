@@ -14,7 +14,7 @@ import { ensureSkillBook } from "../content/ops-content.js";
 import { loadCurrentWorld } from "../content/snapshot.js";
 import { rollDropTable } from "../content/roll-drops.js";
 import { bookOverflowCultivation, rollSchemeReward } from "../content/scheme-drops.js";
-import { enhanceCap, enhancedStat, essenceCost, essenceRules, essenceYield, pendingBreakNode, qualityRule, readEnhanceRules } from "../content/enhance.js";
+import { enhanceCap, enhancedStat, essenceCost, essenceRules, pendingBreakNode, qualityRule, readEnhanceRules } from "../content/enhance.js";
 import type { ContentSnapshot } from "../content/validate.js";
 import { settleTicks } from "../progress/settle.js";
 import { AppError } from "../../shared/errors.js";

@@ -85,7 +85,7 @@
                   <FormRow label="消耗增长倍数" help="每升一级，精粹消耗乘以这个倍数。按级单独指定在「装备强化」页。"><NumInput v-model="enhance.essence.costGrowth" unit="倍" :precision="2" :min="1" /></FormRow>
                 </template>
               </div>
-              <FormRow v-if="enhance.essence" label="大境界倍率" help="一口价是金丹档（×1）。炼气 / 筑基乘这个系数。产出 = round(一口价 × 倍率 × 部位)；返还每级 = round(返还基准 × 倍率)。" class="row-gap">
+              <FormRow v-if="enhance.essence" label="大境界倍率" help="一口价是金丹档（×1）。炼气 0.25、筑基 0.45，元婴到大乘出厂为 1，可改。产出 = round(一口价 × 倍率 × 部位)；返还每级 = round(返还基准 × 倍率)。" class="row-gap">
                 <div class="cells">
                   <div v-for="major in REALM_MAJORS" :key="major.key" class="cell">
                     <span class="q-label">{{ major.name }}</span>
@@ -261,7 +261,7 @@ type Tuning = {
   bossRules: BossRules;
 };
 type EnhanceQuality = { cap: number; costMult: number; decomposeExp: number; breakthroughs: { level: number; materials: { itemSlug: string; count: number }[] }[] };
-type RealmMajor = "qi" | "foundation" | "core";
+type RealmMajor = "qi" | "foundation" | "core" | "nascent" | "spirit" | "void" | "unity" | "mahayana";
 type Essence = { itemSlug: string; yields: Record<Quality, number>; refundPerLevel: number; realmYieldMult?: Partial<Record<RealmMajor, number>>; costBase: number; costGrowth: number; costTable?: Partial<Record<Quality, (number | null)[]>>; migrationRatioBp: number; [key: string]: unknown };
 type Enhance = { expBase: number; expGrowth: number; statGrowthBp: number; refundBp: number; qualities: Record<string, EnhanceQuality | undefined>; essence?: Essence };
 type StageRow = { id: string; displayName: string; realmCode: number; customCount: number; override: { chanceBp?: number; qualityWeights?: Record<string, number> } | null; effective: { chanceBp: number; qualityWeights: Record<string, number> } };
@@ -292,8 +292,13 @@ const REALM_MAJORS: { key: RealmMajor; name: string }[] = [
   { key: "qi", name: "炼气" },
   { key: "foundation", name: "筑基" },
   { key: "core", name: "金丹" },
+  { key: "nascent", name: "元婴" },
+  { key: "spirit", name: "化神" },
+  { key: "void", name: "炼虚" },
+  { key: "unity", name: "合体" },
+  { key: "mahayana", name: "大乘" },
 ];
-const DEFAULT_REALM_MULT: Record<RealmMajor, number> = { qi: 0.25, foundation: 0.45, core: 1 };
+const DEFAULT_REALM_MULT: Record<RealmMajor, number> = { qi: 0.25, foundation: 0.45, core: 1, nascent: 1, spirit: 1, void: 1, unity: 1, mahayana: 1 };
 const RANKS: { key: Rank; name: string }[] = [
   { key: "yellow", name: "黄阶" },
   { key: "xuan", name: "玄阶" },

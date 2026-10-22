@@ -52,6 +52,7 @@ function world(patch: Partial<ContentSnapshot> = {}): ContentSnapshot {
       bagCapacity: 20,
       powerWeights: { attack: 4.7, defense: 1.6, hp: 0.95, speed: 2.6 },
       combat: {
+        baseInterval: 1.5,
         minInterval: 0.5,
         challengeCooldownSeconds: 0,
         timeLimitSeconds: 20,
@@ -93,9 +94,9 @@ describe("stage recommended power", () => {
     expect(stagePowerErrors(world({ stages: [stage("stage_a", "后山", 1, null)] }))).toEqual([]);
   });
 
-  it("reports a realm without a base interval", () => {
+  it("prices a stage from the global interval when the realm has none", () => {
     const errors = stagePowerErrors(world({ realms: [realm("qi", "炼气", 1, undefined), realm("zhuji", "筑基", 2, 1.5)] }));
-    expect(errors).toEqual([{ slug: "stage_a", message: "请先在后台填写境界「炼气」的基础出手间隔" }]);
+    expect(errors).toEqual([]);
   });
 
   it("reports a stage whose realm is gone", () => {

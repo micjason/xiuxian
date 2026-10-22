@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { contentGlobals, contentRealms } from "../../db/schema.js";
 import type { Db } from "../operations/record.js";
-import { REALM_FACTORY } from "./realm-factory.js";
+import { canonicalNextSlug, REALM_FACTORY } from "./realm-factory.js";
 
 async function globalBaseInterval(db: Db): Promise<number> {
   const [row] = await db.select().from(contentGlobals).where(eq(contentGlobals.id, 1)).limit(1);
@@ -10,7 +10,8 @@ async function globalBaseInterval(db: Db): Promise<number> {
 }
 
 /**
- * 缺的固定境界补上出厂数字。已有的行不改数字、不改下一境。
+ * 缺的固定境界补上出厂数字。已有行的修为、属性和突破关卡不动。
+ * 这 24 行的下一境改成固定链（炼气一层 → … → 大乘三层），只写 nextRealmSlug。
  * 编号被别的境界占用时跳过，列表仍显示这一行，但保存会说明写不进去。
  */
 export async function ensureFactoryRealms(db: Db, now: Date, adminId: string | null): Promise<void> {
@@ -46,5 +47,14 @@ export async function ensureFactoryRealms(db: Db, now: Date, adminId: string | n
     });
     bySlug.add(seed.slug);
     occupied.add(seed.code);
+  }
+  const present = await db.select({ slug: contentRealms.slug, nextRealmSlug: contentRealms.nextRealmSlug }).from(contentRealms);
+  const slugs = new Set(present.map((row) => row.slug));
+  for (const row of present) {
+    const next = canonicalNextSlug(row.slug);
+    if (next === undefined) continue;
+    if (next !== null && !slugs.has(next)) continue;
+    if (row.nextRealmSlug === next) continue;
+    await db.update(contentRealms).set({ nextRealmSlug: next, updatedAt: now, updatedBy: adminId }).where(eq(contentRealms.slug, row.slug));
   }
 }

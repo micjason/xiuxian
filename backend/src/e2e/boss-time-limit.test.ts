@@ -17,6 +17,7 @@ const RULES: RulesInput = {
   defenseWeight: 0.8,
   hpWeight: 0.04,
   speedWeight: 1.5,
+  baseInterval: 1.5,
   minInterval: 0.7,
   challengeCooldownSeconds: 0,
   defenseConstant: 1,

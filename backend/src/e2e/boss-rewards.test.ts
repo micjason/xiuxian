@@ -1,8 +1,7 @@
 import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { buildApp } from "../app.js";
-import { contentGlobals, contentRealms, contentStages, equipmentGrants, playerItems, playerStageProgress, playerStates, players } from "../db/schema.js";
-import { simulateBossFight } from "../modules/combat/battle.js";
+import { contentGlobals, contentStages, equipmentGrants, playerItems, playerStageProgress, playerStates, players } from "../db/schema.js";
 import { DEFAULT_BOSS_RULES, type BossRules } from "../modules/content/boss-rules.js";
 import { applyPrototypeV12 } from "../modules/content/prototype-v12.js";
 import { withDb } from "../test/db.js";
@@ -248,73 +247,31 @@ describe("boss repeat rewards: one global daily boss challenge total (Beijing ti
   });
 });
 
-describe("boss ultimate: fully automatic (第四批)", () => {
-  async function tuned(db: TestDb, name: string) {
-    const ctx = await boot(db, name);
-    const state = await ctx.state();
-    const fighter = { attack: state.attack, defense: state.defense, hp: state.hp, interval: state.interval };
-    const ult = { multBp: 40000, cooldownSeconds: 20, firstCooldownSeconds: 8, autoCastWindowSeconds: 0 };
-    expect(state.ult).toMatchObject({ name: "剑诀·破军", multBp: 40000, cooldownSeconds: 20, firstCooldownSeconds: 8, autoCastWindowSeconds: 0 });
-    const config = { timeLimitSeconds: 45, defenseConstant: 1 };
-    // 找到“带大招（全自动）刚好能赢、不带大招会超时”的最大气血
-    const [boss0] = (await db.select().from(contentStages).where(eq(contentStages.slug, "lianqi_3")))[0]!.bosses;
-    let low = 1;
-    let high = 1_000_000;
-    while (low < high) {
-      const mid = Math.ceil((low + high) / 2);
-      const result = simulateBossFight(fighter, { attack: 1, defense: boss0!.defense, hp: mid, interval: 1.5 }, config, ult, []);
-      if (result.win) low = mid;
-      else high = mid - 1;
-    }
-    const hp = low;
-    expect(simulateBossFight(fighter, { attack: 1, defense: boss0!.defense, hp, interval: 1.5 }, config, null, []).win).toBe(false);
-    await db.update(contentStages).set({ bosses: [{ ...boss0!, hp, attack: 1 }] }).where(eq(contentStages.slug, "lianqi_3"));
-    return { ...ctx, fighter, ult, config, hp, boss: { attack: 1, defense: boss0!.defense, hp, interval: 1.5 } };
-  }
-
-  it("with the realm's ultimate the boss that times out without one can be beaten; the response lists the casts", async () => {
+describe("realm ult is not part of the fight", () => {
+  it("player state has no realm ultimate", async () => {
     await withDb(async (db) => {
-      const { app, challenge, fighter, ult, config, boss } = await tuned(db, "ult_a");
-      const response = (await challenge("lianqi_3")).json();
-      expect(response.battle.win).toBe(true);
-      expect(response.battle.ultCasts.length).toBeGreaterThanOrEqual(1);
-      expect(response.battle.ultCasts[0]).toMatchObject({ t: 8, readyAt: 8, manual: false });
-      expect(response.battle.ultCasts[0].damage).toBeGreaterThan(0);
-      expect(response.battle.log.some((event: { kind?: string }) => event.kind === "ult")).toBe(true);
-      expect(response.battle.durationSeconds).toBe(simulateBossFight(fighter, boss, config, ult, []).durationSeconds);
+      const { app, state } = await boot(db, "ult_a");
+      expect((await state()).ult).toBeNull();
       await app.close();
     });
   });
 
-  it("taps / waits sent by old clients are ignored: every cast is automatic (ready + auto-cast window, default 0 = at once)", async () => {
+  it("a challenge does not cast a realm ultimate, and old tap payloads are ignored", async () => {
     await withDb(async (db) => {
-      const { app, challenge } = await tuned(db, "ult_b");
+      const { app, challenge } = await boot(db, "ult_b");
       for (const payload of [{ ultTaps: [8.5] }, { ultTaps: [8] }, { ultTaps: "hacked" }, { ultWaits: [0.25] }, {}]) {
         const response = await challenge("lianqi_3", payload);
         expect(response.statusCode).toBe(200);
-        expect(response.json().battle.ultCasts[0]).toMatchObject({ t: 8, readyAt: 8, manual: false });
+        expect(response.json().battle.ultCasts).toEqual([]);
       }
       await app.close();
     });
   });
 
-  it("a realm without an ultimate (multiplier 0) fights exactly like before: the same boss is lost on timeout", async () => {
+  it("筑基 also has no realm ultimate", async () => {
     await withDb(async (db) => {
-      const { app, challenge } = await tuned(db, "ult_c");
-      await db.update(contentRealms).set({ ultDamageMultBp: 0 });
-      const response = (await challenge("lianqi_3", { ultTaps: [8] })).json();
-      expect(response.battle.win).toBe(false);
-      expect(response.battle.reason).toBe("timeout");
-      expect(response.battle.ultCasts).toEqual([]);
-      await app.close();
-    });
-  });
-
-  it("the ultimate stats follow the realm: 筑基 uses ×5 / 18 s", async () => {
-    await withDb(async (db) => {
-      const { app, state, playerId } = await boot(db, "ult_d", "zhuji_2");
-      expect(playerId).toBeTruthy();
-      expect((await state()).ult).toMatchObject({ multBp: 50000, cooldownSeconds: 18, firstCooldownSeconds: 8 });
+      const { app, state } = await boot(db, "ult_d", "zhuji_2");
+      expect((await state()).ult).toBeNull();
       await app.close();
     });
   });

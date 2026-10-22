@@ -60,8 +60,22 @@ describe("realm table: fixed 24 rows and major-breakthrough boss gate (admin API
       expect(list[23]).toMatchObject({ code: 24, displayName: "大乘三层", showBreakthroughCost: false, showGate: true, etaLabel: "约 55 天", breakthroughCost: 0 });
       const created = await db.select().from(contentRealms).where(eq(contentRealms.slug, "yuanying_1"));
       expect(created[0]).toMatchObject({ tickSeconds: 1, gainPerTick: 27, nextRealmSlug: "yuanying_2", ultDamageMultBp: 0, baseInterval: 1.5 });
+      const [lianqi1] = await db.select().from(contentRealms).where(eq(contentRealms.slug, "lianqi_1"));
+      expect(lianqi1).toMatchObject({ nextRealmSlug: "lianqi_2", breakthroughCost: 60, gainPerTick: 1 });
       const [jindan3] = await db.select().from(contentRealms).where(eq(contentRealms.slug, "jindan_3"));
-      expect(jindan3?.nextRealmSlug).toBeNull();
+      expect(jindan3).toMatchObject({ nextRealmSlug: "yuanying_1", breakthroughCost: 0, gainPerTick: 9, requiredStageSlug: null });
+      const stored = await db.select({ slug: contentRealms.slug, nextRealmSlug: contentRealms.nextRealmSlug }).from(contentRealms);
+      const nextOf = new Map(stored.map((row) => [row.slug, row.nextRealmSlug]));
+      const chain = ["lianqi_1", "lianqi_2", "lianqi_3", "zhuji_1", "zhuji_2", "zhuji_3", "jindan_1", "jindan_2", "jindan_3", "yuanying_1", "yuanying_2", "yuanying_3", "huashen_1", "huashen_2", "huashen_3", "lianxu_1", "lianxu_2", "lianxu_3", "heti_1", "heti_2", "heti_3", "dacheng_1", "dacheng_2", "dacheng_3"];
+      for (let index = 0; index < chain.length; index += 1) {
+        expect(nextOf.get(chain[index]!), `${chain[index]} next`).toBe(chain[index + 1] ?? null);
+      }
+      const world = await loadDraftSnapshot(db);
+      const worldNext = new Map(world.realms.map((row) => [row.slug, row.nextRealmSlug]));
+      for (let index = 0; index < chain.length; index += 1) {
+        expect(worldNext.get(chain[index]!), `snapshot ${chain[index]} next`).toBe(chain[index + 1] ?? null);
+      }
+      expect(worldNext.get("mortal")).toBeNull();
       for (const [method, url] of [
         ["POST", "/admin/draft/realms/major"],
         ["POST", "/admin/draft/realms"],

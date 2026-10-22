@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { REALM_FACTORY, changedFieldKeys, editableKeys, listFixedRealms, showsBreakthroughCost, showsGate, type RealmNumbers } from "./realm-factory.js";
+import { DEFAULT_REALM_YIELD_MULT, REALM_YIELD_MAJORS, resolveRealmYieldMajor } from "./enhance.js";
+import { REALM_FACTORY, canonicalNextSlug, changedFieldKeys, editableKeys, listFixedRealms, showsBreakthroughCost, showsGate, type RealmNumbers } from "./realm-factory.js";
 
 /** 照抄 realm_defaults §4.4：每秒修为、突破消耗、攻击、防御、气血、速度、预计时长。 */
 const TABLE: [number, string, number, number, number, number, number, number, string][] = [
@@ -51,6 +52,14 @@ describe("realm factory seed (§17)", () => {
       "zhuji_1", "zhuji_2", "zhuji_3",
       "jindan_1", "jindan_2", "jindan_3",
     ]);
+    for (let index = 0; index < REALM_FACTORY.length; index += 1) {
+      const row = REALM_FACTORY[index]!;
+      expect(canonicalNextSlug(row.slug)).toBe(REALM_FACTORY[index + 1]?.slug ?? null);
+      expect(resolveRealmYieldMajor({ majorKey: row.majorKey, majorName: row.majorName })).toBe(row.majorKey);
+    }
+    expect(canonicalNextSlug("mortal")).toBeUndefined();
+    expect([...REALM_YIELD_MAJORS]).toEqual([...new Set(REALM_FACTORY.map((row) => row.majorKey))]);
+    for (const key of REALM_YIELD_MAJORS) expect(DEFAULT_REALM_YIELD_MULT[key]).toBeGreaterThan(0);
     expect(REALM_FACTORY.slice(0, 9).map((row) => row.majorKey)).toEqual([
       "qi", "qi", "qi",
       "foundation", "foundation", "foundation",

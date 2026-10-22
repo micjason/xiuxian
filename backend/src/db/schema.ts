@@ -1,6 +1,7 @@
 import type { OptionalRuleValues, StageMonster, MonsterDropOverride, BossRewardEntry, BossRepeatReward, DesignatedDrop, SetTier } from "../modules/content/combat-types.js";
 import type { Tuning } from "../modules/content/tuning.js";
 import type { BossRuleOverride, BossStatKey } from "../modules/content/boss-rules.js";
+import type { RealmYieldMajor } from "../modules/content/enhance.js";
 import { sql } from "drizzle-orm";
 import {
   bigint,
@@ -249,7 +250,7 @@ export const contentGlobals = pgTable("content_globals", {
       slotMultBp: Partial<Record<string, number>>;
       slotOverrides: Partial<Record<string, Partial<Record<string, number>>>>;
       refundPerLevel: number;
-      realmYieldMult?: Partial<Record<"qi" | "foundation" | "core", number>>;
+      realmYieldMult: Record<RealmYieldMajor, number>;
       costBase: number;
       costGrowth: number;
       costTable: Partial<Record<string, number[]>>;

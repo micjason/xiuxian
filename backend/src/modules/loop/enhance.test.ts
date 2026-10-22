@@ -117,7 +117,9 @@ describe("enhance loop", () => {
       await db.insert(contentRealms).values({
         slug: "1",
         displayName: "凡人",
-        sortOrder: 1,
+        majorName: "金丹",
+        majorKey: "core",
+        sortOrder: 0,
         nextRealmSlug: null,
         baseAttack: 10,
         baseInterval: 1.5,

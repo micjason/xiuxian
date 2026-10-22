@@ -62,12 +62,24 @@ export type EnhanceRules = {
 export const ESSENCE_SLOTS = ["weapon", "clothes", "helmet", "gloves", "shoes", "accessory"] as const;
 export type EssenceSlot = (typeof ESSENCE_SLOTS)[number];
 
-/** 大境界倍率键（与 realms.majorKey / PROTOTYPE_MAJORS.key 一致）。 */
-export const REALM_YIELD_MAJORS = ["qi", "foundation", "core"] as const;
+/** 大境界倍率键，与固定境界表 majorKey 一致（炼气 → 大乘）。 */
+export const REALM_YIELD_MAJORS = ["qi", "foundation", "core", "nascent", "spirit", "void", "unity", "mahayana"] as const;
 export type RealmYieldMajor = (typeof REALM_YIELD_MAJORS)[number];
 
-/** 默认大境界倍率：一口价 yields 是金丹档（×1）；炼气 / 筑基打折。见 balance_research/essence_realm_tiers.md。 */
-export const DEFAULT_REALM_YIELD_MULT: Record<RealmYieldMajor, number> = { qi: 0.25, foundation: 0.45, core: 1.0 };
+/**
+ * 默认大境界倍率。一口价 yields 是金丹档（×1）；炼气 / 筑基打折。
+ * 元婴及以后还没有单独的精粹曲线，出厂先与金丹同为 1，后台可改。缺键仍用这张表。
+ */
+export const DEFAULT_REALM_YIELD_MULT: Record<RealmYieldMajor, number> = {
+  qi: 0.25,
+  foundation: 0.45,
+  core: 1.0,
+  nascent: 1.0,
+  spirit: 1.0,
+  void: 1.0,
+  unity: 1.0,
+  mahayana: 1.0,
+};
 
 export type EssenceRules = {
   /** 精粹对应的物品编号（可堆叠材料），默认 refine_essence。 */
@@ -378,16 +390,21 @@ export function realmYieldMultFromInput(input: unknown): Record<RealmYieldMajor,
   return out;
 }
 
-/** 大境界中文名 → 倍率键（realms.majorKey 实际是 major1/major4/…，不能直接当倍率键）。 */
+/** 大境界中文名 → 倍率键。固定表用语义键（qi / nascent / …），旧数据也可能是 major1。 */
 export const MAJOR_NAME_TO_YIELD_KEY: Record<string, RealmYieldMajor> = {
   炼气: "qi",
   筑基: "foundation",
   金丹: "core",
+  元婴: "nascent",
+  化神: "spirit",
+  炼虚: "void",
+  合体: "unity",
+  大乘: "mahayana",
 };
 
 /**
- * 把装备所在境界解析成倍率键 qi / foundation / core。
- * 优先 majorName（炼气/筑基/金丹）；其次 majorKey 已是语义键；否则 null（调用方按炼气兜底）。
+ * 把装备所在境界解析成倍率键。
+ * 优先 majorName；其次 majorKey 已是语义键；否则 null（调用方按炼气兜底）。
  */
 export function resolveRealmYieldMajor(
   realm: { majorKey?: string | null; majorName?: string | null } | null | undefined,
@@ -403,7 +420,7 @@ export function resolveRealmYieldMajor(
 
 /**
  * 取装备大境界对应的精粹倍率。
- * major 可以是语义键（qi/foundation/core），或直接把 resolveRealmYieldMajor 的结果传进来。
+ * major 可以是语义键（qi … mahayana），或直接把 resolveRealmYieldMajor 的结果传进来。
  * 缺 / 未知 → 按炼气并打日志（决策稿 §5）。
  */
 export function realmYieldMultOf(essence: EssenceRules, major: string | null | undefined): number {
@@ -595,7 +612,7 @@ export function minSafeMigrationRatioBp(rules: EnhanceRules): number {
 export async function readEnhanceView(db: Db) {
   const [row] = await db.select().from(contentGlobals).where(eq(contentGlobals.id, 1)).limit(1);
   const rules = row?.enhance ?? null;
-  let minSafeRatioBp: number | null = null;
+  let minSafeRatioBp: number | null;
   try {
     minSafeRatioBp = rules?.essence ? minSafeMigrationRatioBp(enhanceRulesFromInput(rules, { requireAll: false })) : null;
   } catch {

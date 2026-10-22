@@ -159,6 +159,13 @@ export const REALM_FACTORY: readonly RealmFactoryRow[] = MAJORS.flatMap((major, 
 );
 
 const BY_CODE = new Map(REALM_FACTORY.map((row) => [row.code, row]));
+const NEXT_BY_SLUG = new Map<string, string | null>(REALM_FACTORY.map((row, index) => [row.slug, REALM_FACTORY[index + 1]?.slug ?? null]));
+
+/** 固定表里的下一境。不是这 24 行时返回 undefined。大乘三层返回 null。 */
+export function canonicalNextSlug(slug: string): string | null | undefined {
+  if (!NEXT_BY_SLUG.has(slug)) return undefined;
+  return NEXT_BY_SLUG.get(slug) ?? null;
+}
 
 export function factoryByCode(code: number): RealmFactoryRow | undefined {
   return BY_CODE.get(code);

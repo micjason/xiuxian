@@ -86,12 +86,13 @@ export async function api<T>(path: string, options: ApiInit = {}): Promise<T> {
     const body = (await response.json().catch(() => ({}))) as { reason?: string; error?: { code?: string; message?: string; details?: unknown } };
     if (response.status === 409 && body.error?.code === "STALE_REVISION" && guard) {
       const details = body.error.details as ConflictDetails;
-      let mine: unknown = null;
-      try {
-        mine = typeof init.body === "string" ? JSON.parse(init.body) : null;
-      } catch {
-        mine = null;
-      }
+      const mine = ((): unknown => {
+        try {
+          return typeof init.body === "string" ? JSON.parse(init.body) : null;
+        } catch {
+          return null;
+        }
+      })();
       const choice = await askConflict({ title: guard.title, details, mine, latest: guard.latest });
       if (choice === "overwrite") {
         // 仍然覆盖 = 带上服务器现在的版本号再发一次（期间又有人保存会再弹一次）

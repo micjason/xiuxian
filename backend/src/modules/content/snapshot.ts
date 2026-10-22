@@ -24,10 +24,19 @@ import { QUALITY_TABLE, SLOT_KEYS, SLOT_TABLE } from "./catalog.js";
 import { skillSlotRulesOf } from "./skill-slots.js";
 import { expandBossStats, resolveBossRules } from "./boss-rules.js";
 import { chiefStageOf, withDerivedNextStage } from "./stage-order.js";
+import { canonicalNextSlug } from "./realm-factory.js";
+
+/** 固定 24 行用出厂下一境；下一行还没写入时仍按排序接，避免指向不存在的境界。 */
+function nextRealmOf(slug: string, sortedNext: string | null, present: Set<string>): string | null {
+  const canonical = canonicalNextSlug(slug);
+  if (canonical !== undefined && (canonical === null || present.has(canonical))) return canonical;
+  return sortedNext;
+}
 
 export async function loadDraftSnapshot(db: Db | Tx): Promise<ContentSnapshot> {
   const [globals] = await db.select().from(contentGlobals).limit(1);
   const realms = await db.select().from(contentRealms);
+  const realmSlugs = new Set(realms.map((row) => row.slug));
   const items = await db.select().from(contentItems);
   const skills = await db.select().from(contentSkills);
   const tables = await db.select().from(contentDropTables);
@@ -63,7 +72,7 @@ export async function loadDraftSnapshot(db: Db | Tx): Promise<ContentSnapshot> {
       slug: row.slug,
       displayName: row.displayName,
       sortOrder: row.sortOrder,
-      nextRealmSlug: ordered[index + 1]?.slug ?? null,
+      nextRealmSlug: nextRealmOf(row.slug, ordered[index + 1]?.slug ?? null, realmSlugs),
       tickSeconds: row.tickSeconds,
       gainPerTick: row.gainPerTick,
       breakthroughCost: row.breakthroughCost,

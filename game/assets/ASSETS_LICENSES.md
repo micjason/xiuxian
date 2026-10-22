@@ -141,6 +141,19 @@ OFL 允许商用、嵌入游戏、修改和再发布，不得单独出售字体�
 | B. 代码绘制 | `anim_q/*/fx/*`（光点、光环、光柱、法阵、水波纹、星光等，`anim_out_q/_work/gen_tex.py` 程序生成）；`ui_fx/art/*`、`breakthrough/art/*`、`float_drop/art/tab_bag_normal.png`（与 `art/q/ui/` 同名切图相同）；`ui_fx/art/orb_*.png`（突破圆钮拆层，美术 `anim_layers/orb/`，`orb_text` 含烘焙字形） | 程序生成 / HTML 渲染，无第三方素材 | 原创，可商用 | 无（可让美术换成同名同尺寸图） |
 | 自有代码 | `anim_q/**/*.tscn`、`float_number.gd`、`drop_fly.gd`、`number_roll.gd` | 动画交付生成 | 自有 | 无 |
 
+### 8.2 天雷渡劫（2026-10-22，`game/anim_q/breakthrough_tribulation/`）
+
+突破成功演出换成约 10 秒的天雷渡劫。短特效 `anim_q/breakthrough/` 仍留给舞台待机、充能和结算弹窗装饰。逐文件见 `art_q_license_list.csv` 里 `anim_q/breakthrough_tribulation/` 开头的行。
+
+| 类别 | 文件 | 制作方式 | 授权状态 | 要做的事 |
+|---|---|---|---|---|
+| B. 与旧突破相同 | `fx/fx_dot_cyan.png`、`fx_glow.png`、`fx_magic_circle.png`、`fx_pillar.png`、`fx_ring.png`、`fx_ripple.png`、`fx_sparkle_cyan.png`、`fx_sparkle_gold.png`、`art/ribbon_title_104.png` | 与 `anim_q/breakthrough/` 同名文件字节相同 | 原创，可商用 | 无 |
+| B. 本包新增特效图 | 落雷、乌云、天光、金光柱、日芒、冲击、横幅光等（约 1.4 MB PNG） | 交付说明为程序生成；包内没有逐张生成脚本 | 按同批特效图登记为原创 | 若事后确认含 AI 原图，发布前补生成记录或换掉 |
+| 字体 | 场景不另存 TTF，横幅改指 `assets/fonts/ZCOOLQingKeHuangYou-Regular.subset.woff2` | 同第 8 节字体 | SIL OFL 1.1 | 无 |
+| 自有代码 | `tribulation_fx.tscn`、`tribulation_fx.gd`、`README.md` | 动画交付 | 自有 | 无 |
+
+`fx/fx_pillar.png`、`fx/fx_ripple.png` 在本场景里没有被引用，只是交付目录里的旧图副本，留着是为了整包对照。
+
 ## 如何替换
 
 1. 同名文件覆盖 `game/assets/art/...`；尺寸可以不同，九宫格边距改 `art_lib.gd` 里的 `NINE`。

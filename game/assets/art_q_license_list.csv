@@ -470,3 +470,30 @@ ui/icon_refine_essence.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 
 ui/icon_refine_essence@2x.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（白底抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,Grok Bot 图像生成原图 /workspace/q_src/icon_refine_essence.jpg（2026-10-21 生成）→ _src/r0121/cut_essence.py（白底抠图+去外光+描边+缩放）→ art_out_q/ui/icon_refine_essence@2x.png
 ui/ring_set_current.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/set_build.py
 items/refine_essence.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（白底抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,Grok Bot 图像生成原图 /workspace/q_src/icon_refine_essence.jpg（2026-10-21 生成）→ _src/r0121/cut_essence.py（白底抠图+去外光+描边+缩放）→ art_out_q/icons/item_refine_essence.png
+anim_q/breakthrough_tribulation/README.md,自有代码（天雷渡劫交付场景/脚本/说明，2026-10-22）,自有,无,breakthrough_tribulation/README.md（横幅字体改指 assets/fonts/ZCOOLQingKeHuangYou-Regular.subset.woff2）
+anim_q/breakthrough_tribulation/art/ribbon_title_104.png,B. 代码生成（与 anim_q/breakthrough 下同名文件字节相同，程序生成占位特效/切图）,自有（本项目代码生成）,无（可让美术替换为同名同尺寸图）,anim_q/breakthrough 同名文件的副本，天雷场景复用
+anim_q/breakthrough_tribulation/fx/fx_banner_glow.png,B. 代码生成（天雷渡劫交付的程序特效图：雷电/云/光晕/粒子；交付未附逐张生成脚本）,自有（本项目代码生成）,无（可让美术替换为同名同尺寸图）,2026-10-22 breakthrough_tribulation 交付包
+anim_q/breakthrough_tribulation/fx/fx_bolt_0.png,B. 代码生成（天雷渡劫交付的程序特效图：雷电/云/光晕/粒子；交付未附逐张生成脚本）,自有（本项目代码生成）,无（可让美术替换为同名同尺寸图）,2026-10-22 breakthrough_tribulation 交付包
+anim_q/breakthrough_tribulation/fx/fx_bolt_1.png,B. 代码生成（天雷渡劫交付的程序特效图：雷电/云/光晕/粒子；交付未附逐张生成脚本）,自有（本项目代码生成）,无（可让美术替换为同名同尺寸图）,2026-10-22 breakthrough_tribulation 交付包
+anim_q/breakthrough_tribulation/fx/fx_bolt_2.png,B. 代码生成（天雷渡劫交付的程序特效图：雷电/云/光晕/粒子；交付未附逐张生成脚本）,自有（本项目代码生成）,无（可让美术替换为同名同尺寸图）,2026-10-22 breakthrough_tribulation 交付包
+anim_q/breakthrough_tribulation/fx/fx_bolt_3.png,B. 代码生成（天雷渡劫交付的程序特效图：雷电/云/光晕/粒子；交付未附逐张生成脚本）,自有（本项目代码生成）,无（可让美术替换为同名同尺寸图）,2026-10-22 breakthrough_tribulation 交付包
+anim_q/breakthrough_tribulation/fx/fx_bolt_4.png,B. 代码生成（天雷渡劫交付的程序特效图：雷电/云/光晕/粒子；交付未附逐张生成脚本）,自有（本项目代码生成）,无（可让美术替换为同名同尺寸图）,2026-10-22 breakthrough_tribulation 交付包
+anim_q/breakthrough_tribulation/fx/fx_bolt_final.png,B. 代码生成（天雷渡劫交付的程序特效图：雷电/云/光晕/粒子；交付未附逐张生成脚本）,自有（本项目代码生成）,无（可让美术替换为同名同尺寸图）,2026-10-22 breakthrough_tribulation 交付包
+anim_q/breakthrough_tribulation/fx/fx_bolt_purple.png,B. 代码生成（天雷渡劫交付的程序特效图：雷电/云/光晕/粒子；交付未附逐张生成脚本）,自有（本项目代码生成）,无（可让美术替换为同名同尺寸图）,2026-10-22 breakthrough_tribulation 交付包
+anim_q/breakthrough_tribulation/fx/fx_dot_cyan.png,B. 代码生成（与 anim_q/breakthrough 下同名文件字节相同，程序生成占位特效/切图）,自有（本项目代码生成）,无（可让美术替换为同名同尺寸图）,anim_q/breakthrough 同名文件的副本，天雷场景复用
+anim_q/breakthrough_tribulation/fx/fx_glow.png,B. 代码生成（与 anim_q/breakthrough 下同名文件字节相同，程序生成占位特效/切图）,自有（本项目代码生成）,无（可让美术替换为同名同尺寸图）,anim_q/breakthrough 同名文件的副本，天雷场景复用
+anim_q/breakthrough_tribulation/fx/fx_gold_bloom.png,B. 代码生成（天雷渡劫交付的程序特效图：雷电/云/光晕/粒子；交付未附逐张生成脚本）,自有（本项目代码生成）,无（可让美术替换为同名同尺寸图）,2026-10-22 breakthrough_tribulation 交付包
+anim_q/breakthrough_tribulation/fx/fx_magic_circle.png,B. 代码生成（与 anim_q/breakthrough 下同名文件字节相同，程序生成占位特效/切图）,自有（本项目代码生成）,无（可让美术替换为同名同尺寸图）,anim_q/breakthrough 同名文件的副本，天雷场景复用
+anim_q/breakthrough_tribulation/fx/fx_particle_dot.png,B. 代码生成（天雷渡劫交付的程序特效图：雷电/云/光晕/粒子；交付未附逐张生成脚本）,自有（本项目代码生成）,无（可让美术替换为同名同尺寸图）,2026-10-22 breakthrough_tribulation 交付包
+anim_q/breakthrough_tribulation/fx/fx_pillar.png,B. 代码生成（与 anim_q/breakthrough 下同名文件字节相同，程序生成占位特效/切图）,自有（本项目代码生成）,无（可让美术替换为同名同尺寸图）,anim_q/breakthrough 同名文件的副本，天雷场景复用
+anim_q/breakthrough_tribulation/fx/fx_pillar_gold.png,B. 代码生成（天雷渡劫交付的程序特效图：雷电/云/光晕/粒子；交付未附逐张生成脚本）,自有（本项目代码生成）,无（可让美术替换为同名同尺寸图）,2026-10-22 breakthrough_tribulation 交付包
+anim_q/breakthrough_tribulation/fx/fx_ring.png,B. 代码生成（与 anim_q/breakthrough 下同名文件字节相同，程序生成占位特效/切图）,自有（本项目代码生成）,无（可让美术替换为同名同尺寸图）,anim_q/breakthrough 同名文件的副本，天雷场景复用
+anim_q/breakthrough_tribulation/fx/fx_ripple.png,B. 代码生成（与 anim_q/breakthrough 下同名文件字节相同，程序生成占位特效/切图）,自有（本项目代码生成）,无（可让美术替换为同名同尺寸图）,anim_q/breakthrough 同名文件的副本，天雷场景复用
+anim_q/breakthrough_tribulation/fx/fx_sky_glow.png,B. 代码生成（天雷渡劫交付的程序特效图：雷电/云/光晕/粒子；交付未附逐张生成脚本）,自有（本项目代码生成）,无（可让美术替换为同名同尺寸图）,2026-10-22 breakthrough_tribulation 交付包
+anim_q/breakthrough_tribulation/fx/fx_sparkle_cyan.png,B. 代码生成（与 anim_q/breakthrough 下同名文件字节相同，程序生成占位特效/切图）,自有（本项目代码生成）,无（可让美术替换为同名同尺寸图）,anim_q/breakthrough 同名文件的副本，天雷场景复用
+anim_q/breakthrough_tribulation/fx/fx_sparkle_gold.png,B. 代码生成（与 anim_q/breakthrough 下同名文件字节相同，程序生成占位特效/切图）,自有（本项目代码生成）,无（可让美术替换为同名同尺寸图）,anim_q/breakthrough 同名文件的副本，天雷场景复用
+anim_q/breakthrough_tribulation/fx/fx_storm_cloud.png,B. 代码生成（天雷渡劫交付的程序特效图：雷电/云/光晕/粒子；交付未附逐张生成脚本）,自有（本项目代码生成）,无（可让美术替换为同名同尺寸图）,2026-10-22 breakthrough_tribulation 交付包
+anim_q/breakthrough_tribulation/fx/fx_sunburst.png,B. 代码生成（天雷渡劫交付的程序特效图：雷电/云/光晕/粒子；交付未附逐张生成脚本）,自有（本项目代码生成）,无（可让美术替换为同名同尺寸图）,2026-10-22 breakthrough_tribulation 交付包
+anim_q/breakthrough_tribulation/fx/fx_thunder_impact.png,B. 代码生成（天雷渡劫交付的程序特效图：雷电/云/光晕/粒子；交付未附逐张生成脚本）,自有（本项目代码生成）,无（可让美术替换为同名同尺寸图）,2026-10-22 breakthrough_tribulation 交付包
+anim_q/breakthrough_tribulation/tribulation_fx.gd,自有代码（天雷渡劫交付场景/脚本/说明，2026-10-22）,自有,无,breakthrough_tribulation/tribulation_fx.gd（横幅字体改指 assets/fonts/ZCOOLQingKeHuangYou-Regular.subset.woff2）
+anim_q/breakthrough_tribulation/tribulation_fx.tscn,自有代码（天雷渡劫交付场景/脚本/说明，2026-10-22）,自有,无,breakthrough_tribulation/tribulation_fx.tscn（横幅字体改指 assets/fonts/ZCOOLQingKeHuangYou-Regular.subset.woff2）

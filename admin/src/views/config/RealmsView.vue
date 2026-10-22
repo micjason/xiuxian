@@ -1,133 +1,212 @@
 <template>
   <div>
-    <PageHeader title="境界" desc="境界决定突破顺序、挂机修为产出，以及到达后永久增加的属性。点击一行在右侧抽屉编辑；新建按「大境界」一次生成三层。" />
-    <div class="tip">修炼间隔固定 1 秒 · 基础出手间隔全局 {{ combat.baseInterval }} 秒（最短 {{ combat.minInterval }} 秒，速度基数 {{ combat.speedBase }}）· 境界不再自带大招</div>
-    <ConfigListPage
-      :schema="realmSchema"
-      :rows="rows"
-      :loading="loading"
-      :error="error"
-      id-key="code"
-      entity-name="境界"
-      :search-keys="['displayName', 'majorName', 'code']"
-      search-placeholder="搜索境界名称、大境界、编号"
-      :filters="filters"
-      :creatable="false"
-      deletable
-      selectable
-      danger-delete
-      :hidden-keys="['majorKey', 'tickSeconds', 'majorName']"
-      :options-map="{ requiredStageId: stageOptions }"
-      :save-fn="save"
-      :remove-fn="remove"
-      :delete-hint="deleteHint"
-      :title-of="titleOf"
-      export-name="境界"
-      @reload="reload"
-    >
-      <template #toolbar>
-        <el-button type="primary" @click="openMajorCreate">新建大境界</el-button>
-      </template>
-      <template #cell-speed="{ row, value }">
-        <span class="speed-cell">
-          <strong>{{ value ?? 0 }}</strong>
-          <span class="muted">折算出手约 {{ intervalText(Number((row as Realm).speed) || 0) }} 秒</span>
-        </span>
-      </template>
-      <template #extra-columns>
-        <el-table-column label="每秒修为" width="120" align="right">
+    <PageHeader title="境界" desc="固定 8 大境界 × 3 层 = 24 行；只调数字；改过标金「已调」。无新建 / 删除 / 导入导出。" />
+    <div class="banner" role="note">
+      <i class="mark" aria-hidden="true">i</i>
+      <p>
+        <strong>固定炼气→大乘 · 每天按 6 小时有效挂机估时长 · <span class="gold">改过标金</span></strong>
+        <span class="more">不可新增 / 删除 / 导入导出 · 预计时长：出厂目标，不随改数变 · 本境修为非累计前境</span>
+      </p>
+    </div>
+
+    <div class="filter-bar">
+      <el-input v-model="query" class="search" clearable placeholder="搜索境界" :prefix-icon="Search" />
+      <el-select v-model="majorFilter" clearable placeholder="全部大境界" class="filter">
+        <el-option v-for="name in majorOptions" :key="name" :label="name" :value="name" />
+      </el-select>
+      <el-button v-if="filtering" link type="primary" @click="clearFilters">清除筛选</el-button>
+      <span v-if="rows.length > 0" class="count">共 {{ majorCount }} 个大境界 · {{ filtered.length }} 层 · 已调 {{ tunedLayers }} 层</span>
+    </div>
+
+    <DataState :loading="loading" :error="error" :has-data="rows.length > 0" empty-text="境界表还没有加载出来" @retry="reload">
+      <el-table
+        :data="tableRows"
+        row-key="key"
+        class="grid"
+        :row-class-name="rowClass"
+        :span-method="spanOf"
+        @row-click="onRow"
+      >
+        <el-table-column label="名称" min-width="148">
           <template #default="{ row }">
-            <span v-if="perSecondOf(row as Realm) == null" class="muted">—</span>
-            <span v-else class="per-sec" title="本境数值，非累计前境：每次获得 ÷ 修炼间隔（固定 1 秒）">{{ perSecondOf(row as Realm) }}</span>
+            <template v-if="row.kind === 'group'">
+              <strong class="group-name">{{ row.majorName }}</strong>
+              <span class="group-fixed">固定 3 层 · 不可增删</span>
+            </template>
+            <span v-else>{{ row.displayName }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="状态" width="120">
+        <el-table-column label="本境每秒修为" min-width="148" align="right">
+          <template #header>
+            <span>本境每秒修为</span>
+            <HelpTip title="本境每秒修为" text="挂机时这一境每秒获得的修为。只算本境，不把前面境界加进来。修炼间隔固定 1 秒。" meta="本境绝对值 · 出厂见各行" />
+          </template>
           <template #default="{ row }">
-            <el-tag v-for="tag in statusOf(row as Realm)" :key="tag" type="warning" effect="light" size="small" class="tag">{{ tag }}</el-tag>
-            <el-tag v-if="statusOf(row as Realm).length === 0" type="success" effect="light" size="small">完整</el-tag>
+            <span v-if="row.kind === 'layer'" class="num" :class="{ gold: changed(row, 'gainPerTick') }">{{ formatNum(row.gainPerTick) }}</span>
           </template>
         </el-table-column>
-      </template>
-      <template #form="{ form, mode, showAllErrors, original }">
-        <SchemaForm
-          :model-value="form"
-          :schema="realmSchema"
-          :original="mode === 'edit' ? original : undefined"
-          :mode="mode"
-          :show-all-errors="showAllErrors"
-          :options-map="{ requiredStageId: stageOptions }"
-          :hidden-keys="['code', 'majorKey', 'tickSeconds']"
-        />
-        <div class="per-sec-box">
-          <FormRow label="每秒修为（只读）" help="每次获得修为 ÷ 1 秒。本境自己的数，不是前面境界加起来。">
-            <NumInput :model-value="formPerSecond(form)" unit="点/秒" :precision="2" readonly />
-          </FormRow>
-          <FormRow label="折算出手（只读）" help="max(最短间隔, 基准出手间隔 × 速度基数 ÷ (速度基数 + 本行境界速度))。只按境界速度，不含装备速度。">
-            <NumInput :model-value="Number(intervalText(Number(form.speed) || 0))" unit="秒" :precision="2" readonly />
-          </FormRow>
-        </div>
-      </template>
-    </ConfigListPage>
+        <el-table-column label="升下层所需修为" min-width="148" align="right">
+          <template #default="{ row }">
+            <span v-if="row.kind === 'layer'" class="num" :class="{ gold: changed(row, 'breakthroughCost') }">{{ formatNum(row.breakthroughCost) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="速度" width="96" align="right">
+          <template #header>
+            <span>速度</span>
+            <HelpTip title="速度" text="到达本层增加的速度，会和更低境界加在一起。出手间隔只在配置概览里用全局基准间隔折算，这一页不列出手。" />
+          </template>
+          <template #default="{ row }">
+            <span v-if="row.kind === 'layer'" class="num" :class="{ gold: changed(row, 'speed') }">{{ formatNum(row.speed) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="攻击" width="88" align="right">
+          <template #default="{ row }">
+            <span v-if="row.kind === 'layer'" class="num" :class="{ gold: changed(row, 'attack') }">{{ formatNum(row.attack) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="防御" width="88" align="right">
+          <template #default="{ row }">
+            <span v-if="row.kind === 'layer'" class="num" :class="{ gold: changed(row, 'defense') }">{{ formatNum(row.defense) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="气血" width="96" align="right">
+          <template #default="{ row }">
+            <span v-if="row.kind === 'layer'" class="num" :class="{ gold: changed(row, 'hp') }">{{ formatNum(row.hp) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="预计时长" min-width="120">
+          <template #header>
+            <span>预计时长</span>
+            <HelpTip title="预计时长" text="出厂目标，不随改数变。按每天 6 小时有效挂机折算，写死在出厂表里。改修为或突破消耗只会把数字标金，不会重算这一列。" meta="约 30 分 … 约 55 天" />
+          </template>
+          <template #default="{ row }">
+            <span v-if="row.kind === 'layer'">{{ row.etaLabel }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="已调/完整" width="168">
+          <template #default="{ row }">
+            <div v-if="row.kind === 'layer'" class="status-cell">
+              <CustomTag :kind="row.tuned ? 'custom' : 'default'">{{ row.tuned ? "已调" : "完整" }}</CustomTag>
+              <el-button link type="primary" @click.stop="openEdit(row)">编辑</el-button>
+            </div>
+          </template>
+        </el-table-column>
+        <template #empty>
+          <el-empty description="没有符合条件的境界">
+            <el-button v-if="filtering" link type="primary" @click="clearFilters">清除筛选</el-button>
+          </el-empty>
+        </template>
+      </el-table>
+    </DataState>
 
     <EditDrawer
-      v-model="majorOpen"
-      title="新建大境界"
-      subtitle="自动生成一层 / 二层 / 三层；沿用上一大境界 ×3（速度 +10），可改"
-      :dirty="majorDirty"
-      :saving="majorSaving"
-      :error-count="majorError ? 1 : 0"
-      save-text="创建三层"
-      @save="saveMajor"
+      v-model="drawer"
+      :title="editing ? `${editing.displayName} · 调整数字` : '调整数字'"
+      :subtitle="drawerSubtitle"
+      :dirty="dirty"
+      :change-count="changeCount"
+      :saving="saving"
+      :status-text="statusText"
+      :size="800"
+      @save="save"
     >
-      <FormRow label="大境界名称" help="例如「元婴」。保存后生成「元婴一层 / 二层 / 三层」，编号自动接在末尾。">
-        <el-input v-model="majorName" maxlength="20" placeholder="例如：元婴" @input="onMajorNameInput" />
-      </FormRow>
-      <p class="rule">预填规则：上一大境界同层 · 修为/攻/防/血/突破消耗 ×3 · 速度 = 同层 +10；没有上一境时用炼气种子。折算出手只按境界速度。基础出手间隔用全局 {{ combat.baseInterval }} 秒，不按层填。</p>
-      <el-table :data="majorLayers" size="small" class="major-grid" border>
-        <el-table-column prop="displayName" label="名称" min-width="110" />
-        <el-table-column label="每次修为" width="100">
-          <template #default="{ row }"><el-input-number v-model="row.gainPerTick" :min="0" :step="1" controls-position="right" class="num" /></template>
-        </el-table-column>
-        <el-table-column label="突破消耗" width="110">
-          <template #default="{ row }"><el-input-number v-model="row.breakthroughCost" :min="0" :step="1" controls-position="right" class="num" /></template>
-        </el-table-column>
-        <el-table-column label="攻击" width="90">
-          <template #default="{ row }"><el-input-number v-model="row.attack" :min="0" :step="1" controls-position="right" class="num" /></template>
-        </el-table-column>
-        <el-table-column label="防御" width="90">
-          <template #default="{ row }"><el-input-number v-model="row.defense" :min="0" :step="1" controls-position="right" class="num" /></template>
-        </el-table-column>
-        <el-table-column label="气血" width="90">
-          <template #default="{ row }"><el-input-number v-model="row.hp" :min="0" :step="1" controls-position="right" class="num" /></template>
-        </el-table-column>
-        <el-table-column label="速度" width="90">
-          <template #default="{ row }"><el-input-number v-model="row.speed" :min="0" :step="1" controls-position="right" class="num" /></template>
-        </el-table-column>
-      </el-table>
-      <p v-if="majorError" class="err">{{ majorError }}</p>
+      <template #title-tags>
+        <CustomTag v-if="editing" :kind="factoryDiffCount > 0 ? 'custom' : 'default'">{{ factoryDiffCount > 0 ? "已调" : "完整" }}</CustomTag>
+      </template>
+      <template v-if="editing">
+        <div class="eta">
+          <div class="eta-label">预计时长（出厂目标，不随改数变 · 只读）</div>
+          <div class="eta-value">{{ editing.etaLabel }}</div>
+          <p>出厂目标，不随改数变；按每天 6 小时有效挂机折算。改数字只标金，不会按当前修为重算本列。</p>
+        </div>
+
+        <SectionCard title="修炼与突破" desc="只显示可改数字">
+          <template #extra>
+            <CustomTag :kind="cultivateTuned ? 'custom' : 'default'">{{ cultivateTuned ? "已调" : "完整" }}</CustomTag>
+          </template>
+          <div class="two-col">
+            <FormRow label="本境每秒修为" required help="挂机时这一境每秒获得的修为。只算本境，不把前面境界加进来。修炼间隔固定 1 秒。">
+              <NumInput v-model="form.gainPerTick" :width="160" unit="修为" :precision="0" :custom="tuned('gainPerTick')" />
+              <template #note>
+                <span>本境生效，非累计前境 · 修炼间隔固定 1 秒</span>
+                <span v-if="tuned('gainPerTick')" class="tuned-note">出厂 {{ formatNum(editing.factory.gainPerTick) }} · 已调 <el-button link type="primary" @click="restore('gainPerTick')">恢复出厂</el-button></span>
+              </template>
+            </FormRow>
+            <FormRow v-if="editing.showBreakthroughCost" label="升到下一层所需修为" required>
+              <NumInput v-model="form.breakthroughCost" :width="160" unit="修为" :precision="0" :custom="tuned('breakthroughCost')" />
+              <template #note>
+                <span>从本层突破到下一层要消耗的修为</span>
+                <span v-if="tuned('breakthroughCost')" class="tuned-note">出厂 {{ formatNum(editing.factory.breakthroughCost) }} · 已调 <el-button link type="primary" @click="restore('breakthroughCost')">恢复出厂</el-button></span>
+              </template>
+            </FormRow>
+          </div>
+        </SectionCard>
+
+        <SectionCard title="境界属性" desc="到达本层增加量。入库为差分加算，与现逻辑一致">
+          <template #extra>
+            <CustomTag :kind="statsTuned ? 'custom' : 'default'">{{ statsTuned ? "已调" : "完整" }}</CustomTag>
+          </template>
+          <div class="two-col">
+            <FormRow v-for="stat in statFields" :key="stat.key" :label="stat.label" required :help="stat.help">
+              <NumInput v-model="form[stat.key]" :width="120" :precision="0" :custom="tuned(stat.key)" />
+              <template v-if="tuned(stat.key)" #note>
+                <span class="tuned-note">出厂 {{ formatNum(editing.factory[stat.key]) }} · 已调 <el-button link type="primary" @click="restore(stat.key)">恢复出厂</el-button></span>
+              </template>
+            </FormRow>
+          </div>
+        </SectionCard>
+
+        <SectionCard v-if="editing.showGate" title="突破门槛" desc="仅各大境三层需要；一二层不显示">
+          <template #extra>
+            <CustomTag :kind="gateTuned ? 'custom' : 'default'">{{ gateTuned ? "已调" : "完整" }}</CustomTag>
+          </template>
+          <FormRow label="突破前通关关卡">
+            <el-select v-model="form.requiredStageId" class="w320" :class="{ 'gate-custom': gateTuned }" placeholder="不需要">
+              <el-option v-for="option in stageOptions" :key="option.value || 'none'" :label="option.label" :value="option.value" />
+            </el-select>
+            <template #note>
+              <span>突破到下一大境一层前，需先通关本境章末首领关</span>
+              <span v-if="gateTuned" class="tuned-note">出厂 {{ editing.factory.requiredStageId ? "已配关卡" : "不需要" }} · 已调 <el-button link type="primary" @click="restoreGate">恢复出厂</el-button></span>
+              <span v-if="stageError" class="err">关卡列表加载失败：{{ stageError }}</span>
+            </template>
+          </FormRow>
+        </SectionCard>
+        <p v-if="formError" class="err">{{ formError }}</p>
+      </template>
+      <template #footer-extra>
+        <el-button type="primary" :disabled="!editing || factoryDiffCount === 0 || saving" @click="restoreAll">整行恢复出厂</el-button>
+      </template>
     </EditDrawer>
   </div>
 </template>
 
 <script setup lang="ts">
+import { Search } from "@element-plus/icons-vue";
 import { ElMessage } from "element-plus";
 import { computed, reactive, ref, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
 import { api } from "../../api";
+import { isConflictAbort } from "../../composables/conflict";
+import { refreshDraftStatus } from "../../composables/draftStatus";
 import { latestFrom, useRevisions } from "../../composables/revisions";
 import { useList } from "../../composables/useList";
-import ConfigListPage from "../../components/ConfigListPage.vue";
+import CustomTag from "../../components/CustomTag.vue";
+import DataState from "../../components/DataState.vue";
 import EditDrawer from "../../components/EditDrawer.vue";
 import FormRow from "../../components/FormRow.vue";
+import HelpTip from "../../components/HelpTip.vue";
 import NumInput from "../../components/NumInput.vue";
 import PageHeader from "../../components/PageHeader.vue";
-import SchemaForm from "../../components/SchemaForm.vue";
-import { realmSchema } from "../../schema/resources";
+import SectionCard from "../../components/SectionCard.vue";
 
-type Realm = {
+type NumKey = "gainPerTick" | "breakthroughCost" | "attack" | "defense" | "hp" | "speed";
+
+type RealmRow = {
   code: number;
+  slug: string;
   displayName: string;
   majorName: string;
-  tickSeconds: number;
+  layer: 1 | 2 | 3;
   gainPerTick: number;
   breakthroughCost: number;
   attack: number;
@@ -135,262 +214,420 @@ type Realm = {
   hp: number;
   speed: number;
   requiredStageId: string;
+  etaLabel: string;
+  showBreakthroughCost: boolean;
+  showGate: boolean;
+  factory: Record<NumKey, number> & { requiredStageId: string };
+  changed: string[];
+  tuned: boolean;
+  tickSeconds: number;
+  interval: number | null;
 };
 
-type LayerForm = {
-  displayName: string;
-  gainPerTick: number;
-  breakthroughCost: number;
-  attack: number;
-  defense: number;
-  hp: number;
-  speed: number;
-};
+type StageRow = { id: string; displayName: string; realmCode: number; tier: string | null; bosses: { name: string }[] };
+type FormState = Record<NumKey, number | null> & { requiredStageId: string };
+type GroupRow = { kind: "group"; key: string; majorName: string };
+type LayerRow = { kind: "layer"; key: string } & RealmRow;
+type TableRow = GroupRow | LayerRow;
 
-type ApiStage = { id: string; displayName: string; realmCode: number; bosses: { name: string }[] };
-
-const stageOptions = ref<{ label: string; value: string }[]>([{ label: "不需要", value: "" }]);
-async function loadStages() {
-  const stages = await api<ApiStage[]>("/admin/draft/stages");
-  stageOptions.value = [
-    { label: "不需要", value: "" },
-    ...stages.filter((stage) => stage.bosses.length > 0).map((stage) => ({ label: `${stage.displayName}（首领：${stage.bosses[0]?.name ?? ""}）`, value: stage.id })),
-  ];
-}
-loadStages().catch(() => undefined);
-
-const combat = reactive({ baseInterval: 1.5, minInterval: 0.5, speedBase: 100 });
-async function loadCombat() {
-  const rules = await api<{ baseInterval?: number; minInterval?: number; speedBase?: number }>("/admin/draft/rules");
-  combat.baseInterval = Number(rules.baseInterval) > 0 ? Number(rules.baseInterval) : 1.5;
-  combat.minInterval = Number(rules.minInterval) > 0 ? Number(rules.minInterval) : 0.5;
-  combat.speedBase = Number(rules.speedBase) > 0 ? Number(rules.speedBase) : 100;
-}
-loadCombat().catch(() => undefined);
+const LAYER_NAME: Record<RealmRow["layer"], string> = { 1: "第一层", 2: "第二层", 3: "第三层" };
+const statFields: { key: "attack" | "defense" | "hp" | "speed"; label: string; help?: string }[] = [
+  { key: "attack", label: "攻击" },
+  { key: "defense", label: "防御" },
+  { key: "hp", label: "气血" },
+  { key: "speed", label: "速度", help: "到达本层增加的速度，会和更低境界加在一起。出手间隔只在配置概览里用全局基准间隔折算，这一页不列出手。" },
+];
 
 const rev = useRevisions("realm");
 const { rows, loading, error, reload } = useList(async () => {
   await rev.load();
-  return await api<Realm[]>("/admin/draft/realms");
+  return await api<RealmRow[]>("/admin/draft/realms");
 });
 
-const filters = computed(() => [
-  {
-    key: "majorName",
-    label: "大境界",
-    options: [...new Set(rows.value.map((row) => row.majorName).filter(Boolean))].map((name) => ({ label: name, value: name })),
-  },
-]);
-
-function statusOf(row: Realm): string[] {
-  const tags: string[] = [];
-  if (!row.gainPerTick) tags.push("未设修炼速度");
-  return tags;
-}
-
-function perSecondOf(row: Realm): string | null {
-  if (row.gainPerTick == null || row.gainPerTick < 0) return null;
-  if (row.gainPerTick === 0) return "0";
-  return String(row.gainPerTick);
-}
-
-function formPerSecond(form: Record<string, unknown>): number | null {
-  const gain = Number(form.gainPerTick);
-  if (!Number.isFinite(gain) || gain < 0) return null;
-  return Math.round(gain * 100) / 100;
-}
-
-/** 折算出手秒数（用本行速度增量作近似；真实战斗用面板总速度）。 */
-function intervalText(speed: number): string {
-  const value = Math.max(combat.minInterval, (combat.baseInterval * combat.speedBase) / (combat.speedBase + Math.max(speed, 0)));
-  return value.toFixed(2);
-}
-
-function titleOf(form: Record<string, unknown>, mode: "create" | "edit"): string {
-  const name = String(form.displayName ?? "");
-  return mode === "create" ? "新建境界" : `编辑境界：${name || "未命名"}`;
-}
-
-function bodyOf(values: Record<string, unknown>): string {
-  const body: Record<string, unknown> = {};
-  for (const field of realmSchema.fields) {
-    if (field.key === "tickSeconds") {
-      body.tickSeconds = 1;
-      continue;
-    }
-    body[field.key] = values[field.key];
-  }
-  return JSON.stringify(body);
-}
-
-async function save(values: Record<string, unknown>, mode: "create" | "edit", editingId: string): Promise<void> {
-  if (mode === "create") {
-    throw new Error("请用「新建大境界」");
-  }
-  await api(`/admin/draft/realms/${editingId}`, {
-    method: "PUT",
-    body: bodyOf(values),
-    guard: {
-      revisions: rev,
-      id: editingId,
-      reload,
-      latest: () => latestFrom("/admin/draft/realms", "code", editingId),
-      title: `境界「${String(values.displayName)}」`,
-    },
-  });
-}
-
-async function remove(row: Record<string, unknown>): Promise<void> {
-  await api(`/admin/draft/realms/${String(row.code)}`, { method: "DELETE" });
-}
-
-function deleteHint(row: Record<string, unknown>): string {
-  return `将删除境界「${String(row.displayName)}」。已经在这个境界的测试账号需要你自己清掉（玩家管理里可清空进度）。`;
-}
-
-// ----- 新建大境界 -----
-const majorOpen = ref(false);
-const majorSaving = ref(false);
-const majorName = ref("");
-const majorLayers = ref<LayerForm[]>([]);
-const majorOriginal = ref("");
-const majorError = ref("");
-const majorDirty = computed(() => JSON.stringify({ name: majorName.value, layers: majorLayers.value }) !== majorOriginal.value);
-
-async function fillMajorPreview(name: string) {
-  const preview = await api<{ layers: LayerForm[] }>(`/admin/draft/realms/major-preview?majorName=${encodeURIComponent(name)}`);
-  majorLayers.value = preview.layers.map((layer) => ({
-    displayName: layer.displayName,
-    gainPerTick: layer.gainPerTick,
-    breakthroughCost: layer.breakthroughCost,
-    attack: layer.attack,
-    defense: layer.defense,
-    hp: layer.hp,
-    speed: layer.speed,
-  }));
-}
-
-async function openMajorCreate() {
-  majorName.value = "";
-  majorError.value = "";
-  await fillMajorPreview("");
-  majorOriginal.value = JSON.stringify({ name: majorName.value, layers: majorLayers.value });
-  majorOpen.value = true;
-}
-
-let nameTimer: ReturnType<typeof setTimeout> | null = null;
-function onMajorNameInput() {
-  majorError.value = "";
-  if (nameTimer) clearTimeout(nameTimer);
-  nameTimer = setTimeout(() => {
-    const name = majorName.value.trim();
-    // 只改名称列，保留用户已改的数值
-    majorLayers.value = majorLayers.value.map((layer, index) => ({
-      ...layer,
-      displayName: name ? `${name}${["一层", "二层", "三层"][index]}` : `？${["一层", "二层", "三层"][index]}`,
-    }));
-  }, 120);
-}
-
-async function saveMajor() {
-  const name = majorName.value.trim();
-  if (!name) {
-    majorError.value = "请填写大境界名称";
-    return;
-  }
-  if (majorLayers.value.length !== 3) {
-    majorError.value = "需要三层数据";
-    return;
-  }
-  majorSaving.value = true;
-  majorError.value = "";
+const stages = ref<StageRow[]>([]);
+const stageError = ref("");
+async function loadStages(): Promise<void> {
   try {
-    await api("/admin/draft/realms/major", {
-      method: "POST",
-      body: JSON.stringify({
-        majorName: name,
-        layers: majorLayers.value.map((layer) => ({
-          gainPerTick: layer.gainPerTick,
-          breakthroughCost: layer.breakthroughCost,
-          attack: layer.attack,
-          defense: layer.defense,
-          hp: layer.hp,
-          speed: layer.speed,
-        })),
-      }),
-    });
-    ElMessage.success(`已创建大境界「${name}」三层`);
-    majorOriginal.value = JSON.stringify({ name: majorName.value, layers: majorLayers.value });
-    majorOpen.value = false;
-    await reload();
+    stages.value = await api<StageRow[]>("/admin/draft/stages");
+    stageError.value = "";
   } catch (cause) {
-    majorError.value = cause instanceof Error ? cause.message : "创建失败";
+    stageError.value = cause instanceof Error ? cause.message : "加载失败";
+  }
+}
+void loadStages();
+
+const query = ref("");
+const majorFilter = ref("");
+const filtering = computed(() => query.value.trim() !== "" || majorFilter.value !== "");
+const majorOptions = computed(() => {
+  const names: string[] = [];
+  for (const row of rows.value) {
+    if (!names.includes(row.majorName)) names.push(row.majorName);
+  }
+  return names;
+});
+const filtered = computed(() => {
+  const text = query.value.trim();
+  return rows.value.filter((row) => {
+    if (majorFilter.value && row.majorName !== majorFilter.value) return false;
+    if (!text) return true;
+    return row.displayName.includes(text) || row.majorName.includes(text);
+  });
+});
+const majorCount = computed(() => new Set(filtered.value.map((row) => row.majorName)).size);
+const tunedLayers = computed(() => filtered.value.filter((row) => row.tuned).length);
+const tableRows = computed<TableRow[]>(() => {
+  const out: TableRow[] = [];
+  for (const name of majorOptions.value) {
+    const layers = filtered.value.filter((row) => row.majorName === name);
+    if (layers.length === 0) continue;
+    out.push({ kind: "group", key: `group-${name}`, majorName: name });
+    for (const layer of layers) out.push({ kind: "layer", key: String(layer.code), ...layer });
+  }
+  return out;
+});
+
+function clearFilters(): void {
+  query.value = "";
+  majorFilter.value = "";
+}
+function formatNum(value: number): string {
+  return Math.round(value).toLocaleString("en-US");
+}
+function changed(row: LayerRow, key: string): boolean {
+  return row.changed.includes(key);
+}
+function spanOf({ row, columnIndex }: { row: TableRow; columnIndex: number }): { rowspan: number; colspan: number } {
+  if (row.kind !== "group") return { rowspan: 1, colspan: 1 };
+  if (columnIndex === 0) return { rowspan: 1, colspan: 9 };
+  return { rowspan: 0, colspan: 0 };
+}
+
+const drawer = ref(false);
+const saving = ref(false);
+const editing = ref<RealmRow | null>(null);
+const formError = ref("");
+const form = reactive<FormState>({
+  gainPerTick: 0,
+  breakthroughCost: 0,
+  attack: 0,
+  defense: 0,
+  hp: 0,
+  speed: 0,
+  requiredStageId: "",
+});
+const snapshot = ref("");
+
+function payloadOf(row: RealmRow): Record<string, number | string | null> {
+  const body: Record<string, number | string | null> = {
+    gainPerTick: form.gainPerTick,
+    attack: form.attack,
+    defense: form.defense,
+    hp: form.hp,
+    speed: form.speed,
+  };
+  if (row.showBreakthroughCost) body.breakthroughCost = form.breakthroughCost;
+  if (row.showGate) body.requiredStageId = form.requiredStageId;
+  return body;
+}
+const dirty = computed(() => editing.value != null && JSON.stringify(payloadOf(editing.value)) !== snapshot.value);
+const changeCount = computed(() => {
+  if (!editing.value) return 0;
+  const current = payloadOf(editing.value);
+  const saved = JSON.parse(snapshot.value || "{}") as Record<string, unknown>;
+  return Object.keys(current).filter((key) => current[key] !== saved[key]).length;
+});
+function tuned(key: NumKey): boolean {
+  const row = editing.value;
+  if (!row) return false;
+  return Number(form[key]) !== Number(row.factory[key]);
+}
+const gateTuned = computed(() => editing.value != null && form.requiredStageId !== editing.value.factory.requiredStageId);
+const cultivateTuned = computed(() => tuned("gainPerTick") || (editing.value?.showBreakthroughCost === true && tuned("breakthroughCost")));
+const statsTuned = computed(() => tuned("attack") || tuned("defense") || tuned("hp") || tuned("speed"));
+const factoryDiffCount = computed(() => {
+  const row = editing.value;
+  if (!row) return 0;
+  let count = (["gainPerTick", "attack", "defense", "hp", "speed"] as const).filter((key) => tuned(key)).length;
+  if (row.showBreakthroughCost && tuned("breakthroughCost")) count += 1;
+  if (row.showGate && gateTuned.value) count += 1;
+  return count;
+});
+const statusText = computed(() => (factoryDiffCount.value > 0 ? `已调 ${factoryDiffCount.value} 项（相对出厂），本次未再改` : undefined));
+const drawerSubtitle = computed(() => {
+  const row = editing.value;
+  if (!row) return "";
+  return `${row.majorName} · ${LAYER_NAME[row.layer]}${row.showGate ? " · 可配突破关卡" : ""}`;
+});
+const stageOptions = computed(() => {
+  const row = editing.value;
+  const options = (row ? stages.value.filter((stage) => stage.bosses.length > 0 && stage.realmCode <= row.code) : []).map((stage) => ({
+    value: stage.id,
+    label: stage.tier === "chief" ? `${stage.displayName}（章末）` : stage.displayName,
+  }));
+  if (form.requiredStageId && !options.some((option) => option.value === form.requiredStageId)) {
+    options.unshift({ value: form.requiredStageId, label: `关卡不存在（${form.requiredStageId}）` });
+  }
+  return [{ value: "", label: "不需要" }, ...options];
+});
+
+function fillForm(row: RealmRow): void {
+  form.gainPerTick = row.gainPerTick;
+  form.breakthroughCost = row.breakthroughCost;
+  form.attack = row.attack;
+  form.defense = row.defense;
+  form.hp = row.hp;
+  form.speed = row.speed;
+  form.requiredStageId = row.requiredStageId ?? "";
+  snapshot.value = JSON.stringify(payloadOf(row));
+}
+function openEdit(row: RealmRow): void {
+  editing.value = row;
+  formError.value = "";
+  fillForm(row);
+  drawer.value = true;
+}
+function restore(key: NumKey): void {
+  if (!editing.value) return;
+  form[key] = editing.value.factory[key];
+}
+function restoreGate(): void {
+  if (!editing.value) return;
+  form.requiredStageId = editing.value.factory.requiredStageId;
+}
+function restoreAll(): void {
+  if (!editing.value) return;
+  for (const key of ["gainPerTick", "breakthroughCost", "attack", "defense", "hp", "speed"] as const) {
+    form[key] = editing.value.factory[key];
+  }
+  if (editing.value.showGate) form.requiredStageId = editing.value.factory.requiredStageId;
+}
+
+function requireInt(value: number | null, label: string): number {
+  if (value === null || value === undefined) throw new Error(`请填写${label}`);
+  if (!Number.isInteger(value) || value < 0) throw new Error(`${label}必须是大于等于 0 的整数`);
+  return value;
+}
+
+async function save(): Promise<void> {
+  const row = editing.value;
+  if (!row) return;
+  formError.value = "";
+  let body: Record<string, number | string>;
+  try {
+    body = {
+      gainPerTick: requireInt(form.gainPerTick, "本境每秒修为"),
+      attack: requireInt(form.attack, "攻击"),
+      defense: requireInt(form.defense, "防御"),
+      hp: requireInt(form.hp, "气血"),
+      speed: requireInt(form.speed, "速度"),
+    };
+    if (row.showBreakthroughCost) body.breakthroughCost = requireInt(form.breakthroughCost, "升到下一层所需修为");
+    if (row.showGate) body.requiredStageId = form.requiredStageId;
+  } catch (cause) {
+    formError.value = cause instanceof Error ? cause.message : "请检查数字";
+    return;
+  }
+  saving.value = true;
+  try {
+    await api(`/admin/draft/realms/${row.code}`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+      guard: {
+        revisions: rev,
+        id: row.code,
+        reload,
+        latest: () => latestFrom("/admin/draft/realms", "code", row.code),
+        title: `境界「${row.displayName}」`,
+      },
+    });
+    ElMessage.success("已保存到草稿");
+    snapshot.value = JSON.stringify(payloadOf(row));
+    drawer.value = false;
+    await reload();
+    void refreshDraftStatus();
+  } catch (cause) {
+    if (isConflictAbort(cause)) {
+      if (cause.action === "reload") {
+        const hit = rows.value.find((item) => item.code === row.code);
+        if (hit) openEdit(hit);
+      }
+      return;
+    }
+    formError.value = cause instanceof Error ? cause.message : "保存失败";
   } finally {
-    majorSaving.value = false;
+    saving.value = false;
   }
 }
 
-watch(majorOpen, (open) => {
-  if (!open) majorError.value = "";
-});
+function onRow(row: TableRow): void {
+  if (row.kind === "layer") openEdit(row);
+}
+function rowClass({ row }: { row: TableRow }): string {
+  if (row.kind === "group") return "group-row";
+  return editing.value?.code === row.code && drawer.value ? "editing-row" : "";
+}
+
+const route = useRoute();
+const router = useRouter();
+const ownPath = route.path;
+watch(
+  () => [rows.value, route.query.open, route.path] as const,
+  ([list, open, path]) => {
+    if (path !== ownPath || typeof open !== "string" || list.length === 0) return;
+    const hit = list.find((row) => String(row.code) === open);
+    if (hit) openEdit(hit);
+    const rest = { ...route.query };
+    delete rest.open;
+    void router.replace({ query: rest });
+  },
+  { immediate: true },
+);
 </script>
 
 <style scoped>
-.tip {
-  margin: 0 0 var(--xx-space-3);
-  padding: var(--xx-space-2) var(--xx-space-4);
+.banner {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin: 0 0 16px;
+  padding: 10px 14px;
+  border: 1px solid #d5e4dc;
+  border-radius: 8px;
+  background: #f3f8f5;
+  color: var(--xx-text-regular);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.banner p {
+  margin: 0;
+}
+.banner strong {
+  color: var(--xx-text-primary);
+  font-weight: 650;
+}
+.banner .gold {
+  color: #8f5c0c;
+}
+.banner .more {
+  color: var(--xx-text-secondary);
+}
+.mark {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  border-radius: 50%;
+  background: var(--xx-jade-600);
+  color: #fff;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 700;
+}
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-bottom: 12px;
+}
+.search {
+  width: 200px;
+}
+.filter {
+  width: 160px;
+}
+.count {
+  color: var(--xx-text-secondary);
+  font-size: 13px;
+  white-space: nowrap;
+}
+.grid {
+  width: 100%;
+}
+.grid :deep(.el-table__cell .cell) {
+  white-space: nowrap;
+}
+.grid :deep(.el-table__row) {
+  cursor: pointer;
+}
+.grid :deep(.group-row),
+.grid :deep(.group-row td) {
+  cursor: default;
+  background: var(--xx-bg-subtle);
+}
+.grid :deep(.editing-row td) {
+  background: #eef5f1;
+}
+.group-name {
+  margin-right: 12px;
+}
+.group-fixed {
+  color: var(--xx-text-secondary);
+  font-size: 12px;
+  font-weight: 400;
+}
+.num {
+  font-variant-numeric: tabular-nums;
+}
+.gold {
+  color: #8f5c0c;
+  font-weight: 650;
+}
+.status-cell {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.eta {
+  margin-bottom: 16px;
+  padding: 14px 16px;
   border: 1px solid var(--xx-border);
-  border-radius: var(--xx-radius-md);
-  background: var(--xx-bg-subtle);
+  border-radius: 8px;
+  background: var(--xx-bg-surface);
+}
+.eta-label {
   color: var(--xx-text-secondary);
-  font-size: var(--xx-fs-sm);
-}
-.tag + .tag {
-  margin-left: 4px;
-}
-.muted {
-  color: var(--xx-text-secondary);
-}
-.per-sec {
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-}
-.per-sec-box {
-  margin-top: var(--xx-space-4);
-  padding: var(--xx-space-3) var(--xx-space-4);
-  border: 1px dashed var(--xx-border);
-  border-radius: var(--xx-radius-md);
-  background: var(--xx-bg-subtle);
-  display: grid;
-  gap: var(--xx-space-3);
-}
-.speed-cell {
-  display: inline-flex;
-  flex-direction: column;
-  line-height: 1.25;
-  font-variant-numeric: tabular-nums;
-}
-.speed-cell .muted {
   font-size: 12px;
 }
-.rule {
-  margin: 0 0 var(--xx-space-3);
+.eta-value {
+  margin: 4px 0;
+  color: var(--xx-text-primary);
+  font-size: 22px;
+  font-weight: 650;
+}
+.eta p,
+.tuned-note,
+.err {
+  margin: 0;
+}
+.eta p,
+.tuned-note {
   color: var(--xx-text-secondary);
-  font-size: var(--xx-fs-sm);
-  line-height: 1.5;
+  font-size: 12px;
 }
-.major-grid {
-  width: 100%;
+.tuned-note {
+  display: block;
+  color: #8f5c0c;
 }
-.major-grid :deep(.num) {
-  width: 100%;
+.two-col {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px 40px;
 }
-.major-grid :deep(.el-input-number .el-input__inner) {
-  padding-left: 4px;
-  padding-right: 28px;
+.w320 {
+  width: 320px;
+  max-width: 100%;
+}
+.gate-custom :deep(.el-select__wrapper) {
+  background: #fffcf3;
+  box-shadow: 0 0 0 1px #d9b874 inset;
 }
 .err {
-  margin: var(--xx-space-3) 0 0;
   color: var(--xx-danger, #c45656);
+  font-size: 12px;
 }
 </style>

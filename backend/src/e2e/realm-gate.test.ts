@@ -20,52 +20,142 @@ async function boot(db: Parameters<Parameters<typeof withDb>[0]>[0]) {
   return { app, admin, setClock: (next: Date) => (clock = next) };
 }
 
-describe("realm table: major-breakthrough boss gate (admin API)", () => {
-  it("GET /admin/draft/realms returns requiredStageId without ult fields; POST major creates 3 layers; single POST defaults tickSeconds to 1", async () => {
+describe("realm table: fixed 24 rows and major-breakthrough boss gate (admin API)", () => {
+  it("lists the fixed 24 rows, upserts missing factory layers, and refuses create, delete, and import", async () => {
     await withDb(async (db) => {
       const { app, admin } = await boot(db);
-      const list = (await app.inject({ method: "GET", url: "/admin/draft/realms", headers: admin })).json();
-      expect(list).toHaveLength(9);
-      expect(list[2]).toMatchObject({ code: 3, displayName: "炼气三层", requiredStageId: "lianqi_3" });
-      expect(list[2].ultName).toBeUndefined();
-      expect(list[8]).toMatchObject({ code: 9, requiredStageId: "" });
-      const major = await app.inject({
-        method: "POST",
-        url: "/admin/draft/realms/major",
-        headers: admin,
-        payload: { majorName: "元婴" },
+      await db.insert(contentRealms).values({
+        slug: "mortal",
+        displayName: "凡人",
+        sortOrder: 99,
+        tickSeconds: 1,
+        gainPerTick: 1,
+        breakthroughCost: 0,
+        baseAttack: 1,
+        baseDefense: 1,
+        baseHp: 1,
+        baseSpeed: 0,
+        baseInterval: 1.5,
       });
-      expect(major.statusCode).toBe(200);
-      expect(major.json().codes).toEqual([10, 11, 12]);
-      const created = await db.select().from(contentRealms).where(eq(contentRealms.majorName, "元婴"));
-      expect(created).toHaveLength(3);
-      expect(created.map((row) => row.displayName)).toEqual(["元婴一层", "元婴二层", "元婴三层"]);
-      expect(created[0]).toMatchObject({ tickSeconds: 1, ultDamageMultBp: 0, baseInterval: 1.5 });
-      // 预填：金丹一层 gain 9 ×3 = 27，速度 40+10=50（金丹累计速度增量见种子）
-      expect(created[0]!.gainPerTick).toBe(27);
+      const list = (await app.inject({ method: "GET", url: "/admin/draft/realms", headers: admin })).json();
+      expect(list).toHaveLength(24);
+      expect(list.some((row: { displayName: string }) => row.displayName === "凡人")).toBe(false);
+      expect(list[0]).toMatchObject({ code: 1, displayName: "炼气一层", etaLabel: "约 30 分" });
+      expect(list[0].ultName).toBeUndefined();
+      expect(list[0].changed).toEqual(expect.arrayContaining(["breakthroughCost", "attack", "hp"]));
+      expect(list[2]).toMatchObject({ code: 3, displayName: "炼气三层", requiredStageId: "lianqi_3", etaLabel: "约 4 小时" });
+      expect(list[2].changed).not.toContain("requiredStageId");
+      expect(list[9]).toMatchObject({
+        code: 10,
+        slug: "yuanying_1",
+        displayName: "元婴一层",
+        gainPerTick: 27,
+        breakthroughCost: 466560,
+        attack: 46,
+        speed: 10,
+        tuned: false,
+        etaLabel: "约 5.5 天",
+        stored: true,
+      });
+      expect(list[23]).toMatchObject({ code: 24, displayName: "大乘三层", showBreakthroughCost: false, showGate: true, etaLabel: "约 55 天", breakthroughCost: 0 });
+      const created = await db.select().from(contentRealms).where(eq(contentRealms.slug, "yuanying_1"));
+      expect(created[0]).toMatchObject({ tickSeconds: 1, gainPerTick: 27, nextRealmSlug: "yuanying_2", ultDamageMultBp: 0, baseInterval: 1.5 });
+      const [jindan3] = await db.select().from(contentRealms).where(eq(contentRealms.slug, "jindan_3"));
+      expect(jindan3?.nextRealmSlug).toBeNull();
+      for (const [method, url] of [
+        ["POST", "/admin/draft/realms/major"],
+        ["POST", "/admin/draft/realms"],
+        ["DELETE", "/admin/draft/realms/1"],
+        ["GET", "/admin/draft/realms/major-preview"],
+      ] as const) {
+        const response = await app.inject({ method, url, headers: admin, payload: method === "GET" ? undefined : { majorName: "元婴", displayName: "新人" } });
+        expect(response.statusCode, `${method} ${url}`).toBe(404);
+      }
+      const [still] = await db.select().from(contentRealms).where(eq(contentRealms.slug, "lianqi_1"));
+      expect(still?.displayName).toBe("炼气一层");
       await app.close();
     });
   });
 
-  it("saves requiredStageId on a realm, keeps the slug, clears the gate, and wipes legacy ult fields", async () => {
+  it("PUT only accepts editable numbers, keeps the chain and the ETA, and rejects a breakthrough cost on 大乘三层", async () => {
+    await withDb(async (db) => {
+      const { app, admin } = await boot(db);
+      const rename = await app.inject({
+        method: "PUT",
+        url: "/admin/draft/realms/5",
+        headers: admin,
+        payload: { displayName: "筑基改名", gainPerTick: 4 },
+      });
+      expect(rename.statusCode).toBe(400);
+      expect(rename.json().error.message).toContain("displayName");
+      const [before] = await db.select().from(contentRealms).where(eq(contentRealms.slug, "zhuji_2"));
+      const saved = await app.inject({
+        method: "PUT",
+        url: "/admin/draft/realms/5",
+        headers: admin,
+        payload: { gainPerTick: 4 },
+      });
+      expect(saved.statusCode).toBe(200);
+      const [after] = await db.select().from(contentRealms).where(eq(contentRealms.slug, "zhuji_2"));
+      expect(after).toMatchObject({
+        displayName: "筑基二层",
+        gainPerTick: 4,
+        nextRealmSlug: before?.nextRealmSlug,
+        slug: "zhuji_2",
+        sortOrder: 5,
+      });
+      const list = (await app.inject({ method: "GET", url: "/admin/draft/realms", headers: admin })).json();
+      expect(list[4]).toMatchObject({ gainPerTick: 4, etaLabel: "约 9 小时" });
+      expect(list[4].changed).toContain("gainPerTick");
+      expect(list[4].etaLabel).toBe("约 9 小时");
+      const capped = await app.inject({
+        method: "PUT",
+        url: "/admin/draft/realms/24",
+        headers: admin,
+        payload: { breakthroughCost: 9, gainPerTick: 2187 },
+      });
+      expect(capped.statusCode).toBe(400);
+      expect(capped.json().error.message).toContain("大乘三层");
+      const minorGate = await app.inject({
+        method: "PUT",
+        url: "/admin/draft/realms/1",
+        headers: admin,
+        payload: { requiredStageId: "lianqi_1" },
+      });
+      expect(minorGate.statusCode).toBe(400);
+      expect(minorGate.json().error.message).toContain("三层");
+      await app.close();
+    });
+  });
+
+  it("saves requiredStageId on a major's third layer, keeps the slug, clears the gate, and wipes legacy ult fields", async () => {
     await withDb(async (db) => {
       const { app, admin } = await boot(db);
       const put = (code: number, payload: Record<string, unknown>) =>
-        app.inject({ method: "PUT", url: `/admin/draft/realms/${code}`, headers: admin, payload: { displayName: "炼气二层", majorName: "炼气", ...payload } });
+        app.inject({ method: "PUT", url: `/admin/draft/realms/${code}`, headers: admin, payload });
       await db.update(contentStages).set({ bosses: [], bossHp: 0 }).where(eq(contentStages.slug, "lianqi_2"));
-      const bossless = await put(2, { requiredStageId: "lianqi_2" });
+      const bossless = await put(3, { requiredStageId: "lianqi_2" });
       expect(bossless.statusCode).toBe(400);
       expect(bossless.json().error.message).toContain("没有首领");
-      const unknown = await put(2, { requiredStageId: "nope" });
+      const unknown = await put(3, { requiredStageId: "nope" });
       expect(unknown.statusCode).toBe(400);
-      const tooHigh = await put(1, { requiredStageId: "lianqi_3" });
+      const tooHigh = await put(3, { requiredStageId: "zhuji_3" });
       expect(tooHigh.statusCode).toBe(400);
       expect(tooHigh.json().error.message).toContain("永远打不到");
-      const good = await put(3, { displayName: "炼气三层", requiredStageId: "lianqi_3" });
+      const [before] = await db.select().from(contentRealms).where(eq(contentRealms.slug, "lianqi_3"));
+      const good = await put(3, { requiredStageId: "lianqi_3" });
       expect(good.statusCode).toBe(200);
       const [row] = await db.select().from(contentRealms).where(eq(contentRealms.slug, "lianqi_3"));
-      expect(row).toMatchObject({ requiredStageSlug: "lianqi_3", ultDamageMultBp: 0, ultName: "", displayName: "炼气三层" });
-      const cleared = await put(3, { displayName: "炼气三层", requiredStageId: "" });
+      expect(row).toMatchObject({
+        requiredStageSlug: "lianqi_3",
+        ultDamageMultBp: 0,
+        ultName: "",
+        displayName: "炼气三层",
+        slug: "lianqi_3",
+        nextRealmSlug: before?.nextRealmSlug,
+        gainPerTick: before?.gainPerTick,
+      });
+      const cleared = await put(3, { requiredStageId: "" });
       expect(cleared.statusCode).toBe(200);
       const [after] = await db.select().from(contentRealms).where(eq(contentRealms.slug, "lianqi_3"));
       expect(after?.requiredStageSlug).toBeNull();

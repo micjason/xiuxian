@@ -24,11 +24,13 @@
           <i class="dot" />
           <template v-if="statusKind === 'error'">{{ errorCount }} 处校验未通过 · 点击定位</template>
           <template v-else-if="statusKind === 'dirty'">{{ changeCount ? `已改动 ${changeCount} 处，未保存` : "有未保存的改动" }}</template>
+          <template v-else-if="statusText">{{ statusText }}</template>
           <template v-else>没有未保存的改动</template>
         </span>
         <span class="left"><slot name="footer-left" /></span>
         <el-button @click="beforeClose(() => (open = false))">取消</el-button>
         <el-button type="primary" :loading="saving" :disabled="!dirty && !alwaysSavable" @click="trySave">{{ saveText }}</el-button>
+        <slot name="footer-extra" />
       </div>
     </template>
   </el-drawer>
@@ -53,6 +55,8 @@ const props = withDefaults(
     alwaysSavable?: boolean;
     changeCount?: number;
     errorCount?: number;
+    /** 没有未保存改动时替换页脚文案。已调（相对出厂）不等于 dirty。 */
+    statusText?: string;
   }>(),
   { size: 800, saveText: "保存", changeCount: 0, errorCount: 0 },
 );

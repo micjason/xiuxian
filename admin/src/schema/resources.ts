@@ -4,7 +4,7 @@ import type { FieldDef, Schema } from "./types";
 export const realmSchema: Schema = {
   title: "境界",
   groups: [
-    { key: "base", title: "基本信息", desc: "编号决定突破顺序；大境界名决定装备分阶。新建时按「大境界」一次生成三层。" },
+    { key: "base", title: "基本信息", desc: "境界固定为炼气到大乘共 24 层。名称、编号、大境界不能改，也不能新建或删除。" },
     { key: "cultivate", title: "修炼与突破", desc: "挂机修为的产出与突破门槛。修炼间隔固定 1 秒；每秒修为 = 每次获得修为，是本境自己的数，不是前面境界加起来。" },
     { key: "stats", title: "到达该境界增加的属性", desc: "会和更低境界的加在一起。出手间隔由全局「基础出手间隔」与速度折算，本页只调速度。" },
     { key: "gate", title: "大境界突破门槛", desc: "跨大境界（例如炼气 → 筑基）要先通关一个首领关；小境界之间不用填。填在大境界的最后一层。" },
@@ -12,16 +12,16 @@ export const realmSchema: Schema = {
   fields: [
     {
       key: "code", help: false, label: "编号", kind: "int", group: "base", required: true, min: 1, lockedAfterCreate: true,
-      hint: "突破顺序，从小到大。不能重复。新建大境界时自动编号，编辑时不能改。",
+      hint: "突破顺序，从小到大，固定 1 到 24。不能改。",
       affects: "突破顺序、关卡所需境界、装备可穿戴阶段", example: "1、2、3…", column: { width: 80 },
     },
     {
       key: "displayName", label: "名称", kind: "text", group: "base", required: true,
-      hint: "玩家看到的境界名，例如「炼气一层」。新建大境界时自动生成「××一层 / 二层 / 三层」。", column: { minWidth: 140 }, example: "炼气一层",
+      hint: "玩家看到的境界名，例如「炼气一层」。固定表里的名称不能改。", column: { minWidth: 140 }, example: "炼气一层",
     },
     {
       key: "majorName", label: "大境界", kind: "text", group: "base", required: true,
-      hint: "同一个大境界的三层共用这个名字。新建时只填这一项；保存后系统会生成这一阶的 30 件装备（6 部位 × 5 品质）。",
+      hint: "同一个大境界的三层共用这个名字。八个大境界已经固定，不能增删。",
       affects: "装备分阶与自动生成（6 部位 × 5 品质）",
     },
     {
@@ -29,12 +29,12 @@ export const realmSchema: Schema = {
       hint: "固定 1 秒，列表上方已标注；后台不再展示、不可改。", affects: "挂机修为速度",
     },
     {
-      key: "gainPerTick", label: "每次获得修为", kind: "number", group: "cultivate", min: 0, step: 1, unit: "点", default: 0,
-      hint: "每个修炼间隔（1 秒）获得多少修为。0 表示还没设置。本境自己的产出，不是前面境界加起来（和 settle.ts 一致）。", affects: "挂机修为速度、功法分解折算", column: { width: 110 },
+      key: "gainPerTick", label: "本境每秒修为", kind: "number", group: "cultivate", min: 0, step: 1, unit: "修为", default: 0,
+      hint: "挂机时这一境每秒获得的修为。只算本境，不把前面境界加进来。修炼间隔固定 1 秒。", affects: "挂机修为速度、功法分解折算", column: { width: 140 },
     },
     {
-      key: "breakthroughCost", label: "突破消耗修为", kind: "number", group: "cultivate", min: 0, step: 1, unit: "点", default: 0,
-      hint: "从本境界突破到下一境界要消耗的修为。最高境界不会用到。", affects: "突破节奏", column: { width: 110 },
+      key: "breakthroughCost", label: "升到下一层所需修为", kind: "number", group: "cultivate", min: 0, step: 1, unit: "修为", default: 0,
+      hint: "从本层突破到下一层要消耗的修为。大乘三层没有下一层，不填。", affects: "突破节奏", column: { width: 150 },
     },
     {
       key: "attack", help: false, label: "攻击", kind: "number", group: "stats", min: 0, step: 1, default: 0,
@@ -50,7 +50,7 @@ export const realmSchema: Schema = {
     },
     {
       key: "speed", help: false, label: "速度", kind: "number", group: "stats", min: 0, step: 1, default: 0,
-      hint: "到达这个境界时增加的速度。出手间隔 = max(最短间隔, 基础出手间隔 × 速度基数 ÷ (速度基数 + 速度))，参数在「战斗公式与参数」里改。", affects: "出手间隔、战力", column: { width: 160 },
+      hint: "到达这个境界时增加的速度。出手间隔在「配置概览」用全局基准间隔折算，本页只调速度。", affects: "出手间隔、战力", column: { width: 90 },
     },
     {
       key: "requiredStageId", label: "突破前要先通关", kind: "select", group: "gate", options: [], default: "",

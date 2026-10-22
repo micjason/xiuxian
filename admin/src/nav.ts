@@ -43,7 +43,7 @@ export const navTree: NavGroup[] = [
         keywords: "默认 默认值 数值 掉率 掉落 权重 品质 橙装 战力公式 分解 强化 功法 层数 栏位 新手 初始境界 新手物品 部位 行囊 离线 参数",
         isNew: true,
       },
-      { path: "/config/realms", label: "境界", desc: "突破顺序、修炼速度、境界属性", keywords: "修为 突破 大境界" },
+      { path: "/config/realms", label: "境界", desc: "固定炼气到大乘 24 层，只调修为、属性和突破关卡", keywords: "修为 突破 大境界 已调" },
       { path: "/config/items", label: "物品", desc: "突破石等材料、物品说明", keywords: "物品 材料 突破石 背包 行囊" },
       {
         path: "/config/gear",

@@ -9,6 +9,7 @@ const input = {
   defenseWeight: 1.6,
   hpWeight: 0.95,
   speedWeight: 2.6,
+  baseInterval: 1.5,
   minInterval: 0.5,
   challengeCooldownSeconds: 0,
   timeLimitSeconds: 20,
@@ -50,7 +51,7 @@ describe("game rules", () => {
   });
 
   it("asks the admin to fill the new fields on an old world", () => {
-    const old = world({ minInterval: 0.5, challengeCooldownSeconds: 0, timeLimitSeconds: 20, speedBase: 100, playerDefenseFactor: 0.4 });
+    const old = world({ baseInterval: 1.5, minInterval: 0.5, challengeCooldownSeconds: 0, timeLimitSeconds: 20, speedBase: 100, playerDefenseFactor: 0.4 });
     expect(() => readGameRules(old)).toThrow("请先在后台填写：防御常数 k、推荐战力倍数");
   });
 
@@ -61,6 +62,7 @@ describe("game rules", () => {
         defenseWeight: 1.6,
         hpWeight: 0.95,
         speedWeight: 2.6,
+        baseInterval: 1.5,
         minInterval: 0.5,
         defenseConstant: 1,
         speedBase: 100,
@@ -73,6 +75,7 @@ describe("game rules", () => {
   it("reads a complete world", () => {
     const rules = readGameRules(
       world({
+        baseInterval: 1.5,
         minInterval: 0.5,
         challengeCooldownSeconds: 0,
         timeLimitSeconds: 20,

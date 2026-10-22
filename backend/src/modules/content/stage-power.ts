@@ -25,11 +25,11 @@ export function stageRawPower(world: ContentSnapshot, stage: Stage): number {
     throw new AppError("INVALID_INPUT", "这个关卡还没有首领和普通怪");
   }
   const realm = world.realms.find((row) => row.sortOrder === stage.requiredRealmOrder);
-  if (!realm?.baseInterval) {
-    throw new AppError("INVALID_INPUT", "关卡的境界没有基础出手间隔");
+  if (!realm) {
+    throw new AppError("INVALID_INPUT", "关卡的境界不存在");
   }
   const rules = readGameRules(world);
-  return bossPower(source, { baseInterval: realm.baseInterval, speedBase: rules.speedBase, weights: rules.powerWeights });
+  return bossPower(source, { baseInterval: rules.baseInterval, speedBase: rules.speedBase, weights: rules.powerWeights });
 }
 
 function priceStage(world: ContentSnapshot, stage: Stage): { realmOrder: number; power: number } {
@@ -42,11 +42,8 @@ function priceStage(world: ContentSnapshot, stage: Stage): { realmOrder: number;
   if (!realm || realm.sortOrder === undefined) {
     throw new AppError("INVALID_INPUT", `关卡「${name}」的境界不存在`);
   }
-  if (realm.baseInterval === undefined || realm.baseInterval <= 0) {
-    throw new AppError("INVALID_INPUT", `请先在后台填写境界「${realm.displayName ?? realm.slug}」的基础出手间隔`);
-  }
   const rules = readGameRules(world);
-  const raw = bossPower(boss, { baseInterval: realm.baseInterval, speedBase: rules.speedBase, weights: rules.powerWeights });
+  const raw = bossPower(boss, { baseInterval: rules.baseInterval, speedBase: rules.speedBase, weights: rules.powerWeights });
   return { realmOrder: realm.sortOrder, power: Math.round(raw * rules.recommendedPowerMargin) };
 }
 

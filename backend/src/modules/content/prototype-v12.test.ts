@@ -32,7 +32,7 @@ describe("prototype v1.2 content", () => {
       expect(seeded.realmSlugs).toHaveLength(9);
       const world = await loadDraftSnapshot(db);
       expect(world.realms.map((row) => row.requiredStageSlug)).toEqual([null, null, "lianqi_3", null, null, "zhuji_3", null, null, null]);
-      expect(world.realms.filter((row) => (row.ultDamageMultBp ?? 0) > 0)).toHaveLength(9);
+      expect(world.realms.filter((row) => (row.ultDamageMultBp ?? 0) > 0)).toHaveLength(0);
       // 第三批：每关都有首领；每章最后一关是章末（大首领），其余是本关小怪的精英版
       expect(world.stages.filter((row) => (row.bosses ?? []).length !== 1)).toEqual([]);
       expect(world.stages.filter((row) => row.tier === "chief").map((row) => row.slug)).toEqual(["lianqi_3", "zhuji_3", "jindan_3"]);

@@ -10,6 +10,8 @@ export type GameRules = {
   offlineCapSeconds: number;
   bagCapacity: number;
   powerWeights: { attack: number; defense: number; hp: number; speed: number };
+  /** 玩家基础出手间隔（全局；境界页不再按层填）。默认 1.5。 */
+  baseInterval: number;
   minInterval: number;
   challengeCooldownSeconds: number;
   timeLimitSeconds: number;
@@ -26,6 +28,7 @@ export type RulesInput = OptionalRuleValues & {
   defenseWeight?: number;
   hpWeight?: number;
   speedWeight?: number;
+  baseInterval?: number;
   minInterval?: number;
   challengeCooldownSeconds?: number;
   timeLimitSeconds?: number;
@@ -42,6 +45,7 @@ const fields = [
   ["defenseWeight", "防御权重", true],
   ["hpWeight", "气血权重", true],
   ["speedWeight", "速度权重", true],
+  ["baseInterval", "基础出手间隔", false],
   ["minInterval", "最短出手间隔", false],
   ["challengeCooldownSeconds", "挑战冷却", true],
   ["timeLimitSeconds", "单场时限", false],
@@ -123,6 +127,7 @@ export function rulesFromInput(input: RulesInput): GameRules {
       hp: values.hpWeight,
       speed: values.speedWeight,
     },
+    baseInterval: values.baseInterval,
     minInterval: values.minInterval,
     challengeCooldownSeconds: values.challengeCooldownSeconds,
     timeLimitSeconds: values.timeLimitSeconds,
@@ -144,6 +149,7 @@ function rulesInputOf(world: ContentSnapshot): RulesInput {
     defenseWeight: weights?.defense,
     hpWeight: weights?.hp,
     speedWeight: weights?.speed,
+    baseInterval: combat?.baseInterval ?? 1.5,
     minInterval: combat?.minInterval,
     challengeCooldownSeconds: combat?.challengeCooldownSeconds,
     timeLimitSeconds: combat?.timeLimitSeconds,
@@ -183,6 +189,7 @@ export function rulesView(row: typeof contentGlobals.$inferSelect | null) {
     defenseWeight: weights?.defense ?? null,
     hpWeight: weights?.hp ?? null,
     speedWeight: weights?.speed ?? null,
+    baseInterval: combat?.baseInterval ?? 1.5,
     minInterval: combat?.minInterval ?? null,
     challengeCooldownSeconds: combat?.challengeCooldownSeconds ?? null,
     timeLimitSeconds: combat?.timeLimitSeconds ?? null,
@@ -208,6 +215,7 @@ export async function saveRules(db: Db, input: RulesInput, adminId: string | nul
     bagCapacity: rules.bagCapacity,
     powerWeights: rules.powerWeights,
     combat: {
+      baseInterval: rules.baseInterval,
       minInterval: rules.minInterval,
       challengeCooldownSeconds: rules.challengeCooldownSeconds,
       timeLimitSeconds: rules.timeLimitSeconds,

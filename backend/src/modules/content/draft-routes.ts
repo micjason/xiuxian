@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { eq } from "drizzle-orm";
-import { contentRealms, contentStages } from "../../db/schema.js";
+import { contentGlobals, contentRealms, contentStages } from "../../db/schema.js";
 import type { Db } from "../operations/record.js";
 import { AppError } from "../../shared/errors.js";
 import { saveDraftDropTable } from "./draft-service.js";
@@ -38,6 +38,7 @@ import { createTrialPuppet, deleteTrialPuppet, listTrialPuppets, updateTrialPupp
 import { runTrial, type TrialInput } from "./trial.js";
 import { diffContent, listContentVersions } from "./versions.js";
 import { registerBossChapterRoutes } from "./boss-chapter-routes.js";
+import { MAJOR_LAYER_LABELS, previewMajorLayers, scaleMajorLayers, previousMajorLayers, type MajorLayerSeed } from "./realm-major.js";
 
 function requiredPositive(value: unknown, label: string): number {
   if (value === undefined || value === null || value === "") {
@@ -79,16 +80,9 @@ async function assertCodeAvailable(db: Db, code: number, currentSlug?: string) {
 
 type RealmExtras = {
   requiredStageId?: string | null;
-  ultName?: string;
-  ultMultiplier?: number | string | null;
-  ultCooldownSeconds?: number | string | null;
-  ultFirstCooldownSeconds?: number | string | null;
 };
 
-/**
- * 境界表单里“大境界突破要先通关的首领关”和“大招”三项（名称、伤害倍数、冷却）。
- * 伤害倍数在表单里按“几倍”填（4 = 普攻的 4 倍），入库是万分比 40000。
- */
+/** 境界表单里“大境界突破要先通关的首领关”。境界自带大招已取消。 */
 async function realmExtras(db: Db, body: RealmExtras, current?: typeof contentRealms.$inferSelect) {
   const out: Partial<typeof contentRealms.$inferInsert> = {};
   if (body.requiredStageId !== undefined) {
@@ -109,36 +103,13 @@ async function realmExtras(db: Db, body: RealmExtras, current?: typeof contentRe
     }
     out.requiredStageSlug = slug || null;
   }
-  if (body.ultName !== undefined) {
-    out.ultName = String(body.ultName ?? "").trim();
-  }
-  if (body.ultMultiplier !== undefined) {
-    const raw = body.ultMultiplier === null || body.ultMultiplier === "" ? 0 : Number(body.ultMultiplier);
-    if (!Number.isFinite(raw) || raw < 0 || raw > 100) {
-      throw new AppError("INVALID_INPUT", "大招伤害倍数要在 0 到 100 之间（0 表示没有大招）");
-    }
-    out.ultDamageMultBp = Math.round(raw * 10000);
-  }
-  for (const [key, column, label, min] of [
-    ["ultCooldownSeconds", "ultCooldownSeconds", "大招冷却", 1],
-    ["ultFirstCooldownSeconds", "ultFirstCooldownSeconds", "大招开战首次冷却", 0],
-  ] as const) {
-    const value = body[key];
-    if (value === undefined) {
-      continue;
-    }
-    const number = value === null || value === "" ? 0 : Number(value);
-    if (!Number.isFinite(number) || number < min || number > 600) {
-      throw new AppError("INVALID_INPUT", `${label}要在 ${min} 到 600 秒之间`);
-    }
-    out[column] = number;
-  }
-  const mult = out.ultDamageMultBp ?? current?.ultDamageMultBp ?? 0;
-  const cooldown = out.ultCooldownSeconds ?? current?.ultCooldownSeconds ?? 0;
-  if (mult > 0 && !(cooldown >= 1)) {
-    throw new AppError("INVALID_INPUT", "有大招的境界要填大招冷却（至少 1 秒）");
-  }
   return out;
+}
+
+async function globalBaseInterval(db: Db): Promise<number> {
+  const [row] = await db.select().from(contentGlobals).where(eq(contentGlobals.id, 1)).limit(1);
+  const value = Number(row?.combat?.baseInterval);
+  return Number.isFinite(value) && value > 0 ? value : 1.5;
 }
 
 export async function registerDraftRoutes(app: FastifyInstance, deps: { db: Db; now: () => Date }): Promise<void> {
@@ -160,13 +131,81 @@ export async function registerDraftRoutes(app: FastifyInstance, deps: { db: Db; 
         defense: row.baseDefense,
         hp: row.baseHp,
         speed: row.baseSpeed,
-        interval: row.baseInterval,
         requiredStageId: row.requiredStageSlug ?? "",
-        ultName: row.ultName,
-        ultMultiplier: row.ultDamageMultBp / 10000,
-        ultCooldownSeconds: row.ultCooldownSeconds,
-        ultFirstCooldownSeconds: row.ultFirstCooldownSeconds,
       }));
+  });
+
+  /** 新建大境界预览：按上一大境界三层 × 固定倍率（可改后再 POST）。 */
+  app.get("/admin/draft/realms/major-preview", async (request) => {
+    const majorName = String((request.query as { majorName?: string }).majorName ?? "");
+    const rows = await deps.db.select().from(contentRealms);
+    const baseInterval = await globalBaseInterval(deps.db);
+    return {
+      baseInterval,
+      tickSeconds: 1,
+      layers: previewMajorLayers(rows, majorName),
+      rule: "上一大境界同层：修为/攻防血/突破消耗×3、速度+10；无上一境用炼气种子",
+    };
+  });
+
+  /** 新建大境界：一次写入三层（一层/二层/三层），编号自动接在末尾。 */
+  app.post("/admin/draft/realms/major", async (request) => {
+    const body = request.body as {
+      majorName?: string;
+      layers?: Partial<MajorLayerSeed>[];
+    };
+    const majorName = body.majorName?.trim() ?? "";
+    if (!majorName) {
+      throw new AppError("INVALID_INPUT", "请填写大境界名称");
+    }
+    const rows = await deps.db.select().from(contentRealms);
+    if (rows.some((row) => row.majorName.trim() === majorName)) {
+      throw new AppError("INVALID_INPUT", `大境界「${majorName}」已存在`);
+    }
+    const defaults = scaleMajorLayers(previousMajorLayers(rows));
+    const layers: MajorLayerSeed[] = [0, 1, 2].map((index) => {
+      const override = body.layers?.[index] ?? {};
+      const base = defaults[index]!;
+      return {
+        gainPerTick: statNumber(override.gainPerTick, "每次获得修为", base.gainPerTick),
+        breakthroughCost: statNumber(override.breakthroughCost, "突破消耗修为", base.breakthroughCost),
+        attack: statNumber(override.attack, "攻击", base.attack),
+        defense: statNumber(override.defense, "防御", base.defense),
+        hp: statNumber(override.hp, "气血", base.hp),
+        speed: statNumber(override.speed, "速度", base.speed),
+      };
+    });
+    const maxCode = rows.reduce((max, row) => Math.max(max, row.sortOrder), 0);
+    const baseInterval = await globalBaseInterval(deps.db);
+    const codes: number[] = [];
+    for (let index = 0; index < 3; index += 1) {
+      const code = maxCode + index + 1;
+      codes.push(code);
+      const layer = layers[index]!;
+      await deps.db.insert(contentRealms).values({
+        slug: String(code),
+        displayName: `${majorName}${MAJOR_LAYER_LABELS[index]}`,
+        majorName,
+        sortOrder: code,
+        nextRealmSlug: null,
+        tickSeconds: 1,
+        gainPerTick: layer.gainPerTick,
+        breakthroughCost: layer.breakthroughCost,
+        baseAttack: layer.attack,
+        baseDefense: layer.defense,
+        baseHp: layer.hp,
+        baseSpeed: layer.speed,
+        baseInterval,
+        ultName: "",
+        ultDamageMultBp: 0,
+        ultCooldownSeconds: 0,
+        ultFirstCooldownSeconds: 0,
+        updatedAt: deps.now(),
+        updatedBy: request.actor?.actorId ?? null,
+      });
+    }
+    await syncGear(deps.db, request.actor?.actorId ?? null);
+    return { ok: true, codes, majorName };
   });
 
   app.post("/admin/draft/realms", async (request) => {
@@ -189,6 +228,7 @@ export async function registerDraftRoutes(app: FastifyInstance, deps: { db: Db; 
     }
     await assertCodeAvailable(deps.db, code);
     const extras = await realmExtras(deps.db, body, { sortOrder: code } as typeof contentRealms.$inferSelect);
+    const baseInterval = await globalBaseInterval(deps.db);
     await deps.db.insert(contentRealms).values({
       ...extras,
       slug: String(code),
@@ -196,14 +236,18 @@ export async function registerDraftRoutes(app: FastifyInstance, deps: { db: Db; 
       majorName: body.majorName?.trim() ?? "",
       sortOrder: code,
       nextRealmSlug: null,
-      tickSeconds: body.tickSeconds ?? 1,
+      tickSeconds: 1,
       gainPerTick: body.gainPerTick ?? 0,
       breakthroughCost: body.breakthroughCost ?? 0,
       baseAttack: statNumber(body.attack, "攻击", 0),
       baseDefense: statNumber(body.defense, "防御", 0),
       baseHp: statNumber(body.hp, "气血", 0),
       baseSpeed: statNumber(body.speed, "速度", 0),
-      baseInterval: requiredPositive(body.interval, "基础出手间隔"),
+      baseInterval,
+      ultName: "",
+      ultDamageMultBp: 0,
+      ultCooldownSeconds: 0,
+      ultFirstCooldownSeconds: 0,
       updatedAt: deps.now(),
       updatedBy: request.actor?.actorId ?? null,
     });
@@ -236,16 +280,15 @@ export async function registerDraftRoutes(app: FastifyInstance, deps: { db: Db; 
     if (!body.displayName?.trim()) {
       throw new AppError("INVALID_INPUT", "请填写境界名称");
     }
-    const tickSeconds = body.tickSeconds ?? current.tickSeconds;
     const gainPerTick = body.gainPerTick ?? current.gainPerTick;
     const breakthroughCost = body.breakthroughCost ?? current.breakthroughCost;
     const attack = statNumber(body.attack, "攻击", current.baseAttack);
     const defense = statNumber(body.defense, "防御", current.baseDefense);
     const hp = statNumber(body.hp, "气血", current.baseHp);
     const speed = statNumber(body.speed, "速度", current.baseSpeed);
-    const interval = requiredPositive(body.interval, "基础出手间隔");
-    if (tickSeconds < 0 || gainPerTick < 0 || breakthroughCost < 0) {
-      throw new AppError("INVALID_INPUT", "秒数、修为和突破消耗不能小于 0");
+    const baseInterval = await globalBaseInterval(deps.db);
+    if (gainPerTick < 0 || breakthroughCost < 0) {
+      throw new AppError("INVALID_INPUT", "修为和突破消耗不能小于 0");
     }
     await assertCodeAvailable(deps.db, nextCode, current.slug);
     const extras = await realmExtras(deps.db, body, { ...current, sortOrder: nextCode });
@@ -269,14 +312,18 @@ export async function registerDraftRoutes(app: FastifyInstance, deps: { db: Db; 
         majorName,
         sortOrder: nextCode,
         nextRealmSlug: null,
-        tickSeconds,
+        tickSeconds: 1,
         gainPerTick,
         breakthroughCost,
         baseAttack: attack,
         baseDefense: defense,
         baseHp: hp,
         baseSpeed: speed,
-        baseInterval: interval,
+        baseInterval,
+        ultName: "",
+        ultDamageMultBp: 0,
+        ultCooldownSeconds: 0,
+        ultFirstCooldownSeconds: 0,
         updatedAt: deps.now(),
         updatedBy: request.actor?.actorId ?? null,
       })

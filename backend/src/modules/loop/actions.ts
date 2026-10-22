@@ -173,16 +173,13 @@ export function combatStats(world: ContentSnapshot, realmSlug: string, itemSlugs
     },
     setBonus,
   );
-  if (realm.baseInterval == null || realm.baseInterval <= 0) {
-    throw new AppError("INVALID_INPUT", `境界「${realm.displayName ?? realm.slug}」还没有基础出手间隔`);
-  }
   const rules = readGameRules(world);
   const combat = computePower({
     attack,
     defense,
     hp,
     speed,
-    baseInterval: realm.baseInterval,
+    baseInterval: rules.baseInterval,
     minInterval: rules.minInterval,
     speedBase: rules.speedBase,
     weights: rules.powerWeights,
@@ -843,19 +840,12 @@ export async function advanceRealm(tx: Tx, world: World, playerId: string, now: 
   };
 }
 
-/** 当前境界的大招配置（倍率 0 = 没有大招）。 */
-export function ultOf(world: World, realmSlug: string): (UltConfig & { name: string }) | null {
-  const realm = realmOf(world, realmSlug);
-  if (!realm.ultDamageMultBp || realm.ultDamageMultBp <= 0) {
-    return null;
-  }
-  return {
-    name: realm.ultName ?? "",
-    multBp: realm.ultDamageMultBp,
-    cooldownSeconds: realm.ultCooldownSeconds ?? 0,
-    firstCooldownSeconds: realm.ultFirstCooldownSeconds ?? 8,
-    autoCastWindowSeconds: readGameRules(world).ultAutoCastWindowSeconds,
-  };
+/**
+ * 首领战大招：境界不再自带大招（后台已去掉 ult* 字段）。
+ * 战斗大招只跟玩家学的功法、全自动；此处恒返回 null，避免半套境界大招。
+ */
+export function ultOf(_world: World, _realmSlug: string): (UltConfig & { name: string }) | null {
+  return null;
 }
 
 /** 第四批：大招全自动释放（冷却好后过「自动释放等待」秒放出），不再接收客户端上报的点击时间；老客户端传的 ultTaps / ultWaits 忽略。 */

@@ -319,12 +319,6 @@ export function validateContent(
         push("realm", realm.slug, "requiredStageSlug", "要求通关的关卡境界要求比本境界还高，永远打不到");
       }
     }
-    if ((realm.ultDamageMultBp ?? 0) < 0) {
-      push("realm", realm.slug, "ultDamageMultBp", "大招倍数不能为负");
-    }
-    if ((realm.ultDamageMultBp ?? 0) > 0 && !((realm.ultCooldownSeconds ?? 0) >= 1)) {
-      push("realm", realm.slug, "ultCooldownSeconds", "有大招的境界要填大招冷却（至少 1 秒）");
-    }
   }
 
   chainErrors("stage", draft.stages.map((row) => ({ slug: row.slug, next: row.nextStageSlug })), push);

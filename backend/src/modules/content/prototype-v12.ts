@@ -96,6 +96,7 @@ export async function applyPrototypeV12(db: Db): Promise<{ stageSlugs: string[];
     starterItems: [],
     powerWeights: { attack: 4.7, defense: 1.6, hp: 0.95, speed: 2.6 },
     combat: {
+      baseInterval: 1.5,
       minInterval: 0.5,
       challengeCooldownSeconds: 0,
       timeLimitSeconds: 45,
@@ -152,10 +153,10 @@ export async function applyPrototypeV12(db: Db): Promise<{ stageSlugs: string[];
       baseDefense: layer.stats.defense - previous.defense,
       baseSpeed: layer.stats.speed - previous.speed,
       baseInterval: 1.5,
-      ultName: PROTOTYPE_BOSS_ULT_NAME,
-      ultDamageMultBp: major.ultMultBp,
-      ultCooldownSeconds: major.ultCooldown,
-      ultFirstCooldownSeconds: 8,
+      ultName: "",
+      ultDamageMultBp: 0,
+      ultCooldownSeconds: 0,
+      ultFirstCooldownSeconds: 0,
       requiredStageSlug: gate,
       updatedAt: now,
     });

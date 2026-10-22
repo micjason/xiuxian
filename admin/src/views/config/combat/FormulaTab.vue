@@ -20,8 +20,8 @@
           <p>攻击为 0 时伤害是 0。对方防御小于 0 时按 0 算。k 是攻击和防御的换算，k 越大，同样的防御挡掉越多。</p>
         </li>
         <li>
-          <p class="formula">出手间隔 = 境界基础出手间隔 × 速度基数 ÷（速度基数 + 速度），不会短于最短出手间隔</p>
-          <p>第一版每个境界的基础出手间隔都填 1.5 秒，所以下面的图用 1.5 来画。速度越高，间隔越短，短到最短出手间隔就不再缩短。</p>
+          <p class="formula">出手间隔 = 基准出手间隔 × 速度基数 ÷（速度基数 + 速度），不会短于最短出手间隔（基准在配置概览，全局一个值）</p>
+          <p>基准出手间隔默认 1.5 秒（配置概览可改）。速度越高，间隔越短，短到最短出手间隔就不再缩短。</p>
         </li>
         <li>
           <p class="formula">面板攻击 = 境界基础攻击 ×（1 + 功法攻击百分比之和）+ 装备攻击之和</p>
@@ -224,7 +224,7 @@ import { isBlank, validateSchema } from "../../../schema/validate";
 
 const ruleKeys = rulesSchema.fields.map((field) => field.key);
 // 公式预览接口只认这 7 个参数，其余参数不影响图。
-const previewKeys = ["defenseConstant", "minInterval", "speedBase", "attackWeight", "defenseWeight", "hpWeight", "speedWeight"] as const;
+const previewKeys = ["defenseConstant", "baseInterval", "minInterval", "speedBase", "attackWeight", "defenseWeight", "hpWeight", "speedWeight"] as const;
 
 type ShareKey = "attack" | "defense" | "hp" | "speed";
 

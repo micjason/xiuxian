@@ -208,6 +208,7 @@ export const contentGlobals = pgTable("content_globals", {
   starterItems: jsonb("starter_items").notNull().default([]),
   powerWeights: jsonb("power_weights").$type<{ attack: number; defense: number; hp: number; speed: number }>(),
   combat: jsonb("combat").$type<{
+    baseInterval?: number;
     minInterval?: number;
     challengeCooldownSeconds?: number;
     timeLimitSeconds?: number;

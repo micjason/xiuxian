@@ -4,36 +4,33 @@ import type { FieldDef, Schema } from "./types";
 export const realmSchema: Schema = {
   title: "境界",
   groups: [
-    { key: "base", title: "基本信息", desc: "编号决定突破顺序，大境界决定装备分阶。" },
-    { key: "cultivate", title: "修炼与突破", desc: "挂机修为的产出与突破门槛。每秒修为 = 每次获得修为 ÷ 修炼间隔，是本境自己的数，不是前面境界加起来。" },
-    { key: "stats", title: "到达该境界增加的属性", desc: "会和更低境界的加在一起。" },
-    { key: "combat", title: "战斗", desc: "出手快慢的基础值。" },
+    { key: "base", title: "基本信息", desc: "编号决定突破顺序；大境界名决定装备分阶。新建时按「大境界」一次生成三层。" },
+    { key: "cultivate", title: "修炼与突破", desc: "挂机修为的产出与突破门槛。修炼间隔固定 1 秒；每秒修为 = 每次获得修为，是本境自己的数，不是前面境界加起来。" },
+    { key: "stats", title: "到达该境界增加的属性", desc: "会和更低境界的加在一起。出手间隔由全局「基础出手间隔」与速度折算，本页只调速度。" },
     { key: "gate", title: "大境界突破门槛", desc: "跨大境界（例如炼气 → 筑基）要先通关一个首领关；小境界之间不用填。填在大境界的最后一层。" },
-    { key: "ult", title: "手动大招", desc: "首领战里玩家可以点的大招。同一个大境界的几层填一样的。倍数填 0 表示没有大招。" },
   ],
   fields: [
     {
       key: "code", help: false, label: "编号", kind: "int", group: "base", required: true, min: 1, lockedAfterCreate: true,
-      hint: "突破顺序，从小到大。不能重复。新建后不能改，要调整顺序请新建并删除。",
+      hint: "突破顺序，从小到大。不能重复。新建大境界时自动编号，编辑时不能改。",
       affects: "突破顺序、关卡所需境界、装备可穿戴阶段", example: "1、2、3…", column: { width: 80 },
     },
     {
       key: "displayName", label: "名称", kind: "text", group: "base", required: true,
-      hint: "玩家看到的境界名，例如「炼气初期」。", column: { minWidth: 140 }, example: "炼气初期",
+      hint: "玩家看到的境界名，例如「炼气一层」。新建大境界时自动生成「××一层 / 二层 / 三层」。", column: { minWidth: 140 }, example: "炼气一层",
     },
     {
       key: "majorName", label: "大境界", kind: "text", group: "base", required: true,
-      hint: "同一个大境界的小境界填同一个名字，例如三个小境界都填「炼气」。保存后系统会生成这一阶的 30 件装备（6 部位 × 5 品质）。",
-      affects: "装备分阶与自动生成（6 部位 × 5 品质）", column: { width: 100 },
+      hint: "同一个大境界的三层共用这个名字。新建时只填这一项；保存后系统会生成这一阶的 30 件装备（6 部位 × 5 品质）。",
+      affects: "装备分阶与自动生成（6 部位 × 5 品质）",
     },
     {
-      key: "tickSeconds", label: "修炼间隔", kind: "number", group: "cultivate", min: 0, step: 1, unit: "秒", default: 1,
-      hint: "每隔多少秒结算一次修为。原型统一填 1。0 表示还没设置，玩家得不到修为。本境自己的间隔，不是累计前境。", affects: "挂机修为速度（与「每次获得修为」一起算）",
-      column: { width: 100 },
+      key: "tickSeconds", label: "修炼间隔", kind: "number", group: "cultivate", min: 1, step: 1, unit: "秒", default: 1,
+      hint: "固定 1 秒，列表上方已标注；后台不再展示、不可改。", affects: "挂机修为速度",
     },
     {
       key: "gainPerTick", label: "每次获得修为", kind: "number", group: "cultivate", min: 0, step: 1, unit: "点", default: 0,
-      hint: "每个修炼间隔获得多少修为。0 表示还没设置。本境自己的产出，不是前面境界加起来（和 settle.ts 一致）。", affects: "挂机修为速度、功法分解折算", column: { width: 110 },
+      hint: "每个修炼间隔（1 秒）获得多少修为。0 表示还没设置。本境自己的产出，不是前面境界加起来（和 settle.ts 一致）。", affects: "挂机修为速度、功法分解折算", column: { width: 110 },
     },
     {
       key: "breakthroughCost", label: "突破消耗修为", kind: "number", group: "cultivate", min: 0, step: 1, unit: "点", default: 0,
@@ -53,34 +50,12 @@ export const realmSchema: Schema = {
     },
     {
       key: "speed", help: false, label: "速度", kind: "number", group: "stats", min: 0, step: 1, default: 0,
-      hint: "到达这个境界时增加的速度。速度越高出手越快，但有最短出手间隔。", affects: "出手间隔、战力", column: { width: 80 },
-    },
-    {
-      key: "interval", label: "基础出手间隔", kind: "number", group: "combat", min: 0.1, step: 0.1, precision: 2, unit: "秒",
-      hint: "没有速度加成时多少秒出手一次。必须填，空着玩家无法战斗。第一版统一填 1.5。",
-      affects: "出手间隔（与速度基数一起算）", example: "1.5", column: { width: 110 },
+      hint: "到达这个境界时增加的速度。出手间隔 = max(最短间隔, 基础出手间隔 × 速度基数 ÷ (速度基数 + 速度))，参数在「战斗公式与参数」里改。", affects: "出手间隔、战力", column: { width: 160 },
     },
     {
       key: "requiredStageId", label: "突破前要先通关", kind: "select", group: "gate", options: [], default: "",
       hint: "从本境界突破到下一境界之前，玩家必须首通这个关卡的首领。留空 = 不需要。只能选有首领、且境界要求不高于本境界的关卡（选项来自「关卡」页）。",
       affects: "大境界突破（未通关时突破按钮提示去挑战首领）", example: "炼气三层选「黑风岭·三」",
-    },
-    {
-      key: "ultName", label: "大招名称", kind: "text", group: "ult", default: "",
-      hint: "按钮上显示的名字，例如「剑诀·破军」。", affects: "首领战大招按钮",
-    },
-    {
-      key: "ultMultiplier", label: "大招伤害倍数", kind: "number", group: "ult", min: 0, max: 100, step: 0.5, precision: 2, unit: "倍", default: 0,
-      hint: "大招伤害 = 一次普攻伤害 × 这个倍数（取整），是额外多打一下，不替代普攻。炼气 4、筑基 5、金丹 6。0 = 没有大招。",
-      affects: "首领战胜负（服务端按点击时间重新模拟）", example: "4",
-    },
-    {
-      key: "ultCooldownSeconds", label: "大招冷却", kind: "number", group: "ult", min: 0, max: 600, step: 1, precision: 1, unit: "秒", default: 0,
-      hint: "释放之后多少秒再次冷却完成。炼气 20、筑基 18、金丹 16。有大招时必须至少 1 秒。", affects: "首领战大招次数",
-    },
-    {
-      key: "ultFirstCooldownSeconds", label: "开战首次冷却", kind: "number", group: "ult", min: 0, max: 600, step: 1, precision: 1, unit: "秒", default: 8,
-      hint: "进入首领战后第一次冷却完成的时间，原型统一 8 秒。", affects: "首领战大招次数",
     },
   ],
 };
@@ -180,6 +155,7 @@ export const rulesSchema: Schema = {
   ],
   fields: [
     { key: "defenseConstant", label: "防御常数 k", kind: "number", group: "damage", required: true, min: 0.01, step: 0.1, default: 1, hint: "k 越大，同样的防御挡掉越多，战斗越久。", affects: "所有战斗的伤害；改动后装备战力会整体偏移，需要重新反推战力权重", warning: "改 k 后原来的四个战力权重不再代表真实实力。" },
+    { key: "baseInterval", label: "基础出手间隔", kind: "number", group: "speed", required: true, min: 0.1, step: 0.1, precision: 2, unit: "秒", default: 1.5, hint: "玩家没有速度加成时多少秒出手一次。全局一个值，境界页只调速度。", affects: "出手间隔（与速度、最短间隔一起算）" },
     { key: "speedBase", label: "速度基数", kind: "number", group: "speed", required: true, min: 0.01, step: 10, default: 100, hint: "基数越大，速度越不容易缩短出手间隔。", affects: "出手间隔" },
     { key: "minInterval", label: "最短出手间隔", kind: "number", group: "speed", required: true, min: 0.01, step: 0.1, precision: 2, unit: "秒", default: 0.5, hint: "速度再高，出手间隔也不会短于这个值。", affects: "出手间隔下限" },
     { key: "attackWeight", label: "攻击权重", kind: "number", group: "power", required: true, min: 0, step: 0.1, default: 4.7, hint: "战力里攻击的占比权重。", affects: "战力、推荐战力、装备战力" },
@@ -193,7 +169,7 @@ export const rulesSchema: Schema = {
     { key: "onlineGapSeconds", label: "在线判定间隔", kind: "int", group: "world", min: 1, max: 600, step: 1, unit: "秒", default: 15, hint: "“在线”= 玩家前台打开游戏。两次请求间隔不超过这个秒数算在线（打普通怪、拿击杀修为和掉落）；超过就按离线段结算（只产修为）。客户端前台每 15 秒内至少请求一次。", affects: "普通怪波次、击杀修为、装备掉落、离线结算" },
     { key: "offlinePopupMinSeconds", label: "离线弹窗最短时长", kind: "int", group: "world", min: 0, max: 86400, step: 60, unit: "秒", default: 300, hint: "离线达到这个秒数才弹“闭关归来”窗；不足时修为照常入账，只是不弹窗。", affects: "离线弹窗" },
     { key: "dayStartHour", label: "每日重置整点", kind: "int", group: "world", min: 0, max: 23, step: 1, unit: "点", default: 5, hint: "北京时间的几点算新的一天（首领每日奖励次数按它重置）。", affects: "首领每日奖励次数" },
-    { key: "ultAutoCastWindowSeconds", label: "大招自动释放等待", kind: "number", group: "battle", min: 0, max: 30, step: 0.5, precision: 1, unit: "秒", default: 0, hint: "大招蓄满后再等几秒自动释放（第四批起没有手动点击，0＝蓄满立刻放）。大招的名称、倍率、冷却在“境界”里按层填。", affects: "首领战大招" },
+    { key: "ultAutoCastWindowSeconds", label: "大招自动释放等待", kind: "number", group: "battle", min: 0, max: 30, step: 0.5, precision: 1, unit: "秒", default: 0, hint: "大招蓄满后再等几秒自动释放（0＝蓄满立刻放）。境界不再自带大招；战斗大招只跟玩家学的功法。", affects: "首领战大招" },
     { key: "waveSize", label: "每波怪物数", kind: "int", group: "battle", min: 1, max: 10, step: 1, unit: "只", default: 3, hint: "普通怪一波有几只，依次上前，一次只和一只交战，中间不回血。", affects: "普通怪击杀速度" },
     { key: "waveTransitionSeconds", label: "波次转场秒数", kind: "number", group: "battle", min: 0, max: 60, step: 0.5, precision: 1, unit: "秒", default: 2, hint: "一波打完到下一波之间的转场时间，转场时主角回满血。", affects: "普通怪击杀速度" },
     { key: "reviveSeconds", label: "阵亡复活秒数", kind: "number", group: "battle", min: 0, max: 60, step: 0.5, precision: 1, unit: "秒", default: 3, hint: "普通怪打输（阵亡）后原地复活、回满血所需的秒数，无其他惩罚。", affects: "普通怪击杀速度" },

@@ -260,6 +260,13 @@
       "when": 1797000000000,
       "tag": "0051_essence_realm_yield_mult",
       "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1798000000000,
+      "tag": "0052_global_base_interval",
+      "breakpoints": true
     }
   ]
 }

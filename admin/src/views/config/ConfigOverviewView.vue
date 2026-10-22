@@ -10,7 +10,7 @@
         <div class="main">
           <SectionCard title="战力公式" anchor="power" desc="战斗伤害、出手间隔和战力怎么算">
             <SchemaForm v-model="rules" :schema="powerSchema" :hidden-keys="hiddenExcept(powerSchema)" class="grid-form" />
-            <p class="formula">每下伤害 = 攻击 × 攻击 ÷（攻击 + {{ rules.defenseConstant }} × 对方防御）；出手间隔 = 基础间隔 × {{ rules.speedBase }} ÷（{{ rules.speedBase }} + 速度），不短于 {{ rules.minInterval }} 秒；<br />战力 = 攻 × {{ rules.attackWeight }} + 防 × {{ rules.defenseWeight }} + 血 × {{ rules.hpWeight }} + 速 × {{ rules.speedWeight }}；推荐战力 = 首领（无首领按普通怪）战力 × {{ rules.recommendedPowerMargin }}</p>
+            <p class="formula">每下伤害 = 攻击 × 攻击 ÷（攻击 + {{ rules.defenseConstant }} × 对方防御）；出手间隔 = {{ rules.baseInterval ?? 1.5 }} × {{ rules.speedBase }} ÷（{{ rules.speedBase }} + 速度），不短于 {{ rules.minInterval }} 秒；<br />战力 = 攻 × {{ rules.attackWeight }} + 防 × {{ rules.defenseWeight }} + 血 × {{ rules.hpWeight }} + 速 × {{ rules.speedWeight }}；推荐战力 = 首领（无首领按普通怪）战力 × {{ rules.recommendedPowerMargin }}</p>
           </SectionCard>
 
           <SectionCard title="装备掉落默认" anchor="drop" desc="普通怪每只击杀；关卡没单独改就用这里">
@@ -316,7 +316,7 @@ const ANCHORS = [
 ];
 
 const pick = (keys: string[], title: string): Schema => ({ title, fields: rulesSchema.fields.filter((field) => keys.includes(field.key)).map((field) => ({ ...field, group: undefined })) });
-const powerSchema = pick(["defenseConstant", "speedBase", "minInterval", "attackWeight", "defenseWeight", "hpWeight", "speedWeight", "recommendedPowerMargin"], "战力公式");
+const powerSchema = pick(["defenseConstant", "baseInterval", "speedBase", "minInterval", "attackWeight", "defenseWeight", "hpWeight", "speedWeight", "recommendedPowerMargin"], "战力公式");
 const paceSchema = pick(["waveSize", "waveTransitionSeconds", "reviveSeconds", "onlineGapSeconds", "offlineCapSeconds", "offlinePopupMinSeconds", "dayStartHour", "bagCapacity", "challengeCooldownSeconds", "timeLimitSeconds", "ultAutoCastWindowSeconds"], "挂机与战斗节奏");
 
 const route = useRoute();

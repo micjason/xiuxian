@@ -248,6 +248,7 @@ export const contentGlobals = pgTable("content_globals", {
       slotMultBp: Partial<Record<string, number>>;
       slotOverrides: Partial<Record<string, Partial<Record<string, number>>>>;
       refundPerLevel: number;
+      realmYieldMult?: Partial<Record<"qi" | "foundation" | "core", number>>;
       costBase: number;
       costGrowth: number;
       costTable: Partial<Record<string, number[]>>;

@@ -11,6 +11,7 @@ import { withDb } from "../../test/db.js";
 import { testAdmin } from "../../test/admin.js";
 import { registerPlayer } from "../auth/service.js";
 import {
+  DEFAULT_REALM_YIELD_MULT,
   ENHANCE_QUALITIES,
   enhanceCost,
   enhanceRulesFromInput,
@@ -32,18 +33,53 @@ const now = new Date("2026-10-10T12:00:00.000Z");
 describe("炼器精粹 rules", () => {
   const rules = enhanceRulesFromInput(STARTING_ENHANCE_RULES);
 
-  it("yields 20 / 60 / 150 / 400 / 1000 per quality, plus 40 per enhance level", () => {
-    expect(ENHANCE_QUALITIES.map((q) => essenceYield(rules, q.key, "weapon", 0))).toEqual([20, 60, 150, 400, 1000]);
-    expect(essenceYield(rules, "purple", "shoes", 3)).toBe(400 + 3 * 40);
-    expect(essenceYield(rules, "orange", "accessory", 5)).toBe(1000 + 200);
+  it("金丹档一口价：白20/绿60/蓝150/紫400/橙1000，返还每级 40", () => {
+    expect(ENHANCE_QUALITIES.map((q) => essenceYield(rules, q.key, "weapon", 0, "core"))).toEqual([20, 60, 150, 400, 1000]);
+    expect(essenceYield(rules, "purple", "shoes", 3, "core")).toBe(400 + 3 * 40);
+    expect(essenceYield(rules, "orange", "accessory", 5, "core")).toBe(1000 + 200);
+  });
+
+  it("按大境界倍率分档：炼气白+10=105；未强化金丹紫=400", () => {
+    expect(essenceYield(rules, "white", "weapon", 10, "qi")).toBe(105);
+    expect(essenceYield(rules, "purple", "weapon", 0, "core")).toBe(400);
+    expect(essenceYield(rules, "green", "weapon", 0, "foundation")).toBe(27);
+    expect(essenceYield(rules, "white", "weapon", 0, "qi")).toBe(5);
+    // 缺 major → 炼气
+    expect(essenceYield(rules, "white", "weapon", 0, null)).toBe(5);
+    expect(essenceYield(rules, "white", "weapon", 0, "unknown")).toBe(5);
+  });
+
+  it("金丹匹配精粹/时 ≥ 刷筑基一约 1.1×、≥ 刷炼气一约 3×（固定装/时×权重 EV 夹具）", () => {
+    // 决策稿 §1–2：装/时与件均 EV（一口价×倍率后的期望）
+    const gearPerHour = { coreMatch: 46.7, coreFarmFoundation1: 122.9, coreFarmQi1: 122.9 };
+    const weightsEv = {
+      qi: 0.7 * 20 + 0.25 * 60 + 0.05 * 150 + 0 * 400, // 36.5
+      foundation: 0.5 * 20 + 0.35 * 60 + 0.13 * 150 + 0.02 * 400, // 58.5
+      core: 0.35 * 20 + 0.4 * 60 + 0.2 * 150 + 0.05 * 400, // 81
+    };
+    const m = DEFAULT_REALM_YIELD_MULT;
+    const coreMatch = gearPerHour.coreMatch * weightsEv.core * m.core;
+    const farmF = gearPerHour.coreFarmFoundation1 * weightsEv.foundation * m.foundation;
+    const farmQ = gearPerHour.coreFarmQi1 * weightsEv.qi * m.qi;
+    expect(coreMatch / farmF).toBeGreaterThanOrEqual(1.1);
+    expect(coreMatch / farmQ).toBeGreaterThanOrEqual(3);
+  });
+
+  it("旧存档缺 realmYieldMult 时读入默认倍率", () => {
+    const { realmYieldMult: _drop, ...without } = STARTING_ESSENCE_RULES;
+    const parsed = enhanceRulesFromInput({ ...STARTING_ENHANCE_RULES, essence: without });
+    expect(parsed.essence?.realmYieldMult).toEqual(DEFAULT_REALM_YIELD_MULT);
   });
 
   it("per-slot multiplier and per quality+slot override are read from config", () => {
     const edited = enhanceRulesFromInput({ ...STARTING_ENHANCE_RULES, essence: { ...STARTING_ESSENCE_RULES, slotMultBp: { weapon: 15000 }, slotOverrides: { blue: { shoes: 999 } } } });
-    expect(essenceYield(edited, "white", "weapon", 0)).toBe(30);
-    expect(essenceYield(edited, "white", "helmet", 0)).toBe(20);
-    expect(essenceYield(edited, "blue", "shoes", 2)).toBe(999 + 80);
-    expect(essenceYield(edited, "blue", "weapon", 0)).toBe(225);
+    // 倍率用金丹档，与改前一口价行为一致
+    expect(essenceYield(edited, "white", "weapon", 0, "core")).toBe(30);
+    expect(essenceYield(edited, "white", "helmet", 0, "core")).toBe(20);
+    expect(essenceYield(edited, "blue", "shoes", 2, "core")).toBe(999 + 80);
+    expect(essenceYield(edited, "blue", "weapon", 0, "core")).toBe(225);
+    // 炼气：白×0.25×1.5 部位 = round(7.5)=8；返还 round(40×0.25)=10
+    expect(essenceYield(edited, "white", "weapon", 2, "qi")).toBe(8 + 20);
   });
 
   it("enhance cost = round(40 × 1.25^level × quality costMult), with an optional per-level table", () => {
@@ -97,7 +133,8 @@ describe("炼器精粹 rules", () => {
 });
 
 async function seed(db: TestDb, enhance: EnhanceRules | Record<string, unknown> = STARTING_ENHANCE_RULES) {
-  await db.insert(contentRealms).values({ slug: "1", displayName: "凡人", sortOrder: 1, nextRealmSlug: null, baseAttack: 10, baseInterval: 1.5, gainPerTick: 1 });
+  // 金丹档：集成测沿用一口价绝对数；分档单测见上面「按大境界倍率分档」
+  await db.insert(contentRealms).values({ slug: "1", displayName: "凡人", majorName: "金丹", majorKey: "core", sortOrder: 1, nextRealmSlug: null, baseAttack: 10, baseInterval: 1.5, gainPerTick: 1 });
   await db.insert(contentGlobals).values({
     id: 1,
     offlineCapSeconds: 3600,
@@ -106,7 +143,7 @@ async function seed(db: TestDb, enhance: EnhanceRules | Record<string, unknown> 
     powerWeights: { attack: 4.7, defense: 1.6, hp: 0.95, speed: 2.6 },
     combat: { minInterval: 0.5, defenseConstant: 1, recommendedPowerMargin: 1.05, challengeCooldownSeconds: 0, timeLimitSeconds: 20, speedBase: 100 },
   });
-  const gear = (slug: string, quality: string, slot: string) => ({ slug, displayName: slug, kind: "equipment", slot, quality, attack: 5, defense: 0, hp: 0, speed: 0 });
+  const gear = (slug: string, quality: string, slot: string) => ({ slug, displayName: slug, kind: "equipment", slot, quality, requiredRealmOrder: 1, attack: 5, defense: 0, hp: 0, speed: 0 });
   await db.insert(contentItems).values([
     gear("w", "white", "weapon"),
     gear("g", "green", "helmet"),

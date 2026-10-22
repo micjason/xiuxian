@@ -62,12 +62,13 @@ func test_preview_uses_server_yields_and_refund_per_level() -> void:
 	var model := SalvageModel.from_bag(_bag())
 	var expect := 0
 	var refund := 0
+	# ProtoMock 装备是炼气（major1）；一口价 ×0.25，返还 round(40×0.25)=10
 	for item in model.items:
 		model.toggle(str(item.id))
-		var base: int = [20, 60, 150, 400, 1000][int(item.rarity)]
-		expect += base + int(item.enhance) * 40
-		refund += int(item.enhance) * 40
-	assert_eq(model.total_gain(), expect, "Σ品质产出 + Σ强化等级×40")
+		var base: int = [5, 15, 38, 100, 250][int(item.rarity)]
+		expect += base + int(item.enhance) * 10
+		refund += int(item.enhance) * 10
+	assert_eq(model.total_gain(), expect, "炼气档：Σ round(一口价×0.25) + Σ等级×10")
 	assert_eq(model.total_refund(), refund)
 	assert_gt(refund, 0, "演示满包里有强化过的装备")
 	assert_eq(str(model.confirm_state().sub), "分解 %d 件" % model.total())
@@ -79,9 +80,10 @@ func test_slot_multiplier_and_override_change_the_preview() -> void:
 	essence["slotMultBp"] = {"weapon": 15000}
 	essence["slotOverrides"] = {"white": {"gloves": 7}}
 	var rules := EnhanceModel.from_content(content)
-	assert_eq(rules.essence_yield(0, "weapon", 0), 30, "白 20 × 武器 150%")
-	assert_eq(rules.essence_yield(0, "gloves", 2), 7 + 80, "单独指定 7 + 2 级返还")
-	assert_eq(rules.essence_yield(1, "helmet", 0), 60)
+	assert_eq(rules.essence_yield(0, "weapon", 0, "core"), 30, "白 20 × 武器 150%")
+	assert_eq(rules.essence_yield(0, "gloves", 2, "core"), 7 + 80, "单独指定 7 + 2 级返还")
+	assert_eq(rules.essence_yield(1, "helmet", 0, "core"), 60)
+	assert_eq(rules.essence_yield(0, "weapon", 10, "qi"), 105, "炼气白 +10 = 5 + 10×10")
 
 
 func test_essence_cost_follows_curve_and_per_level_table() -> void:

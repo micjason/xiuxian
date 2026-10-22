@@ -27,6 +27,7 @@ const ESSENCE_RULES := {
 	"itemSlug": "refine_essence",
 	"yields": {"white": 20, "green": 60, "blue": 150, "purple": 400, "orange": 1000},
 	"slotMultBp": {}, "slotOverrides": {}, "refundPerLevel": 40,
+	"realmYieldMult": {"qi": 0.25, "foundation": 0.45, "core": 1.0},
 	"costBase": 40, "costGrowth": 1.25, "costTable": {}, "migrationRatioBp": 7000,
 }
 const ESSENCE_ITEM := {"slug": "refine_essence", "displayName": "炼器精粹", "kind": "material", "quality": "orange", "stackable": true,
@@ -37,8 +38,12 @@ const ESSENCE_ITEM := {"slug": "refine_essence", "displayName": "炼器精粹", 
 static func add_essence(content_data: Dictionary) -> void:
 	var globals: Dictionary = content_data.get("globals", {}) if typeof(content_data.get("globals", null)) == TYPE_DICTIONARY else {}
 	var enhance: Variant = globals.get("enhance", null)
-	if typeof(enhance) == TYPE_DICTIONARY and typeof((enhance as Dictionary).get("essence", null)) != TYPE_DICTIONARY:
-		(enhance as Dictionary)["essence"] = ESSENCE_RULES.duplicate(true)
+	if typeof(enhance) == TYPE_DICTIONARY:
+		var essence: Variant = (enhance as Dictionary).get("essence", null)
+		if typeof(essence) != TYPE_DICTIONARY:
+			(enhance as Dictionary)["essence"] = ESSENCE_RULES.duplicate(true)
+		elif not (essence as Dictionary).has("realmYieldMult"):
+			(essence as Dictionary)["realmYieldMult"] = {"qi": 0.25, "foundation": 0.45, "core": 1.0}
 	var items: Array = content_data.get("items", [])
 	for def in items:
 		if typeof(def) == TYPE_DICTIONARY and str((def as Dictionary).get("slug", "")) == str(ESSENCE_ITEM.slug):
@@ -87,7 +92,7 @@ static func content() -> Dictionary:
 	items.append(ESSENCE_ITEM.duplicate(true))
 	return {
 		"globals": {"bagCapacity": 20, "powerWeights": WEIGHTS, "enhance": enhance},
-		"realms": [{"slug": "mortal", "displayName": "凡人", "sortOrder": 1}, {"slug": "qi1", "displayName": "炼气初期", "sortOrder": 2}, {"slug": "qi2", "displayName": "炼气中期", "sortOrder": 3}, {"slug": "qi3", "displayName": "炼气后期", "sortOrder": 4}],
+		"realms": [{"slug": "mortal", "displayName": "凡人", "sortOrder": 1, "majorName": "金丹", "majorKey": "core"}, {"slug": "qi1", "displayName": "炼气初期", "sortOrder": 2, "majorName": "金丹", "majorKey": "core"}, {"slug": "qi2", "displayName": "炼气中期", "sortOrder": 3, "majorName": "金丹", "majorKey": "core"}, {"slug": "qi3", "displayName": "炼气后期", "sortOrder": 4, "majorName": "金丹", "majorKey": "core"}],
 		"stages": [
 			{"slug": "s1", "displayName": "青岚山·枯木林", "requiredRealmOrder": 1, "recommendedPower": 800, "bosses": [{"name": "枯木妖", "attack": 30, "defense": 20, "hp": 1200, "drops": [{"itemSlug": "sword_g", "chanceBp": 2500}, {"itemSlug": "herb", "chanceBp": 6000}]}]},
 			{"slug": "s2", "displayName": "青岚山·寒潭", "requiredRealmOrder": 2, "recommendedPower": 1500, "bosses": [{"name": "寒潭蛟", "attack": 45, "defense": 30, "hp": 3600, "drops": [{"itemSlug": "robe_g", "chanceBp": 1800}, {"itemSlug": "book1", "chanceBp": 500}]}]},

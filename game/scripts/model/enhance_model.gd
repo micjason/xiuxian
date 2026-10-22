@@ -8,15 +8,20 @@ extends RefCounted
 ##   突破节点：装备强化到节点等级后，要交齐材料「突破」才能继续升级（不会失败）。
 ## 强化经验池没有上限。已穿戴的装备不能分解（见 BagModel.can_decompose）。
 ## 第五批（SPEC_Q §17.2 / 17.3）：规则里有 essence 时，分解得「炼器精粹」、强化消耗精粹（uses_essence() 为真）：
-##   分解得到 = 品质产出（× 部位倍数，或单独指定）+ 强化等级 × 每级返还
-##   升一级的精粹 = 单独指定的每级消耗表，没有就 round(基础消耗 × 增长倍数^等级 × 品质倍数)
+##   分解得到 = round(品质一口价 × 大境界倍率 × 部位) + 强化等级 × round(返还基准 × 同倍率)
+##   一口价是金丹档；缺 major → 炼气。强化消耗不跟境界走。
 ## 和服务器 enhance.ts 的 essenceYield / essenceCost 一致；cost() / decompose_exp() 在有精粹规则时返回精粹数。
 ## 规则缺失时 rules 为空，所有查询都会报错而不是用默认数字（和服务器同样的要求）。
 ## 这个文件里没有任何玩法数字；突破节点也只读配置。品质 5 档白→橙（红已去掉）。
 
 const QUALITY_KEYS: Array[String] = Catalog.QUALITY_KEYS
+const DEFAULT_REALM_MULT := {"qi": 0.25, "foundation": 0.45, "core": 1.0}
+## realms.majorName → 倍率键（majorKey 实际是 major1/major4/…，不能直接用）。
+const MAJOR_NAME_TO_KEY := {"炼气": "qi", "筑基": "foundation", "金丹": "core"}
 
 var rules: Dictionary = {}
+## sortOrder → 语义倍率键 qi/foundation/core
+var _yield_key_by_order: Dictionary = {}
 
 
 static func from_content(content: Dictionary) -> EnhanceModel:
@@ -24,6 +29,18 @@ static func from_content(content: Dictionary) -> EnhanceModel:
 	var globals: Variant = content.get("globals", {})
 	if typeof(globals) == TYPE_DICTIONARY and typeof((globals as Dictionary).get("enhance", null)) == TYPE_DICTIONARY:
 		model.rules = (globals as Dictionary)["enhance"]
+	for realm in content.get("realms", []):
+		if typeof(realm) != TYPE_DICTIONARY:
+			continue
+		var order := int((realm as Dictionary).get("sortOrder", 0))
+		if order <= 0:
+			continue
+		var name := str((realm as Dictionary).get("majorName", ""))
+		var key := str((realm as Dictionary).get("majorKey", ""))
+		if MAJOR_NAME_TO_KEY.has(name):
+			model._yield_key_by_order[order] = MAJOR_NAME_TO_KEY[name]
+		elif DEFAULT_REALM_MULT.has(key):
+			model._yield_key_by_order[order] = key
 	return model
 
 
@@ -100,17 +117,37 @@ func stat(base: float, level: int, rarity: int = -1) -> float:
 	return round(base * (1.0 + float(level) * growth / 10000.0) * 100.0) / 100.0
 
 
-## 分解一件得到多少（有精粹规则 = 精粹，按部位；否则 = 旧的强化经验）。slot_id 是客户端部位 id（weapon/helmet/…）。
-func decompose_exp(rarity: int, level: int, slot_id: String = "") -> int:
+## 分解一件得到多少（有精粹规则 = 精粹，按部位 + 大境界；否则 = 旧的强化经验）。
+## slot_id 是客户端部位 id；major_key 空 = 炼气（与服务器缺 major 一致）。
+func decompose_exp(rarity: int, level: int, slot_id: String = "", major_key: String = "") -> int:
 	if not supports(rarity):
 		return 0
 	if uses_essence():
-		return essence_yield(rarity, slot_id, level)
+		return essence_yield(rarity, slot_id, level, major_key)
 	return int(_quality(rarity).get("decomposeExp", 0)) + int(floor(float(invested(rarity, level)) * float(rules.get("refundBp", 0)) / 10000.0))
 
 
-## 精粹产出的品质部分（不含强化返还）。
-func essence_base(rarity: int, slot_id: String = "") -> int:
+## requiredRealmOrder → 语义倍率键；没有就炼气。
+func major_key_for_order(order: int) -> String:
+	if _yield_key_by_order.has(order):
+		return str(_yield_key_by_order[order])
+	return "qi"
+
+
+## 大境界精粹倍率；缺表 / 缺键 / 未知 → 炼气默认。
+func realm_yield_mult(major_key: String = "") -> float:
+	var essence := _essence()
+	var table: Variant = essence.get("realmYieldMult", {})
+	var key := major_key if not major_key.is_empty() else "qi"
+	if typeof(table) == TYPE_DICTIONARY and (table as Dictionary).has(key):
+		return float((table as Dictionary)[key])
+	if DEFAULT_REALM_MULT.has(key):
+		return float(DEFAULT_REALM_MULT[key])
+	return float(DEFAULT_REALM_MULT["qi"])
+
+
+## 精粹产出的品质部分（不含强化返还）。major_key 空 = 炼气。
+func essence_base(rarity: int, slot_id: String = "", major_key: String = "") -> int:
 	var essence := _essence()
 	var key := QUALITY_KEYS[clampi(rarity, 0, QUALITY_KEYS.size() - 1)]
 	var server_slot := str(SlotConfig.find(slot_id).get("server", slot_id)) if not slot_id.is_empty() else ""
@@ -119,23 +156,28 @@ func essence_base(rarity: int, slot_id: String = "") -> int:
 		var fixed: Variant = ((overrides as Dictionary)[key] as Dictionary).get(server_slot, null)
 		if fixed != null:
 			return int(fixed)
+	var realm := realm_yield_mult(major_key)
 	var mults: Variant = essence.get("slotMultBp", {})
 	var mult := float((mults as Dictionary).get(server_slot, 10000)) if typeof(mults) == TYPE_DICTIONARY else 10000.0
 	var yields: Variant = essence.get("yields", {})
 	var base := float((yields as Dictionary).get(key, 0)) if typeof(yields) == TYPE_DICTIONARY else 0.0
-	return int(round(base * mult / 10000.0))
+	return int(round(base * realm * mult / 10000.0))
 
 
-## 强化返还：每级多少精粹。
+## 强化返还基准（金丹档）；实际每级 = round(基准 × 大境界倍率)。
 func refund_per_level() -> int:
 	return int(_essence().get("refundPerLevel", 0))
 
 
-## 分解一件 +level 的装备得到的精粹 = 品质（部位）产出 + 等级 × 每级返还。
-func essence_yield(rarity: int, slot_id: String, level: int) -> int:
+func refund_per_level_for(major_key: String = "") -> int:
+	return int(round(float(refund_per_level()) * realm_yield_mult(major_key)))
+
+
+## 分解一件 +level 的装备得到的精粹。major_key 空 = 炼气。
+func essence_yield(rarity: int, slot_id: String, level: int, major_key: String = "") -> int:
 	if not uses_essence():
 		return 0
-	return essence_base(rarity, slot_id) + maxi(0, level) * refund_per_level()
+	return essence_base(rarity, slot_id, major_key) + maxi(0, level) * refund_per_level_for(major_key)
 
 
 ## 这个品质的全部突破节点（按等级从小到大）：[{level, materials:[{itemSlug, count}]}]。

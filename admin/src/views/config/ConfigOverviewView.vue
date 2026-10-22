@@ -80,10 +80,37 @@
 
                 <FormRow label="每级属性加成" help="每级强化给装备基础属性增加的百分比。"><NumInput :model-value="enhance.statGrowthBp / 100" unit="%" :precision="2" @update:model-value="(value: number | null) => enhance && (enhance.statGrowthBp = Math.round((value ?? 0) * 100))" /></FormRow>
                 <template v-if="enhance.essence">
-                  <FormRow label="每级强化返还" help="分解 +N 的装备额外得到 N × 这个数的炼器精粹。"><NumInput v-model="enhance.essence.refundPerLevel" unit="精粹" :precision="0" :min="0" /></FormRow>
-                  <FormRow label="强化基础消耗" help="强化 0→1 级消耗的炼器精粹（品质倍数为 1 时）；每级再乘「消耗增长倍数」。"><NumInput v-model="enhance.essence.costBase" unit="精粹" :precision="0" :min="1" /></FormRow>
+                  <FormRow label="每级强化返还（金丹基准）" help="分解 +N 的装备额外得到 N × round(这个数 × 该装备大境界倍率) 的炼器精粹。默认 40 → 炼气每级 10 / 筑基 18 / 金丹 40。"><NumInput v-model="enhance.essence.refundPerLevel" unit="精粹" :precision="0" :min="0" /></FormRow>
+                  <FormRow label="强化基础消耗" help="强化 0→1 级消耗的炼器精粹（品质倍数为 1 时）；每级再乘「消耗增长倍数」。强化消耗不跟大境界走。"><NumInput v-model="enhance.essence.costBase" unit="精粹" :precision="0" :min="1" /></FormRow>
                   <FormRow label="消耗增长倍数" help="每升一级，精粹消耗乘以这个倍数。按级单独指定在「装备强化」页。"><NumInput v-model="enhance.essence.costGrowth" unit="倍" :precision="2" :min="1" /></FormRow>
                 </template>
+              </div>
+              <FormRow v-if="enhance.essence" label="大境界倍率" help="一口价是金丹档（×1）。炼气 / 筑基乘这个系数。产出 = round(一口价 × 倍率 × 部位)；返还每级 = round(返还基准 × 倍率)。" class="row-gap">
+                <div class="cells">
+                  <div v-for="major in REALM_MAJORS" :key="major.key" class="cell">
+                    <span class="q-label">{{ major.name }}</span>
+                    <NumInput :model-value="realmMultOf(major.key)" :width="120" unit="倍" :precision="2" :min="0.01" @update:model-value="(value: number | null) => setRealmMult(major.key, value)" />
+                  </div>
+                </div>
+              </FormRow>
+              <div v-if="enhance.essence" class="abs-preview row-gap">
+                <div class="sub-title">绝对产出预览（只读）= round(一口价 × 大境界倍率)</div>
+                <table class="grid">
+                  <thead>
+                    <tr>
+                      <th>大境界</th>
+                      <th v-for="quality in ENHANCE_QUALITIES" :key="quality.key" class="num">{{ quality.name }}</th>
+                      <th class="num">每级返还</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="major in REALM_MAJORS" :key="major.key">
+                      <td>{{ major.name }}（×{{ realmMultOf(major.key) }}）</td>
+                      <td v-for="quality in ENHANCE_QUALITIES" :key="quality.key" class="num">{{ absYield(quality.key, major.key) }}</td>
+                      <td class="num">{{ absRefund(major.key) }}</td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
               <table class="grid row-gap">
                 <thead>
@@ -91,7 +118,7 @@
                     <th>品质</th>
                     <th class="num">强化上限<HelpTip title="强化上限" text="这个品质的装备最多强化到几级。" /></th>
                     <th class="num">品质倍数<HelpTip title="品质倍数" text="这个品质每一级的精粹消耗再乘以它。右边「每级精粹消耗」按公式实时算出具体整数，不用心算。" /></th>
-                    <th class="num">分解产出<HelpTip title="分解产出" text="分解这个品质的装备（未强化）得到的炼器精粹。部位倍数 / 单独指定在「装备强化」页。" /></th>
+                    <th class="num">分解产出（金丹基准）<HelpTip title="分解产出" text="金丹档一口价。实际产出再乘大境界倍率（见上方）。部位倍数 / 单独指定在「装备强化」页。" /></th>
                     <th>每级精粹消耗<HelpTip title="每级精粹消耗" text="按「基础消耗 × 增长倍数^当前等级 × 品质倍数」算出（有单独指定表时用表）。只读预览，改左边数字会立刻更新。完整可编辑表在「装备强化」。" /></th>
                     <th>突破节点</th>
                   </tr>
@@ -232,7 +259,8 @@ type Tuning = {
   bossRules: BossRules;
 };
 type EnhanceQuality = { cap: number; costMult: number; decomposeExp: number; breakthroughs: { level: number; materials: { itemSlug: string; count: number }[] }[] };
-type Essence = { itemSlug: string; yields: Record<Quality, number>; refundPerLevel: number; costBase: number; costGrowth: number; costTable?: Partial<Record<Quality, (number | null)[]>>; migrationRatioBp: number; [key: string]: unknown };
+type RealmMajor = "qi" | "foundation" | "core";
+type Essence = { itemSlug: string; yields: Record<Quality, number>; refundPerLevel: number; realmYieldMult?: Partial<Record<RealmMajor, number>>; costBase: number; costGrowth: number; costTable?: Partial<Record<Quality, (number | null)[]>>; migrationRatioBp: number; [key: string]: unknown };
 type Enhance = { expBase: number; expGrowth: number; statGrowthBp: number; refundBp: number; qualities: Record<string, EnhanceQuality | undefined>; essence?: Essence };
 type StageRow = { id: string; displayName: string; realmCode: number; customCount: number; override: { chanceBp?: number; qualityWeights?: Record<string, number> } | null; effective: { chanceBp: number; qualityWeights: Record<string, number> } };
 type Overview = {
@@ -258,6 +286,12 @@ const QUALITIES: { key: Quality; name: string; color: string }[] = [
 const GRANT_SOURCE_NAMES: Record<string, string> = { stage_drop: "关卡掉落", boss_first: "首领首通", boss_repeat: "首领重复", admin_grant: "后台补发", mail: "邮件", event: "活动" };
 // 品质统一白→橙 5 档（红已去掉）
 const ENHANCE_QUALITIES = QUALITIES;
+const REALM_MAJORS: { key: RealmMajor; name: string }[] = [
+  { key: "qi", name: "炼气" },
+  { key: "foundation", name: "筑基" },
+  { key: "core", name: "金丹" },
+];
+const DEFAULT_REALM_MULT: Record<RealmMajor, number> = { qi: 0.25, foundation: 0.45, core: 1 };
 const RANKS: { key: Rank; name: string }[] = [
   { key: "yellow", name: "黄阶" },
   { key: "xuan", name: "玄阶" },
@@ -372,6 +406,35 @@ function essenceCostTotal(quality: Quality): number {
   return essenceCostPreview(quality).reduce((sum, step) => sum + step.cost, 0);
 }
 
+function ensureRealmMult(): void {
+  const essence = enhance.value?.essence;
+  if (!essence) return;
+  if (!essence.realmYieldMult) essence.realmYieldMult = { ...DEFAULT_REALM_MULT };
+  for (const major of REALM_MAJORS) {
+    if (essence.realmYieldMult[major.key] == null) essence.realmYieldMult[major.key] = DEFAULT_REALM_MULT[major.key];
+  }
+}
+
+function realmMultOf(key: RealmMajor): number {
+  ensureRealmMult();
+  return enhance.value?.essence?.realmYieldMult?.[key] ?? DEFAULT_REALM_MULT[key];
+}
+
+function setRealmMult(key: RealmMajor, value: number | null): void {
+  ensureRealmMult();
+  if (!enhance.value?.essence?.realmYieldMult) return;
+  enhance.value.essence.realmYieldMult[key] = value == null || Number.isNaN(value) ? DEFAULT_REALM_MULT[key] : value;
+}
+
+function absYield(quality: Quality, major: RealmMajor): number {
+  const base = enhance.value?.essence?.yields[quality] ?? 0;
+  return Math.round(base * realmMultOf(major));
+}
+
+function absRefund(major: RealmMajor): number {
+  return Math.round((enhance.value?.essence?.refundPerLevel ?? 0) * realmMultOf(major));
+}
+
 function go(id: string): void {
   activeAnchor.value = id;
   document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -414,6 +477,9 @@ function apply(overview: Overview): void {
   rules.value = { ...overview.rules };
   tuning.value = JSON.parse(JSON.stringify(overview.tuning)) as Tuning;
   enhance.value = overview.enhance.rules ? (JSON.parse(JSON.stringify(overview.enhance.rules)) as Enhance) : null;
+  if (enhance.value?.essence && !enhance.value.essence.realmYieldMult) {
+    enhance.value.essence.realmYieldMult = { ...DEFAULT_REALM_MULT };
+  }
   newbie.value = { startingRealmSlug: overview.newbie?.startingRealmSlug ?? "", starterItems: JSON.parse(JSON.stringify(overview.newbie?.starterItems ?? [])) };
   skillSlots.value = JSON.parse(JSON.stringify(overview.skillSlots?.rules ?? []));
   original.value = snapshot();
@@ -667,5 +733,10 @@ onBeforeUnmount(() => window.removeEventListener("scroll", onScroll, { capture: 
 .cost-total b {
   color: var(--xx-text);
   font-variant-numeric: tabular-nums;
+}
+.abs-preview .sub-title {
+  margin: 12px 0 8px;
+  font-size: 13px;
+  color: var(--xx-text-secondary);
 }
 </style>

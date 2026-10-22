@@ -191,7 +191,7 @@ static func normalize(row: Dictionary, def: Dictionary, weights: Dictionary, enh
 		## 正卡着的突破节点（没有就是空字典）和下一个还没突破的节点；材料够不够由 BagModel 实例补上 break_view。
 		"break_pending": pending,
 		"break_next": upcoming,
-		"decompose_exp": enhance_model.decompose_exp(rarity, level, SlotConfig.id_from_server(server_slot)) if (is_gear and enhance_model != null) else 0,
+		"decompose_exp": enhance_model.decompose_exp(rarity, level, SlotConfig.id_from_server(server_slot), enhance_model.major_key_for_order(int(def.get("requiredRealmOrder", 0)))) if (is_gear and enhance_model != null) else 0,
 		"is_new": not seen.is_empty() and not seen.has(id),
 		"stats": stats,
 		"base_stats": base_stats,

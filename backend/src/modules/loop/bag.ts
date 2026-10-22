@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import type { Tx } from "../../db/tx.js";
 import { grantEquipment, type GrantSource } from "../player/grant.js";
 import { playerItems } from "../../db/schema.js";
-import { essenceRules, essenceYield, readEnhanceRules } from "../content/enhance.js";
+import { essenceRules, essenceYield, readEnhanceRules, resolveRealmYieldMajor } from "../content/enhance.js";
 import { tuningOf } from "../content/tuning.js";
 import type { ContentSnapshot } from "../content/validate.js";
 import { AppError } from "../../shared/errors.js";
@@ -131,7 +131,15 @@ export async function decomposeRows(tx: Tx, world: World, playerId: string, item
   const pieces: { itemId: string; itemSlug: string; quality: string | null; enhanceLevel: number; essence: number }[] = [];
   for (const row of rows) {
     const def = world.items.find((item) => item.slug === row.itemSlug)!;
-    pieces.push({ itemId: row.id, itemSlug: row.itemSlug, quality: def.quality ?? null, enhanceLevel: row.enhanceLevel, essence: essenceYield(rules, def.quality, def.slot, row.enhanceLevel) * row.quantity });
+    const realm = world.realms.find((row) => row.sortOrder === def.requiredRealmOrder);
+    const major = resolveRealmYieldMajor(realm);
+    pieces.push({
+      itemId: row.id,
+      itemSlug: row.itemSlug,
+      quality: def.quality ?? null,
+      enhanceLevel: row.enhanceLevel,
+      essence: essenceYield(rules, def.quality, def.slot, row.enhanceLevel, major) * row.quantity,
+    });
   }
   await tx.delete(playerItems).where(and(eq(playerItems.playerId, playerId), inArray(playerItems.id, ids)));
   const total = pieces.reduce((sum, row) => sum + row.essence, 0);

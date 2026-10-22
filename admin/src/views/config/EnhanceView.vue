@@ -77,7 +77,7 @@
         <header class="head">
           <div>
             <h2>炼器精粹 · 分解产出与强化消耗</h2>
-            <p class="hint">分解得到 = 品质产出（× 部位倍数，或单独指定）+ 强化等级 × 每级返还；强化 +L→+L+1 消耗 = round(基础消耗 × 增长倍数^L × 品质倍数)，也可以按级单独指定。游戏端的分解预览和强化卡都读这里，和服务器用同一份公式。</p>
+            <p class="hint">分解得到 = round(品质一口价 × 大境界倍率 × 部位) + 强化等级 × round(每级返还 × 同倍率)；一口价是金丹档，大境界倍率在「配置概览」。强化消耗不跟境界走：round(基础 × 增长^L × 品质倍数)。</p>
           </div>
           <el-button v-if="!form.essence" type="primary" @click="fillEssence">填入建议起始值</el-button>
         </header>
@@ -92,7 +92,7 @@
               </el-form-item>
               <el-form-item label="每级强化返还（精粹）">
                 <el-input-number v-model="form.essence.refundPerLevel" :min="0" :step="10" :precision="0" controls-position="right" @change="touched = true" />
-                <p class="hint">分解 +N 的装备额外得到 N × 这个数。</p>
+                <p class="hint">金丹基准；实际返还 = round(这个数 × 大境界倍率)。大境界倍率在「配置概览」。</p>
               </el-form-item>
               <el-form-item label="强化基础消耗（0→1 级，品质倍数为 1 时）">
                 <el-input-number v-model="form.essence.costBase" :min="1" :step="5" :precision="0" controls-position="right" @change="touched = true" />
@@ -231,7 +231,7 @@
             <template #default="{ row }"><span v-if="row.node" class="node-tag">突破节点 · {{ row.node }}</span><span v-else class="muted">—</span></template>
           </el-table-column>
         </el-table>
-        <p class="hint">「这一级消耗精粹」留空 = 按公式（灰字）；填了就用填的数（只对这个品质）。分解可得 = 品质产出（武器部位）+ 等级 × 每级返还。「旧·经验」是以前的强化经验消耗，只用来对照迁移比例。强化永远不会失败，也不会掉级；突破材料不会在分解时返还。</p>
+        <p class="hint">「这一级消耗精粹」留空 = 按公式（灰字）；填了就用填的数（只对这个品质）。分解可得按金丹档预览 = 品质一口价（武器）+ 等级 × 返还基准；实际分解再乘装备大境界倍率。「旧·经验」是以前的强化经验消耗，只用来对照迁移比例。强化永远不会失败，也不会掉级；突破材料不会在分解时返还。</p>
       </section>
     </DataState>
   </div>
@@ -256,17 +256,20 @@ type Material = { itemSlug: string; count: number | null };
 type Node = { level: number | null; materials: Material[] };
 type QualityRule = { cap: number | null; costMult: number | null; decomposeExp: number | null; expGrowth?: number | null; statGrowthBp?: number | null; breakthroughs: Node[] };
 type SlotKey = "weapon" | "clothes" | "helmet" | "gloves" | "shoes" | "accessory";
+type RealmMajor = "qi" | "foundation" | "core";
 type Essence = {
   itemSlug: string;
   yields: Record<QualityKey, number | null>;
   slotMultBp: Partial<Record<SlotKey, number>>;
   slotOverrides: Partial<Record<QualityKey, Partial<Record<SlotKey, number>>>>;
   refundPerLevel: number | null;
+  realmYieldMult: Record<RealmMajor, number>;
   costBase: number | null;
   costGrowth: number | null;
   costTable: Partial<Record<QualityKey, (number | null)[]>>;
   migrationRatioBp: number | null;
 };
+const DEFAULT_REALM_MULT: Record<RealmMajor, number> = { qi: 0.25, foundation: 0.45, core: 1 };
 type Rules = { expBase: number | null; expGrowth: number | null; statGrowthBp: number | null; refundBp: number | null; qualities: Record<QualityKey, QualityRule>; essence: Essence | null };
 type StartingMaterial = { slug: string; displayName: string };
 type Migration = { migratedPlayers: number; migratedEnhanceExp: number; migratedEssence: number; pendingPlayers: number };
@@ -307,12 +310,14 @@ function normalizeEssence(raw: Partial<Essence> | null | undefined): Essence | n
   if (!raw) return null;
   const yields = {} as Essence["yields"];
   for (const quality of QUALITIES) yields[quality.key] = raw.yields?.[quality.key] ?? null;
+  const realmYieldMult = { ...DEFAULT_REALM_MULT, ...(raw.realmYieldMult ?? {}) };
   return {
     itemSlug: raw.itemSlug ?? "",
     yields,
     slotMultBp: { ...(raw.slotMultBp ?? {}) },
     slotOverrides: JSON.parse(JSON.stringify(raw.slotOverrides ?? {})),
     refundPerLevel: raw.refundPerLevel ?? null,
+    realmYieldMult,
     costBase: raw.costBase ?? null,
     costGrowth: raw.costGrowth ?? null,
     costTable: JSON.parse(JSON.stringify(raw.costTable ?? {})),
@@ -574,12 +579,14 @@ function invested(level: number, quality: QualityKey): number {
   return total;
 }
 
-function decomposeOf(level: number, quality: QualityKey, slot: SlotKey = "weapon"): number {
+/** 效果预览按金丹档（倍率 1）算，和一口价表一致；实际分解按装备大境界倍率。 */
+function decomposeOf(level: number, quality: QualityKey, slot: SlotKey = "weapon", major: RealmMajor = "core"): number {
   const essence = form.value.essence;
   if (!essence) return 0;
+  const realmMult = essence.realmYieldMult?.[major] ?? DEFAULT_REALM_MULT[major];
   const override = essence.slotOverrides[quality]?.[slot];
-  const base = override ?? Math.round(((essence.yields[quality] ?? 0) * (essence.slotMultBp[slot] ?? 10000)) / 10000);
-  return base + level * (essence.refundPerLevel ?? 0);
+  const base = override ?? Math.round(((essence.yields[quality] ?? 0) * realmMult * (essence.slotMultBp[slot] ?? 10000)) / 10000);
+  return base + level * Math.round((essence.refundPerLevel ?? 0) * realmMult);
 }
 
 /** 「没人变弱」的最低迁移比例（万分比）：每一级精粹消耗 / 旧经验消耗的最大值，和服务器 minSafeMigrationRatioBp 一样。 */

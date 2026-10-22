@@ -62,17 +62,26 @@ export type EnhanceRules = {
 export const ESSENCE_SLOTS = ["weapon", "clothes", "helmet", "gloves", "shoes", "accessory"] as const;
 export type EssenceSlot = (typeof ESSENCE_SLOTS)[number];
 
+/** 大境界倍率键（与 realms.majorKey / PROTOTYPE_MAJORS.key 一致）。 */
+export const REALM_YIELD_MAJORS = ["qi", "foundation", "core"] as const;
+export type RealmYieldMajor = (typeof REALM_YIELD_MAJORS)[number];
+
+/** 默认大境界倍率：一口价 yields 是金丹档（×1）；炼气 / 筑基打折。见 balance_research/essence_realm_tiers.md。 */
+export const DEFAULT_REALM_YIELD_MULT: Record<RealmYieldMajor, number> = { qi: 0.25, foundation: 0.45, core: 1.0 };
+
 export type EssenceRules = {
   /** 精粹对应的物品编号（可堆叠材料），默认 refine_essence。 */
   itemSlug: string;
-  /** 分解一件未强化装备得到的精粹（按品质）。 */
+  /** 分解一件未强化装备得到的精粹（按品质）——金丹档基准；再乘大境界倍率。 */
   yields: Record<EnhanceQualityKey, number>;
-  /** 部位倍数（万分比，不填 = 10000 = 1 倍）：产出 = round(品质产出 × 倍数)。 */
+  /** 部位倍数（万分比，不填 = 10000 = 1 倍）：产出 = round(品质产出 × 大境界倍率 × 倍数)。 */
   slotMultBp: Partial<Record<EssenceSlot, number>>;
-  /** 单独指定「某品质某部位」的产出（填了就不再乘部位倍数）。 */
+  /** 单独指定「某品质某部位」的产出（填了就不再乘部位倍数；绝对值，不再乘境界倍率）。 */
   slotOverrides: Partial<Record<EnhanceQualityKey, Partial<Record<EssenceSlot, number>>>>;
-  /** 强化返还：每 1 级强化额外返还多少精粹（SPEC_Q §17.2：预览数 = Σ品质产出 + Σ(强化等级 × 返还)）。 */
+  /** 强化返还基础：每 1 级再 × 大境界倍率后取整（SPEC：返还 = 等级 × round(refundPerLevel × 倍率)）。 */
   refundPerLevel: number;
+  /** 大境界倍率（金丹=1 = 一口价）。缺键或旧存档缺整表时用 DEFAULT_REALM_YIELD_MULT。 */
+  realmYieldMult: Record<RealmYieldMajor, number>;
   /** 强化 0→1 级消耗的精粹（品质倍数 costMult 为 1 时）。 */
   costBase: number;
   /** 每升一级，消耗乘以这个倍数。 */
@@ -84,10 +93,9 @@ export type EssenceRules = {
 };
 
 /**
- * 起始精粹规则（后台可改）。产出按负责人定的 白20 / 绿60 / 蓝150 / 紫400 / 橙1000、返还每级 40。
- * 消耗 = round(40 × 1.25^级 × 品质倍数)：和旧经验曲线同形状，正好是旧经验消耗的 2/3（旧基础 60）。
- * 迁移比例 7000（0.7）＞ 每一级「精粹消耗 / 旧经验消耗」的最大值（约 0.67，四舍五入造成），所以
- * 迁移后的精粹一定买得起迁移前那点经验买得起的任何一串升级 —— 没有人变弱（证明见 docs/changes/2026-10-22/salvage-essence.md）。
+ * 起始精粹规则（后台可改）。品质一口价 白20/绿60/蓝150/紫400/橙1000 是**金丹档**基准；
+ * 再乘大境界倍率（炼气 0.25 / 筑基 0.45 / 金丹 1.0），返还每级 40 也按同一倍率缩放。
+ * 消耗 = round(40 × 1.25^级 × 品质倍数)，不跟境界走。详见 balance_research/essence_realm_tiers.md。
  */
 export const STARTING_ESSENCE_RULES: EssenceRules = {
   itemSlug: "refine_essence",
@@ -95,6 +103,7 @@ export const STARTING_ESSENCE_RULES: EssenceRules = {
   slotMultBp: {},
   slotOverrides: {},
   refundPerLevel: 40,
+  realmYieldMult: { ...DEFAULT_REALM_YIELD_MULT },
   costBase: 40,
   costGrowth: 1.25,
   costTable: {},
@@ -333,17 +342,80 @@ export function essenceRulesFromInput(input: unknown): EssenceRules {
   if (costGrowth < 1) {
     throw new AppError("INVALID_INPUT", "精粹消耗增长倍数不能小于 1");
   }
+  const realmYieldMult = realmYieldMultFromInput(raw.realmYieldMult);
   return {
     itemSlug,
     yields,
     slotMultBp,
     slotOverrides,
     refundPerLevel: nonNegativeInt(raw.refundPerLevel, "每级强化返还"),
+    realmYieldMult,
     costBase: positive(raw.costBase, "强化基础精粹消耗", true),
     costGrowth,
     costTable,
     migrationRatioBp: nonNegativeInt(raw.migrationRatioBp, "强化经验转精粹比例", 10_000_000),
   };
+}
+
+/** 读大境界倍率；缺整表或缺键时用默认（旧存档兼容）。倍率必须 > 0。 */
+export function realmYieldMultFromInput(input: unknown): Record<RealmYieldMajor, number> {
+  const out: Record<RealmYieldMajor, number> = { ...DEFAULT_REALM_YIELD_MULT };
+  if (typeof input !== "object" || input === null) {
+    return out;
+  }
+  const raw = input as Record<string, unknown>;
+  for (const key of REALM_YIELD_MAJORS) {
+    const value = raw[key];
+    if (value === undefined || value === null || value === "") {
+      continue;
+    }
+    const number = Number(value);
+    if (!Number.isFinite(number) || number <= 0) {
+      throw new AppError("INVALID_INPUT", `大境界「${key}」精粹倍率必须大于 0`);
+    }
+    out[key] = number;
+  }
+  return out;
+}
+
+/** 大境界中文名 → 倍率键（realms.majorKey 实际是 major1/major4/…，不能直接当倍率键）。 */
+export const MAJOR_NAME_TO_YIELD_KEY: Record<string, RealmYieldMajor> = {
+  炼气: "qi",
+  筑基: "foundation",
+  金丹: "core",
+};
+
+/**
+ * 把装备所在境界解析成倍率键 qi / foundation / core。
+ * 优先 majorName（炼气/筑基/金丹）；其次 majorKey 已是语义键；否则 null（调用方按炼气兜底）。
+ */
+export function resolveRealmYieldMajor(
+  realm: { majorKey?: string | null; majorName?: string | null } | null | undefined,
+): RealmYieldMajor | null {
+  if (!realm) return null;
+  const byName = realm.majorName ? MAJOR_NAME_TO_YIELD_KEY[realm.majorName] : undefined;
+  if (byName) return byName;
+  if (realm.majorKey && (REALM_YIELD_MAJORS as readonly string[]).includes(realm.majorKey)) {
+    return realm.majorKey as RealmYieldMajor;
+  }
+  return null;
+}
+
+/**
+ * 取装备大境界对应的精粹倍率。
+ * major 可以是语义键（qi/foundation/core），或直接把 resolveRealmYieldMajor 的结果传进来。
+ * 缺 / 未知 → 按炼气并打日志（决策稿 §5）。
+ */
+export function realmYieldMultOf(essence: EssenceRules, major: string | null | undefined): number {
+  if (major && (REALM_YIELD_MAJORS as readonly string[]).includes(major)) {
+    return essence.realmYieldMult[major as RealmYieldMajor] ?? DEFAULT_REALM_YIELD_MULT[major as RealmYieldMajor];
+  }
+  if (major) {
+    console.warn(`[essence] unknown major=${major}, fallback qi`);
+  } else {
+    console.warn("[essence] missing major, fallback qi");
+  }
+  return essence.realmYieldMult.qi ?? DEFAULT_REALM_YIELD_MULT.qi;
 }
 
 /** 突破材料必须是后台里存在的、可堆叠的非装备物品。返回问题列表（空表示没问题）。 */
@@ -459,14 +531,28 @@ export function essenceRules(rules: EnhanceRules): EssenceRules {
   return rules.essence;
 }
 
-/** 分解一件装备得到的精粹：品质（+部位）产出 + 强化等级 × 每级返还。已穿戴的不能分解（调用方保证）。 */
-export function essenceYield(rules: EnhanceRules, quality: string | null | undefined, slot: string | null | undefined, level: number): number {
+/**
+ * 分解一件装备得到的精粹（决策稿 essence_realm_tiers）：
+ *   round(品质基础 × 大境界倍率 × 部位倍数) + 强化等级 × round(refundPerLevel × 同倍率)
+ * 单独指定的部位产出（override）是绝对值，不再乘境界倍率。缺 majorKey → 炼气并打日志。
+ * 已穿戴的不能分解（调用方保证）。
+ */
+export function essenceYield(
+  rules: EnhanceRules,
+  quality: string | null | undefined,
+  slot: string | null | undefined,
+  level: number,
+  majorKey?: string | null,
+): number {
   const essence = essenceRules(rules);
   const key = qualityKeyOf(quality);
   const slotKey = slot as EssenceSlot;
+  const realmMult = realmYieldMultOf(essence, majorKey);
   const override = essence.slotOverrides[key]?.[slotKey];
-  const base = override ?? Math.round((essence.yields[key] * (essence.slotMultBp[slotKey] ?? 10000)) / 10000);
-  return base + Math.max(0, level) * essence.refundPerLevel;
+  const base =
+    override ?? Math.round((essence.yields[key] * realmMult * (essence.slotMultBp[slotKey] ?? 10000)) / 10000);
+  const refund = Math.round(essence.refundPerLevel * realmMult);
+  return base + Math.max(0, level) * refund;
 }
 
 /** 从 level 级升到 level+1 级要多少精粹：先看单独指定的表，没有就按公式 round(基础 × 增长^级 × 品质倍数)。 */

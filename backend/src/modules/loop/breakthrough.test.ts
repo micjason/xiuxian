@@ -51,6 +51,7 @@ const RULES: EnhanceRules = {
     slotMultBp: {},
     slotOverrides: {},
     refundPerLevel: 10,
+    realmYieldMult: { qi: 0.25, foundation: 0.45, core: 1 },
     costBase: 10,
     costGrowth: 2,
     costTable: {},

@@ -90,8 +90,9 @@
                   <tr>
                     <th>品质</th>
                     <th class="num">强化上限<HelpTip title="强化上限" text="这个品质的装备最多强化到几级。" /></th>
-                    <th class="num">品质倍数<HelpTip title="品质倍数" text="这个品质每一级的精粹消耗再乘以它。" /></th>
+                    <th class="num">品质倍数<HelpTip title="品质倍数" text="这个品质每一级的精粹消耗再乘以它。右边「每级精粹消耗」按公式实时算出具体整数，不用心算。" /></th>
                     <th class="num">分解产出<HelpTip title="分解产出" text="分解这个品质的装备（未强化）得到的炼器精粹。部位倍数 / 单独指定在「装备强化」页。" /></th>
+                    <th>每级精粹消耗<HelpTip title="每级精粹消耗" text="按「基础消耗 × 增长倍数^当前等级 × 品质倍数」算出（有单独指定表时用表）。只读预览，改左边数字会立刻更新。完整可编辑表在「装备强化」。" /></th>
                     <th>突破节点</th>
                   </tr>
                 </thead>
@@ -104,6 +105,22 @@
                       <td class="num">
                         <NumInput v-if="enhance.essence" v-model="enhance.essence.yields[quality.key]" :width="120" unit="精粹" :precision="0" />
                         <span v-else class="muted small">先在「装备强化」填精粹规则</span>
+                      </td>
+                      <td class="cost-preview-cell">
+                        <template v-if="!enhance.essence">
+                          <span class="muted small">先填精粹规则</span>
+                        </template>
+                        <template v-else-if="essenceCostPreview(quality.key).length === 0">
+                          <span class="muted small">—</span>
+                        </template>
+                        <template v-else>
+                          <div class="cost-preview">
+                            <span v-for="step in essenceCostPreview(quality.key)" :key="step.level" class="cost-chip">
+                              +{{ step.level }} <b>{{ step.cost }}</b>
+                            </span>
+                          </div>
+                          <div class="cost-total muted small">满级累计 <b>{{ essenceCostTotal(quality.key) }}</b> 精粹</div>
+                        </template>
                       </td>
                       <td class="muted small break-nodes">
                         <template v-if="!enhance.qualities[quality.key]!.breakthroughs?.length">无</template>
@@ -215,7 +232,7 @@ type Tuning = {
   bossRules: BossRules;
 };
 type EnhanceQuality = { cap: number; costMult: number; decomposeExp: number; breakthroughs: { level: number; materials: { itemSlug: string; count: number }[] }[] };
-type Essence = { itemSlug: string; yields: Record<Quality, number>; refundPerLevel: number; costBase: number; costGrowth: number; migrationRatioBp: number; [key: string]: unknown };
+type Essence = { itemSlug: string; yields: Record<Quality, number>; refundPerLevel: number; costBase: number; costGrowth: number; costTable?: Partial<Record<Quality, (number | null)[]>>; migrationRatioBp: number; [key: string]: unknown };
 type Enhance = { expBase: number; expGrowth: number; statGrowthBp: number; refundBp: number; qualities: Record<string, EnhanceQuality | undefined>; essence?: Essence };
 type StageRow = { id: string; displayName: string; realmCode: number; customCount: number; override: { chanceBp?: number; qualityWeights?: Record<string, number> } | null; effective: { chanceBp: number; qualityWeights: Record<string, number> } };
 type Overview = {
@@ -333,6 +350,26 @@ function itemDisplayName(slug: string): string {
 /** 突破节点材料展示：优先中文名，找不到再显示 id（模板里加 break-unknown 样式）。 */
 function materialLabel(slug: string): string {
   return itemDisplayName(slug) || slug;
+}
+
+/** 与 backend enhance.ts essenceCost 一致：costTable 优先，否则 round(基础 × 增长^级 × 品质倍数)。只读预览。 */
+function essenceCostAt(quality: Quality, level: number): number {
+  const essence = enhance.value?.essence;
+  const row = enhance.value?.qualities[quality];
+  if (!essence || !row) return 0;
+  const fixed = essence.costTable?.[quality]?.[level];
+  if (typeof fixed === "number" && fixed > 0) return fixed;
+  return Math.max(1, Math.round((essence.costBase ?? 0) * (essence.costGrowth ?? 1) ** level * (row.costMult ?? 1)));
+}
+
+function essenceCostPreview(quality: Quality): { level: number; cost: number }[] {
+  const cap = enhance.value?.qualities[quality]?.cap ?? 0;
+  if (!enhance.value?.essence || cap < 1) return [];
+  return Array.from({ length: cap }, (_, index) => ({ level: index + 1, cost: essenceCostAt(quality, index) }));
+}
+
+function essenceCostTotal(quality: Quality): number {
+  return essenceCostPreview(quality).reduce((sum, step) => sum + step.cost, 0);
 }
 
 function go(id: string): void {
@@ -597,5 +634,38 @@ onBeforeUnmount(() => window.removeEventListener("scroll", onScroll, { capture: 
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   color: var(--el-color-warning);
   text-decoration: underline dotted;
+}
+.cost-preview-cell {
+  min-width: 280px;
+  max-width: 420px;
+  vertical-align: top;
+}
+.cost-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  line-height: 1.5;
+}
+.cost-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+  padding: 0 6px;
+  border-radius: 4px;
+  background: var(--xx-bg-subtle);
+  color: var(--xx-text-secondary);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.cost-chip b {
+  color: var(--xx-text);
+  font-variant-numeric: tabular-nums;
+}
+.cost-total {
+  margin-top: 4px;
+}
+.cost-total b {
+  color: var(--xx-text);
+  font-variant-numeric: tabular-nums;
 }
 </style>

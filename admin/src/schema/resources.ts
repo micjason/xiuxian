@@ -5,7 +5,7 @@ export const realmSchema: Schema = {
   title: "境界",
   groups: [
     { key: "base", title: "基本信息", desc: "编号决定突破顺序，大境界决定装备分阶。" },
-    { key: "cultivate", title: "修炼与突破", desc: "挂机修为的产出与突破门槛。" },
+    { key: "cultivate", title: "修炼与突破", desc: "挂机修为的产出与突破门槛。每秒修为 = 每次获得修为 ÷ 修炼间隔，是本境自己的数，不是前面境界加起来。" },
     { key: "stats", title: "到达该境界增加的属性", desc: "会和更低境界的加在一起。" },
     { key: "combat", title: "战斗", desc: "出手快慢的基础值。" },
     { key: "gate", title: "大境界突破门槛", desc: "跨大境界（例如炼气 → 筑基）要先通关一个首领关；小境界之间不用填。填在大境界的最后一层。" },
@@ -28,12 +28,12 @@ export const realmSchema: Schema = {
     },
     {
       key: "tickSeconds", label: "修炼间隔", kind: "number", group: "cultivate", min: 0, step: 1, unit: "秒", default: 1,
-      hint: "每隔多少秒结算一次修为。原型统一填 1。0 表示还没设置，玩家得不到修为。", affects: "挂机修为速度（与「每次获得修为」一起算）",
+      hint: "每隔多少秒结算一次修为。原型统一填 1。0 表示还没设置，玩家得不到修为。本境自己的间隔，不是累计前境。", affects: "挂机修为速度（与「每次获得修为」一起算）",
       column: { width: 100 },
     },
     {
       key: "gainPerTick", label: "每次获得修为", kind: "number", group: "cultivate", min: 0, step: 1, unit: "点", default: 0,
-      hint: "每个修炼间隔获得多少修为。0 表示还没设置。", affects: "挂机修为速度、功法分解折算", column: { width: 110 },
+      hint: "每个修炼间隔获得多少修为。0 表示还没设置。本境自己的产出，不是前面境界加起来（和 settle.ts 一致）。", affects: "挂机修为速度、功法分解折算", column: { width: 110 },
     },
     {
       key: "breakthroughCost", label: "突破消耗修为", kind: "number", group: "cultivate", min: 0, step: 1, unit: "点", default: 0,

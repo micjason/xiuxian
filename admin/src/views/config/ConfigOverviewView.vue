@@ -105,7 +105,21 @@
                         <NumInput v-if="enhance.essence" v-model="enhance.essence.yields[quality.key]" :width="120" unit="精粹" :precision="0" />
                         <span v-else class="muted small">先在「装备强化」填精粹规则</span>
                       </td>
-                      <td class="muted small">{{ breakText(enhance.qualities[quality.key]!.breakthroughs) }}</td>
+                      <td class="muted small break-nodes">
+                        <template v-if="!enhance.qualities[quality.key]!.breakthroughs?.length">无</template>
+                        <template v-else>
+                          <span v-for="(node, ni) in enhance.qualities[quality.key]!.breakthroughs" :key="node.level">
+                            <template v-if="ni">；</template>+{{ node.level }} 需
+                            <span v-for="(mat, mi) in node.materials" :key="mat.itemSlug + '-' + mi">
+                              <template v-if="mi">、</template>
+                              <span
+                                :class="{ 'break-unknown': !itemDisplayName(mat.itemSlug) }"
+                                :title="itemDisplayName(mat.itemSlug) ? undefined : `未找到物品名称，显示 id：${mat.itemSlug}`"
+                              >{{ materialLabel(mat.itemSlug) }} ×{{ mat.count }}</span>
+                            </span>
+                          </span>
+                        </template>
+                      </td>
                     </template>
                   </tr>
                 </tbody>
@@ -262,6 +276,7 @@ const rules = ref<FormValues>({});
 const tuning = ref<Tuning>({} as Tuning);
 const enhance = ref<Enhance | null>(null);
 const realms = ref<{ code: number; displayName: string; slug: string }[]>([]);
+const itemNames = ref<Map<string, string>>(new Map());
 const newbie = ref<Newbie>({ startingRealmSlug: "", starterItems: [] });
 const skillSlots = ref<SlotRule[]>([]);
 const original = ref("");
@@ -310,9 +325,14 @@ function realmName(code: number): string {
   return realm ? `${code} · ${realm.displayName}` : String(code);
 }
 
-function breakText(nodes: EnhanceQuality["breakthroughs"]): string {
-  if (!nodes?.length) return "无";
-  return nodes.map((node) => `+${node.level} 需 ${node.materials.map((row) => `${row.itemSlug} ×${row.count}`).join("、")}`).join("；");
+/** 物品中文名；表里没有时返回空，由 materialLabel 回退 id。 */
+function itemDisplayName(slug: string): string {
+  return itemNames.value.get(slug) ?? "";
+}
+
+/** 突破节点材料展示：优先中文名，找不到再显示 id（模板里加 break-unknown 样式）。 */
+function materialLabel(slug: string): string {
+  return itemDisplayName(slug) || slug;
 }
 
 function go(id: string): void {
@@ -337,9 +357,14 @@ async function reload(): Promise<void> {
   try {
     // 先取版本号再读数据（旧表单覆盖保护）
     await rev.load();
-    const [overview, realmList] = await Promise.all([api<Overview>("/admin/draft/config-overview"), api<{ code: number; displayName: string; slug: string }[]>("/admin/draft/realms")]);
+    const [overview, realmList, itemList] = await Promise.all([
+      api<Overview>("/admin/draft/config-overview"),
+      api<{ code: number; displayName: string; slug: string }[]>("/admin/draft/realms"),
+      api<{ id: string; displayName: string }[]>("/admin/draft/items"),
+    ]);
     apply(overview);
     realms.value = realmList;
+    itemNames.value = new Map(itemList.map((item) => [item.id, item.displayName]));
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : "加载失败";
   } finally {
@@ -566,5 +591,11 @@ onBeforeUnmount(() => window.removeEventListener("scroll", onScroll, { capture: 
 }
 .small {
   font-size: 12px;
+}
+
+.break-nodes .break-unknown {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: var(--el-color-warning);
+  text-decoration: underline dotted;
 }
 </style>

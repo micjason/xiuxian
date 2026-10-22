@@ -112,15 +112,16 @@
                   </tbody>
                 </table>
               </div>
-              <table class="grid row-gap">
+              <div class="xx-table-scroll row-gap">
+              <table class="grid enhance-quality-grid">
                 <thead>
                   <tr>
-                    <th>品质</th>
-                    <th class="num">强化上限<HelpTip title="强化上限" text="这个品质的装备最多强化到几级。" /></th>
-                    <th class="num">品质倍数<HelpTip title="品质倍数" text="这个品质每一级的精粹消耗再乘以它。右边「每级精粹消耗」按公式实时算出具体整数，不用心算。" /></th>
-                    <th class="num">分解产出（金丹基准）<HelpTip title="分解产出" text="金丹档一口价。实际产出再乘大境界倍率（见上方）。部位倍数 / 单独指定在「装备强化」页。" /></th>
-                    <th>每级精粹消耗<HelpTip title="每级精粹消耗" text="按「基础消耗 × 增长倍数^当前等级 × 品质倍数」算出（有单独指定表时用表）。只读预览，改左边数字会立刻更新。完整可编辑表在「装备强化」。" /></th>
-                    <th>突破节点</th>
+                    <th class="col-quality">品质</th>
+                    <th class="num col-cap">强化上限<HelpTip title="强化上限" text="这个品质的装备最多强化到几级。" /></th>
+                    <th class="num col-mult">品质倍数<HelpTip title="品质倍数" text="这个品质每一级的精粹消耗再乘以它。右边「每级精粹消耗」按公式实时算出具体整数，不用心算。" /></th>
+                    <th class="num col-yield">分解产出（金丹基准）<HelpTip title="分解产出" text="金丹档一口价。实际产出再乘大境界倍率（见上方）。部位倍数 / 单独指定在「装备强化」页。" /></th>
+                    <th class="col-cost">每级精粹消耗<HelpTip title="每级精粹消耗" text="按「基础消耗 × 增长倍数^当前等级 × 品质倍数」算出（有单独指定表时用表）。只读预览，改左边数字会立刻更新。完整可编辑表在「装备强化」。" /></th>
+                    <th class="col-break">突破节点</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -168,6 +169,7 @@
                   </tr>
                 </tbody>
               </table>
+              </div>
             </template>
             <p v-else class="muted">强化规则还没配置，请到「装备强化」页填入起始值。</p>
           </SectionCard>
@@ -666,18 +668,30 @@ onBeforeUnmount(() => window.removeEventListener("scroll", onScroll, { capture: 
   border-radius: 4px;
   background: var(--xx-bg-subtle);
 }
+.xx-table-scroll {
+  width: 100%;
+  overflow-x: auto;
+}
 .grid {
   width: 100%;
+  min-width: max-content;
   border-collapse: collapse;
   font-size: var(--xx-fs-sm);
 }
 .grid th {
   height: 36px;
-  padding: 0 8px;
+  padding: 0 10px;
   background: var(--xx-bg-subtle);
   color: var(--xx-text-secondary);
   font-weight: 500;
   text-align: left;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.grid th :deep(.help) {
+  display: inline-grid;
+  vertical-align: middle;
+  flex-shrink: 0;
 }
 .grid td {
   height: 44px;
@@ -685,9 +699,15 @@ onBeforeUnmount(() => window.removeEventListener("scroll", onScroll, { capture: 
   border-bottom: 1px solid var(--xx-border);
 }
 .grid .num {
-  width: 136px;
+  min-width: 136px;
   text-align: right;
 }
+.enhance-quality-grid .col-quality { min-width: 72px; }
+.enhance-quality-grid .col-cap { min-width: 110px; }
+.enhance-quality-grid .col-mult { min-width: 110px; }
+.enhance-quality-grid .col-yield { min-width: 180px; }
+.enhance-quality-grid .col-cost { min-width: 280px; }
+.enhance-quality-grid .col-break { min-width: 160px; }
 .muted {
   color: var(--xx-text-secondary);
   font-size: 13px;

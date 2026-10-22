@@ -232,3 +232,34 @@ html.dark .el-button--primary:not(.is-link):not(.is-plain) {
   font-size: var(--xx-fs-xs);
   color: var(--xx-text-secondary);
 }
+
+
+/* ========== 后台表头：文字 + ! + 排序图标单行，禁止折行 ========== */
+table th,
+.el-table th.el-table__cell,
+.el-table .el-table__header th {
+  white-space: nowrap !important;
+}
+table th,
+.el-table th .cell {
+  white-space: nowrap !important;
+}
+/* 表头内容：文字与 HelpTip「!」、排序三角横排 */
+.el-table th .cell {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 2px;
+  line-height: 1.2;
+}
+table th {
+  vertical-align: middle;
+}
+/* 原生表 / Element 表：列不够时横向滚动，不挤折表头 */
+.xx-table-scroll,
+.el-table {
+  overflow-x: auto;
+}
+.el-table .caret-wrapper {
+  flex-shrink: 0;
+}

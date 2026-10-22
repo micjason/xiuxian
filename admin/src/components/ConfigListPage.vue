@@ -98,7 +98,7 @@
       v-model="drawer"
       :title="drawerTitle"
       :subtitle="drawerSubtitle ? drawerSubtitle(form) : undefined"
-      :dirty="dirty || mode === 'create'"
+      :dirty="dirty"
       :change-count="changeCount"
       :error-count="showAllErrors ? Object.keys(errors).length : 0"
       :saving="saving"
@@ -523,6 +523,9 @@ defineExpose({ openCreate, openEdit });
   border-radius: var(--xx-radius-md);
   background: var(--xx-info-bg);
   font-size: var(--xx-fs-sm);
+}
+.grid :deep(.el-table__header .cell) {
+  white-space: nowrap;
 }
 .grid :deep(.el-table__row) {
   cursor: pointer;

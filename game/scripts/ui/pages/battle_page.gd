@@ -70,6 +70,9 @@ var _me_stats: Label
 var _arena: Control
 var _boss_art: TextureRect
 var _hero_art: TextureRect
+var _hero_base: Texture2D
+var _player_avatar: TextureRect
+var _avatar_base: Texture2D
 var _float_layer: Control
 var _report: BattleReport
 var _feed: VBoxContainer
@@ -311,6 +314,21 @@ func _hero_rect(tex: Texture2D, tint: Color) -> TextureRect:
 	return rect
 
 
+## 有 appearance 时换战斗整图和圆头像；没有或图缺失时保持现默认。
+func apply_appearance(appearance: Variant) -> void:
+	if _hero_art != null:
+		if _hero_base == null:
+			_hero_base = _hero_art.texture
+		var preview := OutfitAppearance.texture(appearance, "preview")
+		_hero_art.texture = preview if preview != null else _hero_base
+		_hero_art.visible = true
+	if _player_avatar != null:
+		if _avatar_base == null:
+			_avatar_base = _player_avatar.texture
+		var round := OutfitAppearance.texture(appearance, "avatar_round")
+		_player_avatar.texture = round if round != null else _avatar_base
+
+
 ## 玩家 HUD：头像 + 「我」+ 境界胶囊 + 战力；血条；属性行；右侧大招蓄力圆盘（不是按钮）。
 func _build_player_hud() -> Control:
 	var made := QKit.panel(UiTokens.Q_CREAM, 34, 22, 12, 4, 6, "panel_cream")
@@ -320,6 +338,8 @@ func _build_player_hud() -> Control:
 	(made.body as VBoxContainer).add_child(row)
 	var avatar := QKit.cut_rect("avatar_player_round", Vector2(116, 116))
 	avatar.name = "PlayerAvatar"
+	if avatar is TextureRect:
+		_player_avatar = avatar
 	avatar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	var frame := QKit.cut_rect("avatar_frame", Vector2(116, 116))
 	frame.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -387,6 +407,7 @@ func _build_report_panel() -> Control:
 func open_stage(state: Dictionary, content: Dictionary, stage: Dictionary, gate: Dictionary, my_realm_name: String) -> void:
 	_state = state
 	_content = content
+	apply_appearance(state.get("appearance", null))
 	_stage = stage
 	_gate = gate
 	stage_slug = str(stage.get("slug", ""))

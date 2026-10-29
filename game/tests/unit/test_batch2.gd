@@ -124,7 +124,7 @@ func test_skill_slots_follow_state() -> void:
 	assert_false(bool(view.cells[2].open))
 	assert_eq(str(view.cells[2].hint), "筑基初期开放")
 	assert_eq(str(view.cells[3].hint), "未开放")
-	assert_eq(str(view.note), "功法栏位 2/4 已开放 · 筑基初期开放第 3 栏")
+	assert_eq(str(view.note), "技能栏位 2/4 已开放 · 筑基初期开放第 3 栏")
 
 
 func test_skill_slots_default_to_three_open_without_server_info() -> void:
@@ -146,4 +146,4 @@ func test_skill_page_renders_slot_cells() -> void:
 	var caption := page.find_child("SlotCaption_2", true, false) as Label
 	assert_not_null(caption)
 	assert_eq(caption.text, "炼气后期开放")
-	assert_eq((page.find_child("SkillSlotNote", true, false) as Label).text, "功法栏位 1/3 已开放 · 炼气后期开放第 2 栏")
+	assert_eq((page.find_child("SkillSlotNote", true, false) as Label).text, "技能栏位 1/3 已开放 · 炼气后期开放第 2 栏")

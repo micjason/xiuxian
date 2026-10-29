@@ -62,7 +62,7 @@
         <el-tabs v-model="detailTab">
           <el-tab-pane label="战力来源" name="power">
             <p v-if="current.breakdown?.error" class="problem">{{ current.breakdown.error }}</p>
-            <p class="hint">只算已经到达的境界、穿上的装备、正在运转的功法。行囊里的物品和没运转的功法不算。</p>
+            <p class="hint">只算已经到达的境界、穿上的装备、正在运转的技能。行囊里的物品和没运转的技能不算。</p>
             <el-table :data="current.breakdown?.lines ?? []" size="small">
               <el-table-column prop="group" label="来源" width="80" />
               <el-table-column prop="name" label="名称" min-width="140" />

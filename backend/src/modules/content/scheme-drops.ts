@@ -64,7 +64,7 @@ export function rollSchemeReward(input: {
   const grantBook = () => {
     const slug = books[input.randomInt(0, books.length)];
     if (!slug) {
-      throw new AppError("INVALID_INPUT", "这个境界还没有功法书");
+      throw new AppError("INVALID_INPUT", "这个境界还没有技能书");
     }
     grants.push({ slug, kind: "book" });
     pity[bookKey] = 0;
@@ -106,7 +106,7 @@ export function bookOverflowCultivation(
   const factors: Record<string, number> = tuning?.bookOverflowRankFactors ?? RANK_CULTIVATION;
   const factor = factors[String(rank)];
   if (factor === undefined) {
-    throw new AppError("INVALID_INPUT", "请先在后台填写：功法品阶");
+    throw new AppError("INVALID_INPUT", "请先在后台填写：技能品阶");
   }
   if (!(gainPerTick > 0)) {
     throw new AppError("INVALID_INPUT", "请先在后台填写：每秒修为");

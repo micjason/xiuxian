@@ -6,6 +6,7 @@ import { gearMap, readDesignated, type DesignatedInput } from "./designated-drop
 import { readSeedDropOverride, resolveSeedDrops, seedDropsOf } from "./seed-drops.js";
 import { pillEffectFromInput } from "../loop/active-buffs.js";
 import { contentChapters, contentDropEntries, contentDropTables, contentGlobals, contentItems, contentRealms, contentSkillCategories, contentSkills, contentStages, playerItems, type StageBoss } from "../../db/schema.js";
+import { castModeProblem, isSkillFxType, normalizeSkillFx, skillFxProblem, type SkillCastMode, type SkillFx, type SkillFxType } from "./skill-fx.js";
 import { BOSS_STAT_KEYS, compactBossRuleOverride, customRuleCount, type BossStatKey } from "./boss-rules.js";
 import { BOSS_ART_KEY_SET, MONSTER_ART_KEY_SET } from "./art-keys.js";
 import { orderedStages } from "./stage-order.js";
@@ -191,7 +192,7 @@ function readFirstClear(entries: BossInput["firstClear"], known: Set<string>): B
     }
     const itemSlug = textOf(entry.itemId);
     if (!itemSlug || !known.has(itemSlug)) {
-      throw new AppError("INVALID_INPUT", "首通奖励里选的物品或功法不存在");
+      throw new AppError("INVALID_INPUT", "首通奖励里选的物品或技能不存在");
     }
     const quantity = numberOf(entry.quantity ?? 1, "首通奖励数量");
     if (!Number.isInteger(quantity) || quantity < 1) {
@@ -304,7 +305,7 @@ async function readBosses(db: Db, bosses: BossInput[] | undefined, current: Stag
         throw new AppError("INVALID_INPUT", `首领「${name}」有一行没选物品`);
       }
       if (!known.has(itemSlug)) {
-        throw new AppError("INVALID_INPUT", "选的武器、物品或功法不存在");
+        throw new AppError("INVALID_INPUT", "选的武器、物品或技能不存在");
       }
       if (seen.has(itemSlug)) {
         throw new AppError("INVALID_INPUT", "同一个首领上物品不能重复");
@@ -745,7 +746,7 @@ function itemValues(input: OpsItemInput, current: typeof contentItems.$inferSele
 export async function deleteOpsItem(db: Db, id: string) {
   const [current] = await db.select().from(contentItems).where(eq(contentItems.slug, id)).limit(1);
   if (!current || current.kind === "skill_book") {
-    throw new AppError("NOT_FOUND", current?.kind === "skill_book" ? "技能书跟着功法，请到技能页删除" : "没有这个物品");
+    throw new AppError("NOT_FOUND", current?.kind === "skill_book" ? "技能书跟着技能，请到技能页删除" : "没有这个物品");
   }
   const stages = await db.select().from(contentStages);
   const used = stages.some((stage) => (stage.bosses ?? []).some((boss) => boss.drops.some((drop) => drop.itemSlug === id)));
@@ -781,6 +782,9 @@ function skillView(row: typeof contentSkills.$inferSelect, categories: { slug: s
     rank: row.rank,
     requiredRealmCode: row.requiredRealmOrder,
     prerequisiteIds: row.prerequisiteSkillSlugs ?? [],
+    fxType: row.fxType ?? "",
+    castMode: row.castMode === "passive" ? "passive" : "auto",
+    fx: row.fx ? JSON.stringify(row.fx) : "",
   };
 }
 
@@ -791,7 +795,7 @@ export async function listOpsSkills(db: Db) {
 
 /** 功法书的默认说明（新建时写入；后台可以改）。和服务器 useItem 的规则一致：没学会→学会，学会了→升一层，7 层满后转修为。 */
 export function skillBookDescription(skillName: string): string {
-  return `使用后学会功法「${skillName}」；已学会时每用一本提升一层（最多 7 层），满层后再使用会转为修为。`;
+  return `使用后学会技能「${skillName}」；已学会时每用一本提升一层（最多 7 层），满层后再使用会转为修为。`;
 }
 
 export async function ensureSkillBook(db: Db, skill: { slug: string; displayName: string }, adminId: string | null) {
@@ -842,6 +846,9 @@ export async function createOpsSkill(
     rank?: string;
     requiredRealmCode?: number;
     prerequisiteIds?: string[];
+    fxType?: string | null;
+    fx?: unknown;
+    castMode?: string | null;
   },
   adminId: string | null,
 ) {
@@ -868,12 +875,15 @@ export async function updateOpsSkill(
     rank?: string;
     requiredRealmCode?: number;
     prerequisiteIds?: string[];
+    fxType?: string | null;
+    fx?: unknown;
+    castMode?: string | null;
   },
   adminId: string | null,
 ) {
   const [current] = await db.select().from(contentSkills).where(eq(contentSkills.slug, id)).limit(1);
   if (!current) {
-    throw new AppError("NOT_FOUND", "没有这个功法");
+    throw new AppError("NOT_FOUND", "没有这个技能");
   }
   const next = await skillValues(db, input, adminId, current);
   await db.update(contentSkills).set(next).where(eq(contentSkills.slug, id));
@@ -904,22 +914,25 @@ async function skillValues(
     rank?: string;
     requiredRealmCode?: number;
     prerequisiteIds?: string[];
+    fxType?: string | null;
+    fx?: unknown;
+    castMode?: string | null;
   },
   adminId: string | null,
   current: typeof contentSkills.$inferSelect | null = null,
 ) {
   const displayName = textOf(input.displayName);
   if (!displayName) {
-    throw new AppError("INVALID_INPUT", "请填写功法名称");
+    throw new AppError("INVALID_INPUT", "请填写技能名称");
   }
   // 类型、品阶、所需境界、前置功法：不传 = 保持原样（以前每次保存都把类型和前置功法清空）。
   const role = input.role === undefined || input.role === null || input.role === "" ? (current?.role ?? null) : String(input.role);
   if (role !== null && !SKILL_ROLES.includes(role)) {
-    throw new AppError("INVALID_INPUT", "功法类型不正确");
+    throw new AppError("INVALID_INPUT", "技能类型不正确");
   }
   const rank = input.rank === undefined || input.rank === null || input.rank === "" ? (current?.rank ?? "yellow") : String(input.rank);
   if (!SKILL_RANKS.includes(rank)) {
-    throw new AppError("INVALID_INPUT", "功法品阶只能是黄、玄、地、天");
+    throw new AppError("INVALID_INPUT", "技能品阶只能是黄、玄、地、天");
   }
   let requiredRealmOrder = current?.requiredRealmOrder ?? 0;
   if (input.requiredRealmCode !== undefined && input.requiredRealmCode !== null) {
@@ -932,16 +945,16 @@ async function skillValues(
   let prerequisiteSkillSlugs = current?.prerequisiteSkillSlugs ?? [];
   if (input.prerequisiteIds !== undefined && input.prerequisiteIds !== null) {
     if (!Array.isArray(input.prerequisiteIds)) {
-      throw new AppError("INVALID_INPUT", "前置功法格式不正确");
+      throw new AppError("INVALID_INPUT", "前置技能格式不正确");
     }
     const ids = [...new Set(input.prerequisiteIds.map((value) => String(value)).filter(Boolean))];
     if (current && ids.includes(current.slug)) {
-      throw new AppError("INVALID_INPUT", "前置功法不能是自己");
+      throw new AppError("INVALID_INPUT", "前置技能不能是自己");
     }
     const known = new Set((await db.select({ slug: contentSkills.slug }).from(contentSkills)).map((row) => row.slug));
     const missing = ids.find((value) => !known.has(value));
     if (missing) {
-      throw new AppError("INVALID_INPUT", `前置功法 ${missing} 不存在`);
+      throw new AppError("INVALID_INPUT", `前置技能 ${missing} 不存在`);
     }
     prerequisiteSkillSlugs = ids;
   }
@@ -966,25 +979,67 @@ async function skillValues(
     speed: 0,
     cultivateBonusBp: numberOf(input.cultivateBonus, "修炼加成"),
     prerequisiteSkillSlugs,
+    ...readSkillFx(input, current),
     updatedAt: new Date(),
     updatedBy: adminId,
   };
 }
 
+function readSkillFx(
+  input: { fxType?: string | null; fx?: unknown; castMode?: string | null },
+  current: typeof contentSkills.$inferSelect | null,
+): { fxType: SkillFxType | null; fx: SkillFx | null; castMode: SkillCastMode } {
+  let fxType = (current?.fxType ?? null) as SkillFxType | null;
+  if (input.fxType !== undefined) {
+    if (input.fxType == null || input.fxType === "") {
+      fxType = null;
+    } else if (!isSkillFxType(input.fxType)) {
+      throw new AppError("INVALID_INPUT", "表现类型不正确");
+    } else {
+      fxType = input.fxType;
+    }
+  }
+  let castMode: SkillCastMode = current?.castMode === "passive" ? "passive" : "auto";
+  if (input.castMode !== undefined && input.castMode !== null && input.castMode !== "") {
+    const problem = castModeProblem(input.castMode);
+    if (problem) {
+      throw new AppError("INVALID_INPUT", problem);
+    }
+    castMode = input.castMode as SkillCastMode;
+  }
+  let fx = (current?.fx ?? null) as SkillFx | null;
+  if (input.fx !== undefined) {
+    if (input.fx == null || input.fx === "") {
+      fx = null;
+    } else {
+      const problem = skillFxProblem(input.fx, fxType);
+      if (problem) {
+        throw new AppError("INVALID_INPUT", problem);
+      }
+      fx = normalizeSkillFx(input.fx, fxType);
+    }
+  } else if (fx && fxType && fx.type !== fxType) {
+    fx = { ...fx, type: fxType };
+  } else if (fx && !fxType) {
+    fx = null;
+  }
+  return { fxType, fx, castMode };
+}
+
 export async function deleteOpsSkill(db: Db, id: string) {
   const [current] = await db.select().from(contentSkills).where(eq(contentSkills.slug, id)).limit(1);
   if (!current) {
-    throw new AppError("NOT_FOUND", "没有这个功法");
+    throw new AppError("NOT_FOUND", "没有这个技能");
   }
   const stages = await db.select().from(contentStages);
   if (stages.some((stage) => (stage.bosses ?? []).some((boss) => boss.drops.some((drop) => drop.itemSlug === id)))) {
-    throw new AppError("INVALID_INPUT", "这门功法还挂在首领上，先拿掉");
+    throw new AppError("INVALID_INPUT", "这门技能还挂在首领上，先拿掉");
   }
   const items = await db.select().from(contentItems);
   const books = items.filter((item) => item.skillSlug === id && item.kind === "skill_book");
   const others = items.filter((item) => item.skillSlug === id && item.kind !== "skill_book");
   if (others.length > 0) {
-    throw new AppError("INVALID_INPUT", "还有功法书指向这门功法");
+    throw new AppError("INVALID_INPUT", "还有技能书指向这门技能");
   }
   for (const book of books) {
     const [held] = await db.select().from(playerItems).where(eq(playerItems.itemSlug, book.slug)).limit(1);
@@ -1050,7 +1105,7 @@ export async function deleteSkillCategory(db: Db, id: string) {
   }
   const skills = await db.select().from(contentSkills);
   if (skills.some((skill) => skill.skillCategorySlug === id)) {
-    throw new AppError("INVALID_INPUT", "这个分类下还有功法");
+    throw new AppError("INVALID_INPUT", "这个分类下还有技能");
   }
   await db.delete(contentSkillCategories).where(eq(contentSkillCategories.slug, id));
   return { ok: true };

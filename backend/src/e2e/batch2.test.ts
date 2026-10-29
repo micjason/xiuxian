@@ -316,7 +316,7 @@ describe("batch ② config overview: newbie + skill slots", () => {
       const world = (await loadCurrentWorld(db))!;
       const skills = await db.select().from(playerSkills).where(eq(playerSkills.playerId, playerId));
       const explained = explainPlayerPower(world, "lianqi_1", [], skills);
-      expect(explained.lines.filter((line) => line.group === "功法" && line.note === "没有运转，不算战力")).toHaveLength(1);
+      expect(explained.lines.filter((line) => line.group === "技能" && line.note === "没有运转，不算战力")).toHaveLength(1);
       const [globals] = await db.select().from(contentGlobals);
       expect(globals!.artSlotRules).toEqual(rules);
     });

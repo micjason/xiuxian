@@ -50,6 +50,17 @@ describe("validateContent", () => {
     expect(result.warnings.some((warning) => warning.slug === "tuna")).toBe(true);
   });
 
+  it("rejects a manual cast mode and accepts gold_light", () => {
+    const manual = validateContent(draft({ skills: [{ slug: "tuna", prerequisiteSkillSlugs: [], enabled: true, castMode: "manual" }] }));
+    expect(manual.errors.some((error) => error.field === "castMode")).toBe(true);
+    const gold = validateContent(
+      draft({
+        skills: [{ slug: "tuna", prerequisiteSkillSlugs: [], enabled: true, fxType: "gold_light", castMode: "auto", fx: { type: "gold_light", scale: 1 } }],
+      }),
+    );
+    expect(gold.errors).toEqual([]);
+  });
+
   it("rejects a higher realm stage whose recommended power is not higher", () => {
     const base = draft().realms[0]!;
     const boss = { name: "首领", attack: 100, defense: 100, hp: 333, interval: 1.25, drops: [] };

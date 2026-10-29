@@ -58,11 +58,11 @@ export async function saveDraftItem(
   }
   if (input.kind === "skill_book") {
     if (!input.skillSlug) {
-      throw new AppError("INVALID_INPUT", "功法书必须指向功法", { field: "skillSlug" });
+      throw new AppError("INVALID_INPUT", "技能书必须指向技能", { field: "skillSlug" });
     }
     const [skill] = await db.select().from(contentSkills).where(eq(contentSkills.slug, input.skillSlug)).limit(1);
     if (!skill) {
-      throw new AppError("INVALID_INPUT", "功法不存在", { field: "skillSlug" });
+      throw new AppError("INVALID_INPUT", "技能不存在", { field: "skillSlug" });
     }
   }
   const values = {
@@ -94,9 +94,9 @@ export async function saveDraftSkill(
   input: { slug?: string; displayName?: string; role?: string; cultivateBonusBp?: number },
   adminId: string | null,
 ) {
-  const slug = requireSlug(input.slug, "功法");
+  const slug = requireSlug(input.slug, "技能");
   if (!input.displayName || !input.role || !["heart", "attack", "body", "step"].includes(input.role)) {
-    throw new AppError("INVALID_INPUT", "功法名称或类型不正确");
+    throw new AppError("INVALID_INPUT", "技能名称或类型不正确");
   }
   const values = {
     slug,

@@ -44,6 +44,34 @@ status: 占位
 notes: 月亮、山峰与云线构成；正式美术确定后替换
 ```
 
+## outfit_q_2026_10_29
+
+```yaml
+id: outfit_q_2026_10_29
+file: game/assets/art/q/outfit/
+type_and_purpose: 主角换装整图。战斗 preview_{white,green,blue,purple,orange}.png（1024²），打坐 meditate/ 同名五档，头像 avatar/avatar_{tier}.png 与 avatar_{tier}_round.png（124²）
+source: 2026-10-29 美术交付，规格见同目录 OUTFIT_SPEC.md。与既有 Q 版人物同一批生成方式（AI 出图后再处理）
+license: 商用/再授权条款尚未确认，与 ASSETS_LICENSES.md 第 8 节 A 类相同
+acquired_at: 2026-10-29
+budget: 战斗与打坐各约 1MB PNG；圆头像 124² 约数十 KB。无损导入（compress/mode=0）
+status: 待审核
+notes: v1 只整图替换。分层 base_body/robe 未入库。无 appearance 时游戏仍用 player_fight、打坐动画和 avatar_player_round。
+```
+
+## skill_icons_q_2026_10_29
+
+```yaml
+id: skill_icons_q_2026_10_29
+file: game/assets/art/q/icons/{slash,thunder,fire,heal_circle,ice,wind,poison,gold_light,shield}.png
+type_and_purpose: 技能栏与后台列表图标，文件名对齐 fx_type。skill_* 是同图别名
+source: 2026-10-29 美术交付，规格见 game/assets/art/q/icons/SKILL_ICONS.md
+license: 商用/再授权条款尚未确认，与 ASSETS_LICENSES.md 第 8 节 A 类相同
+acquired_at: 2026-10-29
+budget: 256² PNG，单张约 80–110KB
+status: 待审核
+notes: 后台副本在 admin/public/skill-icons/。不包含战斗施法序列帧。
+```
+
 ## 登记模板
 
 每项素材使用一个二级标题并复制以下字段：

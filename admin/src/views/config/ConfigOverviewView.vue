@@ -1,6 +1,6 @@
 <template>
   <div class="overview-page">
-    <PageHeader title="配置概览" desc="所有会被关卡、装备、功法继承的默认数值都在这一页。关卡没单独改的项跟随这里；改了的关卡显示「已自定义」，可以一键恢复。">
+    <PageHeader title="配置概览" desc="所有会被关卡、装备、技能继承的默认数值都在这一页。关卡没单独改的项跟随这里；改了的关卡显示「已自定义」，可以一键恢复。">
       <template #actions>
         <el-button @click="reload">重新读取</el-button>
       </template>
@@ -176,8 +176,8 @@
             <p v-else class="muted">强化规则还没配置，请到「装备强化」页填入起始值。</p>
           </SectionCard>
 
-          <SectionCard title="功法层数系数" anchor="skill" desc="功法加成 = 基础百分比 × 层数系数">
-            <FormRow label="层数系数" help="功法每层的加成倍数，分四档：第 1 层 / 第 2–3 层 / 第 4–6 层 / 第 7 层起。">
+          <SectionCard title="技能层数系数" anchor="skill" desc="技能加成 = 基础百分比 × 层数系数">
+            <FormRow label="层数系数" help="技能每层的加成倍数，分四档：第 1 层 / 第 2–3 层 / 第 4–6 层 / 第 7 层起。">
               <div class="cells">
                 <div v-for="(label, index) in LAYER_LABELS" :key="label" class="cell">
                   <span class="q-label">{{ label }}</span>
@@ -186,14 +186,14 @@
               </div>
             </FormRow>
             <div class="two-col row-gap">
-              <FormRow label="功法满层" help="功法最多修到第几层。满层后再用功法书会折算成修为。客户端 0.15.0 起按这里显示。" :help-meta="`出厂值 ${data.tuningDefaults.skillMaxLayers}`">
+              <FormRow label="技能满层" help="技能最多修到第几层。满层后再用技能书会折算成修为。客户端 0.15.0 起按这里显示。" :help-meta="`出厂值 ${data.tuningDefaults.skillMaxLayers}`">
                 <NumInput v-model="tuning.skillMaxLayers" unit="层" :precision="0" :min="1" :max="99" />
               </FormRow>
-              <FormRow label="多余功法书折算" help="满层后再用功法书：得到 秒数 × 当前每秒修为 × 品阶系数 的修为。">
+              <FormRow label="多余技能书折算" help="满层后再用技能书：得到 秒数 × 当前每秒修为 × 品阶系数 的修为。">
                 <NumInput v-model="tuning.bookOverflowSeconds" unit="秒" :precision="0" />
               </FormRow>
             </div>
-            <FormRow label="品阶系数" help="多余功法书折算修为时，按功法品阶乘的系数。" class="row-gap">
+            <FormRow label="品阶系数" help="多余技能书折算修为时，按技能品阶乘的系数。" class="row-gap">
               <div class="cells">
                 <div v-for="rank in RANKS" :key="rank.key" class="cell">
                   <span class="q-label">{{ rank.name }}</span>
@@ -317,8 +317,8 @@ const ANCHORS = [
   { id: "boss", label: "首领规则" },
   { id: "gear", label: "装备生成" },
   { id: "enhance", label: "强化与分解" },
-  { id: "skill", label: "功法层数系数" },
-  { id: "slots", label: "功法栏位" },
+  { id: "skill", label: "技能层数系数" },
+  { id: "slots", label: "技能栏位" },
   { id: "newbie", label: "新手设置" },
   { id: "catalog", label: "部位与品质" },
   { id: "pace", label: "挂机与战斗节奏" },

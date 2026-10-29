@@ -30,7 +30,7 @@ export const realmSchema: Schema = {
     },
     {
       key: "gainPerTick", label: "本境每秒修为", kind: "number", group: "cultivate", min: 0, step: 1, unit: "修为", default: 0,
-      hint: "挂机时这一境每秒获得的修为。只算本境，不把前面境界加进来。修炼间隔固定 1 秒。", affects: "挂机修为速度、功法分解折算", column: { width: 140 },
+      hint: "挂机时这一境每秒获得的修为。只算本境，不把前面境界加进来。修炼间隔固定 1 秒。", affects: "挂机修为速度、技能分解折算", column: { width: 140 },
     },
     {
       key: "breakthroughCost", label: "升到下一层所需修为", kind: "number", group: "cultivate", min: 0, step: 1, unit: "修为", default: 0,
@@ -105,15 +105,33 @@ export const skillSchema: Schema = {
   groups: [
     { key: "base", title: "基本信息" },
     { key: "bonus", title: "属性加成（按层数系数放大）", desc: "三项百分比彼此相加，只乘境界基础值，不乘装备。" },
+    { key: "fx", title: "表现", desc: "资源真名。客户端缺这套图时才降级，这里不要填降级名。释放只有自动或被动。" },
   ],
   fields: [
-    { key: "displayName", label: "名称", kind: "text", group: "base", required: true, hint: "功法名称。", column: { minWidth: 140 } },
+    { key: "displayName", label: "名称", kind: "text", group: "base", required: true, hint: "技能名称。", column: { minWidth: 140 } },
     { key: "categoryId", label: "分类", kind: "select", group: "base", required: true, hint: "技能所属分类，先在「分类」页建好。", options: [], column: { width: 120 } },
-    { key: "role", label: "功法类型", kind: "select", group: "base", options: [{ label: "心法", value: "heart" }, { label: "攻法", value: "attack" }, { label: "身法", value: "body" }, { label: "步法", value: "step" }], hint: "功法类型。保存时不会再清空。" },
-    { key: "rank", label: "品阶", kind: "select", group: "base", required: true, default: "yellow", options: [{ label: "黄阶", value: "yellow" }, { label: "玄阶", value: "xuan" }, { label: "地阶", value: "earth" }, { label: "天阶", value: "heaven" }], hint: "功法品阶，影响多余功法书折算修为。", column: { width: 80 } },
+    { key: "role", label: "技能类型", kind: "select", group: "base", options: [{ label: "心法", value: "heart" }, { label: "攻法", value: "attack" }, { label: "身法", value: "body" }, { label: "步法", value: "step" }], hint: "技能类型。保存时不会再清空。" },
+    { key: "rank", label: "品阶", kind: "select", group: "base", required: true, default: "yellow", options: [{ label: "黄阶", value: "yellow" }, { label: "玄阶", value: "xuan" }, { label: "地阶", value: "earth" }, { label: "天阶", value: "heaven" }], hint: "技能品阶，影响多余技能书折算修为。", column: { width: 80 } },
     { key: "requiredRealmCode", label: "所需境界", kind: "select", group: "base", options: [], hint: "达到这个境界才能学。" },
-    { key: "prerequisiteIds", label: "前置功法", kind: "multiselect", group: "base", options: [], hint: "要先学会的功法。不能选自己。" },
-    { key: "description", label: "描述", kind: "textarea", group: "base", hint: "功法说明。", column: { minWidth: 220 } },
+    { key: "prerequisiteIds", label: "前置技能", kind: "multiselect", group: "base", options: [], hint: "要先学会的技能。不能选自己。留空表示没有前置，不做技能树。" },
+    { key: "description", label: "描述", kind: "textarea", group: "base", hint: "技能说明。", column: { minWidth: 220 } },
+    { key: "fxType", label: "表现类型", kind: "select", group: "fx", default: "", options: [
+      { label: "未指定", value: "" },
+      { label: "斩击 slash", value: "slash" },
+      { label: "雷 thunder", value: "thunder" },
+      { label: "火 fire", value: "fire" },
+      { label: "治疗 heal_circle", value: "heal_circle" },
+      { label: "冰 ice", value: "ice" },
+      { label: "风 wind", value: "wind" },
+      { label: "毒 poison", value: "poison" },
+      { label: "金光 gold_light", value: "gold_light" },
+      { label: "护盾 shield", value: "shield" },
+    ], hint: "战斗表现的资源真名。金光写 gold_light。", column: { width: 140 } },
+    { key: "castMode", label: "释放方式", kind: "select", group: "fx", required: true, default: "auto", options: [
+      { label: "自动", value: "auto" },
+      { label: "被动", value: "passive" },
+    ], hint: "自动或被动。没有手动释放。", column: { width: 90 } },
+    { key: "fx", label: "表现参数", kind: "textarea", group: "fx", hint: "可选 JSON：{\"type\":\"slash\",\"primary\":\"#F5FBFF\",\"secondary\":\"#A8E8E0\",\"scale\":1}。type 必须和表现类型一致。留空表示不额外配色。" },
     { key: "attack", label: "攻击加成", kind: "number", group: "bonus", min: 0, max: 100, step: 0.01, unit: "%", default: 0, hint: "运转时给境界基础攻击增加的百分比。实际值 = 基础百分比 × 层数系数。", affects: "面板攻击、战力", column: { width: 90 } },
     { key: "defense", label: "防御加成", kind: "number", group: "bonus", min: 0, max: 100, step: 0.01, unit: "%", default: 0, hint: "给境界基础防御增加的百分比。", affects: "面板防御、战力", column: { width: 90 } },
     { key: "hp", label: "气血加成", kind: "number", group: "bonus", min: 0, max: 100, step: 0.01, unit: "%", default: 0, hint: "给境界基础气血增加的百分比。", affects: "面板气血、战力", column: { width: 90 } },
@@ -123,7 +141,7 @@ export const skillSchema: Schema = {
 
 export const skillCategorySchema: Schema = {
   title: "技能分类",
-  fields: [{ key: "displayName", label: "名称", kind: "text", required: true, hint: "分类名称，例如「心法」「功法」。", column: { minWidth: 200 } }],
+  fields: [{ key: "displayName", label: "名称", kind: "text", required: true, hint: "分类名称，例如「心法」「攻法」。", column: { minWidth: 200 } }],
 };
 
 // ---------- 关卡 / Boss ----------
@@ -173,7 +191,7 @@ export const rulesSchema: Schema = {
     { key: "onlineGapSeconds", label: "在线判定间隔", kind: "int", group: "world", min: 1, max: 600, step: 1, unit: "秒", default: 15, hint: "“在线”= 玩家前台打开游戏。两次请求间隔不超过这个秒数算在线（打普通怪、拿击杀修为和掉落）；超过就按离线段结算（只产修为）。客户端前台每 15 秒内至少请求一次。", affects: "普通怪波次、击杀修为、装备掉落、离线结算" },
     { key: "offlinePopupMinSeconds", label: "离线弹窗最短时长", kind: "int", group: "world", min: 0, max: 86400, step: 60, unit: "秒", default: 300, hint: "离线达到这个秒数才弹“闭关归来”窗；不足时修为照常入账，只是不弹窗。", affects: "离线弹窗" },
     { key: "dayStartHour", label: "每日重置整点", kind: "int", group: "world", min: 0, max: 23, step: 1, unit: "点", default: 5, hint: "北京时间的几点算新的一天（首领每日奖励次数按它重置）。", affects: "首领每日奖励次数" },
-    { key: "ultAutoCastWindowSeconds", label: "大招自动释放等待", kind: "number", group: "battle", min: 0, max: 30, step: 0.5, precision: 1, unit: "秒", default: 0, hint: "大招蓄满后再等几秒自动释放（0＝蓄满立刻放）。境界不再自带大招；战斗大招只跟玩家学的功法。", affects: "首领战大招" },
+    { key: "ultAutoCastWindowSeconds", label: "大招自动释放等待", kind: "number", group: "battle", min: 0, max: 30, step: 0.5, precision: 1, unit: "秒", default: 0, hint: "大招蓄满后再等几秒自动释放（0＝蓄满立刻放）。境界不再自带大招；战斗大招只跟玩家学的技能。", affects: "首领战大招" },
     { key: "waveSize", label: "每波怪物数", kind: "int", group: "battle", min: 1, max: 10, step: 1, unit: "只", default: 3, hint: "普通怪一波有几只，依次上前，一次只和一只交战，中间不回血。", affects: "普通怪击杀速度" },
     { key: "waveTransitionSeconds", label: "波次转场秒数", kind: "number", group: "battle", min: 0, max: 60, step: 0.5, precision: 1, unit: "秒", default: 2, hint: "一波打完到下一波之间的转场时间，转场时主角回满血。", affects: "普通怪击杀速度" },
     { key: "reviveSeconds", label: "阵亡复活秒数", kind: "number", group: "battle", min: 0, max: 60, step: 0.5, precision: 1, unit: "秒", default: 3, hint: "普通怪打输（阵亡）后原地复活、回满血所需的秒数，无其他惩罚。", affects: "普通怪击杀速度" },
@@ -182,7 +200,7 @@ export const rulesSchema: Schema = {
   ],
 };
 
-// 以前只读展示的 globals 参数：初始境界、新手物品、功法栏位已在「配置概览」可编辑（批次②）；
+// 以前只读展示的 globals 参数：初始境界、新手物品、技能栏位已在「配置概览」可编辑（批次②）；
 // 挂机击杀上限、最低客户端版本号已删除（离线不打怪；强制更新统一走「客户端安装包」）。
 export const globalsReadonlyFields: FieldDef[] = [];
 
@@ -239,11 +257,12 @@ const extraLabels: Record<string, string> = {
   sortOrder: "排序", nextRealmSlug: "下一境界", baseAttack: "基础攻击", baseDefense: "基础防御", baseHp: "基础气血", baseSpeed: "基础速度",
   baseInterval: "基础出手间隔", powerWeights: "战力权重", combat: "战斗参数", requiredRealmOrder: "所需境界编号", quality: "品质", slot: "部位",
   kind: "类型", stackable: "可叠加", enabled: "启用", bosses: "首领与掉落", entries: "掉落条目", recommendedPower: "推荐战力", rank: "品阶",
-  role: "功法类型", cultivateBonusBp: "修炼加成（万分比）", prerequisiteSkillSlugs: "前置功法",
+  role: "技能类型", cultivateBonusBp: "修炼加成（万分比）", prerequisiteSkillSlugs: "前置技能",
+  fxType: "表现类型", fx: "表现参数", castMode: "释放方式",
   requiredStageSlug: "所需通关关卡", requiredStageId: "突破前要先通关", ultName: "大招名称", ultMultiplier: "大招伤害倍数", ultCooldownSeconds: "大招冷却", ultFirstCooldownSeconds: "开战首次冷却",
-  skillSlug: "对应功法", bossName: "首领名称", bossAttack: "首领攻击", bossDefense: "首领防御", bossHp: "首领气血", bossInterval: "首领出手间隔",
+  skillSlug: "对应技能", bossName: "首领名称", bossAttack: "首领攻击", bossDefense: "首领防御", bossHp: "首领气血", bossInterval: "首领出手间隔",
   tickSeconds: "修炼间隔", gainPerTick: "每次获得修为", breakthroughCost: "突破消耗修为", starterItems: "新手物品", startingRealmSlug: "初始境界",
-  artSlotRules: "功法栏位规则", bagCapacity: "行囊容量",
+  artSlotRules: "技能栏位规则", bagCapacity: "行囊容量",
   offlineCapSeconds: "离线收益上限", onlineGapSeconds: "在线判定间隔", offlinePopupMinSeconds: "离线弹窗最短时长", dayStartHour: "每日重置整点", bossDailyRewardCount: "首领每日奖励次数", ultAutoCastWindowSeconds: "大招自动释放等待", waveSize: "每波怪物数", waveTransitionSeconds: "波次转场秒数", reviveSeconds: "阵亡复活秒数", attack: "攻击", defense: "防御", hp: "气血", speed: "速度", displayName: "名称",
 };
 

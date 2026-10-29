@@ -1,6 +1,6 @@
 <template>
   <div>
-    <PageHeader title="技能" desc="功法按层数放大属性百分比。分类和技能在同一页维护，先建分类再建技能。" />
+    <PageHeader title="技能" desc="技能按层数放大属性百分比。分类和技能在同一页维护。表现类型写资源真名，释放只有自动或被动。" />
     <el-tabs v-model="tab" class="tabs" @tab-change="onTab">
       <el-tab-pane :label="`技能（${skills.length}）`" name="skills">
         <ConfigListPage
@@ -27,6 +27,12 @@
           <template #cell-categoryId="{ row }">
             <el-tag v-if="row.categoryMissing" type="danger" effect="light" size="small">分类不存在</el-tag>
             <span v-else>{{ row.categoryName }}</span>
+          </template>
+          <template #cell-fxType="{ row }">
+            <span class="fx-cell">
+              <img v-if="skillIcon(row.fxType)" class="fx-icon" :src="skillIcon(row.fxType)" alt="" />
+              <span>{{ fxLabel(String(row.fxType || "")) }}</span>
+            </span>
           </template>
         </ConfigListPage>
       </el-tab-pane>
@@ -122,11 +128,14 @@ async function saveSkill(values: Record<string, unknown>, mode: "create" | "edit
     rank: values.rank || undefined,
     requiredRealmCode: values.requiredRealmCode ?? undefined,
     prerequisiteIds: Array.isArray(values.prerequisiteIds) ? values.prerequisiteIds : undefined,
+    fxType: values.fxType || null,
+    castMode: values.castMode === "passive" ? "passive" : "auto",
+    fx: fxPayload(values.fx),
   });
   if (mode === "create") {
     await api("/admin/draft/skills", { method: "POST", body });
   } else {
-    await api(`/admin/draft/skills/${editingId}`, { method: "PUT", body, guard: { revisions: rev, id: editingId, reload, latest: () => latestFrom("/admin/draft/skills", "id", editingId), title: `功法「${String(values.displayName)}」` } });
+    await api(`/admin/draft/skills/${editingId}`, { method: "PUT", body, guard: { revisions: rev, id: editingId, reload, latest: () => latestFrom("/admin/draft/skills", "id", editingId), title: `技能「${String(values.displayName)}」` } });
   }
 }
 
@@ -139,12 +148,46 @@ async function saveCategory(values: Record<string, unknown>, mode: "create" | "e
   if (mode === "create") {
     await api("/admin/draft/skill-categories", { method: "POST", body });
   } else {
-    await api(`/admin/draft/skill-categories/${editingId}`, { method: "PUT", body, guard: { revisions: catRev, id: editingId, reload, latest: () => latestFrom("/admin/draft/skill-categories", "id", editingId), title: `功法分类「${String(values.displayName)}」` } });
+    await api(`/admin/draft/skill-categories/${editingId}`, { method: "PUT", body, guard: { revisions: catRev, id: editingId, reload, latest: () => latestFrom("/admin/draft/skill-categories", "id", editingId), title: `技能分类「${String(values.displayName)}」` } });
   }
 }
 
 async function removeCategory(row: Record<string, unknown>): Promise<void> {
   await api(`/admin/draft/skill-categories/${String(row.id)}`, { method: "DELETE" });
+}
+
+const FX_LABELS: Record<string, string> = {
+  slash: "斩击",
+  thunder: "雷",
+  fire: "火",
+  heal_circle: "治疗",
+  ice: "冰",
+  wind: "风",
+  poison: "毒",
+  gold_light: "金光",
+  shield: "护盾",
+};
+
+function fxLabel(fxType: string): string {
+  if (!fxType) return "未指定";
+  return FX_LABELS[fxType] ?? fxType;
+}
+
+function skillIcon(fxType: unknown): string {
+  const key = String(fxType || "");
+  return key && FX_LABELS[key] ? `/skill-icons/${key}.png` : "";
+}
+
+function fxPayload(value: unknown): unknown {
+  if (value == null || value === "") return null;
+  if (typeof value === "object") return value;
+  const text = String(value).trim();
+  if (!text) return null;
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    throw new Error("表现参数要是 JSON");
+  }
 }
 
 function categoryHint(row: Record<string, unknown>): string {
@@ -159,5 +202,15 @@ onMounted(reload);
 <style scoped>
 .tabs :deep(.el-tabs__header) {
   margin-bottom: var(--xx-space-4);
+}
+.fx-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.fx-icon {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
 }
 </style>

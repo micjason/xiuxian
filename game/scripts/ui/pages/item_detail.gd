@@ -82,7 +82,7 @@ static func show_item(popup: GamePopup, item: Dictionary, worn: Dictionary, hand
 		elif not worn.is_empty() and int(item.get("power", 0)) > int(worn.get("power", 0)):
 			popup.body.add_child(UiKit.wrap_label("这件比身上的更强，建议先穿戴再处理旧的。", UiTokens.FS_MICRO, UiTokens.WARNING))
 	elif str(item.get("kind", "")) == "skill_book":
-		grid.add_child(_action("使用（学习功法）", MainTheme.VAR_PRIMARY, popup, handlers, "use", id))
+		grid.add_child(_action("使用（学习技能）", MainTheme.VAR_PRIMARY, popup, handlers, "use", id))
 	popup.open_popup("物品详情")
 
 
@@ -243,6 +243,6 @@ static func _kind_name(kind: String) -> String:
 		"consumable", "pill", "elixir":
 			return "丹药"
 		"skill_book":
-			return "功法书"
+			return "技能书"
 		_:
 			return "物品"

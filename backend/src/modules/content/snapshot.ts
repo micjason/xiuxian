@@ -204,6 +204,9 @@ export async function loadDraftSnapshot(db: Db | Tx): Promise<ContentSnapshot> {
       rank: row.rank,
       requiredRealmOrder: row.requiredRealmOrder,
       prerequisiteSkillSlugs: row.prerequisiteSkillSlugs ?? [],
+      fxType: row.fxType ?? null,
+      fx: row.fx ?? null,
+      castMode: row.castMode === "passive" ? "passive" : "auto",
       enabled: row.enabled,
     })),
   };

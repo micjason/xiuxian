@@ -35,6 +35,8 @@ static func build(state: Dictionary, content: Dictionary) -> Dictionary:
 			"status": status,
 			"status_text": {"running": "修炼中", "learned": "已习得", "locked": "未获得"}[status],
 			"level": int(mine.get("level", 0)),
+			"fx_type": str(def.get("fxType", def.get("fx_type", ""))),
+			"icon_key": SkillFxFallback.icon_key(str(def.get("fxType", def.get("fx_type", "")))),
 		})
 	var selected_slug := running_slug
 	if selected_slug.is_empty():
@@ -89,9 +91,12 @@ static func slots_view(state: Dictionary, content: Dictionary) -> Dictionary:
 	var max_slots := maxi(int(info.get("max", DEFAULT_SLOTS)), open)
 	var next: Dictionary = info.get("next", {}) if typeof(info.get("next", null)) == TYPE_DICTIONARY else {}
 	var names := {}
+	var icons := {}
 	for row in content.get("skills", []):
 		if typeof(row) == TYPE_DICTIONARY:
-			names[str((row as Dictionary).get("slug", ""))] = str((row as Dictionary).get("displayName", (row as Dictionary).get("slug", "")))
+			var skill_slug := str((row as Dictionary).get("slug", ""))
+			names[skill_slug] = str((row as Dictionary).get("displayName", skill_slug))
+			icons[skill_slug] = SkillFxFallback.icon_key(str((row as Dictionary).get("fxType", (row as Dictionary).get("fx_type", ""))))
 	var placed := {}
 	var legacy: Array[String] = []
 	for row in state.get("skills", []):
@@ -117,11 +122,11 @@ static func slots_view(state: Dictionary, content: Dictionary) -> Dictionary:
 		var hint := ""
 		if not is_open:
 			hint = ("%s开放" % str(next.get("realmName", ""))) if (index <= int(next.get("slots", 0)) and not str(next.get("realmName", "")).is_empty()) else "未开放"
-		cells.append({"index": index, "open": is_open, "skill_slug": slug, "skill_name": str(names.get(slug, slug)), "hint": hint if not is_open else ("空栏位" if slug.is_empty() else "运转中")})
+		cells.append({"index": index, "open": is_open, "skill_slug": slug, "skill_name": str(names.get(slug, slug)), "icon_key": str(icons.get(slug, "")), "hint": hint if not is_open else ("空栏位" if slug.is_empty() else "运转中")})
 	var used := 0
 	for cell in cells:
 		used += 1 if not str(cell.skill_slug).is_empty() else 0
-	var note := "功法栏位 %d/%d 已开放" % [open, max_slots]
+	var note := "技能栏位 %d/%d 已开放" % [open, max_slots]
 	if not next.is_empty():
 		note += " · %s开放第 %d 栏" % [str(next.get("realmName", "")), int(next.get("slots", open + 1))]
 	return {"open": open, "max": max_slots, "used": used, "cells": cells, "note": note}

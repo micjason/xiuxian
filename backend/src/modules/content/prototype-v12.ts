@@ -11,6 +11,7 @@ import { DEFAULT_TUNING } from "./tuning.js";
 import { DEFAULT_BOSS_RULES } from "./boss-rules.js";
 import { ensureFactoryRealms } from "./realm-seed.js";
 import { REALM_FACTORY } from "./realm-factory.js";
+import { DEFAULT_SKILLS } from "./default-skills.js";
 
 /**
  * 原型数值表 v1.2（/workspace/prototype_design_numbers.md）扩到固定 24 小层：
@@ -111,11 +112,21 @@ export const PROTOTYPE_BOSS_NAMES: Record<string, string> = {
 /** 精英首通灵石：按大境界 3× 递进。 */
 export const PROTOTYPE_ELITE_STONES = [50, 150, 450, 1350, 4050, 12150, 36450, 109350] as const;
 
-export const PROTOTYPE_SKILLS = [
-  { slug: "skill_tuna", name: "吐纳诀", bonusBp: 500 },
-  { slug: "skill_qingyuan", name: "青元诀", bonusBp: 1500 },
-  { slug: "skill_zifu", name: "紫府金章", bonusBp: 3000 },
-] as const;
+/** 前三项顺序被首领首通奖励按下标引用。表现字段来自 DEFAULT_SKILLS。 */
+export const PROTOTYPE_SKILLS = DEFAULT_SKILLS.map((skill) => ({
+  slug: skill.slug,
+  name: skill.displayName,
+  bonusBp: skill.cultivateBonusBp,
+  role: skill.role,
+  attack: skill.attack,
+  defense: skill.defense,
+  hp: skill.hp,
+  rank: skill.rank,
+  description: skill.description,
+  fxType: skill.fxType,
+  fx: skill.fx,
+  castMode: skill.castMode,
+}));
 
 export const PROTOTYPE_BOSS_ULT_NAME = "剑诀·破军";
 
@@ -177,7 +188,22 @@ export async function applyPrototypeV12(db: Db): Promise<{ stageSlugs: string[];
   const bookSlugs: Record<string, string> = {};
   for (const skill of PROTOTYPE_SKILLS) {
     await db.delete(contentSkills).where(eq(contentSkills.slug, skill.slug));
-    await db.insert(contentSkills).values({ slug: skill.slug, displayName: skill.name, role: "heart", cultivateBonusBp: skill.bonusBp, skillCategorySlug: heartSlug });
+    await db.insert(contentSkills).values({
+      slug: skill.slug,
+      displayName: skill.name,
+      description: skill.description,
+      role: skill.role,
+      rank: skill.rank,
+      attack: skill.attack,
+      defense: skill.defense,
+      hp: skill.hp,
+      cultivateBonusBp: skill.bonusBp,
+      skillCategorySlug: heartSlug,
+      fxType: skill.fxType,
+      fx: skill.fx,
+      castMode: skill.castMode,
+      prerequisiteSkillSlugs: [],
+    });
     bookSlugs[skill.slug] = await ensureSkillBook(db, { slug: skill.slug, displayName: skill.name }, null);
   }
   let previous: Stats = { hp: 0, attack: 0, defense: 0, speed: 0 };

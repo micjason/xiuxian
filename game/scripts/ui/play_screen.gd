@@ -441,6 +441,7 @@ func settings_info() -> Dictionary:
 		"updateState": "latest" if _mock and _update_state.is_empty() else _update_state,
 		"latestVersion": _latest_version,
 		"server": "演示数据" if _mock else ServerAddress.current().trim_prefix("http://").trim_prefix("https://"),
+		"appearance": _state.get("appearance", null),
 	}
 
 
@@ -1019,7 +1020,7 @@ func _item_action(item_id: String, action: String) -> void:
 	if action == "use":
 		var learned: Dictionary = result.get("learned", {})
 		if learned.has("convertedCultivation"):
-			_toast.say("功法已圆满，转为修为 %s" % CultivationFormat.amount(float(learned.get("convertedCultivation", 0))))
+			_toast.say("技能已圆满，转为修为 %s" % CultivationFormat.amount(float(learned.get("convertedCultivation", 0))))
 		else:
 			_toast.say("学会了，现在是 %s 层" % str(learned.get("level", "")))
 	_apply_action_state(result)
@@ -1188,7 +1189,7 @@ func _item_def(slug: String) -> Dictionary:
 func _skill_name(slug: String) -> String:
 	var definition := _skill_def(slug)
 	if definition.is_empty():
-		return "功法不存在"
+		return "技能不存在"
 	var name := str(definition.get("displayName", ""))
 	return name if not name.is_empty() else "名称缺失"
 

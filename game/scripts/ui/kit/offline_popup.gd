@@ -192,7 +192,7 @@ func total_text() -> String:
 func _formula_text() -> String:
 	var text := "基础 %s" % str(_view.get("base_text", "0"))
 	if not str(_view.get("bonus_percent_text", "")).is_empty():
-		text += " + %s %s %s" % [str(_view.get("skill_label", "功法加成")).replace("功法", ""), str(_view.get("bonus_percent_text", "")), str(_view.get("bonus_text", "+0")).trim_prefix("+")]
+		text += " + %s %s %s" % [str(_view.get("skill_label", "技能加成")).replace("技能", "").replace("功法", ""), str(_view.get("bonus_percent_text", "")), str(_view.get("bonus_text", "+0")).trim_prefix("+")]
 	return text
 
 

@@ -14,7 +14,7 @@ static func skill_max_level(content: Dictionary) -> int:
 	var tuning: Dictionary = globals.get("tuning", {}) if typeof(globals.get("tuning", null)) == TYPE_DICTIONARY else {}
 	var value := int(tuning.get("skillMaxLayers", SKILL_MAX_LEVEL))
 	return value if value >= 1 else SKILL_MAX_LEVEL
-const ROLE_NAMES := {"heart": "心法", "art": "功法", "body": "体修"}
+const ROLE_NAMES := {"heart": "心法", "art": "技能", "body": "体修"}
 ## 品质深色（文字用，SPEC_Q 第 2 节；白品名字用 #646A76）。
 const QUALITY_DARK: Array[Color] = [Color("8e96a3"), Color("3c9a4e"), Color("2e7fc4"), Color("8a4fe0"), Color("e07b24")]
 const NAME_WHITE := Color("646a76")
@@ -174,7 +174,7 @@ static func kind_text(item: Dictionary) -> String:
 		"consumable", "pill", "elixir":
 			return "丹药"
 		"skill_book":
-			return "功法书"
+			return "技能书"
 		_:
 			return "物品"
 
@@ -304,7 +304,7 @@ static func skill_view(item: Dictionary, model: BagModel, content: Dictionary, s
 		hint = "需要 %s 才能学习。" % realm_name_for_order(content, need_order)
 	return {
 		"name": str(skill.get("displayName", "")),
-		"role": str(ROLE_NAMES.get(str(skill.get("role", "")), "功法")),
+		"role": str(ROLE_NAMES.get(str(skill.get("role", "")), "技能")),
 		"bonus": "  ".join(bonus),
 		"level": level,
 		"max": max_level,

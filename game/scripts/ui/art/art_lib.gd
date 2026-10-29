@@ -164,6 +164,13 @@ static func q(path_in_q: String) -> Texture2D:
 	return _load(Q_DIR + path_in_q + ".png")
 
 
+## 技能图标：文件名与 fx_type 相同（icons/slash.png、icons/heal_circle.png、icons/gold_light.png）。
+static func skill_icon(icon_key: String) -> Texture2D:
+	if icon_key.is_empty() or not has_q("icons/%s.png" % icon_key):
+		return null
+	return q("icons/" + icon_key)
+
+
 ## 美术 Q 版界面切图 assets/art/q/ui/<name>.png；没有返回 null（不警告，调用方退回代码绘制）。
 static func qui(name: String) -> Texture2D:
 	var path := Q_DIR + "ui/" + name + ".png"

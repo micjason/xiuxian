@@ -12,6 +12,7 @@ const EFFECT_NODES := ["AuraGlow", "GroundCircle", "QiOrbs", "RiseSparkles", "Ri
 
 var hero: Node2D
 var _fallback: TextureRect
+var _outfit: TextureRect
 
 
 func _init(effects: bool = true, cushion: bool = true) -> void:
@@ -62,3 +63,29 @@ func is_animated() -> bool:
 func current_animation() -> String:
 	var ap := QFx.player(hero)
 	return ap.current_animation if ap != null else ""
+
+
+## 有打坐换装图时盖住动画主角；texture 为空则回到现默认。
+func apply_outfit(texture: Texture2D) -> void:
+	if texture == null:
+		if _outfit != null:
+			_outfit.visible = false
+		if hero != null:
+			hero.visible = true
+		if _fallback != null:
+			_fallback.visible = true
+		return
+	if _outfit == null:
+		_outfit = TextureRect.new()
+		_outfit.name = "OutfitMeditate"
+		_outfit.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		_outfit.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		_outfit.set_anchors_preset(Control.PRESET_FULL_RECT)
+		_outfit.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(_outfit)
+	_outfit.texture = texture
+	_outfit.visible = true
+	if hero != null:
+		hero.visible = false
+	if _fallback != null:
+		_fallback.visible = false

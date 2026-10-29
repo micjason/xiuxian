@@ -231,6 +231,7 @@
           </SectionCard>
 
           <StageDesignatedDrops v-model="(form as StageForm).designatedDrops" />
+          <StageSeedDrops v-model="(form as StageForm).seedDrops" :defaults="(form as StageForm).seedDropDefaults" />
         </div>
       </template>
     </ConfigListPage>
@@ -259,6 +260,7 @@ import PageHeader from "../../components/PageHeader.vue";
 import SectionCard from "../../components/SectionCard.vue";
 import TrialDialog from "../../components/TrialDialog.vue";
 import StageDesignatedDrops, { type DesignatedRow } from "./stages/StageDesignatedDrops.vue";
+import StageSeedDrops, { type SeedRow } from "./stages/StageSeedDrops.vue";
 import { loadWeapons, type Named } from "../../composables/lookups";
 import { stageSchema } from "../../schema/resources";
 
@@ -280,6 +282,8 @@ type StageForm = {
   monsters: MonsterRow[];
   monsterDrop: DropForm;
   designatedDrops: DesignatedRow[];
+  seedDrops: SeedRow[] | null;
+  seedDropDefaults: SeedRow[];
 };
 type DropDefaults = { chancePercent: number; weights: Record<MonsterQuality, number> };
 type ApiBoss = {
@@ -314,6 +318,10 @@ type ApiStage = {
   monsterDrop: DropForm;
   dropCustomCount: number;
   dropDefaults: DropDefaults;
+  designatedDrops?: DesignatedRow[];
+  seedDropsCustom?: boolean;
+  seedDropsOverride?: SeedRow[] | null;
+  seedDropDefaults?: SeedRow[];
 };
 type Rules = {
   attackWeight: number;
@@ -338,6 +346,7 @@ const anchors = [
   { id: "sec-drop", label: "装备掉落" },
   { id: "sec-boss", label: "首领与掉落" },
   { id: "sec-designated", label: "指定掉落" },
+  { id: "sec-seed-drops", label: "种子掉落" },
 ];
 
 const router = useRouter();
@@ -478,6 +487,15 @@ function toRow(stage: ApiStage, chapterName: Map<string, string>): Record<string
       })),
       monsters: stage.monsters.map((monster) => ({ ...monster, artKey: monster.artKey ?? null })),
       monsterDrop: { chancePercent: stage.monsterDrop.chancePercent, weights: { white: stage.monsterDrop.weights.white ?? null, green: stage.monsterDrop.weights.green ?? null, blue: stage.monsterDrop.weights.blue ?? null, purple: stage.monsterDrop.weights.purple ?? null } },
+      seedDrops: stage.seedDropsCustom
+        ? (stage.seedDropsOverride ?? []).map((row) => ({
+            itemId: row.itemId ?? (row as { itemSlug?: string }).itemSlug ?? "",
+            chancePercent: row.chancePercent ?? ((row as { chanceBp?: number }).chanceBp ?? 0) / 100,
+            minCount: row.minCount ?? 1,
+            maxCount: row.maxCount ?? 1,
+          }))
+        : null,
+      seedDropDefaults: (stage.seedDropDefaults ?? []).map((row) => ({ ...row })),
   };
 }
 
@@ -535,6 +553,8 @@ function newRow(): Record<string, unknown> {
     monsters: [] as MonsterRow[],
     monsterDrop: { chancePercent: null, weights: { white: null, green: null, blue: null, purple: null } },
     designatedDrops: [] as DesignatedRow[],
+    seedDrops: null as SeedRow[] | null,
+    seedDropDefaults: [] as SeedRow[],
   };
 }
 
@@ -564,6 +584,9 @@ function bodyOf(form: StageForm): Record<string, unknown> {
     monsters: form.monsters,
     monsterDrop: form.monsterDrop,
     designatedDrops: (form.designatedDrops ?? []).map(({ itemId, trigger, chancePercent, count }) => ({ itemId, trigger, chancePercent, count })),
+    seedDrops: form.seedDrops == null
+      ? null
+      : form.seedDrops.map(({ itemId, chancePercent, minCount, maxCount }) => ({ itemId, chancePercent, minCount, maxCount })),
   };
 }
 

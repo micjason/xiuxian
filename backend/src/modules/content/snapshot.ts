@@ -20,6 +20,7 @@ import { AppError } from "../../shared/errors.js";
 import { validateContent, type ContentSnapshot } from "./validate.js";
 import { resolveMonsterDrop } from "./stage-defaults.js";
 import { tuningOf } from "./tuning.js";
+import { resolveSeedDrops, seedDropsOf } from "./seed-drops.js";
 import { QUALITY_TABLE, SLOT_KEYS, SLOT_TABLE } from "./catalog.js";
 import { skillSlotRulesOf } from "./skill-slots.js";
 import { expandBossStats, resolveBossRules } from "./boss-rules.js";
@@ -133,6 +134,9 @@ export async function loadDraftSnapshot(db: Db | Tx): Promise<ContentSnapshot> {
       // 关卡里只存改过的项；这里合并配置概览的默认值，游戏和客户端拿到的永远是完整的掉落配置。
       monsterDrop: resolveMonsterDrop(row.monsterDrop, tuning),
       designatedDrops: row.designatedDrops ?? [],
+      // 种子掉落：合并全局默认 + 单关覆盖（null = 跟随全局）
+      seedDrops: resolveSeedDrops(row.seedDrops ?? null, seedDropsOf(tuning.seedDrops)),
+      seedDropsOverride: row.seedDrops ?? null,
       // 0 = 没手动覆盖，按公式自动算（库里存 null）
       recommendedPower: row.recommendedPower ?? 0,
       enabled: row.enabled,

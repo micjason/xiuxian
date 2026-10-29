@@ -7,6 +7,8 @@ import type { ContentSnapshot } from "../content/validate.js";
 import type { GameRules } from "../content/rules.js";
 import { orderedStages, type StageAccess } from "../content/stage-order.js";
 import { grantItem } from "./bag.js";
+import { resolveSeedDrops, rollSeedDropsForKill, seedDropsOf } from "../content/seed-drops.js";
+import { tuningOf } from "../content/tuning.js";
 
 type World = ContentSnapshot & { version: number };
 type Stage = ContentSnapshot["stages"][number];
@@ -54,6 +56,9 @@ export type WaveDrop = {
   enhanceExp: number;
   /** 这件来自关卡的指定掉落（不是随机掉落）。 */
   designated?: boolean;
+  /** 这件来自洞府种子掉落。 */
+  seed?: boolean;
+  quantity?: number;
 };
 
 export type WaveSettlement = {
@@ -176,6 +181,35 @@ export async function settleWaves(
       }
     }
   }
+  // 洞府种子掉落：每只击杀独立掷；材料可堆叠，满包也照发（grantItem）。
+  if (advance.kills > 0) {
+    const effective = (
+      input.stage.seedDrops ??
+      resolveSeedDrops(input.stage.seedDropsOverride ?? null, seedDropsOf(tuningOf(world.globals.tuning).seedDrops))
+    ).filter((row) => row.chanceBp > 0 && world.items.some((item) => item.slug === row.itemSlug));
+    for (let index = 0; index < advance.kills; index += 1) {
+      for (const rolled of rollSeedDropsForKill(effective, waveRandom)) {
+        const definition = world.items.find((item) => item.slug === rolled.itemSlug);
+        const granted = await grantItem(tx, world, playerId, rolled.itemSlug, rolled.quantity, `wave:${input.stage.slug}`, input.now, {
+          capacity: input.capacity,
+          grant: { source: "stage_drop", sourceRef: input.stage.slug },
+        });
+        drops.push({
+          itemSlug: rolled.itemSlug,
+          quality: definition?.quality ?? null,
+          decomposed: granted.decomposed > 0,
+          dropped: granted.dropped > 0,
+          freed: granted.freed,
+          enhanceExp: granted.enhanceExp,
+          seed: true,
+          quantity: rolled.quantity,
+        });
+        if (granted.dropped > 0) {
+          bagFull = true;
+        }
+      }
+    }
+  }
   return {
     online: true,
     stageSlug: input.stage.slug,
@@ -189,4 +223,60 @@ export async function settleWaves(
     deathsInRow: advance.deathsInRow,
     wavesCompleted,
   };
+}
+
+/**
+ * 离线时段只发种子（不发装备、不算击杀修为）：按同样的波次节奏估算击杀数，再按生效种子表掷骰。
+ * 装备掉落仍仅在线（见 settleLocked 注释）；种子给洞府药园，离线也要能攒。
+ */
+export async function settleOfflineSeedDrops(
+  tx: Tx,
+  world: World,
+  playerId: string,
+  input: {
+    rules: GameRules;
+    stage: Stage;
+    stats: { attack: number; defense: number; hp: number; interval: number };
+    countedSeconds: number;
+    capacity: number;
+    now: Date;
+  },
+): Promise<WaveDrop[]> {
+  const monster = input.stage.monsters?.[0];
+  if (!monster || input.countedSeconds <= 0) {
+    return [];
+  }
+  const cycle = cycleFor(input.rules, input.stats, monster);
+  const advance = advanceWaves(0, input.countedSeconds, cycle, 0);
+  if (advance.kills <= 0) {
+    return [];
+  }
+  const effective = (
+    input.stage.seedDrops ??
+    resolveSeedDrops(input.stage.seedDropsOverride ?? null, seedDropsOf(tuningOf(world.globals.tuning).seedDrops))
+  ).filter((row) => row.chanceBp > 0 && world.items.some((item) => item.slug === row.itemSlug));
+  if (effective.length === 0) {
+    return [];
+  }
+  const drops: WaveDrop[] = [];
+  for (let index = 0; index < advance.kills; index += 1) {
+    for (const rolled of rollSeedDropsForKill(effective, waveRandom)) {
+      const definition = world.items.find((item) => item.slug === rolled.itemSlug);
+      await grantItem(tx, world, playerId, rolled.itemSlug, rolled.quantity, `wave:${input.stage.slug}`, input.now, {
+        capacity: input.capacity,
+        grant: { source: "stage_drop", sourceRef: input.stage.slug },
+      });
+      drops.push({
+        itemSlug: rolled.itemSlug,
+        quality: definition?.quality ?? null,
+        decomposed: false,
+        dropped: false,
+        freed: [],
+        enhanceExp: 0,
+        seed: true,
+        quantity: rolled.quantity,
+      });
+    }
+  }
+  return drops;
 }

@@ -6,6 +6,7 @@
  */
 import { AppError } from "../../shared/errors.js";
 import { DEFAULT_BOSS_RULES, bossRulesFromInput, bossRulesOf, type BossRules } from "./boss-rules.js";
+import { DEFAULT_SEED_DROPS, seedDropsFromInput, seedDropsOf, type SeedDropEntry } from "./seed-drops.js";
 
 export const TUNING_QUALITIES = ["white", "green", "blue", "purple", "orange"] as const;
 export type TuningQuality = (typeof TUNING_QUALITIES)[number];
@@ -46,6 +47,8 @@ export type Tuning = {
   bossOrangeChanceBp: number;
   /** 首领规则（配置概览「首领规则」两列）：小首领（精英）/ 大首领（章末）的默认值，单关可覆盖（boss-rules.ts）。 */
   bossRules: BossRules;
+  /** 洞府种子掉落全局默认（配置概览「种子掉落」）；单关 content_stages.seed_drops 可覆盖。 */
+  seedDrops: SeedDropEntry[];
 };
 
 export const DEFAULT_TUNING: Tuning = {
@@ -60,6 +63,7 @@ export const DEFAULT_TUNING: Tuning = {
   monsterQualityWeights: { white: 70, green: 25, blue: 5, purple: 0, orange: 0 },
   bossOrangeChanceBp: 200,
   bossRules: DEFAULT_BOSS_RULES,
+  seedDrops: DEFAULT_SEED_DROPS,
 };
 
 function num(value: unknown, label: string, min: number, max: number, integer = false): number {
@@ -122,6 +126,7 @@ export function tuningFromInput(raw: Raw): Tuning {
     monsterQualityWeights,
     bossOrangeChanceBp: num(pick(raw, "bossOrangeChanceBp", DEFAULT_TUNING.bossOrangeChanceBp), "首领橙装概率", 0, 10000, true),
     bossRules: bossRulesFromInput(pick(raw, "bossRules", DEFAULT_TUNING.bossRules), DEFAULT_BOSS_RULES),
+    seedDrops: seedDropsFromInput(pick(raw, "seedDrops", DEFAULT_TUNING.seedDrops), { label: "种子掉落" }),
   };
 }
 
@@ -140,6 +145,7 @@ export function tuningOf(raw: Raw): Tuning {
     }
     // 首领规则按列、按项回退（一项存坏不影响另一列）
     out.bossRules = bossRulesOf(raw?.bossRules);
+    out.seedDrops = seedDropsOf(raw?.seedDrops);
     return out as Tuning;
   }
 }

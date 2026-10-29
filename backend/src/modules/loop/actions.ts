@@ -27,7 +27,7 @@ import { maxSkillSlots, nextSkillSlotRule, openSkillSlots } from "../content/ski
 import { announcementNoticesForPlayer, noticesForPlayer } from "../notices/service.js";
 import { bossDailyUsed, grantBossRewards, usesRewardModel } from "./boss-rewards.js";
 import { acknowledgeOfflineReport, pendingOfflineReport, recordOfflineReport } from "./offline.js";
-import { EMPTY_WAVES, cycleFor, farmableStages, resolveFarmStage, settleWaves, waveRandomInt, wavesCompletedIn, type WaveSettlement } from "./waves.js";
+import { EMPTY_WAVES, cycleFor, farmableStages, resolveFarmStage, settleOfflineSeedDrops, settleWaves, waveRandomInt, wavesCompletedIn, type WaveSettlement } from "./waves.js";
 import { bossRulesFor, globalBossRules, nextStageOf, orderedStages, stageAccessList, stageTier, type StageAccess } from "../content/stage-order.js";
 import { stageRecommendedPower } from "../content/stage-power.js";
 
@@ -412,6 +412,19 @@ async function settleLocked(tx: Tx, playerId: string, world: World, now: Date, o
     });
   } else if (online && stage) {
     waves = { ...EMPTY_WAVES, online, stageSlug: stage.slug, monsterName: stage.monsters?.[0]?.name ?? null, progress: state.waveProgress, deathsInRow: state.waveDeathsInRow };
+  } else if (!online && stage && settled.countedSeconds > 0) {
+    // 离线：装备仍不掉；种子按估算击杀发放（洞府药园）。
+    const seedDrops = await settleOfflineSeedDrops(tx, world, playerId, {
+      rules,
+      stage,
+      stats,
+      countedSeconds: settled.countedSeconds,
+      capacity: rules.bagCapacity + state.bagBonus,
+      now,
+    });
+    if (seedDrops.length > 0) {
+      waves = { ...EMPTY_WAVES, online: false, stageSlug: stage.slug, monsterName: stage.monsters?.[0]?.name ?? null, drops: seedDrops };
+    }
   }
   const waveProgress = online ? (stage ? waves.progress : 0) : 0;
   const waveDeathsInRow = online ? (stage ? waves.deathsInRow : 0) : 0;

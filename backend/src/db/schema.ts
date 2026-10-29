@@ -1,4 +1,5 @@
 import type { OptionalRuleValues, StageMonster, MonsterDropOverride, BossRewardEntry, BossRepeatReward, DesignatedDrop, SetTier } from "../modules/content/combat-types.js";
+import type { SeedDropEntry } from "../modules/content/seed-drops.js";
 import type { Tuning } from "../modules/content/tuning.js";
 import type { BossRuleOverride, BossStatKey } from "../modules/content/boss-rules.js";
 import type { RealmYieldMajor } from "../modules/content/enhance.js";
@@ -437,6 +438,8 @@ export const contentStages = pgTable("content_stages", {
   monsterDrop: jsonb("monster_drop").$type<MonsterDropOverride | null>(),
   /** 指定掉落：每条单独按概率抽，和随机掉落同时生效（迁移 0028）。 */
   designatedDrops: jsonb("designated_drops").$type<DesignatedDrop[]>().notNull().default([]),
+  /** 洞府种子掉落覆盖（迁移 0047）：null = 跟随 tuning.seedDrops；[] = 本关不掉；非空 = 用这份。 */
+  seedDrops: jsonb("seed_drops").$type<SeedDropEntry[] | null>(),
   bossDropTableSlug: text("boss_drop_table_slug").notNull(),
   idleDropTableSlug: text("idle_drop_table_slug").notNull(),
   firstClearDropTableSlug: text("first_clear_drop_table_slug").notNull(),

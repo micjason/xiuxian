@@ -452,11 +452,19 @@ export function validateContent(
         push("stage", stage.slug, "designatedDrops", `指定掉落的装备 ${drop.itemSlug} 不存在或已停用`);
       }
     }
-    for (const drop of stage.seedDrops ?? []) {
+    for (const drop of stage.seedDropsOverride ?? []) {
       const item = draft.items.find((row) => row.slug === drop.itemSlug);
       if (!item || !item.enabled) {
         push("stage", stage.slug, "seedDrops", `种子掉落的物品 ${drop.itemSlug} 不存在或已停用`);
       }
+      if (!Number.isInteger(drop.chanceBp) || drop.chanceBp < 0 || drop.chanceBp > 10000) {
+        push("stage", stage.slug, "seedDrops", `种子掉落 ${drop.itemSlug} 概率必须在 0–10000（万分比）`);
+      }
+      if (!Number.isInteger(drop.minCount) || !Number.isInteger(drop.maxCount) || drop.minCount < 1 || drop.maxCount < drop.minCount) {
+        push("stage", stage.slug, "seedDrops", `种子掉落 ${drop.itemSlug} 数量不合法`);
+      }
+    }
+    for (const drop of stage.seedDrops ?? []) {
       if (!Number.isInteger(drop.chanceBp) || drop.chanceBp < 0 || drop.chanceBp > 10000) {
         push("stage", stage.slug, "seedDrops", `种子掉落 ${drop.itemSlug} 概率必须在 0–10000（万分比）`);
       }

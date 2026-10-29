@@ -6,6 +6,7 @@ extends VBoxContainer
 ## 「升级」也还没有，点了同样提示。配置里有、设计稿地图上没位置的（藏经阁、炼器室）列在详情下方的小标签里。
 
 signal back_requested
+signal enhance_entry_requested
 
 const ORIGIN := Vector2(24, 250)
 ## 地图上的建筑：设计稿位置 + 精灵图 + 对应 CaveView 的 id（空 = 配置里没有，展示用）。

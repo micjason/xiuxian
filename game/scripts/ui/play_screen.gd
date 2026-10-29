@@ -259,6 +259,7 @@ func _build_shell() -> void:
 	_skill_page = SkillPage.new()
 	_cave_page = CavePage.new()
 	_cave_page.back_requested.connect(func() -> void: _show_page(PAGE_CULTIVATE))
+	_cave_page.enhance_entry_requested.connect(open_enhance_entry)
 	_pages = {PAGE_CULTIVATE: _home_page, PAGE_ADVENTURE: _stage_page, PAGE_BATTLE: _battle_page, PAGE_BREAKTHROUGH: _breakthrough_page, PAGE_BAG: _bag_page, PAGE_SKILL: _skill_page, PAGE_CAVE: _cave_page}
 	for key in _pages:
 		(_pages[key] as Control).visible = false
@@ -1042,7 +1043,7 @@ func _decompose_many(ids: Array) -> Dictionary:
 	return {"ok": true, "gained": gained}
 
 
-## 打开分解弹窗（一件都不选）。
+## 打开分解弹窗（一件都不选）。洞府满包领取若以后要客户端提示，从这里接到现有分解弹窗，不要另做领取界面。
 func open_salvage() -> void:
 	if _salvage == null:
 		return
@@ -1051,6 +1052,19 @@ func open_salvage() -> void:
 
 func salvage_dialog() -> SalvageDialog:
 	return _salvage
+
+
+## 洞府强化入口：切到背包并提示去点装备。身上有还能强化的装备时，打开现有物品详情。
+## 真正的强化仍由详情里的按钮走 /api/v1/me/items/:id/enhance，这里不新做面板、不改公式。
+func open_enhance_entry() -> void:
+	if _page == PAGE_BATTLE and _battle_page.is_running():
+		_toast.say("战斗进行中，打完再离开", false)
+		return
+	_show_page(PAGE_BAG)
+	_toast.say_neutral("点一件装备进行强化")
+	var target := EquipModel.worn_enhance_target(_bag_page.model)
+	if not target.is_empty():
+		_bag_page.show_detail(target)
 
 
 ## 分解弹窗确认后：调接口；成功了弹窗不关、换成新行囊（满包条该消失就消失）。

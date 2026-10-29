@@ -31,12 +31,12 @@
 特效会自动在同一位置换成 `hero_battle.tscn`（原 TextureRect 变透明，只用它的框定位：脚底 = 框底边中点），之后普攻 / 受击 / 大招 / 胜负都由特效驱动。
 也可以直接把 `hero_battle.tscn` 实例当主角节点传进去。不想用动画就把 `_fx.use_hero_rig = false`（退回原来的整体位移 + 染色）。
 
-页面要加的只有大招蓄力（`integration_hero.patch`，2 处，已对 `proto/batch4-boss` 工作区当前的 battle_page.gd 检查过能打上）：
+页面要加的只有脚下聚气环蓄力（推荐 `set_skill_charge`，不要再画充能圆盘或冷却条）：
 ```gdscript
-# _refresh_ult() 里，和 _ult_disc.set_charge 一起：
-_fx.set_ult_charge(fight.ult_charge() if phase == Phase.RUNNING else 0.0, true)
-# 没有大招时：
-_fx.set_ult_charge(0.0, false)
+# _refresh_ult() 里只推给特效，不挂 UltChargeDisc：
+_fx.set_skill_charge(fight.ult_charge() if phase == Phase.RUNNING else 0.0, true)
+# 没有自动技能时：
+_fx.set_skill_charge(0.0, false)
 ```
 蓄满由 BossFight 自动施放（ult 事件），页面照旧把事件交给 `_fx.on_event(event)`，**不需要也不应该**自己调 `play_ult()`。
 
@@ -50,7 +50,7 @@ _fx.set_ult_charge(0.0, false)
 | `_consume_events()` → `_fx.on_event(e)`，我方普攻 | （不变） | 前冲出剑，飞剑命中后飞回 |
 | 同上，首领攻击 | （不变） | 首领扑击落下那一刻：闪白 + 击退 + 后坐（预警重击更重） |
 | 同上，`kind == "ult"` | （不变） | 蓄势 0.32 秒 → 剑扇 → 大号数字 → `ult_landed` |
-| `_refresh_ult()` | **新增** `_fx.set_ult_charge(...)` | 聚气环 / 外光 / 粒子跟着圆盘填 |
+| `_refresh_ult()` | `_fx.set_skill_charge(...)` | 聚气环 / 外光 / 粒子跟着蓄力值填；页面不画充能圆盘 |
 | `fight.finished` → `_fx.play_result(win, reason)` | （不变） | 赢：首领溶解后主角小跳；输：主角变灰后仰 |
 | `abort()` / `show_submit_error()` → `_fx.set_boss_from_art()` | （不变） | 内部 reset，主角回待机、蓄力清零 |
 

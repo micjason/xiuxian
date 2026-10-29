@@ -61,37 +61,48 @@ func _buttons(root: Node, out: Array[BaseButton] = []) -> Array[BaseButton]:
 	return out
 
 
-func _controls(root: Node, out: Array[Control] = []) -> Array[Control]:
-	if root is Control:
-		out.append(root)
+func _copy(root: Node, out: Array[String] = []) -> Array[String]:
+	if root is Label:
+		out.append((root as Label).text)
+	elif root is RichTextLabel:
+		out.append((root as RichTextLabel).text)
+	elif root is Button:
+		out.append((root as Button).text)
 	for child in root.get_children():
-		_controls(child, out)
+		_copy(child, out)
 	return out
 
 
-## 第四批（负责人）：战斗中玩家除了倍速和撤退没有任何手动操作——大招圆盘区域没有按钮，「自动」只是标签，全部不接收点击；
-## 主角整体抬高 40–90px，脚完整露出、踩在地面上。
+## 成鹏锁定：战斗页不显示充能圆盘、冷却读数、冷却条和「自动战斗」开关；永远自动战斗。
+## 主角整体抬高 40–90px，脚完整露出、踩在地面上。玩家 HUD 右侧不再留圆盘占位。
 func test_boss_battle_has_no_manual_controls_besides_speed_and_retreat() -> void:
 	var scene := await _boot("ready")
+	var stage_page := scene.get("_stage_page") as Node
+	assert_null(stage_page.find_child("UltChargeDisc", true, false), "挂机页没有充能圆盘")
+	var idle_fx := stage_page.find_child("IdleBattleFx", true, false)
+	assert_not_null(idle_fx, "历练页已接挂机战斗")
+	assert_null(idle_fx.find_child("UltChargeDisc", true, false), "挂机特效里没有充能圆盘")
 	scene.call("_open_battle", str(((scene.get("_state") as Dictionary).breakthrough.requiredStage as Dictionary).slug))
 	var page := scene.get("_battle_page") as Control
 	page.call("_on_start")
 	await get_tree().process_frame
 	await get_tree().process_frame
-	var disc := page.find_child("UltChargeDisc", true, false) as Control
-	assert_not_null(disc, "有大招蓄力圆盘")
-	var enabled_in_disc := _buttons(disc).filter(func(b: BaseButton) -> bool: return not b.disabled)
-	assert_eq(enabled_in_disc.size(), 0, "大招圆盘区域没有能点的按钮")
-	assert_eq(_buttons(disc).size(), 0, "大招圆盘里根本没有按钮")
-	for node in _controls(disc):
-		assert_eq(node.mouse_filter, Control.MOUSE_FILTER_IGNORE, "%s 不接收点击" % node.name)
-	var auto := disc.find_child("AutoLabel", true, false) as Label
-	assert_not_null(auto, "充能提示是纯文字")
-	assert_eq(auto.text, "冷却完自动释放")
-	assert_eq(disc.mouse_filter, Control.MOUSE_FILTER_IGNORE)
-	assert_null(disc.find_child("AutoChip", true, false))
-	assert_null(page.find_child("UltButton", true, false))
-	assert_null(page.find_child("AutoToggle", true, false))
+	assert_null(page.find_child("UltChargeDisc", true, false), "首领战不显示充能圆盘")
+	assert_null(page.find_child("UltButton", true, false), "首领战不挂冷却圆钮")
+	assert_null(page.find_child("AutoToggle", true, false), "没有自动战斗开关")
+	assert_null(page.find_child("AutoLabel", true, false))
+	assert_null(page.find_child("ChargeText", true, false), "不显示冷却百分比")
+	assert_null(page.find_child("Charge", true, false), "不显示冷却条")
+	for text in _copy(page):
+		assert_false(text.contains("冷却完自动释放"), text)
+		assert_false(text.contains("蓄满会自动释放"), text)
+		assert_false(text.contains("自动战斗"), text)
+		assert_false(text.contains("冷却"), text)
+	var hud_row := page.find_child("PlayerHudRow", true, false) as HBoxContainer
+	assert_not_null(hud_row)
+	assert_eq(hud_row.get_child_count(), 2, "玩家 HUD 只有头像和属性列")
+	for child in hud_row.get_children():
+		assert_lt((child as Control).custom_minimum_size.x, 180.0, "%s 不是圆盘占位" % child.name)
 	# 整页（战斗中）能点的只有倍速和撤退
 	var names: Array[String] = []
 	for button in _buttons(page):
@@ -347,6 +358,8 @@ func test_skill_charge_and_boss_hp_ratio_follow_the_battle_page() -> void:
 	assert_true(boss_src.contains("_kick_shake(shake_strong, 0.28)"), "登场落地用强震屏")
 	var page_src := FileAccess.get_file_as_string("res://scripts/ui/pages/battle_page.gd")
 	assert_false(page_src.contains("_fx.set_ult_charge("), "页面直接调用用 set_skill_charge")
+	assert_false(page_src.contains("UltChargeDisc"), "页面不再装配充能圆盘")
+	assert_false(page_src.contains("冷却完自动释放"), "页面不再写冷却提示")
 	assert_true(page_src.contains("set_skill_charge"))
 	assert_true(page_src.contains("set_boss_hp_ratio"))
 	assert_eq(BattleReport.SYMBOLS[BattleReport.Kind.CRIT], "★ 自动技能 −")
@@ -369,6 +382,8 @@ func test_skill_charge_and_boss_hp_ratio_follow_the_battle_page() -> void:
 	scene.call("_open_battle", slug)
 	var page := scene.get("_battle_page") as BattlePage
 	assert_null(page.find_child("UltButton", true, false))
+	assert_null(page.find_child("UltChargeDisc", true, false), "开战前也没有充能圆盘")
+	assert_null(page.find_child("AutoToggle", true, false))
 	page._on_start()
 	var live := page.get("_fx") as Node
 	page.fight.boss_hp = page.fight.boss_max_hp * 0.2

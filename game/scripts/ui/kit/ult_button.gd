@@ -4,7 +4,7 @@ extends Control
 ## 有图时用图做底、代码只叠冷却进度环和文字；没有图时退回代码画的圆钮。
 ## 注意：ult_btn_cooldown 里自带一段静态的"冷却弧"装饰，进度由代码环表示，两者不是同一个东西（见 change note）。
 ## ratio 0..1 = 冷却进度（1 = 冷却完毕）；ready 时按钮亮并有呼吸光；sub_text 写“1.8s”之类。
-## 成鹏锁定：这不是释放入口。不接收点击，_gui_input 不发 tapped。充能显示用 UltChargeDisc。
+## 成鹏锁定：战斗页不挂这个圆钮，也不再画充能圆盘。不接收点击，_gui_input 不发 tapped。
 
 signal tapped
 

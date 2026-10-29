@@ -2,8 +2,9 @@ class_name BattlePage
 extends VBoxContainer
 ## 首领战斗页（第四批，SPEC_Q §17.1 / 设计稿 q_battle_boss_1080x2340.png）：
 ##   顶行（撤退 · 章节·关 绶带 · 限时胶囊）→ 首领 HUD（头像 + 首领名牌 + 境界 + 战力 + 首领大血条）
-##   → 场景（首领主视觉、玩家、倍速按钮、开始挑战）→ 玩家 HUD（血条 + 属性 + 大招蓄力圆盘）→ 战报（最多 4 行）。
-## 大招全自动：圆盘只显示蓄力，蓄满那一刻自动释放（不接收点击）；没有「自动战斗」开关和「战斗速度」行，倍速在场景右下角。
+##   → 场景（首领主视觉、玩家、倍速按钮、开始挑战）→ 玩家 HUD（血条 + 属性）→ 战报（最多 4 行）。
+## 战斗永远自动：不画技能冷却条、充能圆盘，也没有「自动战斗」开关和「战斗速度」行；倍速在场景右下角。
+## 蓄力只驱动主角脚下聚气环，不在 HUD 上显示百分比或冷却提示。
 ## 不再区分精英战 / 首领战：标题、名牌、光圈一律首领样式（后台 tier 只剩外观用途，这里也统一按首领显示）。
 ## 战斗画面由 BossFight 在本地预演（公式与服务器一致），胜负和掉落以服务器返回为准；挑战请求不再带 ultTaps。
 ## 美术（SPEC_Q §17.8 / §17.10）：每章竖版战斗背景 bg_battle_<章>_1080x1640（章节 battleBgKey，没配跟随 bgKey，见 ArtLib.battle_bg_name）、
@@ -78,7 +79,6 @@ var _avatar_base: Texture2D
 var _float_layer: Control
 var _report: BattleReport
 var _feed: VBoxContainer
-var _ult_disc: UltChargeDisc
 var _speed_button: TextureButton
 var _speed_fallback: Label
 var _start_button: Button
@@ -86,7 +86,6 @@ var _result_panel: PanelContainer
 var _controls: Control
 var _result_body: VBoxContainer
 var _report_lines := 0
-var _casts_seen := 0
 var _last_time_text := ""
 ## 大招已经结算、但剑扇还没打到首领的伤害：血条先不扣，等特效 ult_landed 再扣（血条和剑同步）
 var _ult_pending := 0.0
@@ -331,12 +330,13 @@ func apply_appearance(appearance: Variant) -> void:
 		_player_avatar.texture = round if round != null else _avatar_base
 
 
-## 玩家 HUD：头像 + 「我」+ 境界胶囊 + 战力；血条；属性行；右侧大招蓄力圆盘（不是按钮）。
+## 玩家 HUD：头像 + 「我」+ 境界胶囊 + 战力；血条；属性行。右侧不留充能圆盘占位。
 func _build_player_hud() -> Control:
 	var made := QKit.panel(UiTokens.Q_CREAM, 34, 22, 12, 4, 6, "panel_cream")
 	var card := made.panel as PanelContainer
 	card.name = "PlayerHud"
 	var row := UiKit.hbox(UiTokens.SP_2)
+	row.name = "PlayerHudRow"
 	(made.body as VBoxContainer).add_child(row)
 	var avatar := QKit.cut_rect("avatar_player_round", Vector2(116, 116))
 	avatar.name = "PlayerAvatar"
@@ -371,9 +371,6 @@ func _build_player_hud() -> Control:
 	_me_stats = UiKit.label("", 28, UiTokens.TEXT_MUTED)
 	_me_stats.name = "MeStats"
 	column.add_child(_me_stats)
-	# 蓄力圆盘只显示自动进度，不接收点击；页面不放 UltButton / 手动技能入口。
-	_ult_disc = UltChargeDisc.new()
-	row.add_child(_ult_disc)
 	return card
 
 
@@ -424,7 +421,6 @@ func open_stage(state: Dictionary, content: Dictionary, stage: Dictionary, gate:
 	phase = Phase.READY
 	_clock = 0.0
 	_report_lines = 0
-	_casts_seen = 0
 	_report.clear()
 	UiKit.clear(_feed)
 	_clear_floats()
@@ -473,7 +469,7 @@ func open_stage(state: Dictionary, content: Dictionary, stage: Dictionary, gate:
 	_append_info("你（气血 %d）对阵 %s（气血 %d）" % [BagModel.shown(fight.player_max_hp), _boss_name, BagModel.shown(fight.boss_max_hp)])
 	if int(stage.get("recommendedPower", 0)) > 0:
 		_append_info("推荐战力 %d，我的战力 %d" % [int(stage.get("recommendedPower", 0)), int(state.get("power", 0))])
-	_append_feed("info", "限时 %d 秒 · 蓄满会自动释放" % int(limit))
+	_append_feed("info", "限时 %d 秒" % int(limit))
 
 
 ## 「章节 · 关」：displayName 本来就是「赤炎火山·三」这种写法，直接用；不再带「精英战 / 首领战」。
@@ -599,7 +595,6 @@ func abort() -> void:
 		fight = BossFight.from_state(_state, _content, _stage)
 	_ult_pending = 0.0
 	_clock = 0.0
-	_casts_seen = 0
 	_fx.set_boss_from_art()
 	_refresh_bars(false)
 	_refresh_ult()
@@ -761,18 +756,12 @@ func _refresh_time() -> void:
 		_timer_text.text = text
 
 
-## 蓄力圆盘：只显示到下一次自动施放的进度，蓄满那一刻放金光。没有按钮；蓄满由战斗逻辑出事件。
+## 自动技能蓄力只推给脚下聚气环。不画冷却条或百分比。蓄满由战斗逻辑出事件。
 func _refresh_ult() -> void:
 	if fight == null or not fight.has_ult():
-		_ult_disc.set_charge(0.0, false)
 		_push_skill_charge(0.0, false)
 		return
-	if fight.cast_count() > _casts_seen:
-		_casts_seen = fight.cast_count()
-		_ult_disc.flash_ready()
 	var charging := phase == Phase.RUNNING
-	_ult_disc.set_charge(fight.ult_charge() if charging else 0.0, true)
-	# 主角脚下聚气环跟着圆盘一起填。蓄满后 BossFight 自动出 kind:ult 事件，特效 on_event 再播剑扇。
 	_push_skill_charge(fight.ult_charge() if charging else 0.0, true)
 
 

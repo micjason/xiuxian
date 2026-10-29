@@ -1,0 +1,73 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://anim_q/skill_fx/slash_fx.gd" id="1_la07m"]
+[ext_resource type="Texture2D" path="res://anim_q/skill_fx/fx/fx_glow.png" id="2_xrea3"]
+[ext_resource type="Texture2D" path="res://anim_q/skill_fx/fx/fx_slash_streak.png" id="3_hdjio"]
+[ext_resource type="Texture2D" path="res://anim_q/skill_fx/fx/fx_slash_arc_sm.png" id="4_36oxb"]
+[ext_resource type="Texture2D" path="res://anim_q/skill_fx/fx/fx_slash_arc.png" id="5_suaj0"]
+[ext_resource type="Texture2D" path="res://anim_q/skill_fx/fx/fx_spark.png" id="6_20mux"]
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_delfx"]
+blend_mode = 1
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_xxsje"]
+blend_mode = 1
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_dn687"]
+blend_mode = 1
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_ebhki"]
+blend_mode = 1
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_cpimq"]
+blend_mode = 1
+
+[sub_resource type="Gradient" id="Gradient_ya0gl"]
+colors = PackedColorArray(1, 1, 1, 1, 1, 1, 1, 0)
+
+[node name="SlashFx" type="Node2D" unique_id=332726802]
+script = ExtResource("1_la07m")
+
+[node name="Root" type="Node2D" parent="." unique_id=739419114]
+
+[node name="Flash" type="Sprite2D" parent="Root" unique_id=1732133513]
+modulate = Color(1, 1, 1, 0)
+material = SubResource("CanvasItemMaterial_delfx")
+scale = Vector2(0.5, 0.5)
+texture = ExtResource("2_xrea3")
+
+[node name="Streak" type="Sprite2D" parent="Root" unique_id=678773379]
+modulate = Color(1, 1, 1, 0)
+material = SubResource("CanvasItemMaterial_xxsje")
+position = Vector2(20, 0)
+scale = Vector2(0.8, 0.9)
+texture = ExtResource("3_hdjio")
+
+[node name="Arc2" type="Sprite2D" parent="Root" unique_id=2017228541]
+modulate = Color(1, 1, 1, 0)
+material = SubResource("CanvasItemMaterial_dn687")
+position = Vector2(10, -10)
+scale = Vector2(1, 0.95)
+texture = ExtResource("4_36oxb")
+
+[node name="Arc" type="Sprite2D" parent="Root" unique_id=526225994]
+modulate = Color(1, 1, 1, 0)
+material = SubResource("CanvasItemMaterial_ebhki")
+scale = Vector2(1.25, 1.2)
+texture = ExtResource("5_suaj0")
+
+[node name="Sparks" type="CPUParticles2D" parent="Root" unique_id=1918446334]
+material = SubResource("CanvasItemMaterial_cpimq")
+emitting = false
+texture = ExtResource("6_20mux")
+lifetime = 0.35
+one_shot = true
+explosiveness = 0.9
+direction = Vector2(1, -0.2)
+spread = 60.0
+gravity = Vector2(0, 280)
+initial_velocity_min = 80.0
+initial_velocity_max = 220.0
+scale_amount_min = 0.15
+scale_amount_max = 0.35
+color_ramp = SubResource("Gradient_ya0gl")

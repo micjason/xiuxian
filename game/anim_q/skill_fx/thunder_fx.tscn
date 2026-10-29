@@ -1,0 +1,106 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://anim_q/skill_fx/thunder_fx.gd" id="1_82vsa"]
+[ext_resource type="Texture2D" path="res://anim_q/skill_fx/fx/fx_glow_purple.png" id="2_xv4u6"]
+[ext_resource type="Texture2D" path="res://anim_q/skill_fx/fx/fx_impact.png" id="3_7gskm"]
+[ext_resource type="Texture2D" path="res://anim_q/skill_fx/fx/fx_ring.png" id="4_4v8ua"]
+[ext_resource type="Texture2D" path="res://anim_q/skill_fx/fx/fx_bolt_a.png" id="5_nf4a4"]
+[ext_resource type="Texture2D" path="res://anim_q/skill_fx/fx/fx_bolt_b.png" id="6_6ejxk"]
+[ext_resource type="Texture2D" path="res://anim_q/skill_fx/fx/fx_bolt_c.png" id="7_a88ca"]
+[ext_resource type="Texture2D" path="res://anim_q/skill_fx/fx/fx_spark.png" id="8_7g5x0"]
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_aj0x4"]
+blend_mode = 1
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_i5ffp"]
+blend_mode = 1
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_an23t"]
+blend_mode = 1
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_dp2ua"]
+blend_mode = 1
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_4672u"]
+blend_mode = 1
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_s7ayi"]
+blend_mode = 1
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_vev86"]
+blend_mode = 1
+
+[sub_resource type="Gradient" id="Gradient_qcran"]
+colors = PackedColorArray(1, 1, 1, 1, 1, 1, 1, 0)
+
+[node name="ThunderFx" type="Node2D" unique_id=1101978833]
+script = ExtResource("1_82vsa")
+
+[node name="Flash" type="ColorRect" parent="." unique_id=477921591]
+z_index = 20
+offset_left = -200.0
+offset_top = -420.0
+offset_right = 200.0
+offset_bottom = 100.0
+mouse_filter = 2
+color = Color(0.48, 0.3, 1, 0)
+
+[node name="Root" type="Node2D" parent="." unique_id=969808015]
+
+[node name="Glow" type="Sprite2D" parent="Root" unique_id=1892912911]
+modulate = Color(1, 1, 1, 0)
+material = SubResource("CanvasItemMaterial_aj0x4")
+position = Vector2(0, -10)
+scale = Vector2(1.2, 1)
+texture = ExtResource("2_xv4u6")
+
+[node name="Impact" type="Sprite2D" parent="Root" unique_id=141605071]
+modulate = Color(1, 1, 1, 0)
+material = SubResource("CanvasItemMaterial_i5ffp")
+position = Vector2(0, -8)
+scale = Vector2(0.7, 0.7)
+texture = ExtResource("3_7gskm")
+
+[node name="Ring" type="Sprite2D" parent="Root" unique_id=1949741199]
+modulate = Color(1, 1, 1, 0)
+material = SubResource("CanvasItemMaterial_an23t")
+position = Vector2(0, 4)
+scale = Vector2(0.5, 0.3)
+texture = ExtResource("4_4v8ua")
+
+[node name="Bolt0" type="Sprite2D" parent="Root" unique_id=1387102861]
+modulate = Color(1, 1, 1, 0)
+material = SubResource("CanvasItemMaterial_dp2ua")
+position = Vector2(0, -140)
+scale = Vector2(1.5, 1.2)
+texture = ExtResource("5_nf4a4")
+
+[node name="Bolt1" type="Sprite2D" parent="Root" unique_id=492517068]
+modulate = Color(1, 1, 1, 0)
+material = SubResource("CanvasItemMaterial_4672u")
+position = Vector2(-40, -120)
+scale = Vector2(0.55, 0.7)
+texture = ExtResource("6_6ejxk")
+
+[node name="Bolt2" type="Sprite2D" parent="Root" unique_id=1643141294]
+modulate = Color(1, 1, 1, 0)
+material = SubResource("CanvasItemMaterial_s7ayi")
+position = Vector2(45, -110)
+scale = Vector2(0.5, 0.55)
+texture = ExtResource("7_a88ca")
+
+[node name="Sparks" type="CPUParticles2D" parent="Root" unique_id=624157644]
+material = SubResource("CanvasItemMaterial_vev86")
+emitting = false
+amount = 10
+texture = ExtResource("8_7g5x0")
+lifetime = 0.4
+one_shot = true
+explosiveness = 0.95
+spread = 180.0
+gravity = Vector2(0, 350)
+initial_velocity_min = 100.0
+initial_velocity_max = 320.0
+scale_amount_min = 0.12
+scale_amount_max = 0.3
+color_ramp = SubResource("Gradient_qcran")

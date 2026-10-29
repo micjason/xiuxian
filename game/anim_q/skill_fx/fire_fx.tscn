@@ -1,0 +1,122 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://anim_q/skill_fx/fire_fx.gd" id="1_ibc88"]
+[ext_resource type="Texture2D" path="res://anim_q/skill_fx/fx/fx_scorch.png" id="2_d5o5c"]
+[ext_resource type="Texture2D" path="res://anim_q/skill_fx/fx/fx_glow_hot.png" id="3_hsn17"]
+[ext_resource type="Texture2D" path="res://anim_q/skill_fx/fx/fx_flame_a.png" id="4_6utuw"]
+[ext_resource type="Texture2D" path="res://anim_q/skill_fx/fx/fx_flame_b.png" id="5_s3xtw"]
+[ext_resource type="Texture2D" path="res://anim_q/skill_fx/fx/fx_fire_burst.png" id="6_pki0r"]
+[ext_resource type="Texture2D" path="res://anim_q/skill_fx/fx/fx_fire_core.png" id="7_52s8l"]
+[ext_resource type="Texture2D" path="res://anim_q/skill_fx/fx/fx_ember.png" id="8_mdjse"]
+[ext_resource type="Texture2D" path="res://anim_q/skill_fx/fx/fx_spark.png" id="9_3cjcv"]
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_acme4"]
+blend_mode = 1
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_yrepd"]
+blend_mode = 1
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_qhl0j"]
+blend_mode = 1
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_p20tg"]
+blend_mode = 1
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_x1qiw"]
+blend_mode = 1
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_dmkqe"]
+blend_mode = 1
+
+[sub_resource type="Curve" id="Curve_d8qk4"]
+_data = [Vector2(0, 0.8), 0.0, 0.0, 0, 0, Vector2(0.5, 1), 0.0, 0.0, 0, 0, Vector2(1, 0.2), 0.0, 0.0, 0, 0]
+point_count = 3
+
+[sub_resource type="Gradient" id="Gradient_1jj2v"]
+colors = PackedColorArray(1, 1, 1, 1, 1, 1, 1, 0)
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_b6fds"]
+blend_mode = 1
+
+[sub_resource type="Gradient" id="Gradient_qwaq7"]
+colors = PackedColorArray(1, 1, 1, 1, 1, 1, 1, 0)
+
+[node name="FireFx" type="Node2D" unique_id=1395399427]
+script = ExtResource("1_ibc88")
+
+[node name="Root" type="Node2D" parent="." unique_id=1272785843]
+
+[node name="Scorch" type="Sprite2D" parent="Root" unique_id=1801618433]
+modulate = Color(1, 1, 1, 0)
+position = Vector2(0, 18)
+scale = Vector2(0.45, 0.3)
+texture = ExtResource("2_d5o5c")
+
+[node name="Glow" type="Sprite2D" parent="Root" unique_id=1969872348]
+modulate = Color(1, 1, 1, 0)
+material = SubResource("CanvasItemMaterial_acme4")
+position = Vector2(0, -20)
+scale = Vector2(1.35, 1.35)
+texture = ExtResource("3_hsn17")
+
+[node name="FlameA" type="Sprite2D" parent="Root" unique_id=1286292042]
+modulate = Color(1, 1, 1, 0)
+material = SubResource("CanvasItemMaterial_yrepd")
+position = Vector2(-20, -75)
+scale = Vector2(1.05, 1.05)
+texture = ExtResource("4_6utuw")
+
+[node name="FlameB" type="Sprite2D" parent="Root" unique_id=1784074798]
+modulate = Color(1, 1, 1, 0)
+material = SubResource("CanvasItemMaterial_qhl0j")
+position = Vector2(24, -60)
+scale = Vector2(0.9, 0.9)
+texture = ExtResource("5_s3xtw")
+
+[node name="Burst" type="Sprite2D" parent="Root" unique_id=315142629]
+modulate = Color(1, 1, 1, 0)
+material = SubResource("CanvasItemMaterial_p20tg")
+position = Vector2(0, -30)
+scale = Vector2(1.35, 1.35)
+texture = ExtResource("6_pki0r")
+
+[node name="BurstCore" type="Sprite2D" parent="Root" unique_id=1471641340]
+modulate = Color(1, 1, 1, 0)
+material = SubResource("CanvasItemMaterial_x1qiw")
+position = Vector2(0, -35)
+scale = Vector2(0.85, 0.85)
+texture = ExtResource("7_52s8l")
+
+[node name="Embers" type="CPUParticles2D" parent="Root" unique_id=168345377]
+material = SubResource("CanvasItemMaterial_dmkqe")
+emitting = false
+amount = 14
+texture = ExtResource("8_mdjse")
+lifetime = 0.55
+explosiveness = 0.15
+emission_shape = 1
+emission_sphere_radius = 28.0
+direction = Vector2(0, -1)
+spread = 35.0
+gravity = Vector2(0, -40)
+initial_velocity_min = 60.0
+initial_velocity_max = 160.0
+scale_amount_min = 0.35
+scale_amount_max = 0.8
+scale_amount_curve = SubResource("Curve_d8qk4")
+color_ramp = SubResource("Gradient_1jj2v")
+
+[node name="Sparks" type="CPUParticles2D" parent="Root" unique_id=501383734]
+material = SubResource("CanvasItemMaterial_b6fds")
+emitting = false
+texture = ExtResource("9_3cjcv")
+lifetime = 0.35
+one_shot = true
+explosiveness = 0.95
+spread = 180.0
+gravity = Vector2(0, 200)
+initial_velocity_min = 80.0
+initial_velocity_max = 240.0
+scale_amount_min = 0.12
+scale_amount_max = 0.28
+color_ramp = SubResource("Gradient_qwaq7")

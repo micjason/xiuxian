@@ -1,6 +1,95 @@
 export type BattleSide = { attack: number; defense: number; hp: number; interval: number };
 
-export type BattleEvent = { t: number; side: "player" | "boss"; damage: number; targetHpAfter: number; /** 大招那一下（额外一次伤害，不替代普攻）。 */ kind?: "ult" };
+/** 正在运转、会在战报里出手的技能。名字已经换成玩家能看的叫法。 */
+export type CombatSkill = {
+  slug: string;
+  name: string;
+  castMode: "auto" | "passive";
+  fxType?: string;
+  fx?: { type: string; primary?: string; secondary?: string; scale?: number };
+};
+
+export type BattleEvent = {
+  t: number;
+  side: "player" | "boss";
+  damage: number;
+  targetHpAfter: number;
+  /** 自动技能出手。协议字段沿用 ult，界面文案不读这个词。 */
+  kind?: "ult";
+  skillSlug?: string;
+  name?: string;
+  fxType?: string;
+  fx?: CombatSkill["fx"];
+  castMode?: CombatSkill["castMode"];
+};
+
+/** 第 1、5、9… 次普攻之后各追加一次自动技能，伤害与当次普攻相同。不另做冷却条。 */
+export const SKILL_CAST_EVERY_ATTACKS = 4;
+
+const HIDDEN_SKILL_NAMES = new Set(["大招", "暴击"]);
+
+/** 战报上的技能名。空名，或配置仍写成不能给玩家看的旧称呼时，写成「自动技能」。 */
+export function publicSkillName(raw: string | null | undefined): string {
+  const name = (raw ?? "").trim();
+  if (!name || HIDDEN_SKILL_NAMES.has(name)) {
+    return "自动技能";
+  }
+  return name;
+}
+
+export function skillCastsOnAttack(attackIndex: number): boolean {
+  return attackIndex > 0 && (attackIndex - 1) % SKILL_CAST_EVERY_ATTACKS === 0;
+}
+
+type LearnedSkill = { skillSlug: string; runningSlot: string | null };
+type SkillDefinition = {
+  slug: string;
+  displayName?: string | null;
+  enabled?: boolean;
+  castMode?: string | null;
+  fxType?: string | null;
+  fx?: { type?: string; primary?: string; secondary?: string; scale?: number } | null;
+};
+
+function slotIndex(slot: string | null): number {
+  return Number(slot?.match(/^run_(\d+)$/)?.[1] ?? Number.MAX_SAFE_INTEGER);
+}
+
+/**
+ * 战报施放只用「正在运转、栏位还开着、没停用」的自动 / 被动技能。
+ * 栏位顺序与属性计算相同：run_1、run_2…，其它栏位名排在后面。
+ */
+export function toCombatSkills(learned: LearnedSkill[], definitions: SkillDefinition[], openSlots: number): CombatSkill[] {
+  const bySlug = new Map(definitions.map((row) => [row.slug, row]));
+  return learned
+    .filter((skill) => skill.runningSlot)
+    .sort((left, right) => slotIndex(left.runningSlot) - slotIndex(right.runningSlot) || left.skillSlug.localeCompare(right.skillSlug))
+    .slice(0, Math.max(0, openSlots))
+    .flatMap((skill) => {
+      const definition = bySlug.get(skill.skillSlug);
+      if (!definition || definition.enabled === false) {
+        return [];
+      }
+      const castMode = definition.castMode === "passive" ? "passive" : definition.castMode === "auto" || definition.castMode == null || definition.castMode === "" ? "auto" : null;
+      if (!castMode) {
+        return [];
+      }
+      const combat: CombatSkill = { slug: definition.slug, name: publicSkillName(definition.displayName), castMode };
+      if (definition.fxType) {
+        combat.fxType = definition.fxType;
+      }
+      const fx = definition.fx;
+      if (fx && typeof fx.type === "string" && fx.type) {
+        combat.fx = {
+          type: fx.type,
+          ...(fx.primary ? { primary: fx.primary } : {}),
+          ...(fx.secondary ? { secondary: fx.secondary } : {}),
+          ...(fx.scale != null ? { scale: fx.scale } : {}),
+        };
+      }
+      return [combat];
+    });
+}
 
 export type BattleResult = {
   win: boolean;
@@ -28,13 +117,35 @@ export function hitDamage(attack: number, defense: number, defenseConstant: numb
   return (attack * attack) / (attack + defenseConstant * Math.max(defense, 0));
 }
 
-export function simulateBattle(player: BattleSide, boss: BattleSide, config: BattleConfig): BattleResult {
+function skillCastEvent(t: number, damage: number, targetHpAfter: number, skill: CombatSkill): BattleEvent {
+  const event: BattleEvent = {
+    t,
+    side: "player",
+    damage,
+    targetHpAfter,
+    kind: "ult",
+    skillSlug: skill.slug,
+    name: publicSkillName(skill.name),
+    castMode: skill.castMode,
+  };
+  if (skill.fxType) {
+    event.fxType = skill.fxType;
+  }
+  if (skill.fx) {
+    event.fx = skill.fx;
+  }
+  return event;
+}
+
+export function simulateBattle(player: BattleSide, boss: BattleSide, config: BattleConfig, skills: CombatSkill[] = []): BattleResult {
   const playerDamage = hitDamage(player.attack, boss.defense, config.defenseConstant);
   const bossDamage = hitDamage(boss.attack, player.defense, config.defenseConstant);
   let playerHp = player.hp;
   let bossHp = boss.hp;
   let playerNext = player.interval;
   let bossNext = boss.interval;
+  let playerAttacks = 0;
+  let castCursor = 0;
   const log: BattleEvent[] = [];
   while (playerHp > 0 && bossHp > 0) {
     const next = Math.min(playerNext, bossNext);
@@ -42,11 +153,21 @@ export function simulateBattle(player: BattleSide, boss: BattleSide, config: Bat
       return { win: false, reason: "timeout", durationSeconds: config.timeLimitSeconds, log: trimLog(log) };
     }
     if (playerNext === next) {
+      playerAttacks += 1;
       bossHp = Math.max(0, bossHp - playerDamage);
       log.push({ t: next, side: "player", damage: playerDamage, targetHpAfter: bossHp });
       playerNext += player.interval;
       if (bossHp <= 0) {
         return { win: true, reason: "win", durationSeconds: next, log: trimLog(log) };
+      }
+      const skill = skills[castCursor];
+      if (skill && skillCastsOnAttack(playerAttacks)) {
+        castCursor = (castCursor + 1) % skills.length;
+        bossHp = Math.max(0, bossHp - playerDamage);
+        log.push(skillCastEvent(next, playerDamage, bossHp, skill));
+        if (bossHp <= 0) {
+          return { win: true, reason: "win", durationSeconds: next, log: trimLog(log) };
+        }
       }
     }
     if (bossNext === next && bossHp > 0) {
@@ -71,7 +192,16 @@ export type UltConfig = {
   autoCastWindowSeconds: number;
 };
 
-export type UltCast = { t: number; readyAt: number; manual: boolean; damage: number };
+export type UltCast = { t: number; readyAt: number; manual: boolean; damage: number; skillSlug?: string; name?: string };
+
+function skillCastRecords(log: BattleEvent[]): UltCast[] {
+  return log.flatMap((event) => {
+    if (event.kind !== "ult" || !event.skillSlug) {
+      return [];
+    }
+    return [{ t: event.t, readyAt: event.t, manual: false, damage: event.damage, skillSlug: event.skillSlug, name: event.name }];
+  });
+}
 
 export type BossFightResult = BattleResult & { ultCasts: UltCast[] };
 
@@ -98,11 +228,12 @@ export function cleanUltTaps(taps: unknown): number[] {
  */
 export type UltPlan = number[] | { waits: number[] };
 
-export function simulateBossFight(player: BattleSide, boss: BattleSide, config: BattleConfig, ult: UltConfig | null, plan: UltPlan = []): BossFightResult {
+export function simulateBossFight(player: BattleSide, boss: BattleSide, config: BattleConfig, ult: UltConfig | null, plan: UltPlan = [], skills: CombatSkill[] = []): BossFightResult {
   const taps = Array.isArray(plan) ? plan : [];
   const waits = Array.isArray(plan) ? null : plan.waits;
   if (!ult || ult.multBp <= 0) {
-    return { ...simulateBattle(player, boss, config), ultCasts: [] };
+    const battle = simulateBattle(player, boss, config, skills);
+    return { ...battle, ultCasts: skillCastRecords(battle.log) };
   }
   const playerDamage = hitDamage(player.attack, boss.defense, config.defenseConstant);
   const bossDamage = hitDamage(boss.attack, player.defense, config.defenseConstant);

@@ -140,6 +140,79 @@ func test_from_state_reads_content_combat_rules_and_the_first_boss() -> void:
 	assert_null(BossFight.from_state(state, content, {"bosses": []}))
 
 
+func test_running_skill_is_logged_on_the_first_attack_and_rotates() -> void:
+	var fight := BossFight.new()
+	fight.setup(
+		{"attack": 10, "defense": 0, "hp": 5000, "interval": 1.0},
+		{"attack": 1, "defense": 0, "hp": 100000, "interval": 5.0},
+		1.0,
+		20.0,
+		{},
+		[
+			{"slug": "skill_liekong", "name": "裂空斩", "castMode": "auto", "fxType": "slash"},
+			{"slug": "skill_tuna", "name": "吐纳诀", "castMode": "passive", "fxType": "heal_circle"},
+		],
+	)
+	fight.advance_to(5.0)
+	var casts: Array = fight.log.filter(func(event: Dictionary) -> bool: return str(event.get("kind", "")) == "ult")
+	assert_eq(casts.size(), 2)
+	assert_eq(str(casts[0].get("name", "")), "裂空斩")
+	assert_eq(str(casts[1].get("name", "")), "吐纳诀")
+	assert_almost_eq(float(casts[0].get("t", -1)), 1.0, 0.0001)
+	assert_almost_eq(float(casts[1].get("t", -1)), 5.0, 0.0001)
+	assert_false(str(casts[0].get("name", "")).contains("大招"))
+	assert_eq(fight.casts.size(), 2)
+	assert_false(fight.has_ult(), "技能施放不打开冷却圆盘用的旧配置")
+
+
+func test_forbidden_skill_name_is_rewritten_before_the_log() -> void:
+	var fight := BossFight.new()
+	fight.setup(
+		{"attack": 10, "defense": 0, "hp": 500, "interval": 1.0},
+		{"attack": 0, "defense": 0, "hp": 10000, "interval": 5.0},
+		1.0,
+		2.0,
+		{},
+		[{"slug": "skill_bad", "name": "大招", "castMode": "auto"}],
+	)
+	fight.advance_to(1.0)
+	var casts: Array = fight.log.filter(func(event: Dictionary) -> bool: return str(event.get("kind", "")) == "ult")
+	assert_eq(casts.size(), 1)
+	assert_eq(str(casts[0].get("name", "")), "自动技能")
+
+
+func test_from_state_uses_running_auto_and_passive_skills() -> void:
+	var state := {
+		"attack": 10, "defense": 0, "hp": 500, "interval": 1.0,
+		"skillSlots": {"open": 1},
+		"skills": [
+			{"skillSlug": "skill_liekong", "runningSlot": "run_2"},
+			{"skillSlug": "skill_tuna", "runningSlot": "run_1"},
+			{"skillSlug": "skill_idle", "runningSlot": null},
+		],
+	}
+	var content := {
+		"globals": {"combat": {"defenseConstant": 1.0, "timeLimitSeconds": 20}},
+		"skills": [
+			{"slug": "skill_liekong", "displayName": "裂空斩", "castMode": "auto", "enabled": true, "fxType": "slash"},
+			{"slug": "skill_tuna", "displayName": "吐纳诀", "castMode": "passive", "enabled": true, "fxType": "heal_circle"},
+			{"slug": "skill_idle", "displayName": "未运转", "castMode": "auto", "enabled": true},
+		],
+	}
+	var picked: Array = BossFight.combat_skills_from(state, content)
+	assert_eq(picked.size(), 1)
+	assert_eq(str(picked[0].get("slug", "")), "skill_tuna")
+	var stage := {"bosses": [{"name": "熊王", "attack": 1, "defense": 0, "hp": 10000, "interval": 5}]}
+	var fight := BossFight.from_state(state, content, stage)
+	fight.advance_to(1.0)
+	var casts: Array = fight.log.filter(func(event: Dictionary) -> bool: return str(event.get("kind", "")) == "ult")
+	assert_eq(casts.size(), 1)
+	assert_eq(str(casts[0].get("name", "")), "吐纳诀")
+	var line: Dictionary = BattleReportBuilder.live_line(casts[0], "熊王", "大招")
+	assert_string_contains(str(line.text), "吐纳诀")
+	assert_false(str(line.text).contains("大招"))
+
+
 func test_time_limit_ends_the_fight_as_timeout() -> void:
 	var fight := BossFight.new()
 	fight.setup({"attack": 5, "defense": 40, "hp": 9000, "interval": 2.0}, {"attack": 3, "defense": 30, "hp": 100000, "interval": 2.0}, 1.0, 45.0, {})

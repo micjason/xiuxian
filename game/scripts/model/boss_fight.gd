@@ -14,8 +14,11 @@ var player := {"attack": 0.0, "defense": 0.0, "hp": 1.0, "interval": 1.0}
 var boss := {"attack": 0.0, "defense": 0.0, "hp": 1.0, "interval": 1.0}
 var defense_constant := 1.0
 var time_limit := 45.0
-## 空字典 = 没有大招。键：multBp、cooldownSeconds、firstCooldownSeconds、autoCastWindowSeconds。
+## 空字典 = 没有旧的境界技能配置。键：multBp、cooldownSeconds、firstCooldownSeconds、autoCastWindowSeconds。
 var ult := {}
+## 正在运转的自动 / 被动技能。第 1、5、9… 次普攻后各追加一次同等伤害，与服务端 SKILL_CAST_EVERY_ATTACKS 一致。
+const SKILL_CAST_EVERY_ATTACKS := 4
+var skills: Array[Dictionary] = []
 
 var t := 0.0
 var player_max_hp := 1.0
@@ -40,6 +43,8 @@ var _boss_next := 0.0
 var _ult_ready := INF
 var _ult_next := INF
 var _ult_last_cast := 0.0
+var _player_attacks := 0
+var _cast_cursor := 0
 
 
 static func hit_damage(attack: float, defense: float, constant: float) -> float:
@@ -64,16 +69,74 @@ static func from_state(state: Dictionary, content: Dictionary, stage: Dictionary
 		float(combat.get("defenseConstant", 1.0)),
 		float(combat.get("timeLimitSeconds", 45.0)),
 		state.get("ult", {}) if typeof(state.get("ult", null)) == TYPE_DICTIONARY else {},
+		combat_skills_from(state, content),
 	)
 	return fight
 
 
-func setup(player_side: Dictionary, boss_side: Dictionary, constant: float, limit: float, ult_config: Dictionary) -> void:
+## 和后端 toCombatSkills 同一套：运转中、栏位内、未停用的自动 / 被动，按 run_1、run_2… 排序。
+static func combat_skills_from(state: Dictionary, content: Dictionary) -> Array:
+	var open := 3
+	var slots: Variant = state.get("skillSlots", null)
+	if typeof(slots) == TYPE_DICTIONARY and (slots as Dictionary).has("open"):
+		open = int((slots as Dictionary).get("open", 0))
+	var defs := {}
+	var raw_defs: Variant = content.get("skills", [])
+	if raw_defs is Array:
+		for row in raw_defs:
+			if typeof(row) == TYPE_DICTIONARY:
+				defs[str((row as Dictionary).get("slug", ""))] = row
+	var running: Array = []
+	var raw_running: Variant = state.get("skills", [])
+	if raw_running is Array:
+		for row in raw_running:
+			if typeof(row) != TYPE_DICTIONARY:
+				continue
+			var mine: Dictionary = row
+			var slot := str(mine.get("runningSlot", ""))
+			if slot.is_empty() or slot == "<null>":
+				continue
+			var slug := str(mine.get("skillSlug", ""))
+			var definition: Dictionary = defs.get(slug, {})
+			if definition.is_empty() or not bool(definition.get("enabled", true)):
+				continue
+			var mode := str(definition.get("castMode", "auto"))
+			if mode != "auto" and mode != "passive":
+				continue
+			var index := 1000000000
+			if slot.begins_with("run_"):
+				index = int(slot.trim_prefix("run_"))
+			running.append({"index": index, "slug": slug, "definition": definition})
+	running.sort_custom(func(left: Dictionary, right: Dictionary) -> bool:
+		if int(left.index) != int(right.index):
+			return int(left.index) < int(right.index)
+		return str(left.slug) < str(right.slug)
+	)
+	if open < running.size():
+		running = running.slice(0, maxi(open, 0))
+	var out: Array = []
+	for row in running:
+		var definition: Dictionary = row.definition
+		var fx: Variant = definition.get("fx", {})
+		out.append({
+			"slug": str(definition.get("slug", row.slug)),
+			"name": str(definition.get("displayName", "")),
+			"castMode": str(definition.get("castMode", "auto")),
+			"fxType": str(definition.get("fxType", "")),
+			"fx": fx if typeof(fx) == TYPE_DICTIONARY else {},
+		})
+	return out
+
+
+func setup(player_side: Dictionary, boss_side: Dictionary, constant: float, limit: float, ult_config: Dictionary, skill_rows: Array = []) -> void:
 	player = {"attack": float(player_side.get("attack", 0)), "defense": float(player_side.get("defense", 0)), "hp": float(player_side.get("hp", 1)), "interval": maxf(float(player_side.get("interval", 1)), 0.05)}
 	boss = {"attack": float(boss_side.get("attack", 0)), "defense": float(boss_side.get("defense", 0)), "hp": float(boss_side.get("hp", 1)), "interval": maxf(float(boss_side.get("interval", 1)), 0.05)}
 	defense_constant = constant
 	time_limit = limit
 	ult = ult_config if float(ult_config.get("multBp", 0)) > 0.0 else {}
+	skills = _accepted_skills(skill_rows)
+	_player_attacks = 0
+	_cast_cursor = 0
 	player_max_hp = float(player.hp)
 	player_hp = player_max_hp
 	boss_max_hp = float(boss.hp)
@@ -125,6 +188,7 @@ func advance_to(target: float) -> void:
 func _step(at: float) -> void:
 	t = at
 	if _player_next == at:
+		_player_attacks += 1
 		var dmg := player_damage()
 		boss_hp = maxf(0.0, boss_hp - dmg)
 		_push({"t": at, "side": "player", "damage": dmg, "targetHpAfter": boss_hp})
@@ -132,6 +196,10 @@ func _step(at: float) -> void:
 		if boss_hp <= 0.0:
 			_finish(true, "win", at)
 			return
+		if _skill_due():
+			_cast_skill(at, dmg)
+			if finished:
+				return
 	if _ult_next == at:
 		_cast(at, false)
 		if finished:
@@ -143,6 +211,66 @@ func _step(at: float) -> void:
 		_boss_next += float(boss.interval)
 		if player_hp <= 0.0:
 			_finish(false, "defeated", at)
+
+
+func _skill_due() -> bool:
+	return not skills.is_empty() and _player_attacks > 0 and (_player_attacks - 1) % SKILL_CAST_EVERY_ATTACKS == 0
+
+
+func _accepted_skills(rows: Array) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	for row in rows:
+		if typeof(row) != TYPE_DICTIONARY:
+			continue
+		var item: Dictionary = row
+		var slug := str(item.get("slug", item.get("skillSlug", ""))).strip_edges()
+		if slug.is_empty():
+			continue
+		var mode := str(item.get("castMode", "auto"))
+		if mode != "auto" and mode != "passive":
+			continue
+		var fx: Variant = item.get("fx", {})
+		out.append({
+			"slug": slug,
+			"name": _public_skill_name(str(item.get("name", item.get("displayName", "")))),
+			"castMode": mode,
+			"fxType": str(item.get("fxType", "")),
+			"fx": fx if typeof(fx) == TYPE_DICTIONARY else {},
+		})
+	return out
+
+
+static func _public_skill_name(raw: String) -> String:
+	var name := raw.strip_edges()
+	if name.is_empty() or name == "大招" or name == "暴击":
+		return "自动技能"
+	return name
+
+
+func _cast_skill(at: float, dmg: float) -> void:
+	var skill: Dictionary = skills[_cast_cursor % skills.size()]
+	_cast_cursor += 1
+	boss_hp = maxf(0.0, boss_hp - dmg)
+	var event := {
+		"t": at,
+		"side": "player",
+		"damage": dmg,
+		"targetHpAfter": boss_hp,
+		"kind": "ult",
+		"skillSlug": str(skill.get("slug", "")),
+		"name": str(skill.get("name", "自动技能")),
+		"castMode": str(skill.get("castMode", "auto")),
+	}
+	var fx_type := str(skill.get("fxType", ""))
+	if not fx_type.is_empty():
+		event["fxType"] = fx_type
+	var fx: Variant = skill.get("fx", null)
+	if typeof(fx) == TYPE_DICTIONARY and not (fx as Dictionary).is_empty():
+		event["fx"] = fx
+	_push(event)
+	casts.append({"t": at, "manual": false, "damage": dmg})
+	if boss_hp <= 0.0:
+		_finish(true, "win", at)
 
 
 func _cast(at: float, manual: bool) -> void:

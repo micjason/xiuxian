@@ -92,6 +92,12 @@ func test_auto_cast_plays_each_real_kind_on_its_anchor() -> void:
 	var named: Dictionary = BattleReportBuilder.live_line({"side": "player", "kind": "ult", "damage": 12}, "黑风狼王", "裂空斩")
 	assert_string_contains(str(named.text), "裂空斩")
 	assert_false(str(named.text).contains("大招"))
+	var from_event: Dictionary = BattleReportBuilder.live_line({"side": "player", "kind": "ult", "damage": 12, "name": "寒冰刺"}, "黑风狼王", "大招")
+	assert_string_contains(str(from_event.text), "寒冰刺")
+	assert_false(str(from_event.text).contains("大招"))
+	var blocked: Dictionary = BattleReportBuilder.live_line({"side": "player", "kind": "ult", "damage": 12, "name": "大招"}, "黑风狼王", "裂空斩")
+	assert_string_contains(str(blocked.text), "自动技能")
+	assert_false(str(blocked.text).contains("大招"))
 
 
 func test_boss_and_idle_auto_cast_play_the_bound_skill_fx() -> void:

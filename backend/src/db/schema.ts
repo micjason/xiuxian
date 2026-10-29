@@ -260,6 +260,26 @@ export const contentGlobals = pgTable("content_globals", {
   /** 配置概览里的默认数值（见 content/tuning.ts）；缺的项用代码默认值。 */
   tuning: jsonb("tuning").$type<Partial<Tuning>>(),
   artSlotRules: jsonb("art_slot_rules").$type<{ minRealmOrder: number; slots: number }[]>(),
+  /** 洞府 v1：药园地块 / 炼丹队列 / 种子 / 配方（见 modules/dongfu/config.ts）。 */
+  dongfu: jsonb("dongfu").$type<{
+    plotCount: number;
+    alchemyQueueLength: number;
+    seeds: { seedSlug: string; herbSlug: string; growSeconds: number }[];
+    recipes: {
+      recipeSlug: string;
+      outputItemSlug: string;
+      outputQty: number;
+      craftSeconds: number;
+      spiritStones: number;
+      costs: { itemSlug: string; count: number }[];
+      effect?: {
+        cultivationGain?: number;
+        buffStat?: string;
+        buffBp?: number;
+        durationSeconds?: number;
+      };
+    }[];
+  }>(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   updatedBy: uuid("updated_by"),
 });
@@ -332,6 +352,13 @@ export const contentItems = pgTable("content_items", {
   setSlug: text("set_slug"),
   /** 参与本境界本品质的随机掉落池。公式装备总是参与；手动装备默认不参与（只靠指定掉落 / 补发）。 */
   randomDrop: boolean("random_drop").notNull().default(true),
+  /** 丹药等消耗品效果（洞府 v1：修为增益 / 临时属性 buff）。 */
+  effect: jsonb("effect").$type<{
+    cultivationGain?: number;
+    buffStat?: string;
+    buffBp?: number;
+    durationSeconds?: number;
+  } | null>(),
   enabled: boolean("enabled").notNull().default(true),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   updatedBy: uuid("updated_by"),
@@ -704,3 +731,54 @@ export const playerOfflineReports = pgTable("player_offline_reports", {
   acknowledgedAt: timestamp("acknowledged_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+/** 洞府药园地块：有种子才有行；领取后删除该行。 */
+export const playerDongfuPlots = pgTable(
+  "player_dongfu_plots",
+  {
+    playerId: uuid("player_id")
+      .notNull()
+      .references(() => players.id, { onDelete: "cascade" }),
+    slot: integer("slot").notNull(),
+    seedSlug: text("seed_slug"),
+    plantedAt: timestamp("planted_at", { withTimezone: true }),
+    matureAt: timestamp("mature_at", { withTimezone: true }),
+  },
+  (table) => [primaryKey({ columns: [table.playerId, table.slot] })],
+);
+
+/** 洞府炼丹队列：claimed_at 为空表示未领取（占队列）；领取后保留记录。 */
+export const playerDongfuAlchemy = pgTable(
+  "player_dongfu_alchemy",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    playerId: uuid("player_id")
+      .notNull()
+      .references(() => players.id, { onDelete: "cascade" }),
+    recipeSlug: text("recipe_slug").notNull(),
+    startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
+    readyAt: timestamp("ready_at", { withTimezone: true }).notNull(),
+    claimedAt: timestamp("claimed_at", { withTimezone: true }),
+  },
+  (table) => [index("player_dongfu_alchemy_player_idx").on(table.playerId)],
+);
+
+/**
+ * 临时属性丹写入的生效 buff。
+ * 战斗结算（把 buff 乘进攻防）归开发二号；本表只负责 useItem 落库与过期时间。
+ */
+export const playerActiveBuffs = pgTable(
+  "player_active_buffs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    playerId: uuid("player_id")
+      .notNull()
+      .references(() => players.id, { onDelete: "cascade" }),
+    buffStat: text("buff_stat").notNull(),
+    buffBp: integer("buff_bp").notNull(),
+    startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    sourceItemSlug: text("source_item_slug").notNull(),
+  },
+  (table) => [index("player_active_buffs_player_idx").on(table.playerId)],
+);

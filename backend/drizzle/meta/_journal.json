@@ -267,6 +267,13 @@
       "when": 1798000000000,
       "tag": "0052_global_base_interval",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1800000000000,
+      "tag": "0060_dongfu_v1",
+      "breakpoints": true
     }
   ]
 }

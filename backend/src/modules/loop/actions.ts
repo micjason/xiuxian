@@ -30,6 +30,7 @@ import { acknowledgeOfflineReport, pendingOfflineReport, recordOfflineReport } f
 import { EMPTY_WAVES, cycleFor, farmableStages, resolveFarmStage, settleWaves, waveRandomInt, wavesCompletedIn, type WaveSettlement } from "./waves.js";
 import { bossRulesFor, globalBossRules, nextStageOf, orderedStages, stageAccessList, stageTier, type StageAccess } from "../content/stage-order.js";
 import { stageRecommendedPower } from "../content/stage-power.js";
+import { applyPillUse, readDongfuState } from "../dongfu/actions.js";
 
 type World = ContentSnapshot & { version: number };
 type RandomInt = (min: number, max: number) => number;
@@ -507,10 +508,11 @@ function gateOf(world: World, realm: { requiredStageSlug: string | null }, progr
   };
 }
 
-function stateDto(world: World, playerId: string, settled: Awaited<ReturnType<typeof settleLocked>>) {
+async function stateDto(tx: Tx, world: World, playerId: string, settled: Awaited<ReturnType<typeof settleLocked>>) {
   const realm = realmOf(world, settled.state.realmSlug);
   const next = realm.nextRealmSlug ? world.realms.find((row) => row.slug === realm.nextRealmSlug) : undefined;
   const rateBp = next ? 10000 : 0;
+  const dongfu = world.globals.dongfu ? await readDongfuState(tx, world, playerId, settled.now) : null;
   return {
     playerId,
     contentVersion: world.version,
@@ -572,6 +574,7 @@ function stateDto(world: World, playerId: string, settled: Awaited<ReturnType<ty
       autoChallenge: settled.autoChallenge,
       idleBoss: settled.idleBoss,
     },
+    dongfu,
   };
 }
 
@@ -778,7 +781,7 @@ export async function ackOfflineReport(db: Db, playerId: string, reportId: strin
 export async function readState(db: Db, playerId: string, now: Date) {
   const world = await worldOrThrow(db);
   return withTransaction(db, async (tx) => ({
-    ...stateDto(world, playerId, await settleLocked(tx, playerId, world, now)),
+    ...await stateDto(tx, world, playerId, await settleLocked(tx, playerId, world, now)),
     notices: await announcementNoticesForPlayer(tx, playerId),
   }));
 }
@@ -795,7 +798,7 @@ export async function setIdleStage(tx: Tx, world: World, playerId: string, stage
   if (stageSlug !== settled.state.idleStageSlug) {
     await tx.update(playerStates).set({ idleStageSlug: stageSlug, waveProgress: 0, waveDeathsInRow: 0 }).where(eq(playerStates.playerId, playerId));
   }
-  return stateDto(world, playerId, await settleLocked(tx, playerId, world, now));
+  return await stateDto(tx, world, playerId, await settleLocked(tx, playerId, world, now));
 }
 
 export async function advanceRealm(tx: Tx, world: World, playerId: string, now: Date, randomInt: RandomInt) {
@@ -836,7 +839,7 @@ export async function advanceRealm(tx: Tx, world: World, playerId: string, now: 
   const after = await settleLocked(tx, playerId, world, now);
   return {
     result: { success: result.success, rateBp, roll, lostCultivation: result.lostCultivation },
-    state: stateDto(world, playerId, after),
+    state: await stateDto(tx, world, playerId, after),
   };
 }
 
@@ -876,7 +879,7 @@ export async function challengeStage(tx: Tx, world: World, playerId: string, sta
   }
   const fought = await fightStageBoss(tx, world, playerId, settled, stage, now, randomInt, { mode: "manual" });
   const after = await settleLocked(tx, playerId, world, now);
-  return { ...fought, state: stateDto(world, playerId, after) };
+  return { ...fought, state: await stateDto(tx, world, playerId, after) };
 }
 
 type FightInput = Pick<Awaited<ReturnType<typeof settleLocked>>, "state" | "stats" | "pieces">;
@@ -1267,7 +1270,7 @@ export async function equipItem(tx: Tx, world: World, playerId: string, itemId: 
     await tx.update(playerItems).set({ equippedSlot: definition.slot }).where(eq(playerItems.id, item.id));
   }
   const after = await settleLocked(tx, playerId, world, now);
-  return { state: stateDto(world, playerId, after) };
+  return { state: await stateDto(tx, world, playerId, after) };
 }
 
 export async function unequipItem(tx: Tx, world: World, playerId: string, itemId: string, now: Date) {
@@ -1281,7 +1284,7 @@ export async function unequipItem(tx: Tx, world: World, playerId: string, itemId
   }
   await tx.update(playerItems).set({ equippedSlot: null }).where(eq(playerItems.id, item.id));
   const after = await settleLocked(tx, playerId, world, now);
-  return { state: stateDto(world, playerId, after) };
+  return { state: await stateDto(tx, world, playerId, after) };
 }
 
 export async function unequipSlot(tx: Tx, world: World, playerId: string, slot: string, now: Date) {
@@ -1291,7 +1294,7 @@ export async function unequipSlot(tx: Tx, world: World, playerId: string, slot: 
     .set({ equippedSlot: null })
     .where(and(eq(playerItems.playerId, playerId), eq(playerItems.equippedSlot, slot)));
   const after = await settleLocked(tx, playerId, world, now);
-  return { state: stateDto(world, playerId, after) };
+  return { state: await stateDto(tx, world, playerId, after) };
 }
 
 export async function useItem(tx: Tx, world: World, playerId: string, itemId: string, now: Date) {
@@ -1301,6 +1304,16 @@ export async function useItem(tx: Tx, world: World, playerId: string, itemId: st
     throw new AppError("NOT_FOUND");
   }
   const definition = world.items.find((row) => row.slug === item.itemSlug);
+  // 洞府丹药：修为丹加修为；临时属性丹写入 player_active_buffs（战斗结算归开发二号）
+  if (definition?.kind === "pill") {
+    const effect = definition.effect;
+    if (!effect || typeof effect !== "object") {
+      throw new AppError("INVALID_INPUT", "这颗丹药没有配置效果");
+    }
+    const used = await applyPillUse(tx, playerId, item, effect, now);
+    const after = await settleLocked(tx, playerId, world, now);
+    return { state: await stateDto(tx, world, playerId, after), used };
+  }
   if (!definition || definition.kind !== "skill_book" || !definition.skillSlug) {
     throw new AppError("NOT_SKILL_BOOK");
   }
@@ -1316,7 +1329,7 @@ export async function useItem(tx: Tx, world: World, playerId: string, itemId: st
     await addCultivation(tx, playerId, gained);
     const after = await settleLocked(tx, playerId, world, now);
     return {
-      state: stateDto(world, playerId, after),
+      state: await stateDto(tx, world, playerId, after),
       learned: { displayName: skill.displayName ?? "名称缺失", level: existing.level, convertedCultivation: gained },
     };
   }
@@ -1341,7 +1354,7 @@ export async function useItem(tx: Tx, world: World, playerId: string, itemId: st
     await tx.insert(playerSkills).values({ playerId, skillSlug: skill.slug, learnedAt: now, level: 1 });
   }
   const after = await settleLocked(tx, playerId, world, now);
-  return { state: stateDto(world, playerId, after), learned: { displayName: skill.displayName ?? "名称缺失", level } };
+  return { state: await stateDto(tx, world, playerId, after), learned: { displayName: skill.displayName ?? "名称缺失", level } };
 }
 
 /** 单件分解（装备详情里的「分解」）：和批量分解同一套规则，得到炼器精粹。 */
@@ -1359,7 +1372,7 @@ export async function decomposeItems(tx: Tx, world: World, playerId: string, ite
   const done = await decomposeRows(tx, world, playerId, itemIds, now);
   const after = await settleLocked(tx, playerId, world, now, { autoChallenge: false });
   return {
-    state: stateDto(world, playerId, after),
+    state: await stateDto(tx, world, playerId, after),
     decomposed: done.pieces,
     gainedEssence: done.essence,
     essenceItemSlug: done.itemSlug,
@@ -1427,7 +1440,7 @@ export async function enhanceItem(tx: Tx, world: World, playerId: string, itemId
   await takeStack(tx, settled.pieces.items, essenceSlug, spent);
   const after = await settleLocked(tx, playerId, world, now);
   return {
-    state: stateDto(world, playerId, after),
+    state: await stateDto(tx, world, playerId, after),
     enhanced: { itemId: item.id, fromLevel: item.enhanceLevel, toLevel: level, spentEssence: spent, spentExp: 0, blockedByBreakthrough: blockedBy ? blockedBy.level : null },
   };
 }
@@ -1481,7 +1494,7 @@ export async function breakthroughItem(tx: Tx, world: World, playerId: string, i
   }
   await tx.update(playerItems).set({ breakLevel: node.level }).where(eq(playerItems.id, item.id));
   const after = await settleLocked(tx, playerId, world, now);
-  return { state: stateDto(world, playerId, after), broken: { itemId: item.id, level: node.level, materials: node.materials } };
+  return { state: await stateDto(tx, world, playerId, after), broken: { itemId: item.id, level: node.level, materials: node.materials } };
 }
 
 /** 第五批起不再有「满包自动分解」：老客户端还会调这个接口，只记下开关、不再起任何作用。 */
@@ -1489,7 +1502,7 @@ export async function setAutoDecompose(tx: Tx, world: World, playerId: string, e
   await settleLocked(tx, playerId, world, now);
   await tx.update(playerStates).set({ autoDecompose: enabled }).where(eq(playerStates.playerId, playerId));
   const after = await settleLocked(tx, playerId, world, now);
-  return { state: stateDto(world, playerId, after) };
+  return { state: await stateDto(tx, world, playerId, after) };
 }
 
 export async function runSkill(tx: Tx, world: World, playerId: string, skillSlug: string, _slot: string, now: Date) {
@@ -1517,7 +1530,7 @@ export async function runSkill(tx: Tx, world: World, playerId: string, skillSlug
     .set({ runningSlot: free })
     .where(and(eq(playerSkills.playerId, playerId), eq(playerSkills.skillSlug, skillSlug)));
   const after = await settleLocked(tx, playerId, world, now);
-  return { state: stateDto(world, playerId, after) };
+  return { state: await stateDto(tx, world, playerId, after) };
 }
 
 export async function stopSkill(tx: Tx, world: World, playerId: string, skillSlug: string, now: Date) {
@@ -1530,5 +1543,5 @@ export async function stopSkill(tx: Tx, world: World, playerId: string, skillSlu
     .set({ runningSlot: null })
     .where(and(eq(playerSkills.playerId, playerId), eq(playerSkills.skillSlug, skillSlug)));
   const after = await settleLocked(tx, playerId, world, now);
-  return { state: stateDto(world, playerId, after) };
+  return { state: await stateDto(tx, world, playerId, after) };
 }

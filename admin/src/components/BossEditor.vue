@@ -214,7 +214,7 @@
                     <el-option label="随机装备" value="randomGear" />
                     <el-option label="指定装备" value="gear" />
                     <el-option label="物品" value="item" />
-                    <el-option label="功法" value="skill" />
+                    <el-option label="技能" value="skill" />
                     <el-option label="修为" value="cultivation" />
                     <el-option label="灵石" value="spiritStones" />
                   </el-select>

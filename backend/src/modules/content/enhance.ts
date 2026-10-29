@@ -445,7 +445,7 @@ export function breakMaterialProblems(rules: EnhanceRules, items: { slug: string
         if (!item) {
           problems.push(`${quality.name}品质 +${node.level} 突破：材料 ${material.itemSlug} 在物品里不存在`);
         } else if (item.kind === "equipment" || item.kind === "skill_book") {
-          problems.push(`${quality.name}品质 +${node.level} 突破：材料 ${material.itemSlug} 不能是装备或功法书`);
+          problems.push(`${quality.name}品质 +${node.level} 突破：材料 ${material.itemSlug} 不能是装备或技能书`);
         } else if (item.enabled === false) {
           problems.push(`${quality.name}品质 +${node.level} 突破：材料 ${material.itemSlug} 已停用`);
         }
@@ -667,7 +667,7 @@ export async function saveEnhanceRules(db: Db, input: unknown, adminId: string |
     if (!item) {
       problems.push(`炼器精粹物品 ${rules.essence.itemSlug} 在物品里不存在`);
     } else if (item.kind === "equipment" || item.kind === "skill_book") {
-      problems.push(`炼器精粹物品 ${rules.essence.itemSlug} 不能是装备或功法书`);
+      problems.push(`炼器精粹物品 ${rules.essence.itemSlug} 不能是装备或技能书`);
     }
   }
   if (problems.length > 0) {

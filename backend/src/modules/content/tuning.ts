@@ -97,9 +97,9 @@ export function tuningFromInput(raw: Raw): Tuning {
   }
   const layers = pick(raw, "skillLayerFactors", DEFAULT_TUNING.skillLayerFactors) as unknown[];
   if (!Array.isArray(layers) || layers.length !== 4) {
-    throw new AppError("INVALID_INPUT", "功法层数系数要填 4 档");
+    throw new AppError("INVALID_INPUT", "技能层数系数要填 4 档");
   }
-  const skillLayerFactors = layers.map((value) => num(value, "功法层数系数", 0.01, 100)) as Tuning["skillLayerFactors"];
+  const skillLayerFactors = layers.map((value) => num(value, "技能层数系数", 0.01, 100)) as Tuning["skillLayerFactors"];
   const skipRaw = pick(raw, "bagFullSkipSources", DEFAULT_TUNING.bagFullSkipSources);
   if (!Array.isArray(skipRaw) || skipRaw.some((key) => !BAG_FULL_SOURCES.includes(key as BagFullSource))) {
     throw new AppError("INVALID_INPUT", "行囊满时不发装备的来源不正确");
@@ -116,11 +116,11 @@ export function tuningFromInput(raw: Raw): Tuning {
     gearBudgetRatio: num(pick(raw, "gearBudgetRatio", DEFAULT_TUNING.gearBudgetRatio), "装备预算比例", 0.01, 10),
     slotShares,
     skillLayerFactors,
-    skillMaxLayers: num(pick(raw, "skillMaxLayers", DEFAULT_TUNING.skillMaxLayers), "功法满层", 1, 99, true),
+    skillMaxLayers: num(pick(raw, "skillMaxLayers", DEFAULT_TUNING.skillMaxLayers), "技能满层", 1, 99, true),
     bagFullSkipSources: BAG_FULL_SOURCES.filter((key) => (skipRaw as string[]).includes(key)),
-    bookOverflowSeconds: num(pick(raw, "bookOverflowSeconds", DEFAULT_TUNING.bookOverflowSeconds), "多余功法书折算秒数", 0, 86400),
+    bookOverflowSeconds: num(pick(raw, "bookOverflowSeconds", DEFAULT_TUNING.bookOverflowSeconds), "多余技能书折算秒数", 0, 86400),
     bookOverflowRankFactors: Object.fromEntries(
-      SKILL_RANKS.map((rank) => [rank, num(rankRaw?.[rank] ?? DEFAULT_TUNING.bookOverflowRankFactors[rank], "功法品阶系数", 0, 1000)]),
+      SKILL_RANKS.map((rank) => [rank, num(rankRaw?.[rank] ?? DEFAULT_TUNING.bookOverflowRankFactors[rank], "技能品阶系数", 0, 1000)]),
     ) as Tuning["bookOverflowRankFactors"],
     monsterDropChanceBp: num(pick(raw, "monsterDropChanceBp", DEFAULT_TUNING.monsterDropChanceBp), "默认每只击杀掉落率", 0, 10000, true),
     monsterQualityWeights,

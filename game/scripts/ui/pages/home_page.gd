@@ -121,7 +121,7 @@ func _build_side_entries() -> void:
 	chip.position = Vector2(906, 586) - ORIGIN
 	chip.custom_minimum_size = Vector2(168, 44)
 	_hero.add_child(chip)
-	var skills := QKit.side_button("tab_skill", "功法")
+	var skills := QKit.side_button("tab_skill", "技能")
 	skills.root.name = "SkillEntry"
 	_skill = skills.button
 	_skill.name = "SkillButton"
@@ -279,6 +279,9 @@ func chest_button() -> Button:
 func bind(state: Dictionary, content: Dictionary, _next_realm_name: String) -> void:
 	_state = state
 	_content = content
+	var meditate := _hero.get_node_or_null("HeroSprite") as QHero
+	if meditate != null:
+		meditate.apply_outfit(OutfitAppearance.texture(state.get("appearance", null), "meditate"))
 	_elapsed = 0.0
 	var caption := WaveView.stage_caption(state)
 	_adventure_caption.text = caption if not caption.is_empty() else "未开启"

@@ -43,8 +43,10 @@ describe("migration 0026 (「心法」 category, drop the income popup)", () => 
       expect(categories).toHaveLength(1);
       expect(categories[0]).toMatchObject({ slug: "cat_heart", displayName: "心法" });
       const skills = await db.select().from(contentSkills);
-      expect(skills.length).toBe(3);
-      expect(skills.every((row) => row.skillCategorySlug === "cat_heart")).toBe(true);
+      const hearts = skills.filter((row) => row.role === "heart");
+      expect(hearts).toHaveLength(3);
+      expect(hearts.every((row) => row.skillCategorySlug === "cat_heart")).toBe(true);
+      expect(skills.filter((row) => row.role !== "heart").every((row) => row.skillCategorySlug == null)).toBe(true);
       expect((await db.select().from(popupTypes)).map((row) => row.slug)).toEqual(["announcement"]);
       expect(await db.select().from(playerNotices)).toEqual([]);
     });

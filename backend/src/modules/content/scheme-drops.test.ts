@@ -44,6 +44,6 @@ describe("scheme drops", () => {
     expect(decomposeCultivation("orange", 1)).toBe(480);
     expect(bookOverflowCultivation("heaven", 1)).toBe(240);
     expect(() => decomposeCultivation("", 1)).toThrow(/品质/);
-    expect(() => bookOverflowCultivation(undefined, 1)).toThrow(/功法品阶/);
+    expect(() => bookOverflowCultivation(undefined, 1)).toThrow(/技能品阶/);
   });
 });

@@ -234,7 +234,7 @@ func bind(state: Dictionary, _content: Dictionary, next_realm_name: String, _aft
 		return
 	_view = BreakthroughView.build(state, next_realm_name)
 	# v14：心跳每次都 bind，内容没变就不重建（原来每次重建约 120ms，滚动时每隔十几秒卡一下）。
-	var sig := hash([_view, str(state.get("realmName", "")), next_realm_name])
+	var sig := hash([_view, str(state.get("realmName", "")), next_realm_name, str((state.get("appearance", {}) as Dictionary).get("quality", "") if typeof(state.get("appearance", null)) == TYPE_DICTIONARY else "")])
 	if sig == _bind_sig and _body.get_child_count() > 0:
 		return
 	_bind_sig = sig
@@ -243,7 +243,8 @@ func bind(state: Dictionary, _content: Dictionary, next_realm_name: String, _aft
 	if _break_fx != null and _break_fx.get_parent() != null:
 		_break_fx.get_parent().remove_child(_break_fx)  # 特效和主角复用，不随每次心跳重建
 	UiKit.clear(_body)
-	_body.add_child(_stage(str(state.get("realmName", "")), next_realm_name))
+	_body.add_child(_stage(str(state.get("realmName", "")), next_realm_name, state.get("appearance", null)))
+	_apply_break_outfit(state.get("appearance", null))
 	_body.add_child(_conditions())
 	_body.add_child(_stats())
 	var foot := UiKit.vbox(8)
@@ -276,7 +277,7 @@ func bind(state: Dictionary, _content: Dictionary, next_realm_name: String, _aft
 
 
 ## 舞台：境界行、战力提升牌（左）、成功率环（右）、主角坐莲台 + 灵气环。
-func _stage(current_name: String, target_name: String) -> Control:
+func _stage(current_name: String, target_name: String, appearance: Variant = null) -> Control:
 	var stage := Panel.new()
 	stage.name = "Stage"
 	stage.custom_minimum_size = Vector2(0, 560)
@@ -301,6 +302,11 @@ func _stage(current_name: String, target_name: String) -> Control:
 		tex.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED if str(spec[0]).contains("hero") or str(spec[0]).contains("lotus") else TextureRect.STRETCH_SCALE
 		tex.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		tex.modulate.a = float(spec[2])
+		if str(spec[0]).contains("hero"):
+			tex.name = "MeditateArt"
+			var outfit := OutfitAppearance.texture(appearance, "meditate")
+			if outfit != null:
+				tex.texture = outfit
 		add.call(tex, spec[1])
 	var realm := PanelContainer.new()
 	realm.name = "RealmRow"
@@ -360,6 +366,34 @@ func _make_break_fx() -> Node2D:
 		slot.add_child(hero)
 	QFx.play(fx, "idle")
 	return fx
+
+
+func _apply_break_outfit(appearance: Variant) -> void:
+	if _break_fx == null:
+		return
+	var slot := _break_fx.get_node_or_null("HeroSlot") as Node2D
+	if slot == null:
+		return
+	var hero := slot.get_node_or_null("Hero") as CanvasItem
+	var outfit := slot.get_node_or_null("OutfitMeditate") as Sprite2D
+	var tex := OutfitAppearance.texture(appearance, "meditate")
+	if tex == null:
+		if outfit != null:
+			outfit.visible = false
+		if hero != null:
+			hero.visible = true
+		return
+	if outfit == null:
+		outfit = Sprite2D.new()
+		outfit.name = "OutfitMeditate"
+		outfit.centered = true
+		slot.add_child(outfit)
+	outfit.texture = tex
+	outfit.scale = Vector2.ONE * (400.0 / maxf(tex.get_width(), 1))
+	outfit.position = Vector2(0, -0.5)
+	outfit.visible = true
+	if hero != null:
+		hero.visible = false
 
 
 ## 成功率环（SPEC_Q：radial_bg_176 + 顺时针 TextureProgressBar radial_fill_166 偏移 (5,5) + radial_center_132 偏移 (22,22)）。

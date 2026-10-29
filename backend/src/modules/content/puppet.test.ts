@@ -89,9 +89,9 @@ describe("trial puppets", () => {
       await db.delete(contentItems).where(eq(contentItems.slug, sword.id));
       const broken = await runTrial(db, { puppetIds: [mortal.id, armed.id], boss });
       expect(broken.results[0]?.win).toBe(false);
-      expect(broken.results[1]).toMatchObject({ error: "有武器或功法已经删除，先改这个人偶", win: null });
+      expect(broken.results[1]).toMatchObject({ error: "有武器或技能已经删除，先改这个人偶", win: null });
       const afterDelete = await listTrialPuppets(db);
-      expect(afterDelete.find((row) => row.id === armed.id)?.problem).toBe("有武器或功法已经删除，先改这个人偶");
+      expect(afterDelete.find((row) => row.id === armed.id)?.problem).toBe("有武器或技能已经删除，先改这个人偶");
       expect(afterDelete.find((row) => row.id === armed.id)?.power).toBeNull();
 
       await db.delete(contentRealms).where(eq(contentRealms.slug, "1"));

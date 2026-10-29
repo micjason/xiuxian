@@ -141,6 +141,18 @@ func open(info: Dictionary) -> void:
 	visible = true
 	move_to_front()
 	_layout()
+	_apply_round_faces(info.get("appearance", null))
+
+
+func _apply_round_faces(appearance: Variant) -> void:
+	var tex := OutfitAppearance.texture(appearance, "avatar_round")
+	for node_name in ["SettingsFace", "ConfirmFace"]:
+		var face := find_child(node_name, true, false) as TextureRect
+		if face == null:
+			continue
+		if not face.has_meta("default_texture"):
+			face.set_meta("default_texture", face.texture)
+		face.texture = tex if tex != null else (face.get_meta("default_texture") as Texture2D)
 
 
 func close() -> void:
@@ -231,6 +243,7 @@ func _build_account() -> void:
 	var well := _well(Rect2(26, 84, 908, 252), "SettingsAccount")
 	# 头像 172（稿 112,637）+ 框 184（106,631）
 	var face := TextureRect.new()
+	face.name = "SettingsFace"
 	face.texture = ArtLib.qui("avatar_player_round@2x") if ArtLib.qui("avatar_player_round@2x") != null else ArtLib.icon("avatar_meditate")
 	face.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	face.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
@@ -400,6 +413,7 @@ func _build_confirm() -> void:
 	box.add_theme_stylebox_override("panel", QKit.cut_box("popup_frame", 24, 30) if ArtLib.qui("popup_frame") != null else QSkin.custom(UiTokens.Q_CREAM, UiTokens.Q_COCOA, 6, 48, 12, 24, 30))
 	_confirm.add_child(box)
 	var face := TextureRect.new()
+	face.name = "ConfirmFace"
 	face.texture = ArtLib.qui("avatar_player_round@2x") if ArtLib.qui("avatar_player_round@2x") != null else ArtLib.icon("avatar_meditate")
 	face.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	face.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED

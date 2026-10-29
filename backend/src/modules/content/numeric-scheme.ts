@@ -338,7 +338,7 @@ export function buildScheme(): SchemeContent {
         items.push({
           slug: `book_${slug}`,
           displayName: `${major.name}·${rank.name}·${stat.name}技能书`,
-          description: "使用后学习或提升这门功法",
+          description: "使用后学习或提升这门技能",
           kind: "skill_book",
           quality: "white",
           slot: null,

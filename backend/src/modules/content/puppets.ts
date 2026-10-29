@@ -47,7 +47,7 @@ export type PuppetView = {
   problem: string | null;
 };
 
-const missingGear = "有武器或功法已经删除，先改这个人偶";
+const missingGear = "有武器或技能已经删除，先改这个人偶";
 const noBuild = { powerDetail: null, tendency: null, tendencyNote: null };
 
 function buildOf(
@@ -344,14 +344,14 @@ async function storedValues(db: Db, input: PuppetInput, kind: PuppetKind, adminI
     throw new AppError("INVALID_INPUT", "境界不存在");
   }
   const weaponIds = idList(input.weaponIds, "武器");
-  const skillIds = idList(input.skillIds, "功法");
+  const skillIds = idList(input.skillIds, "技能");
   const items = await db.select().from(contentItems);
   if (weaponIds.some((id) => !items.some((item) => item.slug === id && item.kind === "equipment"))) {
     throw new AppError("INVALID_INPUT", "武器不存在");
   }
   const skills = await db.select().from(contentSkills);
   if (skillIds.some((id) => !skills.some((skill) => skill.slug === id))) {
-    throw new AppError("INVALID_INPUT", "功法不存在");
+    throw new AppError("INVALID_INPUT", "技能不存在");
   }
   return {
     ...base,

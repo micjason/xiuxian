@@ -22,6 +22,8 @@ var _cult_value: Label
 var _cult_status: Button
 var _cult_bar: QBar
 var _cult_row: Control
+var _face: TextureRect
+var _face_base: Texture2D
 var _avatar: Button
 var _mail: Button
 var _content: Control
@@ -76,10 +78,11 @@ func _build_identity() -> void:
 	face.name = "Face"
 	face.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	face.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	## 主角头像：美术 2026-10-20 补交的 avatar_player_round（已裁圆、浅青渐变底，SPEC_Q 12.3），上盖 avatar_frame。
+	## 默认圆头像。有 appearance.avatarRoundKey 时换成对应品质圆图。
 	var round := ArtLib.qui("avatar_player_round@2x")
-	face.name = "Face"
 	face.texture = round if round != null else ArtLib.icon("avatar_meditate")
+	_face = face
+	_face_base = face.texture
 	_place(face, 6, 6, 124, 124)
 	face.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var mask := ShaderMaterial.new()
@@ -297,6 +300,7 @@ func apply_safe_area(inset: Vector4) -> void:
 
 
 func bind(state: Dictionary) -> void:
+	_apply_round_avatar(state.get("appearance", null))
 	_realm.text = str(state.get("realmName", "—"))
 	_power.text = OfflineView.grouped(float(state.get("power", 0)))
 	_stones.text = OfflineView.grouped(float(state.get("spiritStones", 0))) if state.get("spiritStones", null) != null else "--"
@@ -322,6 +326,13 @@ func bind(state: Dictionary) -> void:
 
 func power_text() -> String:
 	return "战力 %s" % _power.text
+
+
+func _apply_round_avatar(appearance: Variant) -> void:
+	if _face == null:
+		return
+	var tex := OutfitAppearance.texture(appearance, "avatar_round")
+	_face.texture = tex if tex != null else _face_base
 
 
 func realm_text() -> String:

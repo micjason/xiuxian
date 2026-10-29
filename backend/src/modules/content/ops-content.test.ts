@@ -71,7 +71,7 @@ describe("ops content", () => {
         ),
       ).rejects.toMatchObject({ message: "掉率不能超过 100%" });
       await expect(deleteOpsItem(db, sword.id)).rejects.toMatchObject({ message: "这个物品还挂在首领上，先拿掉" });
-      await expect(deleteOpsSkill(db, skill.id)).rejects.toMatchObject({ message: "这门功法还挂在首领上，先拿掉" });
+      await expect(deleteOpsSkill(db, skill.id)).rejects.toMatchObject({ message: "这门技能还挂在首领上，先拿掉" });
       expect(second.id).not.toBe(first.id);
       const [realm] = await db.select().from(contentRealms).where(eq(contentRealms.sortOrder, 2));
       expect(realm?.displayName).toBe("练气");

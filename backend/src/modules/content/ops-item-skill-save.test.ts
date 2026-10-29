@@ -40,7 +40,12 @@ describe("后台保存物品 / 功法不能清空原有字段（审计 #6）", (
     await withDb(async (db) => {
       await applyPrototypeV12(db);
       expect((await db.select().from(contentSkillCategories)).map((row) => row.slug)).toEqual(["cat_heart"]);
-      const [first, second] = await db.select().from(contentSkills).orderBy(contentSkills.slug);
+      const rows = await db.select().from(contentSkills);
+      const first = rows.find((row) => row.slug === "skill_tuna");
+      const second = rows.find((row) => row.slug === "skill_qingyuan");
+      if (!first || !second) {
+        throw new Error("缺少默认技能");
+      }
       await db.update(contentSkills).set({ prerequisiteSkillSlugs: [first!.slug], rank: "xuan", requiredRealmOrder: 4 }).where(eq(contentSkills.slug, second!.slug));
 
       await updateOpsSkill(db, second!.slug, { displayName: second!.displayName, description: "新说明", categoryId: "cat_heart", attack: 0, defense: 0, hp: 0, cultivateBonus: second!.cultivateBonusBp }, null);
@@ -57,6 +62,11 @@ describe("后台保存物品 / 功法不能清空原有字段（审计 #6）", (
       await expect(updateOpsSkill(db, second!.slug, { displayName: "x", categoryId: "cat_heart", attack: 0, defense: 0, hp: 0, cultivateBonus: 0, prerequisiteIds: [second!.slug] }, null)).rejects.toThrow("自己");
       await expect(updateOpsSkill(db, second!.slug, { displayName: "x", categoryId: "cat_heart", attack: 0, defense: 0, hp: 0, cultivateBonus: 0, prerequisiteIds: ["nope"] }, null)).rejects.toThrow("不存在");
       await expect(updateOpsSkill(db, second!.slug, { displayName: "x", categoryId: "cat_heart", attack: 0, defense: 0, hp: 0, cultivateBonus: 0, role: "magic" }, null)).rejects.toThrow("类型");
+      await expect(updateOpsSkill(db, second!.slug, { displayName: "x", categoryId: "cat_heart", attack: 0, defense: 0, hp: 0, cultivateBonus: 0, castMode: "manual" }, null)).rejects.toThrow("自动或被动");
+
+      await updateOpsSkill(db, second!.slug, { displayName: second!.displayName, categoryId: "cat_heart", attack: 0, defense: 0, hp: 0, cultivateBonus: 0, fxType: "ice", castMode: "passive", fx: { type: "ice", primary: "#B9F3FF", secondary: "#3D8BFF", scale: 1 } }, null);
+      expect((await db.select().from(contentSkills).where(eq(contentSkills.slug, second!.slug)))[0]).toMatchObject({ fxType: "ice", castMode: "passive" });
+      expect((await listOpsSkills(db)).find((row) => row.id === second!.slug)).toMatchObject({ fxType: "ice", castMode: "passive" });
 
       const { id } = await createOpsSkill(db, { displayName: "新功法", categoryId: "cat_heart", attack: 1, defense: 0, hp: 0, cultivateBonus: 0, role: "body", prerequisiteIds: [first!.slug] }, null);
       expect((await db.select().from(contentSkills).where(eq(contentSkills.slug, id)))[0]).toMatchObject({ role: "body", prerequisiteSkillSlugs: [first!.slug] });

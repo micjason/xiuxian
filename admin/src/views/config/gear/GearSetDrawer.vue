@@ -60,7 +60,7 @@
             <el-button link type="danger" @click="form.tiers.splice(index, 1)">删除这一档</el-button>
           </div>
           <div class="tier-rows">
-            <div class="row labels"><span class="w160">属性</span><span class="w120">加成方式 <HelpTip title="加成方式" text="百分比按角色总属性（境界 + 功法 + 装备）算；固定值直接加。" /></span><span>数值</span></div>
+            <div class="row labels"><span class="w160">属性</span><span class="w120">加成方式 <HelpTip title="加成方式" text="百分比按角色总属性（境界 + 技能 + 装备）算；固定值直接加。" /></span><span>数值</span></div>
             <div v-for="(row, rowIndex) in tier.stats" :key="rowIndex" class="row">
               <el-select v-model="row.stat" class="w160">
                 <el-option v-for="key in STAT_KEYS" :key="key" :label="STAT_LABEL[key]" :value="key" />

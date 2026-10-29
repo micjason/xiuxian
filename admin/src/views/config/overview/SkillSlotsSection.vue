@@ -1,6 +1,6 @@
 <template>
-  <SectionCard title="功法栏位" anchor="slots" desc="同时运转的功法数，按境界开放">
-    <FormRow label="开放规则" help="到达某个境界后，最多能同时运转几门功法。境界越高栏位越多；运转中的功法只有在开放的栏位里才算属性。改少以后，多出来的那门不再生效（玩家可以自己换）。" :help-meta="`栏位数 1–${max}`">
+  <SectionCard title="技能栏位" anchor="slots" desc="同时运转的技能数，按境界开放">
+    <FormRow label="开放规则" help="到达某个境界后，最多能同时运转几门技能。境界越高栏位越多；运转中的技能只有在开放的栏位里才算属性。改少以后，多出来的那门不再生效（玩家可以自己换）。" :help-meta="`栏位数 1–${max}`">
       <div class="rules">
         <div class="row labels"><span class="w320">到达境界</span><span>开放栏位</span></div>
         <div v-for="(rule, index) in rules" :key="index" class="row">
@@ -23,7 +23,7 @@ import FormRow from "../../../components/FormRow.vue";
 import NumInput from "../../../components/NumInput.vue";
 import SectionCard from "../../../components/SectionCard.vue";
 
-/** 配置概览「功法栏位」（批次②）：artSlotRules，服务端按它限制同时运转的功法数，游戏端按 /me/state 的 skillSlots 显示。 */
+/** 配置概览「技能栏位」（批次②）：artSlotRules，服务端按它限制同时运转的技能数，游戏端按 /me/state 的 skillSlots 显示。 */
 export type SlotRule = { minRealmOrder: number; slots: number | null };
 
 const rules = defineModel<SlotRule[]>({ required: true });

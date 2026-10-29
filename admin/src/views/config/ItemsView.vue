@@ -1,6 +1,6 @@
 <template>
   <div>
-    <PageHeader title="物品" desc="突破石等材料、丹药：名称、类型、品质、能否叠加、描述。装备在「装备配置」里看和改（名称、掉率倍数），功法书随功法自动生成。">
+    <PageHeader title="物品" desc="突破石等材料、丹药：名称、类型、品质、能否叠加、描述。装备在「装备配置」里看和改（名称、掉率倍数），技能书随技能自动生成。">
       <template #actions>
         <el-button @click="router.push('/config/gear')">去装备配置 ›</el-button>
       </template>
@@ -40,7 +40,7 @@ import { itemSchema } from "../../schema/resources";
 
 const router = useRouter();
 const icons = useItemIcons();
-// 材料、丹药、功法书的图（装备图在「装备配置」里选）
+// 材料、丹药、技能书的图（装备图在「装备配置」里选）
 const iconOptions = computed(() => [{ label: "自动（按编号）", value: "" }, ...icons.value.filter((icon) => !icon.key.startsWith("gear_") && !icon.key.startsWith("eq_")).map((icon) => ({ label: icon.key, value: icon.key }))]);
 const rev = useRevisions("item");
 function effectFromRow(row: Record<string, unknown>): Record<string, unknown> {

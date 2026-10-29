@@ -362,6 +362,12 @@ export const contentSkills = pgTable("content_skills", {
   requiredRealmOrder: integer("required_realm_order").notNull().default(0),
   prerequisiteSkillSlugs: jsonb("prerequisite_skill_slugs").$type<string[]>().notNull().default([]),
   skillCategorySlug: text("skill_category_slug"),
+  /** 表现资源真名。空 = 未指定。九套：slash/thunder/fire/heal_circle/ice/wind/poison/gold_light/shield。 */
+  fxType: text("fx_type"),
+  /** 可选表现参数。type 与 fx_type 一致。 */
+  fx: jsonb("fx").$type<{ type: string; primary?: string; secondary?: string; scale?: number } | null>(),
+  /** 自动或被动。不提供手动释放。 */
+  castMode: text("cast_mode").notNull().default("auto"),
   enabled: boolean("enabled").notNull().default(true),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   updatedBy: uuid("updated_by"),

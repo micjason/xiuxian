@@ -30,7 +30,7 @@ func _init() -> void:
 	size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_build_equipped()
 	var head := UiKit.hbox(UiTokens.SP_2)
-	head.add_child(QKit.title("功法列表", 40, UiTokens.TEXT))
+	head.add_child(QKit.title("技能列表", 40, UiTokens.TEXT))
 	var note := UiKit.label("心法同时只生效 1 本", UiTokens.FS_MICRO, UiTokens.TEXT_MUTED)
 	note.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(note)
@@ -61,7 +61,7 @@ func _build_equipped() -> void:
 	var holder := VBoxContainer.new()
 	holder.add_theme_constant_override("separation", -40)
 	add_child(holder)
-	var ribbon := QKit.ribbon("已装备功法", 40, 220, false)
+	var ribbon := QKit.ribbon("已装备技能", 40, 220, false)
 	ribbon.z_index = 1
 	holder.add_child(ribbon)
 	var card := QKit.panel(UiTokens.Q_CREAM, 34, 24, 20)
@@ -162,7 +162,10 @@ func _render_slots(slots: Dictionary) -> void:
 		for state in ["normal", "hover", "pressed", "disabled", "focus"]:
 			button.add_theme_stylebox_override(state, StyleBoxEmpty.new())
 		var filled := is_open and not str(cell.skill_slug).is_empty()
-		var tex: Texture2D = ArtLib.q("items/" + str(look.book)) if (filled and ArtLib.has_q("items/%s.png" % str(look.book))) else null
+		var icon_key := str(cell.get("icon_key", ""))
+		var tex: Texture2D = ArtLib.skill_icon(icon_key) if filled else null
+		if tex == null and filled and ArtLib.has_q("items/%s.png" % str(look.book)):
+			tex = ArtLib.q("items/" + str(look.book))
 		var slot := QKit.slot(tex, 1 if filled else -1, cell_px, "", "", Color.WHITE, not is_open)
 		slot.set_anchors_preset(Control.PRESET_FULL_RECT)
 		slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -184,13 +187,13 @@ func _render() -> void:
 	UiKit.clear(_list)
 	var cards: Array = _view.get("cards", [])
 	_count.text = "已习得 %d/%d" % [int(_view.get("learned_count", 0)), int(_view.get("total_count", 0))]
-	_bonus.text = "功法加成：修炼速度 +%s%%" % SkillView._pct(float(_view.get("actual_bonus_percent", 0.0)) * 100.0)
+	_bonus.text = "技能加成：修炼速度 +%s%%" % SkillView._pct(float(_view.get("actual_bonus_percent", 0.0)) * 100.0)
 	if cards.is_empty():
-		_list.add_child(UiKit.wrap_label("后台还没有配置带修炼加成的功法。", UiTokens.FS_CAPTION, UiTokens.TEXT_MUTED))
+		_list.add_child(UiKit.wrap_label("后台还没有配置带修炼加成的技能。", UiTokens.FS_CAPTION, UiTokens.TEXT_MUTED))
 		return
 	for card in cards:
 		_list.add_child(_card(card))
-	_hint.text = "功法升级、切换还没开放"
+	_hint.text = "技能升级、切换还没开放"
 
 
 ## 一张功法卡（设计稿 1008×158）：书格 124、《名字》、「心法」类型、Lv、加成；右侧 升级 / 切换 / 未获得，右上角状态。
@@ -211,7 +214,10 @@ func _card(card: Dictionary) -> Control:
 	var row := UiKit.hbox(18)
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.add_child(row)
-	var tex: Texture2D = ArtLib.q("items/book_other") if ArtLib.has_q("items/book_other.png") else ArtLib.icon("cat_scroll")
+	var icon_key := str(card.get("icon_key", ""))
+	var tex: Texture2D = ArtLib.skill_icon(icon_key)
+	if tex == null:
+		tex = ArtLib.q("items/book_other") if ArtLib.has_q("items/book_other.png") else ArtLib.icon("cat_scroll")
 	row.add_child(QKit.slot(tex, -1 if locked else 1, 124, "", "", Color.WHITE, locked))
 	var info := UiKit.vbox(4)
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL

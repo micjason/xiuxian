@@ -1,7 +1,7 @@
 <template>
   <div>
     <el-alert type="info" :closable="false" show-icon class="note" title="试炼人偶只用于试打和战斗模拟，不会进入游戏。">
-      「按配置算」会跟着境界、装备、功法的数值变；「手填属性」直接用填写的数。倾向按属性占战力的比例自动判断。
+      「按配置算」会跟着境界、装备、技能的数值变；「手填属性」直接用填写的数。倾向按属性占战力的比例自动判断。
     </el-alert>
     <ConfigListPage
       :schema="listSchema"
@@ -162,7 +162,7 @@ const hidden = ["id", "kindName", "realmName", "realmMissing", "weapons", "skill
 const kindField: FieldDef = {
   key: "kind", label: "类型", kind: "select", required: true, lockedAfterCreate: true,
   options: [{ label: "按配置算", value: "configured" }, { label: "手填属性", value: "manual" }],
-  hint: "按配置算：跟着境界、装备、功法的数值变。手填属性：直接填数。类型建好后不能改。",
+  hint: "按配置算：跟着境界、装备、技能的数值变。手填属性：直接填数。类型建好后不能改。",
 };
 const nameField: FieldDef = { key: "displayName", label: "名称", kind: "text", required: true, hint: "人偶名称，只在后台试打时使用。" };
 const configuredSchema: Schema = {
@@ -172,7 +172,7 @@ const configuredSchema: Schema = {
     kindField,
     { key: "realmCode", label: "境界", kind: "select", required: true, options: [], hint: "人偶所在境界，决定基础属性。" },
     { key: "weaponIds", label: "装备", kind: "multiselect", options: [], hint: "穿哪些装备，不选就是空身。" },
-    { key: "skillIds", label: "功法", kind: "multiselect", options: [], hint: "运转哪些功法，不选就是不运转。" },
+    { key: "skillIds", label: "技能", kind: "multiselect", options: [], hint: "运转哪些技能，不选就是不运转。" },
   ],
 };
 const manualSchema: Schema = {

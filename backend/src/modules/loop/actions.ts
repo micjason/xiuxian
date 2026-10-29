@@ -32,6 +32,7 @@ import { activeBuffsDto, applyBuffsToStats, listActiveBuffs, sumActiveBuffs } fr
 import { bossRulesFor, globalBossRules, nextStageOf, orderedStages, stageAccessList, stageTier, type StageAccess } from "../content/stage-order.js";
 import { stageRecommendedPower } from "../content/stage-power.js";
 import { applyPillUse, readDongfuState } from "../dongfu/actions.js";
+import { appearanceOf } from "./appearance.js";
 
 type World = ContentSnapshot & { version: number };
 type RandomInt = (min: number, max: number) => number;
@@ -60,14 +61,14 @@ async function loadPieces(tx: Tx, playerId: string) {
   return { items, skills, stages };
 }
 
-/** 这个境界开放的功法栏位数（配置概览「功法栏位」，按境界开放）。 */
+/** 这个境界开放的技能栏位数（配置概览「技能栏位」，按境界开放）。 */
 export function openSkillSlotsFor(world: ContentSnapshot, realmSlug: string): number {
   const order = world.realms.find((row) => row.slug === realmSlug)?.sortOrder ?? 0;
   return openSkillSlots(world.globals.artSlotRules, order);
 }
 
 /**
- * 运转中的功法里，算属性 / 战力的那几门：最多「开放栏位数」门。
+ * 运转中的技能里，算属性 / 战力的那几门：最多「开放栏位数」门。
  * 按栏位号 run_1、run_2… 排，旧数据里别的栏位名（例如 heart）排在后面；后台把栏位调少以后，多出来的不生效。
  */
 export function countedSkills<T extends { skillSlug: string; runningSlot: string | null }>(world: ContentSnapshot, realmSlug: string, skills: T[]): T[] {
@@ -93,7 +94,7 @@ function skillLayers(skillSlugs: (string | { slug: string; level: number })[]) {
       return { slug: entry, level: 1 };
     }
     if (!Number.isInteger(entry.level) || entry.level < 1) {
-      throw new AppError("INVALID_INPUT", "功法层数不正确");
+      throw new AppError("INVALID_INPUT", "技能层数不正确");
     }
     return entry;
   });
@@ -164,7 +165,7 @@ export function combatStats(world: ContentSnapshot, realmSlug: string, itemSlugs
     hpPercent += ((definition?.hp ?? 0) / 10000) * factor;
     bonusBp += (definition?.cultivateBonusBp ?? 0) * factor;
   }
-  // 套装加成（批次②）：按角色总属性（境界 + 功法 + 装备）算百分比，再加固定值。
+  // 套装加成（批次②）：按角色总属性（境界 + 技能 + 装备）算百分比，再加固定值。
   const setBonus = setBonusOf(world, itemSlugs.map((entry) => (typeof entry === "string" ? entry : entry.slug)));
   const { attack, defense, hp, speed } = applySetBonus(
     {
@@ -190,7 +191,7 @@ export function combatStats(world: ContentSnapshot, realmSlug: string, itemSlugs
 }
 
 export type PowerSourceLine = {
-  group: "境界" | "物品" | "功法" | "套装";
+  group: "境界" | "物品" | "技能" | "套装";
   name: string;
   attack: number;
   defense: number;
@@ -281,27 +282,27 @@ export function explainPlayerPower(
     const running = counted.has(skill.skillSlug);
     if (!Number.isInteger(level) || level < 1) {
       lines.push({
-        group: "功法",
+        group: "技能",
         name: definition?.displayName || "名称缺失",
         attack: 0,
         defense: 0,
         hp: 0,
         speed: 0,
         counted: false,
-        note: "功法层数不正确",
+        note: "技能层数不正确",
       });
       continue;
     }
     const factor = skillLayerFactor(level, world.globals.tuning);
     lines.push({
-      group: "功法",
+      group: "技能",
       name: `${definition?.displayName || (definition ? "名称缺失" : "已删除")} · ${level}本`,
       attack: running ? reached.attack * (statOf(definition?.attack) / 10000) * factor : 0,
       defense: running ? reached.defense * (statOf(definition?.defense) / 10000) * factor : 0,
       hp: running ? reached.hp * (statOf(definition?.hp) / 10000) * factor : 0,
       speed: 0,
       counted: running,
-      note: !definition ? "后台里已经没有这门功法" : running ? "境界基础 × 百分比 × 层数系数" : "没有运转，不算战力",
+      note: !definition ? "后台里已经没有这门技能" : running ? "境界基础 × 百分比 × 层数系数" : "没有运转，不算战力",
     });
   }
   const sumLines = () =>
@@ -584,6 +585,8 @@ async function stateDto(tx: Tx, world: World, playerId: string, settled: Awaited
     bossDailyTotal: bossDailyTotalDto(world, settled),
     /** 未过期的临时属性丹（同属性 buffBp 已在战斗属性里相加）。 */
     activeBuffs: activeBuffsDto(settled.activeBuffs ?? [], settled.now),
+    /** 按身上装备品质换整张战斗立绘 / 打坐 / 头像。没穿装备是 null，客户端用现默认图。 */
+    appearance: appearanceOf(world.items, settled.pieces.items),
     lastSettle: {
       online: settled.waves.online,
       seconds: Math.floor(settled.gapSeconds),
@@ -619,8 +622,8 @@ function accessDto(world: World, access: StageAccess) {
   };
 }
 
-/** 突破后的样子（沿用现在穿的装备和运转的功法）：属性、战力、每秒修为、大招、新开放的关卡。突破流程界面用它显示“突破后”。 */
-/** 功法栏位：现在开放几个、最多几个、下一个在哪个境界开。 */
+/** 突破后的样子（沿用现在穿的装备和运转的技能）：属性、战力、每秒修为、大招、新开放的关卡。突破流程界面用它显示“突破后”。 */
+/** 技能栏位：现在开放几个、最多几个、下一个在哪个境界开。 */
 function skillSlotsDto(world: World, realmSlug: string) {
   const order = world.realms.find((row) => row.slug === realmSlug)?.sortOrder ?? 0;
   const next = nextSkillSlotRule(world.globals.artSlotRules, order);
@@ -867,7 +870,7 @@ export async function advanceRealm(tx: Tx, world: World, playerId: string, now: 
 
 /**
  * 首领战大招：境界不再自带大招（后台已去掉 ult* 字段）。
- * 战斗大招只跟玩家学的功法、全自动；此处恒返回 null，避免半套境界大招。
+ * 战斗大招只跟玩家学的技能、全自动；此处恒返回 null，避免半套境界大招。
  */
 export function ultOf(_world: World, _realmSlug: string): (UltConfig & { name: string }) | null {
   return null;
@@ -988,7 +991,7 @@ async function fightStageBoss(tx: Tx, world: World, playerId: string, settled: F
       for (const row of rolled.grants) {
         drops.push({ itemSlug: row.slug, quantity: 1 });
       }
-      // 方案首领的装备/功法书仍按方案掉落；后台掉落表里配置的材料（例如突破石）也一并掷骰。
+      // 方案首领的装备/技能书仍按方案掉落；后台掉落表里配置的材料（例如突破石）也一并掷骰。
       const rewardTable = world.dropTables.find((row) => row.slug === stage.bossDropTableSlug);
       drops.push(...rollDropTable(rewardTable?.entries ?? [], randomInt));
     } else {
@@ -1535,7 +1538,7 @@ export async function runSkill(tx: Tx, world: World, playerId: string, skillSlug
   }
   const skill = world.skills.find((row) => row.slug === skillSlug);
   if (!skill) {
-    throw new AppError("INVALID_INPUT", "这门功法已经不存在");
+    throw new AppError("INVALID_INPUT", "这门技能已经不存在");
   }
   const open = openSkillSlotsFor(world, settled.state.realmSlug);
   const slots = Array.from({ length: open }, (_, index) => `run_${index + 1}`);
@@ -1545,7 +1548,7 @@ export async function runSkill(tx: Tx, world: World, playerId: string, skillSlug
   if (!free) {
     const next = nextSkillSlotRule(world.globals.artSlotRules, realmOf(world, settled.state.realmSlug).sortOrder ?? 0);
     const nextName = next ? world.realms.find((row) => row.sortOrder === next.minRealmOrder)?.displayName : null;
-    throw new AppError("SKILL_SLOT_INVALID", open === 0 ? "当前境界还没有开放功法栏位" : `最多同时运转 ${open} 门功法${nextName ? `（${nextName}开放第 ${next!.slots} 个栏位）` : ""}`);
+    throw new AppError("SKILL_SLOT_INVALID", open === 0 ? "当前境界还没有开放技能栏位" : `最多同时运转 ${open} 门技能${nextName ? `（${nextName}开放第 ${next!.slots} 个栏位）` : ""}`);
   }
   await tx
     .update(playerSkills)

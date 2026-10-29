@@ -61,7 +61,7 @@ func test_offline_view_matches_the_mockup_numbers() -> void:
 	assert_eq(view.bonus_text, "+4,320")
 	assert_eq(view.total_text, "+33,120")
 	assert_eq(view.formula_text, "28,800 + 4,320 = 33,120")
-	assert_eq(view.skill_label, "功法《青元诀》")
+	assert_eq(view.skill_label, "技能《青元诀》")
 	assert_eq(view.bonus_percent_text, "+15%")
 	assert_almost_eq(float(view.bar_ratio), 1.0, 0.0001)
 

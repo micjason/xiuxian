@@ -52,6 +52,13 @@ describe("wear a weapon", () => {
       const worn = await withTransaction(db, (tx) => equipItem(tx, world, player.playerId, knifeRow.id, now));
       expect(worn.state.attack).toBe(20);
       expect(worn.state.items.find((item) => item.id === knifeRow.id)?.equippedSlot).toBe("weapon");
+      expect(worn.state.appearance).toMatchObject({
+        quality: "white",
+        previewKey: "preview_white",
+        meditateKey: "meditate_white",
+        avatarKey: "avatar_white",
+        avatarRoundKey: "avatar_white_round",
+      });
       await expect(withTransaction(db, (tx) => equipItem(tx, world, player.playerId, herbRow.id, now))).rejects.toMatchObject({
         message: "这不是武器，不能穿",
       });

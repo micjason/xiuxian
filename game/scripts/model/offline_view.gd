@@ -58,7 +58,7 @@ static func build(report: Variant, skill_name: String = "", bonus_percent: float
 		"base_text": grouped(base),
 		"bonus": bonus,
 		"bonus_text": "+" + grouped(bonus),
-		"skill_label": "功法《%s》" % skill_name if not skill_name.is_empty() else "功法加成",
+		"skill_label": "技能《%s》" % skill_name if not skill_name.is_empty() else "技能加成",
 		"bonus_percent_text": "+%s%%" % ("%.1f" % bonus_percent).trim_suffix(".0") if bonus_percent > 0.0 else "",
 		"formula_text": "%s + %s = %s" % [grouped(base), grouped(bonus), grouped(total)],
 		"realm": str(data.get("realmName", "")),

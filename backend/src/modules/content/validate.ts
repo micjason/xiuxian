@@ -4,6 +4,7 @@ import { stagePowerErrors } from "./stage-power.js";
 import type { BossRepeatReward, BossRewardEntry, MonsterDropConfig, OptionalRuleValues, StageMonster } from "./combat-types.js";
 import { bossRuleProblems, type BossRuleOverride, type BossRuleSet, type BossStatKey, type BossTier } from "./boss-rules.js";
 import { BOSS_ART_KEY_SET, CHAPTER_BATTLE_BG_KEY_SET, CHAPTER_BG_KEY_SET, CHAPTER_BOSS_FX_SET, MONSTER_ART_KEY_SET } from "./art-keys.js";
+import { castModeProblem, isSkillFxType, skillFxProblem } from "./skill-fx.js";
 
 const SLUG = /^[a-z][a-z0-9_]{1,47}$/;
 
@@ -183,6 +184,9 @@ export type ContentSnapshot = {
     requiredRealmOrder?: number;
     prerequisiteSkillSlugs: string[];
     rank?: string | null;
+    fxType?: string | null;
+    fx?: { type?: string; primary?: string; secondary?: string; scale?: number } | null;
+    castMode?: string | null;
     enabled: boolean;
   }[];
 };
@@ -448,9 +452,9 @@ export function validateContent(
     }
     if (item.kind === "skill_book") {
       if (!item.skillSlug || !skillSlugs.has(item.skillSlug)) {
-        push("item", item.slug, "skillSlug", "功法书必须指向存在的功法");
+        push("item", item.slug, "skillSlug", "技能书必须指向存在的技能");
       } else if (bookBySkill.has(item.skillSlug)) {
-        push("item", item.slug, "skillSlug", "一门功法最多一本书");
+        push("item", item.slug, "skillSlug", "一门技能最多一本书");
       } else {
         bookBySkill.set(item.skillSlug, item.slug);
       }
@@ -503,15 +507,30 @@ export function validateContent(
 
   const skillsBySlug = new Map(draft.skills.map((skill) => [skill.slug, skill]));
   for (const skill of draft.skills) {
+    if (skill.fxType != null && skill.fxType !== "" && !isSkillFxType(skill.fxType)) {
+      push("skill", skill.slug, "fxType", "表现类型不正确");
+    }
+    if (skill.castMode != null && skill.castMode !== "") {
+      const castProblem = castModeProblem(skill.castMode);
+      if (castProblem) {
+        push("skill", skill.slug, "castMode", castProblem);
+      }
+    }
+    if (skill.fx != null) {
+      const fxProblem = skillFxProblem(skill.fx, skill.fxType ?? null);
+      if (fxProblem) {
+        push("skill", skill.slug, "fx", fxProblem);
+      }
+    }
     const stack = new Set<string>();
     const visit = (slug: string) => {
       if (stack.has(slug)) {
-        push("skill", skill.slug, "prerequisiteSkillSlugs", "前置功法不能形成环");
+        push("skill", skill.slug, "prerequisiteSkillSlugs", "前置技能不能形成环");
         return;
       }
       const current = skillsBySlug.get(slug);
       if (!current) {
-        push("skill", skill.slug, "prerequisiteSkillSlugs", "前置功法不存在");
+        push("skill", skill.slug, "prerequisiteSkillSlugs", "前置技能不存在");
         return;
       }
       stack.add(slug);
@@ -522,7 +541,7 @@ export function validateContent(
     };
     visit(skill.slug);
     if (!bookBySkill.has(skill.slug)) {
-      warn("skill", skill.slug, "skillSlug", "功法没有功法书");
+      warn("skill", skill.slug, "skillSlug", "技能没有技能书");
     }
   }
 
@@ -533,7 +552,7 @@ export function validateContent(
   for (const [skillSlug, bookSlug] of bookBySkill) {
     const rewarded = [...rewardedMajors].some((major) => skillSlug.startsWith(`skill_${major}_`));
     if (!droppedBooks.has(bookSlug) && !rewarded) {
-      warn("item", bookSlug, "slug", `功法 ${skillSlug} 的书不在任何掉落表里`);
+      warn("item", bookSlug, "slug", `技能 ${skillSlug} 的书不在任何掉落表里`);
     }
   }
 

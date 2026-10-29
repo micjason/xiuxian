@@ -159,7 +159,7 @@ func test_skill_book_popup_shows_description_and_use() -> void:
 	assert_false(book.is_empty())
 	var popup := await _open(scene, book)
 	assert_eq(str(popup.view.type), "book")
-	assert_true(str(popup.view.desc).begins_with("使用后学会功法「青元诀」"), "功法书说明非空")
+	assert_true(str(popup.view.desc).begins_with("使用后学会技能「青元诀」"), "技能书说明非空")
 	assert_not_null(popup.button_named("使 用"))
 	var used: Array = []
 	popup.show_view(popup.view, {"use": func(id: String) -> void: used.append(id)})

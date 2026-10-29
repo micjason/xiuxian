@@ -141,6 +141,7 @@ export type ContentSnapshot = {
     quality?: string;
     requiredRealmOrder?: number;
     stackable?: boolean;
+    effect?: { cultivationGain?: number; buffStat?: string; buffBp?: number; durationSeconds?: number } | null;
     /** 后台给这件装备指定的图标（空 = 客户端按大境界 + 部位自动选） */
     iconKey?: string;
     /** 装备掉率倍数（默认 1） */

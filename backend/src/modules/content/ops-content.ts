@@ -4,6 +4,7 @@ import type { BossRepeatReward, BossRewardEntry, MonsterDropOverride, StageMonst
 import { QUALITY_KEYS } from "./catalog.js";
 import { gearMap, readDesignated, type DesignatedInput } from "./designated-drops.js";
 import { readSeedDropOverride, resolveSeedDrops, seedDropsOf } from "./seed-drops.js";
+import { pillEffectFromInput } from "../loop/active-buffs.js";
 import { contentChapters, contentDropEntries, contentDropTables, contentGlobals, contentItems, contentRealms, contentSkillCategories, contentSkills, contentStages, playerItems, type StageBoss } from "../../db/schema.js";
 import { BOSS_STAT_KEYS, compactBossRuleOverride, customRuleCount, type BossStatKey } from "./boss-rules.js";
 import { BOSS_ART_KEY_SET, MONSTER_ART_KEY_SET } from "./art-keys.js";
@@ -664,7 +665,7 @@ export async function deleteOpsStage(db: Db, id: string) {
 export const OPS_ITEM_KINDS = ["material", "pill"] as const;
 const OPS_ITEM_QUALITIES: string[] = [...QUALITY_KEYS];
 
-type OpsItemInput = { displayName?: string; description?: string; kind?: string; quality?: string; stackable?: boolean; iconKey?: string | null };
+type OpsItemInput = { displayName?: string; description?: string; kind?: string; quality?: string; stackable?: boolean; iconKey?: string | null; effect?: unknown };
 
 function itemView(row: typeof contentItems.$inferSelect) {
   return {
@@ -675,6 +676,7 @@ function itemView(row: typeof contentItems.$inferSelect) {
     quality: row.quality,
     stackable: row.stackable,
     iconKey: row.iconKey ?? "",
+    effect: row.effect ?? null,
   };
 }
 
@@ -726,6 +728,7 @@ function itemValues(input: OpsItemInput, current: typeof contentItems.$inferSele
   if (iconKey && !/^[a-z][a-z0-9_]{0,63}$/.test(iconKey)) {
     throw new AppError("INVALID_INPUT", "图标标识只能用小写字母、数字和下划线");
   }
+  const effect = pillEffectFromInput(input.effect);
   return {
     displayName,
     description: textOf(input.description),
@@ -733,6 +736,7 @@ function itemValues(input: OpsItemInput, current: typeof contentItems.$inferSele
     quality: qualityRaw ?? current?.quality ?? "white",
     stackable: typeof input.stackable === "boolean" ? input.stackable : (current?.stackable ?? true),
     iconKey: iconKey ?? current?.iconKey ?? "",
+    ...(effect === undefined ? {} : { effect }),
     updatedAt: new Date(),
     updatedBy: adminId,
   };

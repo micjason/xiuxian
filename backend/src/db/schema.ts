@@ -333,6 +333,13 @@ export const contentItems = pgTable("content_items", {
   setSlug: text("set_slug"),
   /** 参与本境界本品质的随机掉落池。公式装备总是参与；手动装备默认不参与（只靠指定掉落 / 补发）。 */
   randomDrop: boolean("random_drop").notNull().default(true),
+  /** 丹药等消耗品效果（洞府 v1：修为增益 / 临时属性 buff）。与洞府 0060 同列。 */
+  effect: jsonb("effect").$type<{
+    cultivationGain?: number;
+    buffStat?: string;
+    buffBp?: number;
+    durationSeconds?: number;
+  } | null>(),
   enabled: boolean("enabled").notNull().default(true),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   updatedBy: uuid("updated_by"),
@@ -707,3 +714,23 @@ export const playerOfflineReports = pgTable("player_offline_reports", {
   acknowledgedAt: timestamp("acknowledged_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+/**
+ * 临时属性丹写入的生效 buff（洞府经营开发 0060 / 开发二号 0048 同表）。
+ * useItem / applyActiveBuff 落库；战斗结算读取未过期行并乘算攻防。
+ */
+export const playerActiveBuffs = pgTable(
+  "player_active_buffs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    playerId: uuid("player_id")
+      .notNull()
+      .references(() => players.id, { onDelete: "cascade" }),
+    buffStat: text("buff_stat").notNull(),
+    buffBp: integer("buff_bp").notNull(),
+    startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    sourceItemSlug: text("source_item_slug").notNull(),
+  },
+  (table) => [index("player_active_buffs_player_idx").on(table.playerId)],
+);

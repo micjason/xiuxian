@@ -173,6 +173,7 @@ export async function loadDraftSnapshot(db: Db | Tx): Promise<ContentSnapshot> {
       origin: row.origin === "manual" ? ("manual" as const) : ("formula" as const),
       setSlug: row.setSlug ?? null,
       randomDrop: row.randomDrop,
+      effect: row.effect ?? null,
       enabled: row.enabled,
     })),
     gearSets: [...sets]

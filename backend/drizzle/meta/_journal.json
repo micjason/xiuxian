@@ -255,6 +255,13 @@
       "breakpoints": true
     },
     {
+      "idx": 36,
+      "version": "7",
+      "when": 1795000800000,
+      "tag": "0048_player_active_buffs",
+      "breakpoints": true
+    },
+    {
       "idx": 47,
       "version": "7",
       "when": 1796000000000,

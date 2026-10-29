@@ -28,6 +28,7 @@ import { announcementNoticesForPlayer, noticesForPlayer } from "../notices/servi
 import { bossDailyUsed, grantBossRewards, usesRewardModel } from "./boss-rewards.js";
 import { acknowledgeOfflineReport, pendingOfflineReport, recordOfflineReport } from "./offline.js";
 import { EMPTY_WAVES, cycleFor, farmableStages, resolveFarmStage, settleOfflineSeedDrops, settleWaves, waveRandomInt, wavesCompletedIn, type WaveSettlement } from "./waves.js";
+import { activeBuffsDto, applyActiveBuff, applyBuffsToStats, listActiveBuffs, sumActiveBuffs } from "./active-buffs.js";
 import { bossRulesFor, globalBossRules, nextStageOf, orderedStages, stageAccessList, stageTier, type StageAccess } from "../content/stage-order.js";
 import { stageRecommendedPower } from "../content/stage-power.js";
 
@@ -378,7 +379,12 @@ async function settleLocked(tx: Tx, playerId: string, world: World, now: Date, o
     state.enhanceExp = 0;
   }
   let pieces = await loadPieces(tx, playerId);
-  const stats = statsOf(world, state.realmSlug, pieces.items, pieces.skills);
+  const activeBuffRows = await listActiveBuffs(tx, playerId, now);
+  const stats = applyBuffsToStats(
+    statsOf(world, state.realmSlug, pieces.items, pieces.skills),
+    sumActiveBuffs(activeBuffRows),
+    world,
+  );
   const rules = readGameRules(world);
   const realm = realmOf(world, state.realmSlug);
   const settled = settleTicks({
@@ -503,6 +509,7 @@ async function settleLocked(tx: Tx, playerId: string, world: World, now: Date, o
     gapSeconds,
     now,
     offlineReport,
+    activeBuffs: activeBuffRows,
   };
 }
 
@@ -573,6 +580,8 @@ function stateDto(world: World, playerId: string, settled: Awaited<ReturnType<ty
     ult: ultOf(world, settled.state.realmSlug),
     bossDaily: bossDailyDto(world, settled),
     bossDailyTotal: bossDailyTotalDto(world, settled),
+    /** 未过期的临时属性丹（同属性 buffBp 已在战斗属性里相加）。 */
+    activeBuffs: activeBuffsDto(settled.activeBuffs ?? [], settled.now),
     lastSettle: {
       online: settled.waves.online,
       seconds: Math.floor(settled.gapSeconds),
@@ -1314,6 +1323,38 @@ export async function useItem(tx: Tx, world: World, playerId: string, itemId: st
     throw new AppError("NOT_FOUND");
   }
   const definition = world.items.find((row) => row.slug === item.itemSlug);
+  // 临时属性丹：扣 1 个并写入 player_active_buffs（修为丹归洞府经营开发的 applyPillUse）。
+  if (definition?.kind === "pill") {
+    const effect = definition.effect as { buffStat?: string; buffBp?: number; durationSeconds?: number; cultivationGain?: number } | null | undefined;
+    if (effect?.buffStat && typeof effect.buffBp === "number" && typeof effect.durationSeconds === "number") {
+      if (item.isStack && item.quantity > 1) {
+        await tx.update(playerItems).set({ quantity: item.quantity - 1 }).where(eq(playerItems.id, item.id));
+      } else {
+        await tx.delete(playerItems).where(eq(playerItems.id, item.id));
+      }
+      const buff = await applyActiveBuff(tx, {
+        playerId,
+        buffStat: effect.buffStat,
+        buffBp: effect.buffBp,
+        durationSeconds: effect.durationSeconds,
+        sourceItemSlug: item.itemSlug,
+        now,
+      });
+      const after = await settleLocked(tx, playerId, world, now);
+      return {
+        state: stateDto(world, playerId, after),
+        used: {
+          itemSlug: item.itemSlug,
+          buffStat: buff.buffStat,
+          buffBp: buff.buffBp,
+          durationSeconds: effect.durationSeconds,
+          expiresAt: buff.expiresAt,
+        },
+      };
+    }
+    // 修为丹等：洞府分支合并后由其 applyPillUse 处理
+    throw new AppError("INVALID_INPUT", "这颗丹药的效果由洞府模块处理，或尚未配置临时属性");
+  }
   if (!definition || definition.kind !== "skill_book" || !definition.skillSlug) {
     throw new AppError("NOT_SKILL_BOOK");
   }

@@ -7,7 +7,7 @@ extends Node2D
 ##   击杀 → 最后一刀(剩余血量) → 怪物闪白溶解成灵气 → 灵气飞向主角 +「+N 修为」→ 掉落物弹出飞进背包 → 下一只刷出。
 ## 伤害数字：每只怪显示的所有数字加起来 = 这只怪的配置气血（最后一刀补齐余数）。
 ## 不显示暴击、不用大号数字（大号样式留给首领战大招）。
-## 所有节点都在场景里预先建好（对象池），运行时不创建/删除节点，不用 Tween，_process 里没有内存分配。
+## 飞剑、数字、掉落都在场景里预先建好。命中时额外实例化一套 skill_fx，播完自己释放，不平移主角。
 
 signal hit_landed(damage: int)      ## 一刀命中（数字已飘出）
 signal monster_died                 ## 怪物溶解完毕
@@ -53,6 +53,8 @@ const MonsterRig := preload("monster_rig.gd")
 @onready var _gain_label: Label = $Gain/Number
 
 var hero: CanvasItem = null         ## 主角节点（QHero），用于出手前倾 / 受击闪白。可不设。
+var _skill_defs: Array = []
+var _skill_running: Array = []
 var max_hp := 0
 var _hero_base_pos := Vector2.ZERO
 var _hero_base_rot := 0.0
@@ -159,6 +161,27 @@ func set_monster(tex: Texture2D, flip: bool, hp: int, gain: float = -1.0) -> voi
 		_kill_pending = false
 		_queued_kills = 0
 		monster.spawn()
+
+
+## 内容技能表和玩家正在运转的技能。命中时按攻击技能的 fx_type 播一次，不画充能控件。
+func set_skill_sources(defs: Array, running: Array) -> void:
+	_skill_defs = defs
+	_skill_running = running
+
+
+func skill_anchor_points() -> Dictionary:
+	var center := monster_rect.get_center()
+	return {
+		SkillFxCast.ANCHOR_TARGET_BODY: _impact_point(),
+		SkillFxCast.ANCHOR_TARGET_CENTER: center,
+		SkillFxCast.ANCHOR_TARGET_FEET: Vector2(center.x, monster_rect.end.y),
+		SkillFxCast.ANCHOR_SELF_BODY: hero_chest,
+		SkillFxCast.ANCHOR_SELF_FEET: Vector2(hero_chest.x, hero_chest.y + 160.0),
+	}
+
+
+func _play_auto_skill_fx() -> void:
+	SkillFxCast.play(self, SkillFxCast.resolve_auto(_skill_defs, _skill_running), skill_anchor_points())
 
 
 ## 绑定主角节点（QHero）。出手时前倾，被怪物反击时闪白、后仰。
@@ -285,6 +308,7 @@ func _on_sword_impact() -> void:
 	_sparks.restart()
 	_show_number(_sw_dmg, _impact_point() + Vector2(randf_range(30, 90), -30))
 	hit_landed.emit(_sw_dmg)
+	_play_auto_skill_fx()
 	_swings += 1
 	if final:
 		_kill_pending = false

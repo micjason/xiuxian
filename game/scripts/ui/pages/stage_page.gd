@@ -560,8 +560,24 @@ func _render_scene() -> void:
 	# 第 4 个参数 = 每只击杀修为：灵气飞到主角时飘「+N 修为」（原来页面自己的 _float_gain 已删，不会飘两次）。
 	var mon: Dictionary = wave.get("monster", {}) if typeof(wave.get("monster", null)) == TYPE_DICTIONARY else {}
 	_battle_fx.call("set_monster", _monster.texture, _monster.flip_h, int(mon.get("hp", 0)), float(shown.get("kill_cultivation", 0)))
+	_push_skill_sources()
 	_battle_fx.visible = tex != null and bool(shown.available)
 	_refresh_wave(shown)
+
+
+## 把内容技能和运转中的技能交给挂机特效。只读配置，不画充能或技能按钮。
+func _push_skill_sources() -> void:
+	if _battle_fx == null or not _battle_fx.has_method("set_skill_sources"):
+		return
+	var defs: Array = []
+	var running: Array = []
+	var raw_defs: Variant = _content.get("skills", [])
+	var raw_running: Variant = _state.get("skills", [])
+	if raw_defs is Array:
+		defs = raw_defs
+	if raw_running is Array:
+		running = raw_running
+	_battle_fx.call("set_skill_sources", defs, running)
 
 
 func _process(delta: float) -> void:

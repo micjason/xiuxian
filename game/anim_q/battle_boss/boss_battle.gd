@@ -82,7 +82,9 @@ var hero: CanvasItem
 var hero_rig: Node2D
 var _rig_base := Vector2.ZERO
 var _rig_owned := false
-var _ult_w := 0.0            # 大招前主角蓄势的时长（剑扇推迟这么久出现）
+var _ult_w := 0.0            # 自动技能前主角蓄势的时长（剑扇推迟这么久出现）
+var _skill_defs: Array = []
+var _skill_running: Array = []
 var _ult_charge := 0.0
 const HERO_RIG_PATH := "res://anim_q/battle_hero/hero_battle.tscn"
 var boss_art: Control
@@ -280,9 +282,34 @@ func set_ult_charge(v: float, learned: bool = true) -> void:
 		hero_rig.set_ult_charge(v, learned)
 
 
-## 自动技能蓄力（推荐名）。set_ult_charge 为遗留名。**不要**接到玩家按钮上。
+## 自动技能蓄力（推荐名）。set_ult_charge 为遗留名。**不要**接到玩家按钮上。只驱动脚下聚气环。
 func set_skill_charge(v: float, learned: bool = true) -> void:
 	set_ult_charge(v, learned)
+
+
+## 内容技能表和玩家正在运转的技能。页面传入，特效层只读，不画充能控件。
+func set_skill_sources(defs: Array, running: Array) -> void:
+	_skill_defs = defs
+	_skill_running = running
+
+
+## 斩/风在目标身前，火/冰/毒/金光在目标中心，雷在目标脚底，治疗在己方脚底，盾在己方身中。
+func skill_anchor_points() -> Dictionary:
+	var boss_c := _boss_center()
+	var hero_c := _hero_center()
+	return {
+		SkillFxCast.ANCHOR_TARGET_BODY: boss_c + Vector2(-_boss_rect.size.x * 0.22, 0),
+		SkillFxCast.ANCHOR_TARGET_CENTER: boss_c,
+		SkillFxCast.ANCHOR_TARGET_FEET: Vector2(_boss_rect.get_center().x, _boss_rect.end.y - 12.0),
+		SkillFxCast.ANCHOR_SELF_FEET: Vector2(_hero_rect.get_center().x, _hero_rect.end.y - 10.0),
+		SkillFxCast.ANCHOR_SELF_BODY: hero_c,
+	}
+
+
+func _play_auto_skill_fx(event: Dictionary) -> void:
+	if not SkillFxCast.is_auto_cast(event):
+		return
+	SkillFxCast.play(self, SkillFxCast.resolve(event, _skill_defs, _skill_running), skill_anchor_points())
 
 
 ## 收到 ult 事件到剑扇打中首领的时间（秒，1 倍速）：主角蓄势 + 剑扇停留 + 依次射出 + 飞行。
@@ -411,6 +438,7 @@ func on_event(event: Dictionary) -> void:
 		_start_ult(dmg)
 	else:
 		_player_attack(dmg)
+	_play_auto_skill_fx(event)
 
 
 func _player_attack(dmg: int) -> void:
@@ -533,7 +561,8 @@ func _start_ult(dmg: int) -> void:
 	# 主角先后仰蓄势（约 0.32 秒，脚下聚气环闪亮），剑扇随后出现；没有主角动画时照旧立即出剑、脚下放法阵
 	_ult_w = 0.0
 	if hero_rig != null:
-		_ult_w = hero_rig.play_ult()
+		# 自动技能蓄势。play_ult 只是遗留名，这里走 play_skill，不挂按钮。
+		_ult_w = float(hero_rig.call("play_skill")) if hero_rig.has_method("play_skill") else float(hero_rig.call("play_ult"))
 	else:
 		_magic_t = 0.0
 		_magic.visible = true

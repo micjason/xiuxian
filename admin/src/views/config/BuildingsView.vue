@@ -1,6 +1,10 @@
 <template>
   <div>
-    <PageHeader title="洞府建筑" desc="洞府玩法目前只在旧版（main 分支）里，dev 分支客户端还没有接入。这里保留配置，方便以后迁移时继续使用。" />
+    <PageHeader title="洞府建筑（已停用）" desc="旧版劳作加成建筑表已废弃。洞府 v1 请到「洞府」页配置药园与炼丹。" />
+    <el-alert type="warning" :closable="false" show-icon class="banner" title="本页已停用">
+      洞府 v1 配置在「游戏配置 → 洞府」（globals.dongfu）。
+      <el-button link type="primary" @click="$router.push('/config/dongfu')">去洞府配置 ›</el-button>
+    </el-alert>
     <ConfigListPage
       :schema="buildingSchema"
       :rows="rows"
@@ -37,3 +41,9 @@ async function save(values: Record<string, unknown>): Promise<void> {
   await api(`/admin/content/buildings/${String(values.slug)}`, { method: "PUT", body: JSON.stringify(body) });
 }
 </script>
+
+<style scoped>
+.banner {
+  margin-bottom: 16px;
+}
+</style>

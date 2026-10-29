@@ -39,6 +39,7 @@ export const GUARDED: Record<string, Guard> = {
   "PUT /admin/draft/tuning": GLOBALS,
   "PUT /admin/draft/rules": GLOBALS,
   "PUT /admin/draft/enhance": GLOBALS,
+  "PUT /admin/draft/dongfu": GLOBALS,
   "PUT /admin/draft/boss-rules": GLOBALS,
   "PUT /admin/draft/gear-params": GLOBALS,
   "PUT /admin/draft/gear-qualities": GLOBALS,

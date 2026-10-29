@@ -10,6 +10,7 @@ import { buildFormulaPreview } from "./formula-preview.js";
 import { loadCurrentWorld, loadDraftSnapshot } from "./snapshot.js";
 import { readEnhanceView, saveEnhanceRules } from "./enhance.js";
 import { enhanceExpMigrationStatus, migrateAllEnhanceExp } from "../loop/essence-migration.js";
+import { readDongfuView, saveDongfuConfig } from "../dongfu/admin.js";
 import { listGear, resetGearPiece, saveGearQualityFactors, syncGear, updateGearPiece } from "./gear.js";
 import { createGearSet, createManualGear, deleteGearSet, updateGearSet, updateManualGear } from "./manual-gear.js";
 import { readConfigOverview, readTuning, resetStageDrop, saveConfigOverview, saveGearParams, saveTuning } from "./config-overview.js";
@@ -216,6 +217,8 @@ export async function registerDraftRoutes(app: FastifyInstance, deps: { db: Db; 
     return migrateAllEnhanceExp(deps.db, world, new Date());
   });
   app.put("/admin/draft/enhance", async (request) => saveEnhanceRules(deps.db, request.body, request.actor?.actorId ?? null));
+  app.get("/admin/draft/dongfu", async () => readDongfuView(deps.db));
+  app.put("/admin/draft/dongfu", async (request) => saveDongfuConfig(deps.db, request.body, request.actor?.actorId ?? null));
   app.get("/admin/draft/gear", async () => listGear(deps.db));
   app.put("/admin/draft/gear-qualities", async (request) =>
     saveGearQualityFactors(deps.db, request.body as Record<string, unknown>, request.actor?.actorId ?? null),

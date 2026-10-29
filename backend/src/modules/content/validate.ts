@@ -1,4 +1,5 @@
 import { breakMaterialProblems, enhanceRulesFromInput } from "./enhance.js";
+import { dongfuConfigFromInput, dongfuReferencedItemSlugs } from "../dongfu/config.js";
 import { stagePowerErrors } from "./stage-power.js";
 import type { BossRepeatReward, BossRewardEntry, MonsterDropConfig, OptionalRuleValues, StageMonster } from "./combat-types.js";
 import { bossRuleProblems, type BossRuleOverride, type BossRuleSet, type BossStatKey, type BossTier } from "./boss-rules.js";
@@ -296,6 +297,20 @@ export function validateContent(
       }
     } catch (cause) {
       push("globals", "globals", "enhance", cause instanceof Error ? cause.message : "强化规则不正确");
+    }
+  }
+
+  if (draft.globals.dongfu) {
+    try {
+      const dongfu = dongfuConfigFromInput(draft.globals.dongfu);
+      const itemSlugsNow = new Set(draft.items.map((row) => row.slug));
+      for (const slug of dongfuReferencedItemSlugs(dongfu)) {
+        if (!itemSlugsNow.has(slug)) {
+          push("globals", "globals", "dongfu", `洞府引用的物品不存在：${slug}`);
+        }
+      }
+    } catch (cause) {
+      push("globals", "globals", "dongfu", cause instanceof Error ? cause.message : "洞府配置不正确");
     }
   }
 

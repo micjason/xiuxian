@@ -73,10 +73,62 @@ func test_skill_view_marks_the_running_skill_and_lists_cards() -> void:
 	assert_eq(SkillView.running_name(ProtoMock.state("fresh"), ProtoMock.content()), "")
 
 
-func test_cave_is_static_display_data() -> void:
-	assert_eq(CaveView.buildings().size(), 5)
-	assert_eq(CaveView.level_text(CaveView.buildings()[0]), "Lv.5")
-	assert_string_contains(CaveView.output_text(CaveView.buildings()[0]), "+6/时")
+func test_cave_view_builds_from_state_dongfu() -> void:
+	var missing := CaveView.build({}, {})
+	assert_false(bool(missing.get("available", true)))
+	assert_eq((missing.get("cards", []) as Array).size(), 3)
+	var state := {
+		"dongfu": {
+			"plotCount": 4,
+			"alchemyQueueLength": 2,
+			"plots": [
+				{"slot": 0, "seedSlug": null, "herbSlug": null, "plantedAt": null, "matureAt": null, "status": "empty"},
+				{"slot": 1, "seedSlug": "seed_lingcao", "herbSlug": "herb_lingcao", "plantedAt": "2026-01-01T00:00:00.000Z", "matureAt": "2099-01-01T00:00:00.000Z", "status": "growing"},
+				{"slot": 2, "seedSlug": "seed_lingcao", "herbSlug": "herb_lingcao", "plantedAt": "2026-01-01T00:00:00.000Z", "matureAt": "2020-01-01T00:00:00.000Z", "status": "ready"},
+				{"slot": 3, "seedSlug": null, "herbSlug": null, "plantedAt": null, "matureAt": null, "status": "empty"},
+			],
+			"alchemy": [
+				{"id": "j1", "recipeSlug": "pill_cultivate", "startedAt": "2026-01-01T00:00:00.000Z", "readyAt": "2020-01-01T00:00:00.000Z", "status": "ready", "outputItemSlug": "pill_cultivate", "outputQty": 1},
+			],
+			"claimable": {"plots": 1, "alchemy": 1},
+		},
+		"items": [{"id": "i1", "itemSlug": "seed_lingcao", "quantity": 3, "isStack": true}],
+		"spiritStones": 0,
+	}
+	var content := {
+		"globals": {
+			"dongfu": {
+				"plotCount": 4,
+				"alchemyQueueLength": 2,
+				"seeds": [{"seedSlug": "seed_lingcao", "herbSlug": "herb_lingcao", "growSeconds": 60}],
+				"recipes": [{
+					"recipeSlug": "pill_cultivate",
+					"outputItemSlug": "pill_cultivate",
+					"outputQty": 1,
+					"craftSeconds": 30,
+					"spiritStones": 0,
+					"costs": [{"itemSlug": "herb_lingcao", "count": 2}],
+				}],
+			},
+		},
+		"items": [
+			{"slug": "seed_lingcao", "displayName": "灵草种子"},
+			{"slug": "herb_lingcao", "displayName": "灵草"},
+			{"slug": "pill_cultivate", "displayName": "修为丹"},
+		],
+	}
+	var view := CaveView.build(state, content)
+	assert_true(bool(view.get("available", false)))
+	assert_eq(int((view.get("claimable", {}) as Dictionary).get("plots", 0)), 1)
+	assert_eq(int((view.get("claimable", {}) as Dictionary).get("alchemy", 0)), 1)
+	var cards: Array = view.get("cards", [])
+	assert_eq(cards.size(), 3)
+	assert_eq(str((cards[0] as Dictionary).get("id", "")), "garden")
+	assert_eq(int((cards[0] as Dictionary).get("claimable", 0)), 1)
+	assert_eq(str((cards[2] as Dictionary).get("id", "")), "enhance")
+	assert_eq((view.get("seeds", []) as Array).size(), 1)
+	assert_eq(int(((view.get("seeds", []) as Array)[0] as Dictionary).get("have", 0)), 3)
+	assert_string_contains(CaveView.remaining_text("2020-01-01T00:00:00.000Z"), "可领取")
 
 
 func test_breakthrough_unlocks_list_changes_from_the_preview() -> void:

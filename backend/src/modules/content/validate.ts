@@ -28,6 +28,8 @@ export type ContentSnapshot = {
     enhance?: import("./enhance.js").EnhanceRules;
     tuning?: import("./tuning.js").Tuning;
     artSlotRules?: { minRealmOrder: number; slots: number }[];
+    /** 洞府 v1（药园/炼丹）配置；缺了运行时报 CONTENT_NOT_PUBLISHED。 */
+    dongfu?: import("../dongfu/config.js").DongfuConfig;
     /** 统一部位表 / 品质表（catalog.ts），游戏和后台都按这里的名字显示。 */
     slots?: readonly import("./catalog.js").SlotRow[];
     qualities?: readonly import("./catalog.js").QualityRow[];
@@ -137,6 +139,13 @@ export type ContentSnapshot = {
     quality?: string;
     requiredRealmOrder?: number;
     stackable?: boolean;
+    /** 丹药效果（洞府 v1） */
+    effect?: {
+      cultivationGain?: number;
+      buffStat?: string;
+      buffBp?: number;
+      durationSeconds?: number;
+    } | null;
     /** 后台给这件装备指定的图标（空 = 客户端按大境界 + 部位自动选） */
     iconKey?: string;
     /** 装备掉率倍数（默认 1） */

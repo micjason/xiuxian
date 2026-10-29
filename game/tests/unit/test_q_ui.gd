@@ -91,7 +91,7 @@ func test_locked_buttons_all_say_feature_not_open() -> void:
 		"_top_bar": ["mail", "currency_gourd"],
 		"_home_page": ["alchemy", "idle_chest"],
 		"_skill_page": ["skill_upgrade"],
-		"_cave_page": ["cave_retreat", "cave_upgrade"],
+		# 洞府 v1 已换成药园/炼丹/强化入口，不再挂 LockedFeature
 		"_bag_page": ["bag_sell"],
 		"_offline_popup": ["offline_double"],
 	}

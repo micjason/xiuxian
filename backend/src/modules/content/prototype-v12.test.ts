@@ -4,6 +4,8 @@ import { withDb } from "../../test/db.js";
 import { contentItems } from "../../db/schema.js";
 import { loadDraftSnapshot } from "./snapshot.js";
 import { validateContent } from "./validate.js";
+import { simulateBattle } from "../combat/battle.js";
+import { computePower, ratePower } from "../combat/stats.js";
 import { stageRecommendedPower } from "./stage-power.js";
 import { PROTOTYPE_LAYERS, PROTOTYPE_MAJORS, PROTOTYPE_STAGES, applyPrototypeV12 } from "./prototype-v12.js";
 import { REALM_FACTORY } from "./realm-factory.js";
@@ -66,7 +68,18 @@ describe("prototype v1.2 content", () => {
       // 炼气首关：精英压到推荐战力 187，炼气≈187 可过
       const wolfElite = world.stages.find((row) => row.slug === "lianqi_1")!;
       expect(wolfElite.recommendedPower).toBe(187);
-      expect(wolfElite.bosses![0]).toMatchObject({ name: "青鬃狼王", tier: "elite", artKey: "boss_wolf", hp: 125, attack: 10, defense: 8, interval: 1.5 });
+      expect(wolfElite.bosses![0]).toMatchObject({ name: "青鬃狼王", tier: "elite", artKey: "boss_wolf", hp: 110, attack: 8, defense: 8, interval: 1.5 });
+      const weights = { attack: 4.7, defense: 1.6, hp: 0.95, speed: 2.6 };
+      const reported = { attack: 14, defense: 14, hp: 49, speed: 20 };
+      expect(ratePower(reported, weights)).toBe(187);
+      const interval = computePower({ ...reported, baseInterval: 1.5, minInterval: 0.5, speedBase: 100, weights }).interval;
+      const boss = wolfElite.bosses![0]!;
+      const fight = simulateBattle(
+        { attack: reported.attack, defense: reported.defense, hp: reported.hp, interval },
+        { attack: boss.attack, defense: boss.defense, hp: boss.hp, interval: boss.interval },
+        { timeLimitSeconds: 45, defenseConstant: 1 },
+      );
+      expect(fight.win).toBe(true);
       expect(wolfElite.bosses![0]!.firstClear).toEqual([{ kind: "spiritStones", amount: 50 }, { kind: "item", itemSlug: "enh_stone_low", quantity: 1 }, { kind: "gear", count: 1 }]);
       expect(stageRecommendedPower(world, wolfElite)).toBe(187);
       const check = validateContent(world);

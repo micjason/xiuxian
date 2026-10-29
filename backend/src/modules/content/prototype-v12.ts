@@ -49,7 +49,7 @@ type Lord = { slug: string; name: string; hp: number; attack: number; defense: n
 
 export const PROTOTYPE_STAGES: { slug: string; name: string; monster: Mob; boss?: Lord; recommendedPower?: number }[] = [
   // 炼气首关：小怪保持表 2.x 挂机节奏；精英手填压到推荐 187（炼气≈187 可过），并关掉自动挑战以免开局被秒过
-  { slug: "lianqi_1", name: "黑风岭·一", monster: { name: "青鬃狼", hp: 110, attack: 24, defense: 14, interval: 1.5, killXp: 3, art: "wolf" }, boss: { slug: "b_lq_wolf", name: "青鬃狼王", hp: 125, attack: 10, defense: 8, interval: 1.5, recommendedPower: 187, art: "wolf" }, recommendedPower: 187 },
+  { slug: "lianqi_1", name: "黑风岭·一", monster: { name: "青鬃狼", hp: 110, attack: 24, defense: 14, interval: 1.5, killXp: 3, art: "wolf" }, boss: { slug: "b_lq_wolf", name: "青鬃狼王", hp: 110, attack: 8, defense: 8, interval: 1.5, recommendedPower: 187, art: "wolf" }, recommendedPower: 187 },
   { slug: "lianqi_2", name: "黑风岭·二", monster: { name: "赤眼狐妖", hp: 125, attack: 32, defense: 15, interval: 1.25, killXp: 3, art: "fox" } },
   { slug: "lianqi_3", name: "黑风岭·三", monster: { name: "毒牙蟒", hp: 190, attack: 36, defense: 17, interval: 1.5, killXp: 3, art: "snake" }, boss: { slug: "b_lq_bear", name: "黑风熊王", hp: 1640, attack: 42, defense: 20, interval: 1.5, recommendedPower: 900, art: "bear" } },
   { slug: "zhuji_1", name: "幽冥古道·一", monster: { name: "游魂", hp: 335, attack: 100, defense: 42, interval: 1.5, killXp: 10, art: "ghost" } },
@@ -216,7 +216,7 @@ export async function applyPrototypeV12(db: Db): Promise<{ stageSlugs: string[];
   const stone = (itemSlug: string, quantity: number) => ({ kind: "item" as const, itemSlug, quantity });
   const bosses: Record<string, StageBoss> = {
     b_lq_wolf: {
-      name: "青鬃狼王", hp: 125, attack: 10, defense: 8, interval: 1.5, drops: [],
+      name: "青鬃狼王", hp: 110, attack: 8, defense: 8, interval: 1.5, drops: [],
       firstClear: [{ kind: "spiritStones", amount: PROTOTYPE_ELITE_STONES[0]! }, stone("enh_stone_low", 1), { kind: "gear", count: 1 }],
       repeat: { gear: true, extras: [{ itemSlug: "enh_stone_low", chanceBp: 7000, minQty: 1, maxQty: 1 }] },
       // 首关教学：推荐战力按手填，不自动挑战（避免开局战力 494 直接秒过）

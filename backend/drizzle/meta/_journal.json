@@ -288,6 +288,13 @@
       "when": 1800000000000,
       "tag": "0060_dongfu_v1",
       "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1800100000000,
+      "tag": "0061_garden_allocation",
+      "breakpoints": true
     }
   ]
 }

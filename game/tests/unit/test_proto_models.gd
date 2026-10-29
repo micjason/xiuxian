@@ -128,7 +128,12 @@ func test_cave_view_builds_from_state_dongfu() -> void:
 	assert_eq(str((cards[2] as Dictionary).get("id", "")), "enhance")
 	assert_eq((view.get("seeds", []) as Array).size(), 1)
 	assert_eq(int(((view.get("seeds", []) as Array)[0] as Dictionary).get("have", 0)), 3)
+	assert_eq(int(((view.get("seeds", []) as Array)[0] as Dictionary).get("growSeconds", 0)), 60)
 	assert_string_contains(CaveView.remaining_text("2020-01-01T00:00:00.000Z"), "可领取")
+	state["dongfu"]["timeScale"] = {"garden": 0.5, "alchemy": 0.8}
+	var faster := CaveView.build(state, content)
+	assert_eq(int(((faster.get("seeds", []) as Array)[0] as Dictionary).get("growSeconds", 0)), 30)
+	assert_eq(int(((faster.get("recipes", []) as Array)[0] as Dictionary).get("craftSeconds", 0)), 24)
 
 
 func test_breakthrough_unlocks_list_changes_from_the_preview() -> void:

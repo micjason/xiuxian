@@ -950,6 +950,14 @@ func _on_dongfu_action(kind: String, payload: Dictionary) -> void:
 			if payload.has("jobId") and not str(payload.get("jobId", "")).is_empty():
 				body = {"jobId": str(payload.get("jobId", ""))}
 			ok_text = "丹药已入行囊"
+		"dongfu_allocate":
+			path = "/api/v1/me/dongfu/allocate"
+			body = {"garden": int(payload.get("garden", 0)), "alchemy": int(payload.get("alchemy", 0))}
+			ok_text = "灵仆已分配"
+		"dongfu_upgrade":
+			path = "/api/v1/me/dongfu/upgrade"
+			body = {"facility": str(payload.get("facility", ""))}
+			ok_text = "升级成功"
 		_:
 			return
 	_busy = true

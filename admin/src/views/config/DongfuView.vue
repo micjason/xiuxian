@@ -1,6 +1,6 @@
 <template>
   <div>
-    <PageHeader title="洞府" desc="药园地块、种子成熟时间、炼丹队列与配方。改完保存到草稿，再到「发布中心」发布后玩家才生效。强化规则仍在「装备强化」页，洞府客户端只挂入口。">
+    <PageHeader title="洞府" desc="药园地块、种子、炼丹配方，以及灵仆分配系数和设施升级。改完保存到草稿，再到「发布中心」发布后玩家才生效。强化规则仍在「装备强化」页。">
       <template #actions><el-button :icon="Refresh" :loading="loading" @click="load">刷新</el-button></template>
     </PageHeader>
 
@@ -28,9 +28,119 @@
           </el-form-item>
           <el-form-item label="炼丹队列长度">
             <el-input-number v-model="form.alchemyQueueLength" :min="1" :max="10" :precision="0" controls-position="right" @change="touched = true" />
-            <p class="hint">同时炼几炉。建议 2。</p>
+            <p class="hint">1 级时同时炼几炉。建议 2。升级在此基础上加队列。</p>
+          </el-form-item>
+          <el-form-item label="药园地块上限">
+            <el-input-number v-model="form.maxPlotCount" :min="1" :max="20" :precision="0" controls-position="right" @change="touched = true" />
+            <p class="hint">升级加地块后不超过这个数。建议 12。</p>
+          </el-form-item>
+          <el-form-item label="炼丹队列上限">
+            <el-input-number v-model="form.maxAlchemyQueue" :min="1" :max="10" :precision="0" controls-position="right" @change="touched = true" />
+            <p class="hint">建议 4。</p>
           </el-form-item>
         </el-form>
+      </section>
+
+      <section class="xx-card gap">
+        <h2>灵仆与灵木</h2>
+        <el-form label-position="top" class="form grid2">
+          <el-form-item label="灵木物品">
+            <el-select v-model="form.woodItemSlug" filterable allow-create default-first-option placeholder="wood_lingmu" class="full" @change="touched = true">
+              <el-option v-for="option in itemOptions" :key="option.value" :label="option.label" :value="option.value" />
+            </el-select>
+            <p class="hint">升级消耗的材料。须是可堆叠材料，建议先在「物品」页建好。</p>
+          </el-form-item>
+          <el-form-item label="初始灵木">
+            <el-input-number v-model="form.startingWood" :min="0" :max="9999" :precision="0" controls-position="right" @change="touched = true" />
+            <p class="hint">玩家第一次打开洞府时发一次。建议 32。</p>
+          </el-form-item>
+          <el-form-item label="初始灵仆">
+            <el-input-number v-model="form.startingServants" :min="0" :max="99" :precision="0" controls-position="right" @change="touched = true" />
+            <p class="hint">可分到药园或炼丹。闲置没有加成。建议 4。</p>
+          </el-form-item>
+          <el-form-item label="药园每仆缩短（%）">
+            <el-input-number v-model="form.gardenReducePercent" :min="0" :max="100" :precision="0" controls-position="right" @change="touched = true" />
+            <p class="hint">缩短成熟时间，不加产量。建议 5。</p>
+          </el-form-item>
+          <el-form-item label="炼丹每仆缩短（%）">
+            <el-input-number v-model="form.alchemyReducePercent" :min="0" :max="100" :precision="0" controls-position="right" @change="touched = true" />
+            <p class="hint">缩短炼制时间。建议 5。</p>
+          </el-form-item>
+          <el-form-item label="最短时长（%）">
+            <el-input-number v-model="form.minDurationPercent" :min="1" :max="100" :precision="0" controls-position="right" @change="touched = true" />
+            <p class="hint">再多灵仆也不会短于原时长的这个比例。建议 20。</p>
+          </el-form-item>
+        </el-form>
+      </section>
+
+      <section class="xx-card gap">
+        <header class="head">
+          <div>
+            <h2>药园升级</h2>
+            <p class="hint">从 2 级连续往上。每一档在地块数上再加「增加数量」。消耗灵木，灵石可填 0。</p>
+          </div>
+          <el-button type="primary" plain @click="addUpgrade('gardenUpgrades')">加一档</el-button>
+        </header>
+        <el-table :data="form.gardenUpgrades" size="default">
+          <el-table-column label="升到" width="90">
+            <template #default="{ row }">{{ row.toLevel }} 级</template>
+          </el-table-column>
+          <el-table-column label="灵木" width="150">
+            <template #default="{ row }">
+              <el-input-number v-model="row.wood" :min="0" :precision="0" size="small" controls-position="right" @change="touched = true" />
+            </template>
+          </el-table-column>
+          <el-table-column label="灵石" width="150">
+            <template #default="{ row }">
+              <el-input-number v-model="row.spiritStones" :min="0" :precision="0" size="small" controls-position="right" @change="touched = true" />
+            </template>
+          </el-table-column>
+          <el-table-column label="增加地块" width="150">
+            <template #default="{ row }">
+              <el-input-number v-model="row.bonus" :min="1" :max="10" :precision="0" size="small" controls-position="right" @change="touched = true" />
+            </template>
+          </el-table-column>
+          <el-table-column label="" width="70" align="right">
+            <template #default="{ $index }">
+              <el-button link type="danger" @click="removeUpgrade('gardenUpgrades', $index)">删</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </section>
+
+      <section class="xx-card gap">
+        <header class="head">
+          <div>
+            <h2>炼丹升级</h2>
+            <p class="hint">每一档给炼丹队列加位。满队列上限后玩家不能再升。</p>
+          </div>
+          <el-button type="primary" plain @click="addUpgrade('alchemyUpgrades')">加一档</el-button>
+        </header>
+        <el-table :data="form.alchemyUpgrades" size="default">
+          <el-table-column label="升到" width="90">
+            <template #default="{ row }">{{ row.toLevel }} 级</template>
+          </el-table-column>
+          <el-table-column label="灵木" width="150">
+            <template #default="{ row }">
+              <el-input-number v-model="row.wood" :min="0" :precision="0" size="small" controls-position="right" @change="touched = true" />
+            </template>
+          </el-table-column>
+          <el-table-column label="灵石" width="150">
+            <template #default="{ row }">
+              <el-input-number v-model="row.spiritStones" :min="0" :precision="0" size="small" controls-position="right" @change="touched = true" />
+            </template>
+          </el-table-column>
+          <el-table-column label="增加队列" width="150">
+            <template #default="{ row }">
+              <el-input-number v-model="row.bonus" :min="1" :max="10" :precision="0" size="small" controls-position="right" @change="touched = true" />
+            </template>
+          </el-table-column>
+          <el-table-column label="" width="70" align="right">
+            <template #default="{ $index }">
+              <el-button link type="danger" @click="removeUpgrade('alchemyUpgrades', $index)">删</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
       </section>
 
       <section class="xx-card gap">
@@ -169,6 +279,7 @@ type Effect = {
   durationSeconds?: number | null;
 };
 type Seed = { seedSlug: string; herbSlug: string; growSeconds: number | null };
+type UpgradeTier = { toLevel: number; wood: number | null; spiritStones: number | null; bonus: number | null };
 type Recipe = {
   recipeSlug: string;
   outputItemSlug: string;
@@ -181,6 +292,16 @@ type Recipe = {
 type Form = {
   plotCount: number | null;
   alchemyQueueLength: number | null;
+  maxPlotCount: number | null;
+  maxAlchemyQueue: number | null;
+  woodItemSlug: string;
+  startingWood: number | null;
+  startingServants: number | null;
+  gardenReducePercent: number | null;
+  alchemyReducePercent: number | null;
+  minDurationPercent: number | null;
+  gardenUpgrades: UpgradeTier[];
+  alchemyUpgrades: UpgradeTier[];
   seeds: Seed[];
   recipes: Recipe[];
 };
@@ -203,8 +324,45 @@ function emptyRecipe(): Recipe {
     effect: null,
   };
 }
+function defaultGardenUpgrades(): UpgradeTier[] {
+  return [
+    { toLevel: 2, wood: 8, spiritStones: 0, bonus: 1 },
+    { toLevel: 3, wood: 16, spiritStones: 0, bonus: 1 },
+    { toLevel: 4, wood: 32, spiritStones: 20, bonus: 1 },
+  ];
+}
+function defaultAlchemyUpgrades(): UpgradeTier[] {
+  return [
+    { toLevel: 2, wood: 8, spiritStones: 0, bonus: 1 },
+    { toLevel: 3, wood: 16, spiritStones: 0, bonus: 1 },
+  ];
+}
+function mapUpgrades(rows: UpgradeTier[] | undefined, fallback: UpgradeTier[]): UpgradeTier[] {
+  const source = Array.isArray(rows) ? rows : fallback;
+  return source.map((row, index) => ({
+    toLevel: index + 2,
+    wood: row?.wood ?? 0,
+    spiritStones: row?.spiritStones ?? 0,
+    bonus: row?.bonus ?? 1,
+  }));
+}
 function emptyForm(): Form {
-  return { plotCount: 4, alchemyQueueLength: 2, seeds: [emptySeed()], recipes: [emptyRecipe()] };
+  return {
+    plotCount: 4,
+    alchemyQueueLength: 2,
+    maxPlotCount: 12,
+    maxAlchemyQueue: 4,
+    woodItemSlug: "wood_lingmu",
+    startingWood: 32,
+    startingServants: 4,
+    gardenReducePercent: 5,
+    alchemyReducePercent: 5,
+    minDurationPercent: 20,
+    gardenUpgrades: defaultGardenUpgrades(),
+    alchemyUpgrades: defaultAlchemyUpgrades(),
+    seeds: [emptySeed()],
+    recipes: [emptyRecipe()],
+  };
 }
 
 function normalize(raw: Partial<Form> | null | undefined): Form {
@@ -212,6 +370,16 @@ function normalize(raw: Partial<Form> | null | undefined): Form {
   return {
     plotCount: raw.plotCount ?? null,
     alchemyQueueLength: raw.alchemyQueueLength ?? null,
+    maxPlotCount: raw.maxPlotCount ?? 12,
+    maxAlchemyQueue: raw.maxAlchemyQueue ?? 4,
+    woodItemSlug: raw.woodItemSlug || "wood_lingmu",
+    startingWood: raw.startingWood ?? 32,
+    startingServants: raw.startingServants ?? 4,
+    gardenReducePercent: raw.gardenReducePercent ?? 5,
+    alchemyReducePercent: raw.alchemyReducePercent ?? 5,
+    minDurationPercent: raw.minDurationPercent ?? 20,
+    gardenUpgrades: mapUpgrades(raw.gardenUpgrades, defaultGardenUpgrades()),
+    alchemyUpgrades: mapUpgrades(raw.alchemyUpgrades, defaultAlchemyUpgrades()),
     seeds: (raw.seeds?.length ? raw.seeds : [emptySeed()]).map((row) => ({
       seedSlug: row.seedSlug ?? "",
       herbSlug: row.herbSlug ?? "",
@@ -243,6 +411,26 @@ function payload(form: Form): Record<string, unknown> {
   return {
     plotCount: form.plotCount,
     alchemyQueueLength: form.alchemyQueueLength,
+    maxPlotCount: form.maxPlotCount,
+    maxAlchemyQueue: form.maxAlchemyQueue,
+    woodItemSlug: form.woodItemSlug.trim(),
+    startingWood: form.startingWood,
+    startingServants: form.startingServants,
+    gardenReducePercent: form.gardenReducePercent,
+    alchemyReducePercent: form.alchemyReducePercent,
+    minDurationPercent: form.minDurationPercent,
+    gardenUpgrades: form.gardenUpgrades.map((row, index) => ({
+      toLevel: index + 2,
+      wood: row.wood ?? 0,
+      spiritStones: row.spiritStones ?? 0,
+      bonus: row.bonus ?? 1,
+    })),
+    alchemyUpgrades: form.alchemyUpgrades.map((row, index) => ({
+      toLevel: index + 2,
+      wood: row.wood ?? 0,
+      spiritStones: row.spiritStones ?? 0,
+      bonus: row.bonus ?? 1,
+    })),
     seeds: form.seeds.map((row) => ({
       seedSlug: row.seedSlug.trim(),
       herbSlug: row.herbSlug.trim(),
@@ -275,6 +463,25 @@ function clientProblems(form: Form): string[] {
   const list: string[] = [];
   if (form.plotCount == null || form.plotCount < 1 || form.plotCount > 20) list.push("地块数要在 1～20");
   if (form.alchemyQueueLength == null || form.alchemyQueueLength < 1 || form.alchemyQueueLength > 10) list.push("炼丹队列要在 1～10");
+  if (form.maxPlotCount == null || form.maxPlotCount < 1 || form.maxPlotCount > 20) list.push("药园地块上限要在 1～20");
+  else if (form.plotCount != null && form.maxPlotCount < form.plotCount) list.push("药园地块上限不能小于地块数");
+  if (form.maxAlchemyQueue == null || form.maxAlchemyQueue < 1 || form.maxAlchemyQueue > 10) list.push("炼丹队列上限要在 1～10");
+  else if (form.alchemyQueueLength != null && form.maxAlchemyQueue < form.alchemyQueueLength) list.push("炼丹队列上限不能小于队列长度");
+  if (!SLUG.test(form.woodItemSlug)) list.push("灵木物品编号格式不对");
+  if (form.startingWood == null || form.startingWood < 0) list.push("初始灵木要 ≥ 0");
+  if (form.startingServants == null || form.startingServants < 0) list.push("初始灵仆要 ≥ 0");
+  if (form.gardenReducePercent == null || form.gardenReducePercent < 0 || form.gardenReducePercent > 100) list.push("药园每仆缩短要在 0～100");
+  if (form.alchemyReducePercent == null || form.alchemyReducePercent < 0 || form.alchemyReducePercent > 100) list.push("炼丹每仆缩短要在 0～100");
+  if (form.minDurationPercent == null || form.minDurationPercent < 1 || form.minDurationPercent > 100) list.push("最短时长要在 1～100");
+  const checkTiers = (rows: UpgradeTier[], label: string) => {
+    rows.forEach((row, index) => {
+      if (row.wood == null || row.wood < 0) list.push(`${label}第 ${index + 1} 档：灵木要 ≥ 0`);
+      if (row.spiritStones == null || row.spiritStones < 0) list.push(`${label}第 ${index + 1} 档：灵石要 ≥ 0`);
+      if (row.bonus == null || row.bonus < 1) list.push(`${label}第 ${index + 1} 档：增加数量要 ≥ 1`);
+    });
+  };
+  checkTiers(form.gardenUpgrades, "药园升级");
+  checkTiers(form.alchemyUpgrades, "炼丹升级");
   if (!form.seeds.length) list.push("至少一种种子");
   const seedSeen = new Set<string>();
   form.seeds.forEach((row, index) => {
@@ -351,6 +558,17 @@ function setEffectMode(recipe: Recipe, mode: string | null): void {
   };
 }
 
+function addUpgrade(key: "gardenUpgrades" | "alchemyUpgrades"): void {
+  form.value[key].push({ toLevel: form.value[key].length + 2, wood: 8, spiritStones: 0, bonus: 1 });
+  touched.value = true;
+}
+function removeUpgrade(key: "gardenUpgrades" | "alchemyUpgrades", index: number): void {
+  form.value[key].splice(index, 1);
+  form.value[key].forEach((row, rowIndex) => {
+    row.toLevel = rowIndex + 2;
+  });
+  touched.value = true;
+}
 function addSeed(): void {
   form.value.seeds.push(emptySeed());
   touched.value = true;

@@ -3,6 +3,7 @@ import type { SeedDropEntry } from "../modules/content/seed-drops.js";
 import type { Tuning } from "../modules/content/tuning.js";
 import type { BossRuleOverride, BossStatKey } from "../modules/content/boss-rules.js";
 import type { RealmYieldMajor } from "../modules/content/enhance.js";
+import type { DongfuConfig } from "../modules/dongfu/config.js";
 import { sql } from "drizzle-orm";
 import {
   bigint,
@@ -261,26 +262,8 @@ export const contentGlobals = pgTable("content_globals", {
   /** 配置概览里的默认数值（见 content/tuning.ts）；缺的项用代码默认值。 */
   tuning: jsonb("tuning").$type<Partial<Tuning>>(),
   artSlotRules: jsonb("art_slot_rules").$type<{ minRealmOrder: number; slots: number }[]>(),
-  /** 洞府 v1：药园地块 / 炼丹队列 / 种子 / 配方（见 modules/dongfu/config.ts）。 */
-  dongfu: jsonb("dongfu").$type<{
-    plotCount: number;
-    alchemyQueueLength: number;
-    seeds: { seedSlug: string; herbSlug: string; growSeconds: number }[];
-    recipes: {
-      recipeSlug: string;
-      outputItemSlug: string;
-      outputQty: number;
-      craftSeconds: number;
-      spiritStones: number;
-      costs: { itemSlug: string; count: number }[];
-      effect?: {
-        cultivationGain?: number;
-        buffStat?: string;
-        buffBp?: number;
-        durationSeconds?: number;
-      };
-    }[];
-  }>(),
+  /** 洞府：药园 / 炼丹 / 灵仆分配 / 设施升级（见 modules/dongfu/config.ts）。 */
+  dongfu: jsonb("dongfu").$type<DongfuConfig>(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   updatedBy: uuid("updated_by"),
 });
@@ -749,6 +732,19 @@ export const playerDongfuPlots = pgTable(
   },
   (table) => [primaryKey({ columns: [table.playerId, table.slot] })],
 );
+
+/** 洞府灵仆与设施等级。首次读 state 时按 globals.dongfu 发初始灵仆 / 灵木。 */
+export const playerDongfu = pgTable("player_dongfu", {
+  playerId: uuid("player_id")
+    .primaryKey()
+    .references(() => players.id, { onDelete: "cascade" }),
+  servantTotal: integer("servant_total").notNull(),
+  gardenAllocation: integer("garden_allocation").notNull().default(0),
+  alchemyAllocation: integer("alchemy_allocation").notNull().default(0),
+  gardenLevel: integer("garden_level").notNull().default(1),
+  alchemyLevel: integer("alchemy_level").notNull().default(1),
+  woodGranted: boolean("wood_granted").notNull().default(false),
+});
 
 /** 洞府炼丹队列：claimed_at 为空表示未领取（占队列）；领取后保留记录。 */
 export const playerDongfuAlchemy = pgTable(

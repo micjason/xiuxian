@@ -417,6 +417,7 @@ func open_stage(state: Dictionary, content: Dictionary, stage: Dictionary, gate:
 	var ult_cfg: Variant = state.get("ult", {})
 	_ult_name = _skill_display_name(str((ult_cfg as Dictionary).get("name", "")) if typeof(ult_cfg) == TYPE_DICTIONARY else "")
 	fight = BossFight.from_state(state, content, stage)
+	_push_skill_sources()
 	_ult_pending = 0.0
 	phase = Phase.READY
 	_clock = 0.0
@@ -754,6 +755,21 @@ func _refresh_time() -> void:
 	if text != _last_time_text:
 		_last_time_text = text
 		_timer_text.text = text
+
+
+## 把内容技能和运转中的技能交给特效层。只读配置，不在这里画充能或技能按钮。
+func _push_skill_sources() -> void:
+	if _fx == null or not _fx.has_method("set_skill_sources"):
+		return
+	var defs: Array = []
+	var running: Array = []
+	var raw_defs: Variant = _content.get("skills", [])
+	var raw_running: Variant = _state.get("skills", [])
+	if raw_defs is Array:
+		defs = raw_defs
+	if raw_running is Array:
+		running = raw_running
+	_fx.call("set_skill_sources", defs, running)
 
 
 ## 自动技能蓄力只推给脚下聚气环。不画冷却条或百分比。蓄满由战斗逻辑出事件。

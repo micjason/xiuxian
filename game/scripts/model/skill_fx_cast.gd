@@ -26,7 +26,7 @@ static func anchor_for(stored: String) -> String:
 			return ANCHOR_TARGET_BODY
 
 
-## 首领战事件。普攻默认斩；大招用运转中的攻击技能（没有则斩）；治疗 / 丹药走治疗圈。
+## 首领战事件。普攻默认斩；自动技能（协议字段 kind=ult，不是玩家按钮）用运转中的攻击技能，没有则斩；治疗 / 丹药走治疗圈。
 ## 事件上的 fx / fxType / skillSlug 优先于默认。
 static func resolve(event: Dictionary, skills: Array = [], running: Array = []) -> Dictionary:
 	var explicit := _explicit(event, skills)
@@ -126,3 +126,53 @@ static func _pack(source: Dictionary, raw_hint: String) -> Dictionary:
 		"scale": scale,
 		"show_pillar": token in ["攻击法阵", "attack_circle"],
 	}
+
+
+## 玩家自动施法。协议里的 kind=ult 只是自动技能事件名。普攻和首领出手不播九套。
+static func is_auto_cast(event: Dictionary) -> bool:
+	if str(event.get("side", "")) == "boss":
+		return false
+	var kind := str(event.get("kind", ""))
+	if kind in ["ult", "heal", "pill", "item"]:
+		return true
+	if typeof(event.get("fx", null)) == TYPE_DICTIONARY:
+		return true
+	if not str(event.get("fxType", event.get("fx_type", ""))).is_empty():
+		return true
+	if not str(event.get("skillSlug", event.get("skill_slug", ""))).is_empty():
+		return true
+	return false
+
+
+static func anchor_position(cast: Dictionary, points: Dictionary) -> Vector2:
+	var key := str(cast.get("anchor", ANCHOR_TARGET_BODY))
+	if points.has(key):
+		return points[key] as Vector2
+	if points.has(ANCHOR_TARGET_CENTER):
+		return points[ANCHOR_TARGET_CENTER] as Vector2
+	return Vector2.ZERO
+
+
+## 按 resolve / resolve_auto 的结果播一次。缺场景时静默返回 null，不写 slug。不移动 parent。
+static func play(parent: Node, cast: Dictionary, points: Dictionary) -> Node2D:
+	if parent == null or cast.is_empty():
+		return null
+	var kind := str(cast.get("playable", ""))
+	if kind.is_empty():
+		return null
+	var scale := float(cast.get("scale", 1.0))
+	var n := SkillFxRoot.spawn(kind, parent, anchor_position(cast, points), scale)
+	if n == null:
+		return null
+	n.z_index = 8
+	if "primary_color" in n and cast.get("primary") is Color:
+		n.primary_color = cast.primary as Color
+	if "secondary_color" in n and cast.get("secondary") is Color:
+		n.secondary_color = cast.secondary as Color
+	if bool(cast.get("show_pillar", false)) and "show_pillar" in n:
+		n.show_pillar = true
+	if n.has_signal("finished") and not n.finished.is_connected(n.queue_free):
+		n.finished.connect(n.queue_free, CONNECT_ONE_SHOT)
+	if n.has_method("play"):
+		n.play()
+	return n

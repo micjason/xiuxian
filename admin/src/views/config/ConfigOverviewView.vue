@@ -227,7 +227,7 @@ import { useRevisions } from "../../composables/revisions";
 import { isConflictAbort } from "../../composables/conflict";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { useRefetchOnActivate } from "../../composables/dataVersion";
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { api } from "../../api";
 import CustomTag from "../../components/CustomTag.vue";
@@ -383,6 +383,8 @@ function applySeedRowsToTuning(): void {
   }));
 }
 
+watch(seedDropRows, applySeedRowsToTuning, { deep: true });
+
 const dropChance = computed({
   get: () => (tuning.value.monsterDropChanceBp ?? 0) / 100,
   set: (value: number | null) => (tuning.value.monsterDropChanceBp = Math.round((value ?? 0) * 100)),
@@ -508,6 +510,7 @@ function apply(overview: Overview): void {
   rules.value = { ...overview.rules };
   tuning.value = JSON.parse(JSON.stringify(overview.tuning)) as Tuning;
   seedDropRows.value = seedRowsFromTuning(tuning.value.seedDrops);
+  applySeedRowsToTuning();
   enhance.value = overview.enhance.rules ? (JSON.parse(JSON.stringify(overview.enhance.rules)) as Enhance) : null;
   if (enhance.value?.essence && !enhance.value.essence.realmYieldMult) {
     enhance.value.essence.realmYieldMult = { ...DEFAULT_REALM_MULT };
@@ -526,6 +529,7 @@ async function latestOverview(): Promise<unknown> {
 async function save(): Promise<boolean> {
   saving.value = true;
   try {
+    applySeedRowsToTuning();
     const before = JSON.parse(original.value) as { enhance: unknown; newbie: unknown; skillSlots: { rules: unknown } };
     const body: Record<string, unknown> = { rules: rules.value, tuning: tuning.value };
     if (enhance.value && JSON.stringify(before.enhance) !== JSON.stringify(enhance.value)) body.enhance = enhance.value;

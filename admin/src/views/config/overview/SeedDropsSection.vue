@@ -36,7 +36,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { onMounted, ref } from "vue";
 import { api } from "../../../api";
 import HelpTip from "../../../components/HelpTip.vue";
 import NumInput from "../../../components/NumInput.vue";

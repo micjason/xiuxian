@@ -3,8 +3,13 @@
 首领战特效是第二部分，后面单独交付。这一部分**只管挂机刷小怪**。
 全部用 Godot 4 自带功能（Sprite2D、CPUParticles2D、一个很小的着色器、GDScript），**不用插件**，兼容 Compatibility 渲染器。
 
-- 预览视频：`../preview/battle.mp4` / `battle.gif`（1080×2340，叠在历练页上，Godot 实际录制）
-- 截图（Godot 实际渲染，不是拼图）：`screenshot.png`、`screenshot.jpg`
+- 预览视频：`../preview/battle.mp4` / `battle.gif`（也可 `preview/battle.mp4` 软链；1080×2340，叠在历练页上，Godot 实际录制）
+- 截图（Godot 实际渲染，不是拼图）：
+  - `screenshot.jpg` / `screenshot.png` 总览（命中瞬间）
+  - `screenshot_hit.jpg` 命中：闪白 + 击退压扁 + 火花 + 伤害数字
+  - `screenshot_death.jpg` 死亡：溶解成灵气
+  - `screenshot_death_peak.jpg` 溶解峰值特写：灵气正飞向主角（负责人验收）
+  - `screenshot_spawn.jpg` / `screenshot_spawn_smoke.jpg` 刷出：白剪影淡入 + **脚下烟圈**
 
 ## 效果内容
 1. **怪物待机**：上下轻浮 + 呼吸缩放，脚下影子跟着变大变小（任何单张怪图都能用，不需要拆层）。
@@ -13,7 +18,7 @@
 4. **怪物反击**（默认每 4 刀一次）：怪物往前一扑，主角发亮、往后一晃。**挂机没有主角血量，所以不飘数字。**
 5. **击杀**：最后一刀补齐剩余血量 → 怪物闪白 → 从头往下溶解成青色灵气（发光边）→ 12 颗灵气球沿弧线飞进主角 → 主角头上「+N 修为」→ 地面一圈光环。
 6. **掉落**：掉落物从怪物身上弹出、落地弹两下，再沿弧线飞进底栏背包，到达时发出 `drop_arrived` 信号。
-7. **下一只刷出**：白色剪影放大淡入，变回正常颜色。
+7. **下一只刷出**：白色剪影放大淡入，变回正常颜色；**脚下烟圈 + 轻烟粒子**（`SpawnRing` + `SpawnSmoke`，约 0.45s）。
 
 **规则（负责人要求）：**
 - **伤害数字加起来正好等于怪物的配置气血**：每一刀的数字 = 血条掉下去的那一段 × 配置气血，最后一刀补齐余数。已用 5 种速度测试（每只 0.5～6 秒、气血 7～99999、含服务器进度回跳），全部一致，测试脚本 `_preview_project/tools/test_battle.gd`。
@@ -28,7 +33,7 @@
 | `monster_rig.tscn` + `monster_rig.gd` | **通用怪物模板**：任意 `mon_*.png` 都能用；首领战以后也用它 |
 | `monster_fx.gdshader` | 怪物闪白 + 溶解的着色器 |
 | `art/` | 飞剑 `sword.png`（= icons/icon_sword）、伤害数字字体 `digits_dmg.fnt/png`、修为字体 `digits_xiuwei.fnt/png`、`float_word_xiuwei.png`；`icon_stone.png`、`it_bone.png` 只给预览用 |
-| `fx/` | 特效小图（光点、斩光、星芒、光环、影子、噪声图），程序生成，可以让美术同名替换 |
+| `fx/` | 特效小图（光点、斩光、星芒、光环、影子、噪声图、**烟 `fx_smoke.png`**），程序生成，可以让美术同名替换 |
 
 整个 `battle_idle/` 文件夹拷到游戏工程 `res://anim_q/battle_idle/`（和第一批动画一样放在 `anim_q/` 下面，场景里的路径就是这个）。
 
@@ -121,3 +126,19 @@ _monster_hp.visible = _battle_fx.monster_showing() and _monster_chip.get_parent(
 ## 10/21 新增：怪物档次 `tier`（精英 / 章末首领）
 - `monster_rig` 新增导出属性 `tier`：0 普通（默认，和以前完全一样）/ 1 精英 / 2 章末首领；`use_baked_outline`（默认 true：有 `elite_X.png` / `chief_X.png` 预渲染图就用，没有就用实时描边 shader `monster_tier.gdshader`）；`plate_gap`、`show_plate`（名牌）。
 - 详细说明、要拷的文件和授权行见 `../battle_boss/README.md` 的「10/21 新增」一节。
+- 10/21 晚：首领统一后，`tier = 2`（首领）优先用统一首领立绘 `boss_<怪>.png`：页面直接给 `boss_*.png` 时原样使用（已带首领描边，不再套 shader）；给 `mon_<怪>.png` 时自动找同目录 `boss_<怪>.png`（放大倍数按尺寸反推 1.2 / 1.0），没有再找旧的 `chief_*`，最后才用实时 shader。`monster_rig.gd` 基于开发工作区的版本（含 `fx_variant`）改的。精英档（tier = 1）不再使用。
+
+## 10/29 补缺：刷出脚下烟圈（相对 PLAN §1）
+
+对照 `battle_plan/PLAN.md` §1 核对后：
+
+| PLAN 项 | 状态 |
+|---|---|
+| 命中：闪白 / 击退压扁 / 十字斩光+火花 / 伤害数字 | **已有**（idle_battle + monster_rig） |
+| 死亡：溶解灵气飞主角 / 掉落弹出 / drop_fly | **已有** |
+| 刷出：白剪影淡入 | **已有** |
+| 刷出：脚下烟圈 | **本次补上**（`monster_rig` 的 `SpawnSmoke` 12 粒 + `SpawnRing`） |
+| 血条白色残影 | 挂机血条在页面侧；组件见 `../battle_boss/hp_trail.gd`（本批不改页面） |
+| 远处小怪前移 / 本波圆点亮 | 页面侧，特效层不管 |
+
+未改仓库、未改工作区。重新生成：`godot --headless --path _preview_project --script res://tools/build_battle.gd`；重录：`bash tools/render.sh battle 12`。

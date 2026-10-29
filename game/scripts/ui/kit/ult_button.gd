@@ -4,7 +4,7 @@ extends Control
 ## 有图时用图做底、代码只叠冷却进度环和文字；没有图时退回代码画的圆钮。
 ## 注意：ult_btn_cooldown 里自带一段静态的"冷却弧"装饰，进度由代码环表示，两者不是同一个东西（见 change note）。
 ## ratio 0..1 = 冷却进度（1 = 冷却完毕）；ready 时按钮亮并有呼吸光；sub_text 写“1.8s”之类。
-## 只在 ready 时响应点击，点击发 tapped。
+## 成鹏锁定：这不是释放入口。不接收点击，_gui_input 不发 tapped。充能显示用 UltChargeDisc。
 
 signal tapped
 
@@ -18,7 +18,7 @@ var ready_now := false:
 	set(value):
 		ready_now = value
 		queue_redraw()
-var title := "大招":
+var title := "技能":
 	set(value):
 		title = value
 		queue_redraw()
@@ -35,7 +35,7 @@ var _pulse := 0.0
 
 func _init() -> void:
 	custom_minimum_size = Vector2(SIZE, SIZE)
-	mouse_filter = Control.MOUSE_FILTER_STOP
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	focus_mode = Control.FOCUS_NONE
 
 
@@ -50,15 +50,9 @@ func _process(delta: float) -> void:
 		queue_redraw()
 
 
-func _gui_input(event: InputEvent) -> void:
-	var pressed := false
-	if event is InputEventMouseButton:
-		pressed = (event as InputEventMouseButton).pressed and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT
-	elif event is InputEventScreenTouch:
-		pressed = (event as InputEventScreenTouch).pressed
-	if pressed and ready_now and enabled:
-		tapped.emit()
-		accept_event()
+func _gui_input(_event: InputEvent) -> void:
+	# 禁止用点击 / 触摸释放。蓄满由战斗逻辑自动出事件。
+	pass
 
 
 func _draw() -> void:

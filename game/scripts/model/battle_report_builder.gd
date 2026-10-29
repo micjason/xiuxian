@@ -27,7 +27,7 @@ static func build(battle: Dictionary, boss_name: String, player_hp: int = 0, bos
 		var left := int(round(float((event as Dictionary).get("targetHpAfter", 0))))
 		var time := float((event as Dictionary).get("t", 0))
 		if side == "player" and str((event as Dictionary).get("kind", "")) == "ult":
-			lines.append({"round": round_no, "kind": BattleReport.Kind.CRIT, "text": "（%.1f秒）释放「%s」，%s 剩余气血 %d" % [time, ult_name if not ult_name.is_empty() else "大招", name, maxi(left, 0)], "amount": damage})
+			lines.append({"round": round_no, "kind": BattleReport.Kind.CRIT, "text": "（%.1f秒）释放「%s」，%s 剩余气血 %d" % [time, _skill_name(ult_name), name, maxi(left, 0)], "amount": damage})
 		elif side == "player":
 			lines.append({"round": round_no, "kind": BattleReport.Kind.DAMAGE_DEALT, "text": "（%.1f秒）你击中 %s，对方剩余气血 %d" % [time, name, maxi(left, 0)], "amount": damage})
 		else:
@@ -55,11 +55,19 @@ static func live_line(event: Dictionary, boss_name: String, ult_name: String = "
 	if str(event.get("side", "")) == "boss":
 		return {"kind": BattleReport.Kind.DAMAGE_TAKEN, "text": "%s 拍击，你受到 %d 点伤害" % [name, damage], "amount": 0}
 	if str(event.get("kind", "")) == "ult":
-		return {"kind": BattleReport.Kind.CRIT, "text": "「%s」释放，对%s造成 %d 点伤害" % [ult_name if not ult_name.is_empty() else "大招", name, damage], "amount": 0}
+		return {"kind": BattleReport.Kind.CRIT, "text": "「%s」释放，对%s造成 %d 点伤害" % [_skill_name(ult_name), name, damage], "amount": 0}
 	return {"kind": BattleReport.Kind.PLAIN, "text": "你出手，对%s造成 %d 点伤害" % [name, damage], "amount": 0}
 
 
-## 战后摘要：我方总伤害、受到总伤害、大招次数、用时。
+## 没有配置名，或名字仍是「大招 / 暴击」时，战报统一写「自动技能」。
+static func _skill_name(raw: String) -> String:
+	var name := raw.strip_edges()
+	if name.is_empty() or name == "大招" or name == "暴击":
+		return "自动技能"
+	return name
+
+
+## 战后摘要：我方总伤害、受到总伤害、自动技能次数、用时。
 static func summary(battle: Dictionary) -> Dictionary:
 	var dealt := 0.0
 	var taken := 0.0

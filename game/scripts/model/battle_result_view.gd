@@ -21,10 +21,7 @@ static func build(result: Dictionary, boss_name: String, name_of: Callable) -> D
 		"我方造成伤害 %s" % OfflineView.grouped(float(summary.dealt)),
 		"受到伤害 %s" % OfflineView.grouped(float(summary.taken)),
 	]
-	var ult_line := "大招释放 %d 次" % int(summary.ults)
-	if int(summary.ults) > 0:
-		ult_line += "（手动 %d · 自动 %d）" % [int(summary.manual_ults), int(summary.ults) - int(summary.manual_ults)]
-	lines.append(ult_line)
+	lines.append("自动技能释放 %d 次" % int(summary.ults))
 	var loot: Array[Dictionary] = []
 	var notes: Array[String] = []
 	for drop in result.get("drops", []):

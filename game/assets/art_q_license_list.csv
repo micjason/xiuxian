@@ -346,6 +346,7 @@ anim_q/battle_idle/fx/fx_ring.png,B. 代码生成（程序生成的占位特效�
 anim_q/battle_idle/fx/fx_shadow.png,B. 代码生成（程序生成的占位特效图，numpy/PIL，无第三方素材）,自有（本项目代码生成）,无（可让美术替换为同名同尺寸图）,anim_out_q/_preview_project/tools/build_battle.gd（程序生成）→ /workspace/anim_out_q/battle_idle/fx/fx_shadow.png
 anim_q/battle_idle/fx/fx_slash.png,B. 代码生成（程序生成的占位特效图，numpy/PIL，无第三方素材）,自有（本项目代码生成）,无（可让美术替换为同名同尺寸图）,anim_out_q/_preview_project/tools/build_battle.gd（程序生成）→ /workspace/anim_out_q/battle_idle/fx/fx_slash.png
 anim_q/battle_idle/fx/fx_star.png,B. 代码生成（程序生成的占位特效图，numpy/PIL，无第三方素材）,自有（本项目代码生成）,无（可让美术替换为同名同尺寸图）,anim_out_q/_preview_project/tools/build_battle.gd（程序生成）→ /workspace/anim_out_q/battle_idle/fx/fx_star.png
+anim_q/battle_idle/fx/fx_smoke.png,B. 代码生成（程序生成的占位特效图，numpy/PIL，无第三方素材）,自有（本项目代码生成）,无（可让美术替换为同名同尺寸图）,anim_out_q/_preview_project/tools/build_battle.gd（程序生成）→ /workspace/anim_out_q/battle_idle/fx/fx_smoke.png（10/29 刷出脚下烟圈）
 anim_q/battle_boss/README.md,自有代码（Godot 场景 / 脚本，动画交付 anim_out_q 生成）,自有,无,/workspace/anim_out_q/battle_boss/README.md（首领战特效交付说明）
 anim_q/battle_boss/art/alert_bubble.png,B. 代码生成（PIL 绘制，无第三方图片素材）；含烘焙字形（ZCOOL QingKe HuangYou，SIL OFL 1.1，可用于图片）,自有（本项目代码生成）,无（可让美术替换为同名同尺寸图）,PIL 程序绘制（字体 /workspace/fonts/ZCOOLQingKeHuangYou-Regular.ttf 烘焙文字）→ /workspace/anim_out_q/battle_boss/art/alert_bubble.png
 anim_q/battle_boss/art/banner_lose.png,B. 代码生成（PIL 绘制，无第三方图片素材）；含烘焙字形（ZCOOL QingKe HuangYou，SIL OFL 1.1，可用于图片）,自有（本项目代码生成）,无（可让美术替换为同名同尺寸图）,PIL 程序绘制（字体 /workspace/fonts/ZCOOLQingKeHuangYou-Regular.ttf 烘焙文字）→ /workspace/anim_out_q/battle_boss/art/banner_lose.png

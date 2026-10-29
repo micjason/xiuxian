@@ -85,6 +85,8 @@ const FX_VARIANTS := {
 @onready var _plate: Node2D = $Plate
 @onready var _plate_spr: Sprite2D = $Plate/Tag
 @onready var _badge: Sprite2D = $Plate/Badge
+@onready var _spawn_smoke: CPUParticles2D = $SpawnSmoke
+@onready var _spawn_ring: Sprite2D = $SpawnRing
 var _mat: ShaderMaterial
 var _mat_normal: ShaderMaterial
 var _mat_tier: ShaderMaterial
@@ -114,6 +116,7 @@ var _feet_y := 0.0
 var _shadow_base := Vector2.ONE
 var _last_flash := -1.0
 var _last_dis := -1.0
+var _spawn_ring_t := 9.0
 
 
 func _ready() -> void:
@@ -299,6 +302,7 @@ func spawn() -> void:
 	_lunge = -1.0
 	_knock = 0.0
 	visible = true
+	_burst_spawn_smoke()
 
 
 ## strength 1 = 普通一刀；大一点更明显（最后一刀用 1.4）。
@@ -340,6 +344,22 @@ func _set_params(fl: float, dis: float) -> void:
 	if absf(dis - _last_dis) > 0.002:
 		_last_dis = dis
 		_mat.set_shader_parameter(P_DISSOLVE, dis)
+
+
+
+## 刷出脚下烟圈：白剪影淡入时扬起轻烟（PLAN §1）。一次性粒子 + 一圈光环，播完停。
+func _burst_spawn_smoke() -> void:
+	var feet := Vector2(0, _feet_y - 2.0)
+	if _spawn_smoke != null:
+		_spawn_smoke.position = feet
+		_spawn_smoke.restart()
+		_spawn_smoke.emitting = true
+	if _spawn_ring != null:
+		_spawn_ring.position = feet
+		_spawn_ring.visible = true
+		_spawn_ring.scale = Vector2(0.25, 0.08)
+		_spawn_ring.modulate.a = 0.95
+		_spawn_ring_t = 0.0
 
 
 func _process(delta: float) -> void:
@@ -416,6 +436,19 @@ func _process(delta: float) -> void:
 		_aura.modulate.a = alpha * (1.0 - dis)
 		_plate.position = Vector2(ox, _plate_y + oy)
 		_plate.modulate.a = alpha * (1.0 - dis)
+	# 刷出烟圈：0.45s 内扩开淡出（和 SPAWNING 时长对齐）
+	if _spawn_ring != null and _spawn_ring_t < 1.0:
+		_spawn_ring_t += delta / 0.45
+		var rp := minf(_spawn_ring_t, 1.0)
+		var re := 1.0 - pow(1.0 - rp, 2.0)
+		_spawn_ring.position = Vector2(ox, _feet_y - 2.0)
+		_spawn_ring.scale = Vector2(0.35 + re * 1.35, 0.12 + re * 0.28)
+		_spawn_ring.modulate.a = (1.0 - rp) * 0.95
+		if rp >= 1.0:
+			_spawn_ring.visible = false
+			_spawn_ring_t = 9.0
+	if _spawn_smoke != null and state != HIDDEN:
+		_spawn_smoke.position = Vector2(ox, _feet_y - 2.0)
 	_set_params(_flash, dis)
 
 

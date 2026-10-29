@@ -5,22 +5,22 @@ extends Node2D
 ## 接法（详见 README）：
 ##   attach(_arena, 主角节点, _boss_art)    —— 一次；首领改由通用怪物模板来画（_boss_art 隐藏，只取贴图）
 ##   play_intro()  → 等 intro_finished      —— 点「开始挑战」后先播登场，再开始计时
-##   on_event(event)                         —— BossFight 的每个事件（我方普攻 / 我方大招 / 首领攻击）
+##   on_event(event)                         —— BossFight 的每个事件（我方普攻 / 自动技能 kind:"ult"(事件名遗留) / 首领攻击）
 ##   play_result(win, reason) → 等 result_finished —— 战斗结束
-##   set_ult_charge(v)                       —— 大招蓄力 0..1（BossFight.ult_charge()），主角脚下聚气环跟着填；蓄满由 BossFight 自动放大招（ult 事件）
+##   set_skill_charge(v) / set_ult_charge(v) —— 自动技能蓄力 0..1（仅表现）；**成鹏定：无手动大招/技能按钮**，蓄满由战斗逻辑自动放技能事件
 ## 主角：页面给的主角是 player_fight*.png 的 TextureRect（或直接给 hero_battle.tscn 实例）时，自动换成主角战斗动画
-## （anim_q/battle_hero：待机呼吸 / 前冲出剑 / 受击闪白击退 / 蓄力聚气 / 大招蓄势 / 失败变灰 / 胜利小跳）。其他主角节点照旧整体位移、染色。
+## （anim_q/battle_hero：待机呼吸 / 前冲出剑 / 受击闪白击退 / 蓄力聚气 / 自动技能蓄势 / 失败变灰 / 胜利小跳）。其他主角节点照旧整体位移、染色。
 ## 首领：不再区分精英 / 章末首领，一律统一首领外观 +「首领来袭」（unified_boss = true；tier 只为兼容保留，被忽略）。
-## 伤害数字 = 事件里的 damage 四舍五入（和战报一致）。只有大招用大号数字和强震屏；数字旁不加任何文字。
+## 伤害数字 = 事件里的 damage 四舍五入（和战报一致）。自动技能用大号数字和强震屏；数字旁不加任何文字、不出现「大招/暴击」按钮文案。
 ## 所有节点预先建好、循环复用；运行时不创建节点、不用 Tween；_process 没有内存分配。
 
 signal intro_finished
 signal result_finished
 signal number_shown(side: String, damage: int)   ## side: "boss"（打在首领身上）/ "hero"（打在主角身上）
-## 大招剑扇真正打中首领的那一刻（ult 事件之后约 ult_impact_delay() 秒）。页面可以等这个信号再扣首领血条，血条和剑同步。
+## 自动技能剑扇真正打中首领的那一刻（技能事件之后约 ult_impact_delay()/skill_impact_delay() 秒）。页面可以等这个信号再扣首领血条。
 signal ult_landed(damage: int)
 
-const ULT_LAUNCH := 0.48    ## 大招：剑扇停留到第一把剑射出的时间
+const ULT_LAUNCH := 0.48    ## 自动技能：剑扇停留到第一把剑射出的时间
 const ULT_STAGGER := 0.05
 const MonsterRig := preload("res://anim_q/battle_idle/monster_rig.gd")
 
@@ -44,8 +44,8 @@ const MonsterRig := preload("res://anim_q/battle_idle/monster_rig.gd")
 ## 页面给的主角是 player_fight*.png 时自动换成主角战斗动画（anim_q/battle_hero/hero_battle.tscn）
 @export var use_hero_rig := true
 @export var shake_light := 5.0      ## 普攻、首领攻击
-@export var shake_medium := 9.0     ## 首领落地
-@export var shake_strong := 16.0    ## 只有大招
+@export var shake_medium := 9.0     ## 预留（登场落地已改用 shake_strong）
+@export var shake_strong := 16.0    ## 自动技能命中
 @export var telegraph_every := 3    ## 每几次首领攻击做一次红圈预警（纯表现，0 = 关闭）
 @export var number_top := 40.0      ## 数字最高到战场顶部往下这么多（血条、名字在战场外面上方）
 
@@ -96,6 +96,8 @@ var _size := Vector2(1032, 799)
 var _t := 0.0
 var _shake := 0.0
 var _shake_amp := 0.0
+var _boss_hp_ratio := 1.0
+var _boss_low_t := 0.0
 var _hero_flash := 0.0
 var _hero_knock := 0.0
 var _hero_lean := 0.0
@@ -271,17 +273,26 @@ func _on_rig_attack_release() -> void:
 	pass
 
 
-## 大招蓄力 0..1（页面刷新大招圆盘时一起调）。learned = false：本境界没学会大招，聚气环不显示。
+## 自动技能蓄力 0..1（遗留名 set_ult_charge）。learned = false：本境界没学会该技能，聚气环不显示。成鹏定：无手动大招/技能按钮。
 func set_ult_charge(v: float, learned: bool = true) -> void:
 	_ult_charge = v
 	if hero_rig != null:
 		hero_rig.set_ult_charge(v, learned)
 
 
+## 自动技能蓄力（推荐名）。set_ult_charge 为遗留名。**不要**接到玩家按钮上。
+func set_skill_charge(v: float, learned: bool = true) -> void:
+	set_ult_charge(v, learned)
+
+
 ## 收到 ult 事件到剑扇打中首领的时间（秒，1 倍速）：主角蓄势 + 剑扇停留 + 依次射出 + 飞行。
 func ult_impact_delay() -> float:
 	var w: float = hero_rig.WINDUP if hero_rig != null else 0.0
 	return w + ULT_LAUNCH + float(maxi(_ult_swords.size() - 1, 0)) * ULT_STAGGER + 0.16
+
+## 自动技能命中延迟（推荐名）。ult_impact_delay 为遗留名。
+func skill_impact_delay() -> float:
+	return ult_impact_delay()
 
 
 ## 换首领图（open_stage 之后调用；会从 _boss_art 取贴图、翻转、颜色）。首领站在原来立绘的位置待机，点开始后 play_intro 跳起再落下。
@@ -312,6 +323,8 @@ func reset() -> void:
 	if hero_rig != null:
 		hero_rig.reset()
 	_intro_t = -1.0
+	_boss_hp_ratio = 1.0
+	_boss_low_t = 0.0
 	_result_t = -1.0
 	_ult_t = -1.0
 	_sw_t = -1.0
@@ -388,7 +401,7 @@ func _sword_home() -> Vector2:
 
 
 # ================================================================ 对外：事件
-## BossFight 的一个事件：{"side": "player"/"boss", "damage": 数值, "kind": "ult"(可选)}。
+## BossFight 的一个事件：{"side": "player"/"boss", "damage": 数值, "kind": "ult"(可选，事件名遗留=自动技能，非手动大招)}。
 func on_event(event: Dictionary) -> void:
 	var dmg := int(round(float(event.get("damage", 0))))
 	var side := str(event.get("side", ""))
@@ -453,6 +466,11 @@ func _on_boss_impact() -> void:
 
 
 # ================================================================ 对外：登场 / 结算
+## 页面刷新首领血量时调用（比例 0~1）。低于 30% 时首领身偶尔冒红光（PLAN §2）。
+func set_boss_hp_ratio(ratio: float) -> void:
+	_boss_hp_ratio = clampf(ratio, 0.0, 1.0)
+
+
 func play_intro() -> void:
 	_layout()
 	_intro_t = 0.0
@@ -825,7 +843,7 @@ func _update_intro(delta: float) -> void:
 		_dust.visible = true
 		_burst.position = Vector2(c.x, _boss_rect.end.y - 30)
 		_burst.restart()
-		_kick_shake(shake_medium, 0.25)
+		_kick_shake(shake_strong, 0.28)  # PLAN §2 落地强震屏
 	if t > 1.3:
 		_dim_target = 0.0
 		_vig_target = 0.0
@@ -914,6 +932,17 @@ func _update_tele(delta: float) -> void:
 
 
 func _update_hero_and_shake(delta: float) -> void:
+	# 首领低血：偶尔冒红光（纯表现，不改数值）
+	if boss != null and boss.visible and _boss_hp_ratio < 0.3 and _boss_hp_ratio > 0.0:
+		_boss_low_t += delta
+		var pulse := 0.0
+		# 每 1.1 秒闪一下，持续 0.22 秒
+		var cycle := fmod(_boss_low_t, 1.1)
+		if cycle < 0.22:
+			pulse = sin(cycle / 0.22 * PI)
+		boss.modulate = Color(1.0, 1.0 - 0.25 * pulse, 1.0 - 0.3 * pulse, 1.0)
+	elif boss != null:
+		boss.modulate = Color.WHITE
 	_hero_flash = move_toward(_hero_flash, 0.0, delta / 0.22)
 	_hero_knock = move_toward(_hero_knock, 0.0, delta / 0.25)
 	_hero_lean = move_toward(_hero_lean, 0.0, delta / 0.3)

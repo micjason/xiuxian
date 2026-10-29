@@ -238,7 +238,7 @@ func center_sub_text() -> String:
 	return _center_sub.text if _center_sub != null else ""
 
 
-## 点页签：即使已在这个页签也发信号（修炼页签下的洞府、历练页签下的首领战要靠它回到主页）。
+## 点页签：即使已在这个页签也发信号（修炼页签下的功法、历练页签下的首领战要靠它回到主页）。
 func _on_pressed(id: String) -> void:
 	select(id, false)
 	page_selected.emit(id)

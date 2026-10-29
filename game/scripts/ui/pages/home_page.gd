@@ -1,7 +1,7 @@
 class_name HomePage
 extends VBoxContainer
 ## 修炼页（Q 版设计稿 q_cultivate）：莲台场景上打坐的主角（背景图自带莲台）、右侧圆形入口
-## 「历练」（副标 = 正在刷的关卡）/「洞府」/「炼丹」（暂未开放）、左下宝箱「+收益」（暂未开放）；
+## 「历练」（副标 = 正在刷的关卡）/「功法」/「炼丹」（暂未开放）、左下宝箱「+收益」（暂未开放）；
 ## 下半薄荷底板上：当前一波的关卡卡（进度 3 段、最近一次击杀、最近掉落）和挂机修炼条。
 ## 「突破」在底栏正中的大圆钮（外壳处理），这里不再放突破按钮。
 ## 只负责显示和发信号。波次进度由服务器每次心跳给出，两次心跳之间按本地经过的秒数推进（只影响显示）。
@@ -21,7 +21,7 @@ var _ring: TextureRect
 var _adventure: Button
 var _adventure_caption: Label
 var _adventure_dot: Control
-var _cave: Button
+var _skill: Button
 var _alchemy: Button
 var _chest: Button
 var _wave_title: Label
@@ -121,12 +121,12 @@ func _build_side_entries() -> void:
 	chip.position = Vector2(906, 586) - ORIGIN
 	chip.custom_minimum_size = Vector2(168, 44)
 	_hero.add_child(chip)
-	var cave := QKit.side_button("side_cave", "洞府")
-	cave.root.name = "CaveEntry"
-	_cave = cave.button
-	_cave.name = "CaveButton"
-	_cave.pressed.connect(func() -> void: page_requested.emit("cave"))
-	_place_side(cave.root, 670)
+	var skills := QKit.side_button("tab_skill", "功法")
+	skills.root.name = "SkillEntry"
+	_skill = skills.button
+	_skill.name = "SkillButton"
+	_skill.pressed.connect(func() -> void: page_requested.emit("skill"))
+	_place_side(skills.root, 670)
 	var alchemy := QKit.side_button("side_alchemy", "炼丹")
 	alchemy.root.name = "AlchemyEntry"
 	_alchemy = alchemy.button
@@ -263,8 +263,8 @@ func adventure_button() -> Button:
 	return _adventure
 
 
-func cave_button() -> Button:
-	return _cave
+func skill_button() -> Button:
+	return _skill
 
 
 func alchemy_button() -> Button:

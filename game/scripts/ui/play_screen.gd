@@ -1,8 +1,8 @@
 extends Control
 ## 游戏主界面外壳（Q 版）：背景、顶部栏（头像/境界/战力/货币/修为）、底部五格（修炼 / 历练 /【突破】/ 洞府 / 背包）、
 ## 页面、通用弹层、离线收益弹窗、突破成功弹窗、登录层。
-## 底栏正中的「突破」大圆钮打开境界突破弹窗（居中弹出，盖在当前页上）；修炼页右侧「洞府」入口进洞府页；
-## 历练页「挑战」→ 首领战界面。洞府 / 首领战不占页签，分别高亮「修炼」「历练」。
+## 底栏正中的「突破」大圆钮打开境界突破弹窗（居中弹出，盖在当前页上）；底栏「洞府」进洞府总览；
+## 修炼页右侧「功法」入口进功法页。历练页「挑战」→ 首领战界面。功法 / 首领战不占页签，分别高亮「修炼」「历练」。
 ## 界面全部由代码搭建，美术来自 ArtLib（res://assets/art/）；main.tscn 里的旧节点保留但隐藏
 ## （场景测试按名字检查它们），数据和操作由这里统一处理：真实模式走 PlayerApi，演示模式走 UiMock。
 ## 前台心跳：定时拉 /me/state（服务器据此判在线、结算击杀与掉落）；应用切到后台就停，回前台立刻补一次。
@@ -25,8 +25,8 @@ const PAGE_BACKGROUNDS := {
 	PAGE_SKILL: "",
 	PAGE_CAVE: "character",
 }
-## 不在页签里的页面 → 高亮哪个页签（都算「修炼」）。
-const TAB_OF := {PAGE_BATTLE: PAGE_ADVENTURE, PAGE_CAVE: PAGE_CULTIVATE}
+## 不在页签里的页面 → 高亮哪个页签。
+const TAB_OF := {PAGE_BATTLE: PAGE_ADVENTURE, PAGE_SKILL: PAGE_CULTIVATE}
 ## 顶栏第二行（修为条）只在这些页显示（设计稿：修炼、功法）。
 const PAGES_WITH_CULTIVATION := [PAGE_CULTIVATE, PAGE_SKILL]
 ## 心跳：服务器 onlineGapSeconds（默认 15 秒）内有请求才算在线，所以间隔要比它短。
@@ -275,7 +275,7 @@ func _build_shell() -> void:
 		{"id": PAGE_CULTIVATE, "name": "修炼", "icon": "tab_cultivate"},
 		{"id": PAGE_ADVENTURE, "name": "历练", "icon": "tab_adventure"},
 		{"id": PAGE_BREAKTHROUGH, "name": "突破", "center": true},
-		{"id": PAGE_SKILL, "name": "洞府", "icon": "tab_skill"},
+		{"id": PAGE_CAVE, "name": "洞府", "icon": "tab_cave"},
 		{"id": PAGE_BAG, "name": "背包", "icon": "tab_bag"},
 	] as Array[Dictionary], PAGE_CULTIVATE)
 	_tab_bar.page_selected.connect(_show_page)
@@ -696,7 +696,7 @@ func _update_dots() -> void:
 			fresh = true
 	_tab_bar.set_dot(PAGE_BAG, fresh or not EquipModel.best_upgrades(bag).is_empty())
 	_tab_bar.set_full(PAGE_BAG, bag.is_full())  # 第五批 §17.5：满包时红点换 badge_full
-	_tab_bar.set_dot(PAGE_SKILL, false)
+	_tab_bar.set_dot(PAGE_CAVE, false)
 
 
 func _item_ids() -> Array:

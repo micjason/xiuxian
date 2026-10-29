@@ -217,7 +217,7 @@ func test_stage_page_power_status_uses_text_and_symbol() -> void:
 		assert_ne(str(level.symbol), "", "不能只靠颜色表达状态")
 
 
-const TABS := ["cultivate", "adventure", "skill", "bag"]
+const TABS := ["cultivate", "adventure", "cave", "bag"]
 
 
 func test_main_scene_in_mock_mode_builds_the_five_slot_shell() -> void:
@@ -244,6 +244,10 @@ func test_main_scene_in_mock_mode_builds_the_five_slot_shell() -> void:
 			if other != page:
 				assert_false((scene.get("_pages")[other] as Control).visible, "%s 只显示当前页" % other)
 	assert_false((scene.get_node("%BagPage") as Control).visible, "旧版节点保持隐藏")
+	scene.call("_show_page", "skill")
+	await get_tree().process_frame
+	assert_true((scene.get("_pages")["skill"] as Control).visible, "功法页仍可从页 id 打开")
+	assert_false((scene.get("_pages")["cave"] as Control).visible)
 
 
 func test_tab_bar_dots_and_selection() -> void:

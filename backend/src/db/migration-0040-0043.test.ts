@@ -47,9 +47,7 @@ async function legacyWorld(db: TestDb) {
   await db.update(contentRealms).set({ requiredStageSlug: "lianqi_3" }).where(eq(contentRealms.slug, "lianqi_3"));
   await db.update(contentRealms).set({ requiredStageSlug: "zhuji_3" }).where(eq(contentRealms.slug, "zhuji_3"));
   await db.update(contentStages).set({ chapterSlug: null, nextStageSlug: null });
-  // 只串原 9 关 next
-  const order = [...ORIGIN_STAGE_SLUGS];
-  // preserve sort by slug order of origin list
+  // 只串原 9 关 next（按 origin 列表顺序）
   const originOrder = ["lianqi_1", "lianqi_2", "lianqi_3", "zhuji_1", "zhuji_2", "zhuji_3", "jindan_1", "jindan_2", "jindan_3"];
   for (let i = 0; i < originOrder.length; i += 1) {
     await db.update(contentStages).set({ nextStageSlug: originOrder[i + 1] ?? null }).where(eq(contentStages.slug, originOrder[i]!));

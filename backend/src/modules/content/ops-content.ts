@@ -416,7 +416,7 @@ function readRecommendedPower(value: unknown): number | null | undefined {
 function stageView(
   row: typeof contentStages.$inferSelect,
   realms: { slug: string; displayName: string; sortOrder: number }[],
-  items: { slug: string; displayName: string; quality?: string; slot?: string | null; origin?: string; iconKey?: string }[],
+  items: { slug: string; displayName: string; quality?: string; slot?: string | null; origin?: string; iconKey?: string; kind?: string | null }[],
   skills: { slug: string; displayName: string }[],
   power: StagePowerView,
   tuning: Tuning,

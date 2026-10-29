@@ -19,13 +19,13 @@
           </template>
         </el-table-column>
         <el-table-column label="概率" width="140">
-          <template #default="{ row }"><NumInput v-model="row.chancePercent" :width="110" unit="%" :precision="2" :min="0" :max="100" /></template>
+          <template #default="{ row }"><NumInput v-model="row.chancePercent" :width="120" unit="%" :precision="2" :min="0" :max="100" /></template>
         </el-table-column>
         <el-table-column label="最少" width="110">
-          <template #default="{ row }"><NumInput v-model="row.minCount" :width="80" :precision="0" :min="1" :max="99" /></template>
+          <template #default="{ row }"><NumInput v-model="row.minCount" :width="88" :precision="0" :min="1" :max="99" /></template>
         </el-table-column>
         <el-table-column label="最多" width="110">
-          <template #default="{ row }"><NumInput v-model="row.maxCount" :width="80" :precision="0" :min="1" :max="99" /></template>
+          <template #default="{ row }"><NumInput v-model="row.maxCount" :width="88" :precision="0" :min="1" :max="99" /></template>
         </el-table-column>
         <el-table-column width="70">
           <template #default="{ $index }"><el-button link type="danger" @click="rows.splice($index, 1)">删除</el-button></template>

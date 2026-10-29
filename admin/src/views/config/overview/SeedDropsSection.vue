@@ -20,10 +20,10 @@
           <template #default="{ row }"><NumInput v-model="row.chancePercent" :width="120" unit="%" :precision="2" :min="0" :max="100" /></template>
         </el-table-column>
         <el-table-column label="最少" width="120">
-          <template #default="{ row }"><NumInput v-model="row.minCount" :width="90" unit="个" :precision="0" :min="1" :max="99" /></template>
+          <template #default="{ row }"><NumInput v-model="row.minCount" :width="88" unit="个" :precision="0" :min="1" :max="99" /></template>
         </el-table-column>
         <el-table-column label="最多" width="120">
-          <template #default="{ row }"><NumInput v-model="row.maxCount" :width="90" unit="个" :precision="0" :min="row.minCount || 1" :max="99" /></template>
+          <template #default="{ row }"><NumInput v-model="row.maxCount" :width="88" unit="个" :precision="0" :min="row.minCount || 1" :max="99" /></template>
         </el-table-column>
         <el-table-column width="70">
           <template #default="{ $index }"><el-button link type="danger" @click="rows.splice($index, 1)">删除</el-button></template>

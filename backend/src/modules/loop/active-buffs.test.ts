@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
-import { contentItems, playerActiveBuffs, playerItems, playerStates, players } from "../../db/schema.js";
+import { contentItems, playerItems, playerStates, players } from "../../db/schema.js";
 import { applyPrototypeV12 } from "../content/prototype-v12.js";
 import { loadDraftSnapshot } from "../content/snapshot.js";
 import { withDb } from "../../test/db.js";
@@ -21,8 +21,6 @@ async function ensureBuffSchema(db: Parameters<Parameters<typeof withDb>[0]>[0])
 
 describe("active buffs (临时属性丹)", () => {
   it("sums same-stat buffBp and multiplies combat attack/defense", () => {
-    const base = { attack: 100, defense: 50, hp: 200, speed: 10, interval: 1.5, power: 1000, bonusBp: 0 };
-    // fake world with rules — applyBuffsToStats needs readGameRules; use minimal via applyPrototype in db test below
     expect(sumActiveBuffs([
       { id: "1", buffStat: "attack", buffBp: 1000, startedAt: start, expiresAt: start, sourceItemSlug: "pill_atk_temp" },
       { id: "2", buffStat: "attack", buffBp: 500, startedAt: start, expiresAt: start, sourceItemSlug: "pill_atk_temp" },

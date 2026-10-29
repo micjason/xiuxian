@@ -62,6 +62,20 @@ static func candidates_for(bag: BagModel, slot_id: String) -> Array[Dictionary]:
 	return out
 
 
+## 洞府强化入口预选：已穿戴、还能强化的装备。按核心部位顺序取第一件（武器优先）。
+## 到上限、卡在突破节点、没穿上的都不预选。没有则返回空字符串。
+static func worn_enhance_target(bag: BagModel) -> String:
+	if bag == null:
+		return ""
+	var slots := slots_of(bag)
+	for slot in SlotConfig.core():
+		var item: Dictionary = slots.get(str(slot.get("id", "")), {})
+		if item.is_empty() or not BagModel.can_enhance(item):
+			continue
+		return str(item.get("id", ""))
+	return ""
+
+
 ## 「一键穿戴」：每个核心部位里战力比身上更高的最强候选，返回物品 id 列表（没有更强的部位不动）。
 static func best_upgrades(bag: BagModel) -> Array[String]:
 	var out: Array[String] = []

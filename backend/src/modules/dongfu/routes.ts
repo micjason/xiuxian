@@ -2,7 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { AppError } from "../../shared/errors.js";
 import type { Db } from "../operations/record.js";
 import { withIdempotency } from "../loop/actions.js";
-import { claimAlchemy, claimGarden, plantSeed, startAlchemy } from "./actions.js";
+import { allocateServants, claimAlchemy, claimGarden, plantSeed, startAlchemy, upgradeFacility } from "./actions.js";
 
 function idempotencyKey(header: string | string[] | undefined): string {
   const key = Array.isArray(header) ? header[0] : header;
@@ -46,6 +46,28 @@ export async function registerDongfuRoutes(
     }
     return withIdempotency(deps.db, playerId, idempotencyKey(request.headers["idempotency-key"]), "dongfu-alchemy-start", deps.now(), (tx, world) =>
       startAlchemy(tx, world, playerId, { recipeSlug: body.recipeSlug as string }, deps.now()),
+    );
+  });
+
+  app.post("/me/dongfu/allocate", async (request) => {
+    const playerId = request.actor!.actorId;
+    const body = (request.body ?? {}) as { garden?: unknown; alchemy?: unknown };
+    if (!Number.isInteger(body.garden) || !Number.isInteger(body.alchemy)) {
+      throw new AppError("INVALID_INPUT", "请填写药园和炼丹的灵仆数量");
+    }
+    return withIdempotency(deps.db, playerId, idempotencyKey(request.headers["idempotency-key"]), "dongfu-allocate", deps.now(), (tx, world) =>
+      allocateServants(tx, world, playerId, { garden: body.garden as number, alchemy: body.alchemy as number }, deps.now()),
+    );
+  });
+
+  app.post("/me/dongfu/upgrade", async (request) => {
+    const playerId = request.actor!.actorId;
+    const body = (request.body ?? {}) as { facility?: unknown };
+    if (body.facility !== "garden" && body.facility !== "alchemy") {
+      throw new AppError("INVALID_INPUT", "请选择要升级的药园或炼丹");
+    }
+    return withIdempotency(deps.db, playerId, idempotencyKey(request.headers["idempotency-key"]), "dongfu-upgrade", deps.now(), (tx, world) =>
+      upgradeFacility(tx, world, playerId, body.facility as "garden" | "alchemy", deps.now()),
     );
   });
 

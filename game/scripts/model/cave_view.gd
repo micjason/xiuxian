@@ -65,7 +65,20 @@ static func bag_count(state: Dictionary, slug: String) -> int:
 	return total
 
 
-## 总视图：{ available, plotCount, alchemyQueueLength, claimable, cards, plots, alchemy, recipes, seeds }
+static func _factor(data: Dictionary, key: String) -> float:
+	var scale: Variant = data.get("timeScale", {})
+	if typeof(scale) != TYPE_DICTIONARY:
+		return 1.0
+	return clampf(float((scale as Dictionary).get(key, 1.0)), 0.01, 1.0)
+
+
+static func _scaled_seconds(base: int, factor: float) -> int:
+	if base <= 0:
+		return 0
+	return maxi(1, int(ceil(float(base) * factor)))
+
+
+## 总视图：洞府三卡 + 灵仆分配 + 设施升级。
 static func build(state: Dictionary, content: Dictionary, now_unix: float = -1.0) -> Dictionary:
 	var dongfu: Variant = state.get("dongfu", null)
 	var cfg := config_of(content)
@@ -75,11 +88,17 @@ static func build(state: Dictionary, content: Dictionary, now_unix: float = -1.0
 			"plotCount": 0,
 			"alchemyQueueLength": 0,
 			"claimable": {"plots": 0, "alchemy": 0},
-			"cards": _cards(false, {"plots": 0, "alchemy": 0}, [], []),
+			"cards": _cards(false, {"plots": 0, "alchemy": 0}, [], [], {}),
 			"plots": [],
 			"alchemy": [],
 			"recipes": [],
 			"seeds": [],
+			"allocation": {"garden": 0, "alchemy": 0},
+			"servantTotal": 0,
+			"woodCount": 0,
+			"woodName": "灵木",
+			"timeScale": {"garden": 1.0, "alchemy": 1.0},
+			"upgrades": {},
 			"hint": "洞府配置尚未发布" if cfg.is_empty() else "暂无洞府数据",
 		}
 	var data := dongfu as Dictionary
@@ -90,6 +109,11 @@ static func build(state: Dictionary, content: Dictionary, now_unix: float = -1.0
 	var alchemy := _alchemy(alchemy_raw, content, now_unix)
 	var seeds_cfg: Array = cfg.get("seeds", []) if typeof(cfg.get("seeds", [])) == TYPE_ARRAY else []
 	var recipes_cfg: Array = cfg.get("recipes", []) if typeof(cfg.get("recipes", [])) == TYPE_ARRAY else []
+	var allocation: Dictionary = data.get("allocation", {}) if typeof(data.get("allocation", {})) == TYPE_DICTIONARY else {}
+	var upgrades: Dictionary = data.get("upgrades", {}) if typeof(data.get("upgrades", {})) == TYPE_DICTIONARY else {}
+	var garden_factor := _factor(data, "garden")
+	var alchemy_factor := _factor(data, "alchemy")
+	var wood_slug := str(data.get("woodItemSlug", "wood_lingmu"))
 	return {
 		"available": true,
 		"plotCount": int(data.get("plotCount", plots.size())),
@@ -98,16 +122,27 @@ static func build(state: Dictionary, content: Dictionary, now_unix: float = -1.0
 			"plots": int(claimable.get("plots", 0)),
 			"alchemy": int(claimable.get("alchemy", 0)),
 		},
-		"cards": _cards(true, claimable, plots, alchemy),
+		"cards": _cards(true, claimable, plots, alchemy, upgrades),
 		"plots": plots,
 		"alchemy": alchemy,
-		"recipes": _recipes(recipes_cfg, state, content),
-		"seeds": _seeds(seeds_cfg, state, content),
+		"recipes": _recipes(recipes_cfg, state, content, alchemy_factor),
+		"seeds": _seeds(seeds_cfg, state, content, garden_factor),
+		"allocation": {
+			"garden": int(allocation.get("garden", 0)),
+			"alchemy": int(allocation.get("alchemy", 0)),
+		},
+		"servantTotal": int(data.get("servantTotal", 0)),
+		"gardenLevel": int(data.get("gardenLevel", 1)),
+		"alchemyLevel": int(data.get("alchemyLevel", 1)),
+		"woodCount": int(data.get("woodCount", bag_count(state, wood_slug))),
+		"woodName": item_name(content, wood_slug) if not wood_slug.is_empty() else "灵木",
+		"timeScale": {"garden": garden_factor, "alchemy": alchemy_factor},
+		"upgrades": upgrades,
 		"hint": "",
 	}
 
 
-static func _cards(available: bool, claimable: Dictionary, plots: Array, alchemy: Array) -> Array[Dictionary]:
+static func _cards(available: bool, claimable: Dictionary, plots: Array, alchemy: Array, upgrades: Dictionary) -> Array[Dictionary]:
 	var growing := 0
 	for plot in plots:
 		if str((plot as Dictionary).get("status", "")) == "growing":
@@ -124,16 +159,24 @@ static func _cards(available: bool, claimable: Dictionary, plots: Array, alchemy
 		var subtitle := str(spec.blurb)
 		var ready := 0
 		var progress := 0
+		var can_upgrade := false
+		var facility: Variant = upgrades.get(id, {})
+		if typeof(facility) == TYPE_DICTIONARY:
+			can_upgrade = bool((facility as Dictionary).get("canUpgrade", false))
 		if id == "garden":
 			ready = plot_ready
 			progress = growing
 			if available:
 				subtitle = ("可领取 %d" % ready) if ready > 0 else (("种植中 %d" % progress) if progress > 0 else "空闲可种植")
+				if can_upgrade:
+					subtitle = "%s · 可升级" % subtitle
 		elif id == "alchemy":
 			ready = alchemy_ready
 			progress = crafting
 			if available:
 				subtitle = ("可领取 %d" % ready) if ready > 0 else (("炼制中 %d" % progress) if progress > 0 else "空闲可炼丹")
+				if can_upgrade:
+					subtitle = "%s · 可升级" % subtitle
 		out.append({
 			"id": id,
 			"name": str(spec.name),
@@ -141,6 +184,7 @@ static func _cards(available: bool, claimable: Dictionary, plots: Array, alchemy
 			"blurb": str(spec.blurb),
 			"subtitle": subtitle,
 			"claimable": ready,
+			"can_upgrade": can_upgrade,
 			"in_progress": progress,
 			"available": available or id == "enhance",
 		})
@@ -206,7 +250,7 @@ static func _alchemy(rows: Array, content: Dictionary, now_unix: float) -> Array
 	return out
 
 
-static func _seeds(rows: Array, state: Dictionary, content: Dictionary) -> Array[Dictionary]:
+static func _seeds(rows: Array, state: Dictionary, content: Dictionary, factor: float = 1.0) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	for row in rows:
 		if typeof(row) != TYPE_DICTIONARY:
@@ -217,7 +261,8 @@ static func _seeds(rows: Array, state: Dictionary, content: Dictionary) -> Array
 		out.append({
 			"seedSlug": slug,
 			"herbSlug": str(seed.get("herbSlug", "")),
-			"growSeconds": int(seed.get("growSeconds", 0)),
+			"growSeconds": _scaled_seconds(int(seed.get("growSeconds", 0)), factor),
+			"baseGrowSeconds": int(seed.get("growSeconds", 0)),
 			"name": item_name(content, slug),
 			"herbName": item_name(content, str(seed.get("herbSlug", ""))),
 			"have": have,
@@ -226,7 +271,7 @@ static func _seeds(rows: Array, state: Dictionary, content: Dictionary) -> Array
 	return out
 
 
-static func _recipes(rows: Array, state: Dictionary, content: Dictionary) -> Array[Dictionary]:
+static func _recipes(rows: Array, state: Dictionary, content: Dictionary, factor: float = 1.0) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	for row in rows:
 		if typeof(row) != TYPE_DICTIONARY:
@@ -254,7 +299,8 @@ static func _recipes(rows: Array, state: Dictionary, content: Dictionary) -> Arr
 			"outputItemSlug": output,
 			"outputName": item_name(content, output),
 			"outputQty": int(recipe.get("outputQty", 1)),
-			"craftSeconds": int(recipe.get("craftSeconds", 0)),
+			"craftSeconds": _scaled_seconds(int(recipe.get("craftSeconds", 0)), factor),
+			"baseCraftSeconds": int(recipe.get("craftSeconds", 0)),
 			"spiritStones": stones,
 			"costs": costs,
 			"canCraft": can_craft,

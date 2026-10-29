@@ -28,7 +28,7 @@ export async function saveDongfuConfig(db: Db, input: unknown, adminId: string |
   const needed = dongfuReferencedItemSlugs(config);
   if (needed.length > 0) {
     const items = await db
-      .select({ slug: contentItems.slug, kind: contentItems.kind, enabled: contentItems.enabled })
+      .select({ slug: contentItems.slug, kind: contentItems.kind, enabled: contentItems.enabled, stackable: contentItems.stackable })
       .from(contentItems)
       .where(inArray(contentItems.slug, needed));
     const bySlug = new Map(items.map((item) => [item.slug, item]));
@@ -41,6 +41,10 @@ export async function saveDongfuConfig(db: Db, input: unknown, adminId: string |
       if (out && out.kind !== "pill" && out.kind !== "material") {
         throw new AppError("INVALID_INPUT", `配方产出 ${recipe.outputItemSlug} 必须是丹药或材料`);
       }
+    }
+    const wood = bySlug.get(config.woodItemSlug);
+    if (wood && (!wood.stackable || (wood.kind !== "material" && wood.kind !== "pill"))) {
+      throw new AppError("INVALID_INPUT", `灵木 ${config.woodItemSlug} 必须是可堆叠材料`);
     }
   }
 

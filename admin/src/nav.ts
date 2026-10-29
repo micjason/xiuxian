@@ -60,8 +60,8 @@ export const navTree: NavGroup[] = [
       {
         path: "/config/dongfu",
         label: "洞府",
-        desc: "药园地块、种子、炼丹队列与配方（globals.dongfu）",
-        keywords: "洞府 药园 炼丹 种子 配方 地块",
+        desc: "药园、炼丹、灵仆分配与设施升级（globals.dongfu）",
+        keywords: "洞府 药园 炼丹 种子 配方 地块 灵仆 灵木 升级 分配",
         isNew: true,
       },
     ],

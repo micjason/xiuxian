@@ -118,9 +118,97 @@ func _render_overview() -> void:
 		var hint := UiKit.label(str(_view.get("hint", "洞府配置尚未发布")), UiTokens.FS_BODY, UiTokens.TEXT_MUTED, HORIZONTAL_ALIGNMENT_CENTER)
 		hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		_body.add_child(hint)
+	else:
+		_body.add_child(_allocation_panel())
+		_body.add_child(_upgrade_row("garden"))
+		_body.add_child(_upgrade_row("alchemy"))
 	_body.add_child(UiKit.label("经营设施", UiTokens.FS_MICRO, UiTokens.TEXT_MUTED))
 	for card in _view.get("cards", []):
 		_body.add_child(_facility_card(card as Dictionary))
+
+
+func _allocation_panel() -> Control:
+	var box := UiKit.vbox(8)
+	box.name = "ServantAllocation"
+	var alloc: Dictionary = _view.get("allocation", {}) if typeof(_view.get("allocation", {})) == TYPE_DICTIONARY else {}
+	var garden := int(alloc.get("garden", 0))
+	var alchemy := int(alloc.get("alchemy", 0))
+	var total := int(_view.get("servantTotal", 0))
+	var idle := maxi(0, total - garden - alchemy)
+	var scale: Dictionary = _view.get("timeScale", {}) if typeof(_view.get("timeScale", {})) == TYPE_DICTIONARY else {}
+	var garden_pct := int(round(float(scale.get("garden", 1.0)) * 100.0))
+	var alchemy_pct := int(round(float(scale.get("alchemy", 1.0)) * 100.0))
+	box.add_child(QKit.title("灵仆", 36, UiTokens.TEXT))
+	box.add_child(UiKit.label("共 %d · 闲置 %d · %s ×%d" % [total, idle, str(_view.get("woodName", "灵木")), int(_view.get("woodCount", 0))], UiTokens.FS_MICRO, UiTokens.TEXT_MUTED))
+	box.add_child(UiKit.label("成熟时长 %d%% · 炼制时长 %d%%" % [garden_pct, alchemy_pct], UiTokens.FS_MICRO, UiTokens.TEXT_MUTED))
+	box.add_child(_alloc_row("药园", "garden", garden, idle))
+	box.add_child(_alloc_row("炼丹", "alchemy", alchemy, idle))
+	return box
+
+
+func _alloc_row(title: String, key: String, value: int, idle: int) -> Control:
+	var row := UiKit.hbox(10)
+	var label := UiKit.label("%s %d" % [title, value], UiTokens.FS_BODY, UiTokens.TEXT)
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(label)
+	var minus := QKit.button("-", "m", 48, 32)
+	minus.name = "AllocMinus_%s" % key
+	minus.custom_minimum_size = Vector2(88, 72)
+	minus.disabled = value <= 0
+	minus.pressed.connect(func() -> void: _shift_allocation(key, -1))
+	row.add_child(minus)
+	var plus := QKit.button("+", "o", 48, 32)
+	plus.name = "AllocPlus_%s" % key
+	plus.custom_minimum_size = Vector2(88, 72)
+	plus.disabled = idle <= 0
+	plus.pressed.connect(func() -> void: _shift_allocation(key, 1))
+	row.add_child(plus)
+	return row
+
+
+func _shift_allocation(key: String, delta: int) -> void:
+	var alloc: Dictionary = _view.get("allocation", {}) if typeof(_view.get("allocation", {})) == TYPE_DICTIONARY else {}
+	var garden := int(alloc.get("garden", 0))
+	var alchemy := int(alloc.get("alchemy", 0))
+	if key == "garden":
+		garden += delta
+	else:
+		alchemy += delta
+	action_requested.emit("dongfu_allocate", {"garden": garden, "alchemy": alchemy})
+
+
+func _upgrade_row(facility: String) -> Control:
+	var upgrades: Dictionary = _view.get("upgrades", {}) if typeof(_view.get("upgrades", {})) == TYPE_DICTIONARY else {}
+	var row_data: Dictionary = upgrades.get(facility, {}) if typeof(upgrades.get(facility, {})) == TYPE_DICTIONARY else {}
+	var wrap := UiKit.hbox(10)
+	wrap.name = "UpgradeRow_%s" % facility
+	var level := int(row_data.get("level", 1))
+	var next: Variant = row_data.get("next", null)
+	var title := "药园" if facility == "garden" else "炼丹"
+	var effect_name := "地块" if facility == "garden" else "队列"
+	var text := "%s %d 级" % [title, level]
+	if typeof(next) == TYPE_DICTIONARY:
+		var nxt := next as Dictionary
+		var cost := "%s ×%d" % [str(_view.get("woodName", "灵木")), int(nxt.get("wood", 0))]
+		if int(nxt.get("spiritStones", 0)) > 0:
+			cost = "%s · 灵石 ×%d" % [cost, int(nxt.get("spiritStones", 0))]
+		text = "%s · 下一级 %s +%d（%s）" % [text, effect_name, int(nxt.get("bonus", 1)), cost]
+	else:
+		text = "%s · 已满级" % text
+	var reason := str(row_data.get("reason", ""))
+	if not bool(row_data.get("canUpgrade", false)) and reason != "" and typeof(next) == TYPE_DICTIONARY:
+		text = "%s · %s" % [text, reason]
+	var label := UiKit.label(text, UiTokens.FS_MICRO, UiTokens.TEXT_MUTED)
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	wrap.add_child(label)
+	var button := QKit.button("升级", "o", 72, 32)
+	button.name = "Upgrade_%s" % facility
+	button.custom_minimum_size = Vector2(160, 72)
+	button.disabled = not bool(row_data.get("canUpgrade", false))
+	button.pressed.connect(func() -> void: action_requested.emit("dongfu_upgrade", {"facility": facility}))
+	wrap.add_child(button)
+	return wrap
 
 
 func _facility_card(card: Dictionary) -> Control:
@@ -140,7 +228,7 @@ func _facility_card(card: Dictionary) -> Control:
 	var head := UiKit.hbox(10)
 	info.add_child(head)
 	head.add_child(QKit.title(str(card.get("name", "")), 40, UiTokens.TEXT))
-	if int(card.get("claimable", 0)) > 0:
+	if int(card.get("claimable", 0)) > 0 or bool(card.get("can_upgrade", false)):
 		var dot := QKit.reddot(34)
 		dot.name = "ClaimDot"
 		head.add_child(dot)
@@ -179,7 +267,8 @@ func _render_garden() -> void:
 	var claimable := int((_view.get("claimable", {}) as Dictionary).get("plots", 0))
 	var top := UiKit.hbox(12)
 	_body.add_child(top)
-	var note := UiKit.label("地块 %d · 成熟后领取入行囊" % int(_view.get("plotCount", 0)), UiTokens.FS_MICRO, UiTokens.TEXT_MUTED)
+	var garden_pct := int(round(float((_view.get("timeScale", {}) as Dictionary).get("garden", 1.0)) * 100.0))
+	var note := UiKit.label("地块 %d · 成熟时长 %d%%" % [int(_view.get("plotCount", 0)), garden_pct], UiTokens.FS_MICRO, UiTokens.TEXT_MUTED)
 	note.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top.add_child(note)
 	var claim_all := QKit.button("一键领取", "o", 72, 32)
@@ -188,6 +277,7 @@ func _render_garden() -> void:
 	claim_all.disabled = claimable <= 0
 	claim_all.pressed.connect(func() -> void: action_requested.emit("garden_claim", {}))
 	top.add_child(claim_all)
+	_body.add_child(_upgrade_row("garden"))
 
 	for plot in _view.get("plots", []):
 		_body.add_child(_plot_row(plot as Dictionary))
@@ -277,7 +367,8 @@ func _render_alchemy() -> void:
 	var claimable := int((_view.get("claimable", {}) as Dictionary).get("alchemy", 0))
 	var top := UiKit.hbox(12)
 	_body.add_child(top)
-	var note := UiKit.label("队列 %d/%d" % [jobs.size(), queue_len], UiTokens.FS_MICRO, UiTokens.TEXT_MUTED)
+	var alchemy_pct := int(round(float((_view.get("timeScale", {}) as Dictionary).get("alchemy", 1.0)) * 100.0))
+	var note := UiKit.label("队列 %d/%d · 炼制时长 %d%%" % [jobs.size(), queue_len, alchemy_pct], UiTokens.FS_MICRO, UiTokens.TEXT_MUTED)
 	note.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top.add_child(note)
 	var claim_all := QKit.button("一键领取", "o", 72, 32)
@@ -286,6 +377,7 @@ func _render_alchemy() -> void:
 	claim_all.disabled = claimable <= 0
 	claim_all.pressed.connect(func() -> void: action_requested.emit("alchemy_claim", {}))
 	top.add_child(claim_all)
+	_body.add_child(_upgrade_row("alchemy"))
 
 	_body.add_child(QKit.title("炼制中", 34, UiTokens.TEXT))
 	if jobs.is_empty():

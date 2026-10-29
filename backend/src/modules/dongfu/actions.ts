@@ -4,6 +4,7 @@
  */
 import { and, eq, isNull, sql } from "drizzle-orm";
 import {
+  playerDongfu,
   playerDongfuAlchemy,
   playerDongfuPlots,
   playerItems,
@@ -15,7 +16,8 @@ import type { ContentSnapshot } from "../content/validate.js";
 import { applyActiveBuff } from "../loop/active-buffs.js";
 import { addStack, stackCount, takeStack } from "../loop/bag.js";
 import { readGameRules } from "../content/rules.js";
-import { recipeOf, requireDongfu, seedOf, type DongfuConfig, type DongfuRecipeConfig } from "./config.js";
+import { recipeOf, requireDongfu, seedOf, type DongfuConfig, type DongfuRecipeConfig, type DongfuUpgradeTier } from "./config.js";
+import { durationFactor, effectiveDurationMs, facilitySize, rescaleReadyAt, upgradeOffer } from "./pace.js";
 
 type World = ContentSnapshot & { version: number };
 
@@ -38,13 +40,31 @@ export type DongfuAlchemyDto = {
   outputQty: number;
 };
 
+export type DongfuUpgradeDto = {
+  level: number;
+  canUpgrade: boolean;
+  reason: string;
+  next: DongfuUpgradeTier | null;
+};
+
 export type DongfuStateDto = {
   plotCount: number;
   alchemyQueueLength: number;
   plots: DongfuPlotDto[];
   alchemy: DongfuAlchemyDto[];
   claimable: { plots: number; alchemy: number };
+  allocation: { garden: number; alchemy: number };
+  servantTotal: number;
+  gardenLevel: number;
+  alchemyLevel: number;
+  woodItemSlug: string;
+  woodCount: number;
+  /** 相对原时长的系数，1 = 不加速。 */
+  timeScale: { garden: number; alchemy: number };
+  upgrades: { garden: DongfuUpgradeDto; alchemy: DongfuUpgradeDto };
 };
+
+type DongfuProgress = typeof playerDongfu.$inferSelect;
 
 function iso(value: Date | null | undefined): string | null {
   return value ? value.toISOString() : null;
@@ -68,13 +88,102 @@ function recipeOutput(config: DongfuConfig, recipeSlug: string): Pick<DongfuReci
   return { outputItemSlug: recipe.outputItemSlug, outputQty: recipe.outputQty };
 }
 
-/** 组装 state.dongfu（按 now 结算状态，不改库）。 */
+async function ensureProgress(tx: Tx, config: DongfuConfig, playerId: string, now: Date): Promise<DongfuProgress> {
+  const [existing] = await tx.select().from(playerDongfu).where(eq(playerDongfu.playerId, playerId)).limit(1);
+  if (existing?.woodGranted) return existing;
+  if (!existing) {
+    await tx
+      .insert(playerDongfu)
+      .values({
+        playerId,
+        servantTotal: config.startingServants,
+        gardenAllocation: 0,
+        alchemyAllocation: 0,
+        gardenLevel: 1,
+        alchemyLevel: 1,
+        woodGranted: false,
+      })
+      .onConflictDoNothing();
+  }
+  const [row] = await tx.select().from(playerDongfu).where(eq(playerDongfu.playerId, playerId)).limit(1);
+  if (!row) throw new AppError("NOT_FOUND");
+  if (row.woodGranted) return row;
+  if (config.startingWood > 0) {
+    await addStack(tx, playerId, config.woodItemSlug, config.startingWood, "dongfu_starter", now);
+  }
+  await tx.update(playerDongfu).set({ woodGranted: true }).where(eq(playerDongfu.playerId, playerId));
+  return { ...row, woodGranted: true };
+}
+
+function scalesOf(config: DongfuConfig, progress: DongfuProgress) {
+  return {
+    garden: durationFactor(progress.gardenAllocation, config.gardenReducePercent, config.minDurationPercent),
+    alchemy: durationFactor(progress.alchemyAllocation, config.alchemyReducePercent, config.minDurationPercent),
+  };
+}
+
+function sizesOf(config: DongfuConfig, progress: DongfuProgress) {
+  return {
+    plotCount: facilitySize(config.plotCount, progress.gardenLevel, config.gardenUpgrades, config.maxPlotCount),
+    alchemyQueueLength: facilitySize(
+      config.alchemyQueueLength,
+      progress.alchemyLevel,
+      config.alchemyUpgrades,
+      config.maxAlchemyQueue,
+    ),
+  };
+}
+
+async function rescaleInProgress(tx: Tx, config: DongfuConfig, playerId: string, progress: DongfuProgress, now: Date) {
+  const scale = scalesOf(config, progress);
+  const plots = await tx.select().from(playerDongfuPlots).where(eq(playerDongfuPlots.playerId, playerId));
+  for (const row of plots) {
+    if (!row.seedSlug || !row.plantedAt || !row.matureAt || row.matureAt.getTime() <= now.getTime()) continue;
+    const seed = config.seeds.find((item) => item.seedSlug === row.seedSlug);
+    if (!seed) continue;
+    const matureAt = rescaleReadyAt({
+      now,
+      startedAt: row.plantedAt,
+      readyAt: row.matureAt,
+      baseSeconds: seed.growSeconds,
+      factor: scale.garden,
+    });
+    if (matureAt.getTime() === row.matureAt.getTime()) continue;
+    await tx
+      .update(playerDongfuPlots)
+      .set({ matureAt })
+      .where(and(eq(playerDongfuPlots.playerId, playerId), eq(playerDongfuPlots.slot, row.slot)));
+  }
+  const jobs = await tx
+    .select()
+    .from(playerDongfuAlchemy)
+    .where(and(eq(playerDongfuAlchemy.playerId, playerId), isNull(playerDongfuAlchemy.claimedAt)));
+  for (const job of jobs) {
+    if (job.readyAt.getTime() <= now.getTime()) continue;
+    const recipe = config.recipes.find((item) => item.recipeSlug === job.recipeSlug);
+    if (!recipe) continue;
+    const readyAt = rescaleReadyAt({
+      now,
+      startedAt: job.startedAt,
+      readyAt: job.readyAt,
+      baseSeconds: recipe.craftSeconds,
+      factor: scale.alchemy,
+    });
+    if (readyAt.getTime() === job.readyAt.getTime()) continue;
+    await tx.update(playerDongfuAlchemy).set({ readyAt }).where(eq(playerDongfuAlchemy.id, job.id));
+  }
+}
+
+/** 组装 state.dongfu。首次会写入灵仆行并发放初始灵木；之后按 now 只读结算状态。 */
 export async function readDongfuState(tx: Tx, world: World, playerId: string, now: Date): Promise<DongfuStateDto> {
   const config = dongfuOf(world);
+  const progress = await ensureProgress(tx, config, playerId, now);
+  const sizes = sizesOf(config, progress);
+  const scale = scalesOf(config, progress);
   const plotRows = await tx.select().from(playerDongfuPlots).where(eq(playerDongfuPlots.playerId, playerId));
   const bySlot = new Map(plotRows.map((row) => [row.slot, row]));
   const plots: DongfuPlotDto[] = [];
-  for (let slot = 0; slot < config.plotCount; slot += 1) {
+  for (let slot = 0; slot < sizes.plotCount; slot += 1) {
     const row = bySlot.get(slot);
     if (!row || !row.seedSlug) {
       plots.push({ slot, seedSlug: null, herbSlug: null, plantedAt: null, matureAt: null, status: "empty" });
@@ -108,14 +217,49 @@ export async function readDongfuState(tx: Tx, world: World, playerId: string, no
         outputQty: out.outputQty,
       };
     });
+  const items = await loadBagItems(tx, playerId);
+  const [player] = await tx
+    .select({ spiritStones: playerStates.spiritStones })
+    .from(playerStates)
+    .where(eq(playerStates.playerId, playerId))
+    .limit(1);
+  const woodCount = stackCount(items, config.woodItemSlug);
+  const spiritStones = player?.spiritStones ?? 0;
+  const gardenOffer = upgradeOffer({
+    level: progress.gardenLevel,
+    tiers: config.gardenUpgrades,
+    base: config.plotCount,
+    max: config.maxPlotCount,
+    woodHave: woodCount,
+    spiritStones,
+  });
+  const alchemyOffer = upgradeOffer({
+    level: progress.alchemyLevel,
+    tiers: config.alchemyUpgrades,
+    base: config.alchemyQueueLength,
+    max: config.maxAlchemyQueue,
+    woodHave: woodCount,
+    spiritStones,
+  });
   return {
-    plotCount: config.plotCount,
-    alchemyQueueLength: config.alchemyQueueLength,
+    plotCount: sizes.plotCount,
+    alchemyQueueLength: sizes.alchemyQueueLength,
     plots,
     alchemy,
     claimable: {
       plots: plots.filter((p) => p.status === "ready").length,
       alchemy: alchemy.filter((j) => j.status === "ready").length,
+    },
+    allocation: { garden: progress.gardenAllocation, alchemy: progress.alchemyAllocation },
+    servantTotal: progress.servantTotal,
+    gardenLevel: progress.gardenLevel,
+    alchemyLevel: progress.alchemyLevel,
+    woodItemSlug: config.woodItemSlug,
+    woodCount,
+    timeScale: scale,
+    upgrades: {
+      garden: { level: progress.gardenLevel, ...gardenOffer },
+      alchemy: { level: progress.alchemyLevel, ...alchemyOffer },
     },
   };
 }
@@ -151,8 +295,10 @@ export async function plantSeed(
   now: Date,
 ) {
   const config = dongfuOf(world);
-  if (!Number.isInteger(input.slot) || input.slot < 0 || input.slot >= config.plotCount) {
-    throw new AppError("INVALID_INPUT", `地块编号要在 0–${config.plotCount - 1}`);
+  const progress = await ensureProgress(tx, config, playerId, now);
+  const plotCount = sizesOf(config, progress).plotCount;
+  if (!Number.isInteger(input.slot) || input.slot < 0 || input.slot >= plotCount) {
+    throw new AppError("INVALID_INPUT", `地块编号要在 0–${plotCount - 1}`);
   }
   const seed = seedOf(config, input.seedSlug);
   const items = await loadBagItems(tx, playerId);
@@ -168,7 +314,9 @@ export async function plantSeed(
     throw new AppError("INVALID_INPUT", "这块地已经种了");
   }
   await takeStack(tx, items, seed.seedSlug, 1);
-  const matureAt = new Date(now.getTime() + seed.growSeconds * 1000);
+  const matureAt = new Date(
+    now.getTime() + effectiveDurationMs(seed.growSeconds, scalesOf(config, progress).garden),
+  );
   if (existing) {
     await tx
       .update(playerDongfuPlots)
@@ -233,12 +381,14 @@ export async function startAlchemy(
   now: Date,
 ) {
   const config = dongfuOf(world);
+  const progress = await ensureProgress(tx, config, playerId, now);
   const recipe = recipeOf(config, input.recipeSlug);
+  const queueLength = sizesOf(config, progress).alchemyQueueLength;
   const open = await tx
     .select({ id: playerDongfuAlchemy.id })
     .from(playerDongfuAlchemy)
     .where(and(eq(playerDongfuAlchemy.playerId, playerId), isNull(playerDongfuAlchemy.claimedAt)));
-  if (open.length >= config.alchemyQueueLength) {
+  if (open.length >= queueLength) {
     throw new AppError("QUEUE_FULL");
   }
   const items = await loadBagItems(tx, playerId);
@@ -261,7 +411,7 @@ export async function startAlchemy(
       .set({ spiritStones: sql`${playerStates.spiritStones} - ${recipe.spiritStones}` })
       .where(eq(playerStates.playerId, playerId));
   }
-  const readyAt = new Date(now.getTime() + recipe.craftSeconds * 1000);
+  const readyAt = new Date(now.getTime() + effectiveDurationMs(recipe.craftSeconds, scalesOf(config, progress).alchemy));
   await tx.insert(playerDongfuAlchemy).values({
     playerId,
     recipeSlug: recipe.recipeSlug,
@@ -309,6 +459,73 @@ export async function claimAlchemy(
     await tx.update(playerDongfuAlchemy).set({ claimedAt: now }).where(eq(playerDongfuAlchemy.id, job.id));
   }
   return { dongfu: await readDongfuState(tx, world, playerId, now), gained };
+}
+
+export async function allocateServants(
+  tx: Tx,
+  world: World,
+  playerId: string,
+  input: { garden: number; alchemy: number },
+  now: Date,
+) {
+  const config = dongfuOf(world);
+  const progress = await ensureProgress(tx, config, playerId, now);
+  if (!Number.isInteger(input.garden) || !Number.isInteger(input.alchemy) || input.garden < 0 || input.alchemy < 0) {
+    throw new AppError("INVALID_INPUT", "灵仆数量不正确");
+  }
+  if (input.garden + input.alchemy > progress.servantTotal) {
+    throw new AppError("INVALID_INPUT", "灵仆不够分配");
+  }
+  const next = { ...progress, gardenAllocation: input.garden, alchemyAllocation: input.alchemy };
+  await tx
+    .update(playerDongfu)
+    .set({ gardenAllocation: input.garden, alchemyAllocation: input.alchemy })
+    .where(eq(playerDongfu.playerId, playerId));
+  await rescaleInProgress(tx, config, playerId, next, now);
+  return { dongfu: await readDongfuState(tx, world, playerId, now) };
+}
+
+export async function upgradeFacility(
+  tx: Tx,
+  world: World,
+  playerId: string,
+  facility: "garden" | "alchemy",
+  now: Date,
+) {
+  const config = dongfuOf(world);
+  const progress = await ensureProgress(tx, config, playerId, now);
+  const level = facility === "garden" ? progress.gardenLevel : progress.alchemyLevel;
+  const tiers = facility === "garden" ? config.gardenUpgrades : config.alchemyUpgrades;
+  const base = facility === "garden" ? config.plotCount : config.alchemyQueueLength;
+  const max = facility === "garden" ? config.maxPlotCount : config.maxAlchemyQueue;
+  const items = await loadBagItems(tx, playerId);
+  const [state] = await tx.select().from(playerStates).where(eq(playerStates.playerId, playerId)).limit(1);
+  if (!state) throw new AppError("NOT_FOUND");
+  const offer = upgradeOffer({
+    level,
+    tiers,
+    base,
+    max,
+    woodHave: stackCount(items, config.woodItemSlug),
+    spiritStones: state.spiritStones,
+  });
+  if (!offer.canUpgrade || !offer.next) {
+    throw new AppError(offer.reason === "灵木不足" || offer.reason === "灵石不足" ? "MATERIAL_SHORT" : "INVALID_INPUT", offer.reason);
+  }
+  if (offer.next.wood > 0) {
+    await takeStack(tx, items, config.woodItemSlug, offer.next.wood);
+  }
+  if (offer.next.spiritStones > 0) {
+    await tx
+      .update(playerStates)
+      .set({ spiritStones: sql`${playerStates.spiritStones} - ${offer.next.spiritStones}` })
+      .where(eq(playerStates.playerId, playerId));
+  }
+  await tx
+    .update(playerDongfu)
+    .set(facility === "garden" ? { gardenLevel: level + 1 } : { alchemyLevel: level + 1 })
+    .where(eq(playerDongfu.playerId, playerId));
+  return { dongfu: await readDongfuState(tx, world, playerId, now) };
 }
 
 /**

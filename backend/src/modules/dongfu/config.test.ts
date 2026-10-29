@@ -32,6 +32,33 @@ describe("dongfuConfigFromInput", () => {
     ).toThrow(/种子编号重复/);
   });
 
+  it("fills allocation defaults for a 0060-shaped config", () => {
+    const parsed = dongfuConfigFromInput({
+      plotCount: 4,
+      alchemyQueueLength: 2,
+      seeds: DEFAULT_DONGFU.seeds,
+      recipes: DEFAULT_DONGFU.recipes,
+    });
+    expect(parsed.startingServants).toBe(4);
+    expect(parsed.startingWood).toBe(32);
+    expect(parsed.gardenReducePercent).toBe(5);
+    expect(parsed.minDurationPercent).toBe(20);
+    expect(parsed.woodItemSlug).toBe("wood_lingmu");
+    expect(parsed.gardenUpgrades.map((row) => row.toLevel)).toEqual([2, 3, 4]);
+    expect(parsed.alchemyUpgrades).toHaveLength(2);
+  });
+
+  it("rejects a broken upgrade ladder and a cap below the base", () => {
+    expect(() =>
+      dongfuConfigFromInput({
+        ...DEFAULT_DONGFU,
+        gardenUpgrades: [{ toLevel: 3, wood: 1, spiritStones: 0, bonus: 1 }],
+      }),
+    ).toThrow(/连续/);
+    expect(() => dongfuConfigFromInput({ ...DEFAULT_DONGFU, maxPlotCount: 2 })).toThrow(/地块上限/);
+    expect(() => dongfuConfigFromInput({ ...DEFAULT_DONGFU, gardenReducePercent: 101 })).toThrow(/缩短百分比/);
+  });
+
   it("rejects invalid effect combinations", () => {
     expect(() =>
       dongfuConfigFromInput({

@@ -1,4 +1,5 @@
 import type { OptionalRuleValues, StageMonster, MonsterDropOverride, BossRewardEntry, BossRepeatReward, DesignatedDrop, SetTier } from "../modules/content/combat-types.js";
+import type { SeedDropEntry } from "../modules/content/seed-drops.js";
 import type { Tuning } from "../modules/content/tuning.js";
 import type { BossRuleOverride, BossStatKey } from "../modules/content/boss-rules.js";
 import type { RealmYieldMajor } from "../modules/content/enhance.js";
@@ -352,7 +353,7 @@ export const contentItems = pgTable("content_items", {
   setSlug: text("set_slug"),
   /** 参与本境界本品质的随机掉落池。公式装备总是参与；手动装备默认不参与（只靠指定掉落 / 补发）。 */
   randomDrop: boolean("random_drop").notNull().default(true),
-  /** 丹药等消耗品效果（洞府 v1：修为增益 / 临时属性 buff）。 */
+  /** 丹药等消耗品效果（洞府 v1：修为增益 / 临时属性 buff）。0060 与 0048 同列。 */
   effect: jsonb("effect").$type<{
     cultivationGain?: number;
     buffStat?: string;
@@ -464,6 +465,8 @@ export const contentStages = pgTable("content_stages", {
   monsterDrop: jsonb("monster_drop").$type<MonsterDropOverride | null>(),
   /** 指定掉落：每条单独按概率抽，和随机掉落同时生效（迁移 0028）。 */
   designatedDrops: jsonb("designated_drops").$type<DesignatedDrop[]>().notNull().default([]),
+  /** 洞府种子掉落覆盖（迁移 0047）：null = 跟随 tuning.seedDrops；[] = 本关不掉；非空 = 用这份。 */
+  seedDrops: jsonb("seed_drops").$type<SeedDropEntry[] | null>(),
   bossDropTableSlug: text("boss_drop_table_slug").notNull(),
   idleDropTableSlug: text("idle_drop_table_slug").notNull(),
   firstClearDropTableSlug: text("first_clear_drop_table_slug").notNull(),
@@ -764,8 +767,8 @@ export const playerDongfuAlchemy = pgTable(
 );
 
 /**
- * 临时属性丹写入的生效 buff。
- * 战斗结算（把 buff 乘进攻防）归开发二号；本表只负责 useItem 落库与过期时间。
+ * 临时属性丹生效 buff。表结构以迁移 0060 为准（0048 为 CREATE TABLE IF NOT EXISTS，同结构）。
+ * useItem / applyPillUse 落库；战斗结算读取未过期行并乘算攻防。
  */
 export const playerActiveBuffs = pgTable(
   "player_active_buffs",

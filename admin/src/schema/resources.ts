@@ -70,6 +70,10 @@ export const itemSchema: Schema = {
     { key: "stackable", label: "可叠加", kind: "bool", default: true, hint: "同种物品在行囊里叠成一格。", column: { width: 80 } },
     { key: "iconKey", label: "图标", kind: "select", options: [], hint: "游戏里显示的图标。不选 = 按编号自动选（例如突破石用石头图）。客户端 0.15.0 起生效。" },
     { key: "description", label: "描述", kind: "textarea", hint: "物品详情里的说明文字。", column: { minWidth: 260 } },
+    { key: "effectBuffStat", label: "临时属性", kind: "select", options: [{ label: "无", value: "" }, { label: "攻击", value: "attack" }, { label: "防御", value: "defense" }], hint: "丹药：战斗中临时提升的属性。材料请留空。" },
+    { key: "effectBuffBp", label: "加成（万分比）", kind: "number", min: 0, max: 100000, step: 100, default: 1000, hint: "1000 = +10%。与「临时属性」「持续秒数」一起填才生效。" },
+    { key: "effectDurationSeconds", label: "持续秒数", kind: "number", min: 0, max: 2592000, step: 60, default: 300, hint: "临时属性持续时间（服务器时间）。" },
+    { key: "effectCultivationGain", label: "修为增益", kind: "number", min: 0, max: 1000000000, step: 1, hint: "修为丹：使用后立刻获得的修为。与临时属性二选一（洞府炼丹配置）。" },
   ],
 };
 

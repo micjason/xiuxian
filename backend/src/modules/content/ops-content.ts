@@ -3,6 +3,8 @@ import { eq } from "drizzle-orm";
 import type { BossRepeatReward, BossRewardEntry, MonsterDropOverride, StageMonster } from "./combat-types.js";
 import { QUALITY_KEYS } from "./catalog.js";
 import { gearMap, readDesignated, type DesignatedInput } from "./designated-drops.js";
+import { readSeedDropOverride, resolveSeedDrops, seedDropsOf } from "./seed-drops.js";
+import { pillEffectFromInput } from "../loop/active-buffs.js";
 import { contentChapters, contentDropEntries, contentDropTables, contentGlobals, contentItems, contentRealms, contentSkillCategories, contentSkills, contentStages, playerItems, type StageBoss } from "../../db/schema.js";
 import { BOSS_STAT_KEYS, compactBossRuleOverride, customRuleCount, type BossStatKey } from "./boss-rules.js";
 import { BOSS_ART_KEY_SET, MONSTER_ART_KEY_SET } from "./art-keys.js";
@@ -481,6 +483,27 @@ function stageView(
         count: drop.count,
       };
     }),
+    seedDropsOverride: row.seedDrops ?? null,
+    seedDropsCustom: row.seedDrops != null,
+    seedDrops: resolveSeedDrops(row.seedDrops ?? null, seedDropsOf(tuning.seedDrops)).map((drop) => {
+      const item = items.find((candidate) => candidate.slug === drop.itemSlug);
+      return {
+        itemId: drop.itemSlug,
+        displayName: item?.displayName || "名称缺失",
+        kind: item?.kind ?? null,
+        quality: item?.quality ?? null,
+        iconKey: item?.iconKey ?? "",
+        chancePercent: drop.chanceBp / 100,
+        minCount: drop.minCount,
+        maxCount: drop.maxCount,
+      };
+    }),
+    seedDropDefaults: seedDropsOf(tuning.seedDrops).map((drop) => ({
+      itemId: drop.itemSlug,
+      chancePercent: drop.chanceBp / 100,
+      minCount: drop.minCount,
+      maxCount: drop.maxCount,
+    })),
     // 配置概览里的默认值（抽屉里灰字显示、「恢复默认」用）
     dropDefaults: {
       chancePercent: tuning.monsterDropChanceBp / 100,
@@ -508,7 +531,7 @@ export async function listOpsStages(db: Db) {
 
 export async function createOpsStage(
   db: Db,
-  input: { displayName?: string; realmCode?: number; recommendedPower?: number | null; bosses?: BossInput[]; monsters?: MonsterInput[]; monsterDrop?: MonsterDropInput; designatedDrops?: DesignatedInput } & StagePlacementInput,
+  input: { displayName?: string; realmCode?: number; recommendedPower?: number | null; bosses?: BossInput[]; monsters?: MonsterInput[]; monsterDrop?: MonsterDropInput; designatedDrops?: DesignatedInput; seedDrops?: unknown } & StagePlacementInput,
   adminId: string | null,
 ) {
   const displayName = textOf(input.displayName);
@@ -529,6 +552,7 @@ export async function createOpsStage(
   const monsters = readMonsters(input.monsters) ?? [];
   const monsterDrop = readMonsterDrop(input.monsterDrop, await tuningFor(db)) ?? null;
   const designatedDrops = readDesignated(input.designatedDrops, await gearMap(db)) ?? [];
+  const seedDrops = "seedDrops" in input ? readSeedDropOverride(input.seedDrops) ?? null : null;
   const now = new Date();
   const dropSlug = (suffix: string) => `${slug}_${suffix}`;
   await db.insert(contentDropTables).values([
@@ -554,6 +578,7 @@ export async function createOpsStage(
     monsters,
     monsterDrop,
     designatedDrops,
+    seedDrops,
     bossDropTableSlug: dropSlug("boss"),
     idleDropTableSlug: dropSlug("idle"),
     firstClearDropTableSlug: dropSlug("first"),
@@ -566,7 +591,7 @@ export async function createOpsStage(
 export async function updateOpsStage(
   db: Db,
   id: string,
-  input: { displayName?: string; realmCode?: number; recommendedPower?: number | null; bosses?: BossInput[]; monsters?: MonsterInput[]; monsterDrop?: MonsterDropInput; designatedDrops?: DesignatedInput } & StagePlacementInput,
+  input: { displayName?: string; realmCode?: number; recommendedPower?: number | null; bosses?: BossInput[]; monsters?: MonsterInput[]; monsterDrop?: MonsterDropInput; designatedDrops?: DesignatedInput; seedDrops?: unknown } & StagePlacementInput,
   adminId: string | null,
 ) {
   const [current] = await db.select().from(contentStages).where(eq(contentStages.slug, id)).limit(1);
@@ -590,6 +615,7 @@ export async function updateOpsStage(
   const monsters = readMonsters(input.monsters, current.monsters ?? []);
   const monsterDrop = readMonsterDrop(input.monsterDrop, await tuningFor(db));
   const designatedDrops = readDesignated(input.designatedDrops, await gearMap(db));
+  const seedDrops = "seedDrops" in input ? readSeedDropOverride(input.seedDrops) : undefined;
   const first = bosses[0];
   await db
     .update(contentStages)
@@ -609,6 +635,7 @@ export async function updateOpsStage(
       ...(monsters === undefined ? {} : { monsters }),
       ...(monsterDrop === undefined ? {} : { monsterDrop }),
       ...(designatedDrops === undefined ? {} : { designatedDrops }),
+      ...(seedDrops === undefined ? {} : { seedDrops }),
       updatedAt: new Date(),
       updatedBy: adminId,
     })
@@ -638,7 +665,7 @@ export async function deleteOpsStage(db: Db, id: string) {
 export const OPS_ITEM_KINDS = ["material", "pill"] as const;
 const OPS_ITEM_QUALITIES: string[] = [...QUALITY_KEYS];
 
-type OpsItemInput = { displayName?: string; description?: string; kind?: string; quality?: string; stackable?: boolean; iconKey?: string | null };
+type OpsItemInput = { displayName?: string; description?: string; kind?: string; quality?: string; stackable?: boolean; iconKey?: string | null; effect?: unknown };
 
 function itemView(row: typeof contentItems.$inferSelect) {
   return {
@@ -649,6 +676,7 @@ function itemView(row: typeof contentItems.$inferSelect) {
     quality: row.quality,
     stackable: row.stackable,
     iconKey: row.iconKey ?? "",
+    effect: row.effect ?? null,
   };
 }
 
@@ -700,6 +728,7 @@ function itemValues(input: OpsItemInput, current: typeof contentItems.$inferSele
   if (iconKey && !/^[a-z][a-z0-9_]{0,63}$/.test(iconKey)) {
     throw new AppError("INVALID_INPUT", "图标标识只能用小写字母、数字和下划线");
   }
+  const effect = pillEffectFromInput(input.effect);
   return {
     displayName,
     description: textOf(input.description),
@@ -707,6 +736,7 @@ function itemValues(input: OpsItemInput, current: typeof contentItems.$inferSele
     quality: qualityRaw ?? current?.quality ?? "white",
     stackable: typeof input.stackable === "boolean" ? input.stackable : (current?.stackable ?? true),
     iconKey: iconKey ?? current?.iconKey ?? "",
+    ...(effect === undefined ? {} : { effect }),
     updatedAt: new Date(),
     updatedBy: adminId,
   };

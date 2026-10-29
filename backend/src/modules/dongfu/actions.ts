@@ -4,7 +4,6 @@
  */
 import { and, eq, isNull, sql } from "drizzle-orm";
 import {
-  playerActiveBuffs,
   playerDongfuAlchemy,
   playerDongfuPlots,
   playerItems,
@@ -13,6 +12,7 @@ import {
 import type { Tx } from "../../db/tx.js";
 import { AppError } from "../../shared/errors.js";
 import type { ContentSnapshot } from "../content/validate.js";
+import { applyActiveBuff } from "../loop/active-buffs.js";
 import { addStack, stackCount, takeStack } from "../loop/bag.js";
 import { readGameRules } from "../content/rules.js";
 import { recipeOf, requireDongfu, seedOf, type DongfuConfig, type DongfuRecipeConfig } from "./config.js";
@@ -314,7 +314,7 @@ export async function claimAlchemy(
 /**
  * 使用丹药（由 loop/useItem 调用）。
  * - cultivationGain：立刻加修为
- * - buffStat/buffBp/durationSeconds：写入 player_active_buffs（战斗乘算归开发二号）
+ * - buffStat/buffBp/durationSeconds：经 applyActiveBuff 写入 player_active_buffs（表以 0060 为准；战斗结算读取未过期行）
  */
 export async function applyPillUse(
   tx: Tx,
@@ -338,20 +338,20 @@ export async function applyPillUse(
   }
 
   if (effect.buffStat && typeof effect.buffBp === "number" && typeof effect.durationSeconds === "number") {
-    // STUB_FOR_DEV2: 战斗结算读取 player_active_buffs（未过期）并乘到攻防；此处只落库。
-    await tx.insert(playerActiveBuffs).values({
+    const buff = await applyActiveBuff(tx, {
       playerId,
       buffStat: effect.buffStat,
       buffBp: effect.buffBp,
-      startedAt: now,
-      expiresAt: new Date(now.getTime() + effect.durationSeconds * 1000),
+      durationSeconds: effect.durationSeconds,
       sourceItemSlug: item.itemSlug,
+      now,
     });
     return {
       itemSlug: item.itemSlug,
-      buffStat: effect.buffStat,
-      buffBp: effect.buffBp,
+      buffStat: buff.buffStat,
+      buffBp: buff.buffBp,
       durationSeconds: effect.durationSeconds,
+      expiresAt: buff.expiresAt,
     };
   }
 

@@ -27,7 +27,8 @@ import { maxSkillSlots, nextSkillSlotRule, openSkillSlots } from "../content/ski
 import { announcementNoticesForPlayer, noticesForPlayer } from "../notices/service.js";
 import { bossDailyUsed, grantBossRewards, usesRewardModel } from "./boss-rewards.js";
 import { acknowledgeOfflineReport, pendingOfflineReport, recordOfflineReport } from "./offline.js";
-import { EMPTY_WAVES, cycleFor, farmableStages, resolveFarmStage, settleWaves, waveRandomInt, wavesCompletedIn, type WaveSettlement } from "./waves.js";
+import { EMPTY_WAVES, cycleFor, farmableStages, resolveFarmStage, settleOfflineSeedDrops, settleWaves, waveRandomInt, wavesCompletedIn, type WaveSettlement } from "./waves.js";
+import { activeBuffsDto, applyBuffsToStats, listActiveBuffs, sumActiveBuffs } from "./active-buffs.js";
 import { bossRulesFor, globalBossRules, nextStageOf, orderedStages, stageAccessList, stageTier, type StageAccess } from "../content/stage-order.js";
 import { stageRecommendedPower } from "../content/stage-power.js";
 import { applyPillUse, readDongfuState } from "../dongfu/actions.js";
@@ -379,7 +380,12 @@ async function settleLocked(tx: Tx, playerId: string, world: World, now: Date, o
     state.enhanceExp = 0;
   }
   let pieces = await loadPieces(tx, playerId);
-  const stats = statsOf(world, state.realmSlug, pieces.items, pieces.skills);
+  const activeBuffRows = await listActiveBuffs(tx, playerId, now);
+  const stats = applyBuffsToStats(
+    statsOf(world, state.realmSlug, pieces.items, pieces.skills),
+    sumActiveBuffs(activeBuffRows),
+    world,
+  );
   const rules = readGameRules(world);
   const realm = realmOf(world, state.realmSlug);
   const settled = settleTicks({
@@ -413,6 +419,19 @@ async function settleLocked(tx: Tx, playerId: string, world: World, now: Date, o
     });
   } else if (online && stage) {
     waves = { ...EMPTY_WAVES, online, stageSlug: stage.slug, monsterName: stage.monsters?.[0]?.name ?? null, progress: state.waveProgress, deathsInRow: state.waveDeathsInRow };
+  } else if (!online && stage && settled.countedSeconds > 0) {
+    // 离线：装备仍不掉；种子按估算击杀发放（洞府药园）。
+    const seedDrops = await settleOfflineSeedDrops(tx, world, playerId, {
+      rules,
+      stage,
+      stats,
+      countedSeconds: settled.countedSeconds,
+      capacity: rules.bagCapacity + state.bagBonus,
+      now,
+    });
+    if (seedDrops.length > 0) {
+      waves = { ...EMPTY_WAVES, online: false, stageSlug: stage.slug, monsterName: stage.monsters?.[0]?.name ?? null, drops: seedDrops };
+    }
   }
   const waveProgress = online ? (stage ? waves.progress : 0) : 0;
   const waveDeathsInRow = online ? (stage ? waves.deathsInRow : 0) : 0;
@@ -491,6 +510,7 @@ async function settleLocked(tx: Tx, playerId: string, world: World, now: Date, o
     gapSeconds,
     now,
     offlineReport,
+    activeBuffs: activeBuffRows,
   };
 }
 
@@ -562,6 +582,8 @@ async function stateDto(tx: Tx, world: World, playerId: string, settled: Awaited
     ult: ultOf(world, settled.state.realmSlug),
     bossDaily: bossDailyDto(world, settled),
     bossDailyTotal: bossDailyTotalDto(world, settled),
+    /** 未过期的临时属性丹（同属性 buffBp 已在战斗属性里相加）。 */
+    activeBuffs: activeBuffsDto(settled.activeBuffs ?? [], settled.now),
     lastSettle: {
       online: settled.waves.online,
       seconds: Math.floor(settled.gapSeconds),
@@ -1304,7 +1326,7 @@ export async function useItem(tx: Tx, world: World, playerId: string, itemId: st
     throw new AppError("NOT_FOUND");
   }
   const definition = world.items.find((row) => row.slug === item.itemSlug);
-  // 洞府丹药：修为丹加修为；临时属性丹写入 player_active_buffs（战斗结算归开发二号）
+  // 丹药统一走 applyPillUse：修为丹加修为；临时属性丹经 applyActiveBuff 写入 player_active_buffs（表以 0060 为准）。
   if (definition?.kind === "pill") {
     const effect = definition.effect;
     if (!effect || typeof effect !== "object") {

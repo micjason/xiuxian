@@ -248,6 +248,20 @@
       "breakpoints": true
     },
     {
+      "idx": 35,
+      "version": "7",
+      "when": 1795000700000,
+      "tag": "0047_dongfu_seed_drops",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1795000800000,
+      "tag": "0048_player_active_buffs",
+      "breakpoints": true
+    },
+    {
       "idx": 47,
       "version": "7",
       "when": 1796000000000,

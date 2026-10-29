@@ -99,6 +99,10 @@ export type ContentSnapshot = {
     monsterDrop?: MonsterDropConfig | null;
     /** 指定掉落（和随机掉落同时生效）。 */
     designatedDrops?: import("./combat-types.js").DesignatedDrop[];
+    /** 生效的种子掉落（快照已合并全局 + 覆盖）。 */
+    seedDrops?: import("./seed-drops.js").SeedDropEntry[];
+    /** 单关覆盖原样；null = 跟随全局。 */
+    seedDropsOverride?: import("./seed-drops.js").SeedDropEntry[] | null;
     recommendedPower: number;
     enabled: boolean;
     /** 所属章节；null = 没有章节（发布校验报错；运行时这一关单独算一章，首领按章末规则）。 */
@@ -139,7 +143,7 @@ export type ContentSnapshot = {
     quality?: string;
     requiredRealmOrder?: number;
     stackable?: boolean;
-    /** 丹药效果（洞府 v1） */
+    /** 丹药效果（洞府 v1；0060 与 0048 同列） */
     effect?: {
       cultivationGain?: number;
       buffStat?: string;
@@ -446,6 +450,18 @@ export function validateContent(
       const item = draft.items.find((row) => row.slug === drop.itemSlug);
       if (!item || !item.enabled || item.kind !== "equipment") {
         push("stage", stage.slug, "designatedDrops", `指定掉落的装备 ${drop.itemSlug} 不存在或已停用`);
+      }
+    }
+    for (const drop of stage.seedDrops ?? []) {
+      const item = draft.items.find((row) => row.slug === drop.itemSlug);
+      if (!item || !item.enabled) {
+        push("stage", stage.slug, "seedDrops", `种子掉落的物品 ${drop.itemSlug} 不存在或已停用`);
+      }
+      if (!Number.isInteger(drop.chanceBp) || drop.chanceBp < 0 || drop.chanceBp > 10000) {
+        push("stage", stage.slug, "seedDrops", `种子掉落 ${drop.itemSlug} 概率必须在 0–10000（万分比）`);
+      }
+      if (!Number.isInteger(drop.minCount) || !Number.isInteger(drop.maxCount) || drop.minCount < 1 || drop.maxCount < drop.minCount) {
+        push("stage", stage.slug, "seedDrops", `种子掉落 ${drop.itemSlug} 数量不合法`);
       }
     }
   }

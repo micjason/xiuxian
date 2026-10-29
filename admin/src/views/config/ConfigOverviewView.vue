@@ -58,6 +58,8 @@
 
           <BossRulesSection ref="bossSection" v-model:rules="tuning.bossRules" :defaults="data.tuningDefaults.bossRules" />
 
+          <SeedDropsSection v-model="seedDropRows" />
+
           <SectionCard title="装备生成" anchor="gear" desc="只读摘要，在「装备配置」里改">
             <template #extra><el-button link type="primary" @click="router.push('/config/gear')">在装备配置中修改 ›</el-button></template>
             <dl class="summary">
@@ -238,6 +240,7 @@ import SaveBar from "../../components/SaveBar.vue";
 import SchemaForm from "../../components/SchemaForm.vue";
 import SectionCard from "../../components/SectionCard.vue";
 import BossRulesSection from "./overview/BossRulesSection.vue";
+import SeedDropsSection, { type SeedDropFormRow } from "./overview/SeedDropsSection.vue";
 import CatalogSection from "./overview/CatalogSection.vue";
 import NewbieSection, { type Newbie } from "./overview/NewbieSection.vue";
 import SkillSlotsSection, { type SlotRule } from "./overview/SkillSlotsSection.vue";
@@ -259,6 +262,7 @@ type Tuning = {
   monsterDropChanceBp: number;
   monsterQualityWeights: Record<Quality, number>;
   bossRules: BossRules;
+  seedDrops?: { itemSlug: string; chanceBp: number; minCount: number; maxCount: number }[];
 };
 type EnhanceQuality = { cap: number; costMult: number; decomposeExp: number; breakthroughs: { level: number; materials: { itemSlug: string; count: number }[] }[] };
 type RealmMajor = "qi" | "foundation" | "core" | "nascent" | "spirit" | "void" | "unity" | "mahayana";
@@ -358,6 +362,26 @@ const changeCount = computed(() => {
   return count;
 });
 useDirtyGuard(dirty, async () => save());
+
+const seedDropRows = ref<SeedDropFormRow[]>([]);
+
+function seedRowsFromTuning(list: Tuning["seedDrops"] | undefined): SeedDropFormRow[] {
+  return (list ?? []).map((row) => ({
+    itemSlug: row.itemSlug,
+    chancePercent: row.chanceBp / 100,
+    minCount: row.minCount,
+    maxCount: row.maxCount,
+  }));
+}
+
+function applySeedRowsToTuning(): void {
+  tuning.value.seedDrops = seedDropRows.value.map((row) => ({
+    itemSlug: row.itemSlug,
+    chanceBp: Math.round((Number(row.chancePercent) || 0) * 100),
+    minCount: Number(row.minCount ?? 1),
+    maxCount: Math.max(Number(row.minCount ?? 1), Number(row.maxCount ?? 1)),
+  }));
+}
 
 const dropChance = computed({
   get: () => (tuning.value.monsterDropChanceBp ?? 0) / 100,
@@ -483,6 +507,7 @@ function apply(overview: Overview): void {
   data.value = overview;
   rules.value = { ...overview.rules };
   tuning.value = JSON.parse(JSON.stringify(overview.tuning)) as Tuning;
+  seedDropRows.value = seedRowsFromTuning(tuning.value.seedDrops);
   enhance.value = overview.enhance.rules ? (JSON.parse(JSON.stringify(overview.enhance.rules)) as Enhance) : null;
   if (enhance.value?.essence && !enhance.value.essence.realmYieldMult) {
     enhance.value.essence.realmYieldMult = { ...DEFAULT_REALM_MULT };

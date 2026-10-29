@@ -2,8 +2,8 @@
  * 境界出厂 seed：固定 8 大境界 × 3 层。数字与预计时长照抄
  * realm_fixed_table §4.4 / realm_defaults.md，不随后台改数重算。
  *
- * 炼气三层、筑基三层的突破关卡是已经上线的原型门槛。出厂表没有这一列，
- * 但「恢复出厂」不能把它们清掉，所以写在这里。其余层的出厂关卡为空。
+ * 各大境第 3 层（炼气→合体共 7 个）出厂挂同名关卡闸；大乘三层到顶不挂。
+ * 「恢复出厂」会回到这些闸，一二层出厂关卡为空。
  */
 
 export type RealmLayer = 1 | 2 | 3;
@@ -129,9 +129,19 @@ const SEEDS: Seed[][] = [
   ],
 ];
 
+/** 各大境第 3 层突破闸（不含大乘三层到顶）。一二层不挂。 */
+const MAJOR_END_GATES = new Set([
+  "lianqi_3",
+  "zhuji_3",
+  "jindan_3",
+  "yuanying_3",
+  "huashen_3",
+  "lianxu_3",
+  "heti_3",
+]);
+
 function gateOf(slug: string): string {
-  if (slug === "lianqi_3" || slug === "zhuji_3") return slug;
-  return "";
+  return MAJOR_END_GATES.has(slug) ? slug : "";
 }
 
 export const REALM_FACTORY: readonly RealmFactoryRow[] = MAJORS.flatMap((major, majorIndex) =>

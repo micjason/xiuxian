@@ -92,13 +92,17 @@ describe("realm factory seed (§17)", () => {
   });
 
   it("diffs numbers against the factory constants; shipped gates stay factory and are not recomputed from cultivation", () => {
-    expect(REALM_FACTORY[2]!.requiredStageId).toBe("lianqi_3");
-    expect(REALM_FACTORY[5]!.requiredStageId).toBe("zhuji_3");
-    expect(REALM_FACTORY[8]!.requiredStageId).toBe("");
+    // 各大境第 3 层共 7 个闸（不含大乘三层到顶）
+    expect(REALM_FACTORY.filter((row) => row.requiredStageId).map((row) => row.requiredStageId)).toEqual([
+      "lianqi_3", "zhuji_3", "jindan_3", "yuanying_3", "huashen_3", "lianxu_3", "heti_3",
+    ]);
+    expect(REALM_FACTORY[23]!.requiredStageId).toBe("");
+    expect(REALM_FACTORY.filter((row) => row.layer !== 3).every((row) => row.requiredStageId === "")).toBe(true);
     expect(changedFieldKeys(REALM_FACTORY[4]!, numbersOf(5, { gainPerTick: 4 }))).toEqual(["gainPerTick"]);
     expect(changedFieldKeys(REALM_FACTORY[23]!, numbersOf(24, { breakthroughCost: 5 }))).toEqual(["breakthroughCost"]);
     expect(changedFieldKeys(REALM_FACTORY[0]!, numbersOf(1, { requiredStageId: "lianqi_3" }))).toEqual([]);
-    expect(changedFieldKeys(REALM_FACTORY[8]!, numbersOf(9, { requiredStageId: "jindan_3" }))).toEqual(["requiredStageId"]);
+    expect(changedFieldKeys(REALM_FACTORY[8]!, numbersOf(9, { requiredStageId: "jindan_3" }))).toEqual([]);
+    expect(changedFieldKeys(REALM_FACTORY[8]!, numbersOf(9, { requiredStageId: "" }))).toEqual(["requiredStageId"]);
     expect(REALM_FACTORY[8]!.etaLabel).toBe("约 4 天");
     expect(REALM_FACTORY[14]!.etaLabel).toBe("约 14 天");
     expect(REALM_FACTORY[23]!.etaLabel).toBe("约 55 天");

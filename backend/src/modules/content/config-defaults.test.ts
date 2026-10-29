@@ -41,8 +41,17 @@ describe("配置概览: stages inherit the global default drop, overrides stay",
       expect((await db.select().from(contentStages).where(eq(contentStages.slug, "lianqi_2")))[0]!.monsterDrop).toBeNull();
 
       const overview = await readConfigOverview(db);
-      expect(overview.stages.total).toBe(9);
-      expect(overview.stages.customized.map((row) => row.id).sort()).toEqual(["jindan_1", "jindan_2", "jindan_3", "zhuji_1", "zhuji_2", "zhuji_3"]);
+      expect(overview.stages.total).toBe(24);
+      // 炼气跟随全局默认；其余大境界品质权重写在种子里，算已自定义
+      expect(overview.stages.customized.map((row) => row.id).sort()).toEqual([
+        "dacheng_1", "dacheng_2", "dacheng_3",
+        "heti_1", "heti_2", "heti_3",
+        "huashen_1", "huashen_2", "huashen_3",
+        "jindan_1", "jindan_2", "jindan_3",
+        "lianxu_1", "lianxu_2", "lianxu_3",
+        "yuanying_1", "yuanying_2", "yuanying_3",
+        "zhuji_1", "zhuji_2", "zhuji_3",
+      ]);
     });
   });
 

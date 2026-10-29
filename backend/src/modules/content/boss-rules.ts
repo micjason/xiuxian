@@ -270,13 +270,13 @@ export function ruleSetOf(rules: BossRules | BossRuleSet): BossRuleSet {
 /** 默认值 + 单关覆盖 → 生效的规则（覆盖里不认识的老字段，例如第三批的 dailyRewardLimit，忽略）。 */
 export function resolveBossRules(defaults: BossRuleSet, override: BossRuleOverride | null | undefined): BossRuleSet {
   const base = ruleSetOf(defaults as BossRules);
-  if (!override) {
+  if (!override || typeof override !== "object" || Array.isArray(override)) {
     return base;
   }
   const out = { ...base } as Record<string, unknown>;
   for (const key of BOSS_RULE_KEYS) {
     const value = (override as Record<string, unknown>)[key];
-    if (value === undefined || value === null) continue;
+    if (value === undefined || value === null || Array.isArray(value)) continue;
     out[key] = isGroup(key) ? { ...(base[key] as object), ...stripNull(value as object) } : value;
   }
   return out as BossRuleSet;

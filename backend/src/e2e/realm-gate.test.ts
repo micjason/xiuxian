@@ -63,7 +63,7 @@ describe("realm table: fixed 24 rows and major-breakthrough boss gate (admin API
       const [lianqi1] = await db.select().from(contentRealms).where(eq(contentRealms.slug, "lianqi_1"));
       expect(lianqi1).toMatchObject({ nextRealmSlug: "lianqi_2", breakthroughCost: 60, gainPerTick: 1 });
       const [jindan3] = await db.select().from(contentRealms).where(eq(contentRealms.slug, "jindan_3"));
-      expect(jindan3).toMatchObject({ nextRealmSlug: "yuanying_1", breakthroughCost: 0, gainPerTick: 9, requiredStageSlug: null });
+      expect(jindan3).toMatchObject({ nextRealmSlug: "yuanying_1", breakthroughCost: 0, gainPerTick: 9, requiredStageSlug: "jindan_3" });
       const stored = await db.select({ slug: contentRealms.slug, nextRealmSlug: contentRealms.nextRealmSlug }).from(contentRealms);
       const nextOf = new Map(stored.map((row) => [row.slug, row.nextRealmSlug]));
       const chain = ["lianqi_1", "lianqi_2", "lianqi_3", "zhuji_1", "zhuji_2", "zhuji_3", "jindan_1", "jindan_2", "jindan_3", "yuanying_1", "yuanying_2", "yuanying_3", "huashen_1", "huashen_2", "huashen_3", "lianxu_1", "lianxu_2", "lianxu_3", "heti_1", "heti_2", "heti_3", "dacheng_1", "dacheng_2", "dacheng_3"];
@@ -180,7 +180,7 @@ describe("realm table: fixed 24 rows and major-breakthrough boss gate (admin API
   it("validateContent: a gate stage must have a boss and be reachable; bossless stages are fine", async () => {
     await withDb(async (db) => {
       await applyPrototypeV12(db);
-      expect(validateContent(await loadDraftSnapshot(db)).errors).toEqual([]); // 第三批：9 关都有首领（6 个精英 + 3 个章末）
+      expect(validateContent(await loadDraftSnapshot(db)).errors).toEqual([]); // 24 关都有首领（每小层 1 精英或章末）
       await db.update(contentStages).set({ bosses: [], bossHp: 0, bossName: "" }).where(eq(contentStages.slug, "lianqi_1"));
       await db.update(contentRealms).set({ requiredStageSlug: "lianqi_1" }).where(eq(contentRealms.slug, "lianqi_3"));
       let errors = validateContent(await loadDraftSnapshot(db)).errors;

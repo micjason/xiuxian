@@ -8,7 +8,7 @@ import {
   playerStates,
   players,
 } from "../../db/schema.js";
-import { simulateBossFight, type UltConfig } from "../combat/battle.js";
+import { simulateBossFight, toCombatSkills, type UltConfig } from "../combat/battle.js";
 import { computePower, ratePower, resolveBreakthrough, skillLayerFactor, sumReachedRealmStats } from "../combat/stats.js";
 import { ensureSkillBook } from "../content/ops-content.js";
 import { loadCurrentWorld } from "../content/snapshot.js";
@@ -869,8 +869,8 @@ export async function advanceRealm(tx: Tx, world: World, playerId: string, now: 
 }
 
 /**
- * 首领战大招：境界不再自带大招（后台已去掉 ult* 字段）。
- * 战斗大招只跟玩家学的技能、全自动；此处恒返回 null，避免半套境界大招。
+ * 境界不再单独提供战斗技能。战报施放来自正在运转的自动 / 被动技能。
+ * 这里保持空，避免把境界上残留的旧字段再接回战斗。
  */
 export function ultOf(_world: World, _realmSlug: string): (UltConfig & { name: string }) | null {
   return null;
@@ -910,7 +910,7 @@ export async function challengeStage(tx: Tx, world: World, playerId: string, sta
 type FightInput = Pick<Awaited<ReturnType<typeof settleLocked>>, "state" | "stats" | "pieces">;
 
 /**
- * 打一场首领（手动挑战、自动挑战、挂机刷首领共用）：模拟战斗（大招自动释放）、发奖励、记进度、解锁下一关。调用方已经检查过能不能打。
+ * 打一场首领（手动挑战、自动挑战、挂机刷首领共用）：模拟战斗（运转中的技能写入战报）、发奖励、记进度、解锁下一关。调用方已经检查过能不能打。
  * 首领规则「允许重打」关掉时，已击败的首领不能手动再打（挂机刷首领只看「挂机刷首领」开关）。
  * mode = idle（挂机刷出来的）：不占挑战冷却，奖励按「挂机首领算每日次数」开关决定消不消耗每日次数。
  */
@@ -956,7 +956,8 @@ async function fightStageBoss(tx: Tx, world: World, playerId: string, settled: F
   const fighter = { attack: settled.stats.attack, defense: settled.stats.defense, hp: settled.stats.hp, interval: settled.stats.interval };
   const monsterSide = { attack: bossAttack, defense: bossDefense, hp: bossHp, interval: bossInterval };
   const ult = ultOf(world, settled.state.realmSlug);
-  const battle = simulateBossFight(fighter, monsterSide, battleConfigOf(world), ult, []);
+  const skills = toCombatSkills(settled.pieces.skills, world.skills, openSkillSlotsFor(world, settled.state.realmSlug));
+  const battle = simulateBossFight(fighter, monsterSide, battleConfigOf(world), ult, [], skills);
   const drops: { itemSlug: string; quantity: number; decomposed?: boolean; enhanceExp?: number; dropped?: boolean; freed?: { itemSlug: string; enhanceExp: number }[] }[] = [];
   let nextPity: Record<string, number> | undefined;
   let bagFullNotice = false;
@@ -1101,7 +1102,7 @@ export type AutoChallengeResult = {
 /**
  * 结算里的自动挑战（Chengpeng 定：在服务端结算里触发）。条件全部满足才打，一次结算最多打一场：
  * 挂机关卡能进、首领规则允许自动挑战、本关首领还没首通、战力 ≥ 推荐战力 × 自动挑战比例、
- * 挑战冷却已过、上一次自动挑战失败已过「重试间隔」。大招自动释放。首通不算每日首领挑战次数。
+ * 挑战冷却已过、上一次自动挑战失败已过「重试间隔」。运转中的技能会写入战报。首通不算每日首领挑战次数。
  * 推荐战力算不出来（配置有问题）就不自动打，手动挑战会把错误报出来。
  */
 async function tryAutoChallenge(
@@ -1189,7 +1190,7 @@ export type IdleBossResult = {
 
 /**
  * 第四批 · 挂机刷首领（在线、离线共用，在结算里调用）：本关首领已击败、规则「挂机刷首领」开着时，
- * 把这次的 waves 波加到本关计数，每满 idleSpawnWaves 波刷出一只首领直接打（大招自动释放，不占挑战冷却），余数留到下次。
+ * 把这次的 waves 波加到本关计数，每满 idleSpawnWaves 波刷出一只首领直接打（运转中的技能写入战报，不占挑战冷却），余数留到下次。
  * 一次结算最多打 idleSpawnMaxPerSettle 只（全局），多出来的不补（计数只留余数）。
  * 战斗是确定性的（同样的属性结果一样）：第一只输了，这次刷出来的都算输，不再重复模拟。
  * 奖励走首领重复奖励（装备来源 boss_repeat，requestId = 战斗报告 id，每赢一只 clear_count +1，所以每只单号不同、重放不重复发）。

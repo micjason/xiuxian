@@ -23,5 +23,6 @@
 战斗只自动放技能，没有技能按钮、充能条或「自动战斗」开关。`SkillFxCast.play` 在施法点实例化对应场景，不平移角色。
 
 - 首领战：`boss_battle.on_event` 里，玩家自动技能事件（协议字段仍可能叫 `kind:ult`）、治疗/丹药，或事件自带 `fx` / `fxType` / `skillSlug` 时，用内容技能的 `fxType` 播一次。普通普攻仍走飞剑，不另播九套。
+- 服务端挑战、自动挑战、挂机首领共用 `fightStageBoss`。正在运转的自动 / 被动技能会在第 1、5、9… 次普攻之后各追加一次与普攻相同的伤害，并写入 `battle.log`（`kind: "ult"`、`name`、`skillSlug`、`fxType`）和 `ultCasts`。战报名是技能显示名；空名或配置仍写成「大招 / 暴击」时写成「自动技能」。没有运转技能时，战斗和以前逐项相同。不画冷却条，也不提供手动释放。
 - 挂机：飞剑命中时 `resolve_auto`，有运转中的攻击技能就播它的 `fxType`，否则斩。
 - 页面只把 `content.skills` 和 `state.skills` 交给特效层。换配置即换特效，不写死技能 id。未知 kind 收成斩；缺场景则静默，不把英文 kind 画到界面。

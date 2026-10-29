@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cleanUltTaps, hitDamage, simulateBattle, simulateBossFight } from "./battle.js";
+import { cleanUltTaps, hitDamage, publicSkillName, simulateBattle, simulateBossFight, toCombatSkills } from "./battle.js";
 
 const config = { timeLimitSeconds: 60, defenseConstant: 1 };
 
@@ -149,6 +149,76 @@ describe("simulateBossFight (ultimate with tap timestamps)", () => {
     expect(cleanUltTaps([3, "x", -1, NaN, Infinity, 8.2, null])).toEqual([0, 3, 8.2]);
     expect(cleanUltTaps("nope")).toEqual([]);
     expect(cleanUltTaps(Array.from({ length: 80 }, (_, index) => 80 - index))).toHaveLength(50);
+  });
+
+  it("records a cast from a running auto or passive skill without using a realm ultimate", () => {
+    const player = { attack: 100, defense: 0, hp: 5000, interval: 1 };
+    const boss = { attack: 1, defense: 0, hp: 100000, interval: 5 };
+    const limit = { timeLimitSeconds: 20, defenseConstant: 1 };
+    const skills = toCombatSkills(
+      [
+        { skillSlug: "skill_liekong", runningSlot: "run_1" },
+        { skillSlug: "skill_tuna", runningSlot: "run_2" },
+        { skillSlug: "skill_idle", runningSlot: null },
+        { skillSlug: "skill_off", runningSlot: "run_3" },
+      ],
+      [
+        { slug: "skill_liekong", displayName: "裂空斩", castMode: "auto", fxType: "slash", fx: { type: "slash", primary: "#F5FBFF", secondary: "#A8E8E0", scale: 1 }, enabled: true },
+        { slug: "skill_tuna", displayName: "吐纳诀", castMode: "passive", fxType: "heal_circle", enabled: true },
+        { slug: "skill_idle", displayName: "未运转", castMode: "auto", enabled: true },
+        { slug: "skill_off", displayName: "已关闭", castMode: "auto", enabled: false },
+        { slug: "skill_bad", displayName: "大招", castMode: "auto", enabled: true },
+      ],
+      3,
+    );
+    expect(skills.map((skill) => skill.slug)).toEqual(["skill_liekong", "skill_tuna"]);
+    expect(
+      toCombatSkills(
+        [
+          { skillSlug: "skill_liekong", runningSlot: "run_2" },
+          { skillSlug: "skill_tuna", runningSlot: "run_1" },
+        ],
+        [
+          { slug: "skill_liekong", displayName: "裂空斩", castMode: "auto", enabled: true },
+          { slug: "skill_tuna", displayName: "吐纳诀", castMode: "passive", enabled: true },
+        ],
+        1,
+      ).map((skill) => skill.slug),
+    ).toEqual(["skill_tuna"]);
+    expect(publicSkillName("大招")).toBe("自动技能");
+    expect(publicSkillName("暴击")).toBe("自动技能");
+    expect(publicSkillName("")).toBe("自动技能");
+
+    const fight = simulateBossFight(player, boss, limit, null, [], skills);
+    const casts = fight.log.filter((event) => event.kind === "ult");
+    expect(casts.length).toBeGreaterThan(0);
+    expect(casts.map((event) => event.name)).toEqual(["裂空斩", "吐纳诀", "裂空斩", "吐纳诀", "裂空斩"]);
+    expect(casts.map((event) => event.t)).toEqual([1, 5, 9, 13, 17]);
+    expect(casts[0]).toMatchObject({
+      side: "player",
+      skillSlug: "skill_liekong",
+      name: "裂空斩",
+      fxType: "slash",
+      castMode: "auto",
+      damage: hitDamage(100, 0, 1),
+    });
+    expect(casts[1]).toMatchObject({ skillSlug: "skill_tuna", name: "吐纳诀", castMode: "passive", fxType: "heal_circle" });
+    expect(fight.ultCasts.map((cast) => [cast.t, cast.manual, cast.skillSlug, cast.name])).toEqual(
+      casts.map((event) => [event.t, false, event.skillSlug, event.name]),
+    );
+    const weak = { attack: 1, defense: 0, hp: 800, interval: 5 };
+    const plain = simulateBattle(player, weak, limit);
+    const shorter = simulateBossFight(player, weak, limit, null, [], skills);
+    expect(plain.durationSeconds).toBe(8);
+    expect(shorter.durationSeconds).toBeLessThan(plain.durationSeconds);
+    expect(shorter.log.some((event) => event.kind === "ult")).toBe(true);
+    expect(JSON.stringify(fight.log)).not.toContain("大招");
+    expect(JSON.stringify(fight.ultCasts)).not.toContain("大招");
+
+    const renamed = toCombatSkills([{ skillSlug: "skill_bad", runningSlot: "run_1" }], [{ slug: "skill_bad", displayName: "大招", castMode: "auto", enabled: true }], 1);
+    const renamedFight = simulateBossFight(player, boss, { ...limit, timeLimitSeconds: 1 }, null, [], renamed);
+    expect(renamedFight.log.find((event) => event.kind === "ult")?.name).toBe("自动技能");
+    expect(JSON.stringify(renamedFight)).not.toContain("大招");
   });
 
   it("timeout and defeat are reported like simulateBattle", () => {

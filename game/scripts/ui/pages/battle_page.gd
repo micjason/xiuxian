@@ -665,7 +665,7 @@ static func feed_text(event: Dictionary, boss_name: String, ult_name: String) ->
 		"hurt":
 			return "%s出手，你受到 %s 伤害" % [name, dmg]
 		"ult":
-			return "你施放「%s」，对%s造成 %s 伤害" % [BattleReport.escape(ult_name), name, dmg]
+			return "你施放「%s」，对%s造成 %s 伤害" % [BattleReport.escape(_skill_display_name(BattleReportBuilder._event_skill_name(event, ult_name))), name, dmg]
 		_:
 			return "你攻击%s，造成 %s 伤害" % [name, dmg]
 

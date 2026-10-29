@@ -63,8 +63,6 @@ var _top_bar: TopBar
 var _tab_bar: TabBarView
 var _toast: Toast
 var _fx_layer: Control
-## 突破充能动画（breakthrough_fx 的 charge）的长度。
-const CHARGE_SECONDS := 2.0
 var _page_host: MarginContainer
 var _home_page: HomePage
 var _stage_page: StagePage
@@ -870,9 +868,10 @@ func _on_breakthrough() -> void:
 	_breakthrough_page.set_busy(true)
 	var before := _state.duplicate(true)
 	var unlocks := BreakthroughView.unlocks(before, _content)
-	# 充能动画和请求同时开始；成功要等充能播完再播成功特效，最后弹「突破成功」结算
+	# 旧 breakthrough_fx 的 charge（片段 2.0s）和请求同时开始，只作请求没回来时的反馈。
+	# 成功后立刻播天雷渡劫（QFx.TRIBULATION_SECONDS = 10），不再等充能播完，也不再播旧 success（2.4s）。
+	# 天雷 finished 之后才刷界面、弹「突破成功」结算。
 	_breakthrough_page.play_charge()
-	var started := Time.get_ticks_msec()
 	var result := await _post("/api/v1/me/breakthrough")
 	if int(result.get("code", 0)) != 200:
 		_busy = false
@@ -883,9 +882,6 @@ func _on_breakthrough() -> void:
 	var outcome: Dictionary = result.get("result", {})
 	_apply_action_state(result)
 	if bool(outcome.get("success", false)):
-		var left := CHARGE_SECONDS - float(Time.get_ticks_msec() - started) / 1000.0
-		if _breakthrough_page.break_fx() != null and left > 0.0:
-			await get_tree().create_timer(left).timeout
 		await _breakthrough_page.play_success()
 		_busy = false
 		_breakthrough_page.finish_fx()

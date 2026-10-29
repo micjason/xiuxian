@@ -5,10 +5,11 @@ extends Control
 ## 突破条件（修为、必须击败的首领，满足打勾）；属性提升（生命/攻击/防御/速度 突破前 → 后、战力前 → 后）；
 ## 「突破」大按钮（下写消耗）；首领没打时多一个「前往挑战」；底下「点击空白处关闭」。
 ## 条件没满足时按钮灰化。数值全部来自服务器 breakthrough（preview / rateBp / requiredStage），这里不自己算。
-## 动画（2026-10-20 动画交付）：弹窗 ui_popup 的 open / close（README 2b）；舞台用 breakthrough_fx（README 4）：
-## 平时 idle（法阵慢转、光晕），点「突破」播 charge（进度条充满 + 水波纹），服务器回成功后播 success（光柱、光环、星光、
-## 「突破成功」横幅）；失败回到 idle。横幅从场景默认的 y-360（会压住「当前 → 目标境界」行和两侧的战力牌、成功率环）
-## 挪到主角脚下（TITLE_Y），和舞台上的文字、牌子都不重叠。播动画期间新的状态先存着，播完再重画（不打断动画）。
+## 动画：弹窗 ui_popup 的 open / close。舞台平时用短特效 breakthrough_fx 的 idle（法阵慢转、光晕），
+## 点「突破」播它的 charge（请求没回来时的反馈）。服务端确认成功后改播天雷渡劫 tribulation_fx（约 10 秒：
+## 聚气压暗、落雷、金光和「突破成功」横幅），await finished 再刷属性、弹结算。失败回到 idle。
+## 短特效的横幅仍放在主角脚下（TITLE_Y），不压境界行。不播短特效的 success，也不显示「暴击」。
+## 播动画期间新的状态先存着，播完再重画（不打断动画）。
 
 signal start_requested
 signal goto_stage_requested(stage_slug: String)
@@ -31,6 +32,7 @@ var _inset_top := 90.0
 var _fx: Control  # ui_popup 外壳；没有动画交付时为 null
 var _host: Control
 var _break_fx: Node2D
+var _tribulation: TribulationFx
 var _fx_running := false
 var _pending_bind: Array = []
 
@@ -172,7 +174,7 @@ func fx_running() -> bool:
 	return _fx_running
 
 
-## 点「突破」：充能（2s）。服务器结果回来前就开始播。
+## 点「突破」：短特效充能（2s）。服务器结果回来前就开始播，成功后会被天雷盖住。
 func play_charge() -> void:
 	if _break_fx == null:
 		return
@@ -180,16 +182,30 @@ func play_charge() -> void:
 	QFx.play(_break_fx, "charge")
 
 
-## 成功：光柱、光环、星光、「突破成功」横幅（2.4s），播完返回。
-func play_success() -> void:
-	if _break_fx == null:
-		return
+func tribulation_fx() -> TribulationFx:
+	return _tribulation
+
+
+## 成功：天雷渡劫（TribulationFx.DURATION，10 秒）。横幅默认「突破成功」。
+## 播完才返回；调用方再 finish_fx 刷属性、弹结算。不走短特效的 success。
+func play_success(banner: String = "突破成功") -> void:
 	_fx_running = true
-	var ap := QFx.player(_break_fx)
-	if ap == null or not ap.has_animation("success"):
+	var fx := _ensure_tribulation()
+	if fx == null:
 		return
-	ap.play("success")
-	await ap.animation_finished
+	fx.position = _tribulation_anchor()
+	_fit_tribulation_dim(fx)
+	fx.visible = true
+	var layer := fx.get_node_or_null("FxLayer") as CanvasLayer
+	if layer != null:
+		layer.visible = true
+	fx.autoplay = false
+	fx.use_dim = true
+	fx.shake_mul = 1.0
+	fx.banner_text = banner
+	fx.play()
+	await fx.finished
+	_hide_tribulation(fx)
 
 
 ## 结束特效：回到 idle，补上播动画期间收到的新状态。
@@ -203,7 +219,8 @@ func finish_fx() -> void:
 		bind(args[0], args[1], args[2], args[3])
 
 
-## 「突破成功」横幅（场景 Front/Title/Box）在画布上的矩形（按缩放 1 算，测试 / 截图核对用）。
+## 短特效里「突破成功」横幅（Front/Title/Box）的矩形（按缩放 1 算，测试 / 截图核对用）。
+## 正式成功演出用天雷自己的横幅，不读这个节点。
 func success_title_rect() -> Rect2:
 	if _break_fx == null:
 		return Rect2()
@@ -341,7 +358,65 @@ func _make_break_fx() -> Node2D:
 	var front := fx.get_node_or_null("Front") as CanvasItem
 	if front != null:
 		front.z_index = 30
-	var slot := fx.get_node("HeroSlot") as Node2D
+	_attach_stage_hero(fx.get_node("HeroSlot") as Node2D)
+	QFx.play(fx, "idle")
+	return fx
+
+
+## 天雷叠在弹窗上，锚在舞台主角脚下（设计稿约 (540, 892)，跟短特效同一个点）。压暗铺满视口。
+func _ensure_tribulation() -> TribulationFx:
+	if _tribulation != null and is_instance_valid(_tribulation):
+		return _tribulation
+	var fx := QFx.make(QFx.TRIBULATION) as TribulationFx
+	if fx == null:
+		return null
+	fx.name = "TribulationFx"
+	fx.z_index = 40
+	fx.autoplay = false
+	add_child(fx)
+	var slot := fx.get_node_or_null("World/HeroSlot") as Node2D
+	if slot != null:
+		_attach_stage_hero(slot)
+	# 主角部件 z 最高 20，前景（金光、横幅）要盖在上面
+	var front := fx.get_node_or_null("World/Front") as CanvasItem
+	if front != null:
+		front.z_index = 30
+	_tribulation = fx
+	return fx
+
+
+func _tribulation_anchor() -> Vector2:
+	# Control 没有 to_local。页面本身不旋转、不缩放，用全局坐标相减得到本地锚点。
+	if _break_fx != null and is_inside_tree() and _break_fx.is_inside_tree():
+		return _break_fx.global_position - global_position
+	return Vector2(540, 892)
+
+
+func _fit_tribulation_dim(fx: TribulationFx) -> void:
+	var dim := fx.get_node_or_null("World/Back/Dim") as ColorRect
+	if dim == null:
+		return
+	var anchor := fx.position
+	var size := get_viewport_rect().size
+	if size.x < 1.0 or size.y < 1.0:
+		size = Vector2(1080, 2340)
+	dim.offset_left = -anchor.x
+	dim.offset_top = -anchor.y
+	dim.offset_right = size.x - anchor.x
+	dim.offset_bottom = size.y - anchor.y
+
+
+func _hide_tribulation(fx: TribulationFx) -> void:
+	fx.visible = false
+	var layer := fx.get_node_or_null("FxLayer") as CanvasLayer
+	if layer != null:
+		layer.visible = false
+
+
+## 莲台 + 打坐主角（坐垫隐藏）。短特效挂在 HeroSlot，天雷挂在 World/HeroSlot。
+func _attach_stage_hero(slot: Node2D) -> void:
+	if slot.get_node_or_null("Hero") != null:
+		return
 	if ArtLib.has_q("sprites/lotus_platform.png"):
 		var lotus := Sprite2D.new()
 		lotus.name = "Lotus"
@@ -350,16 +425,15 @@ func _make_break_fx() -> Node2D:
 		lotus.position = Vector2(0, -54)  # 设计稿莲台 (310,726,460,224) 的中心 (540, 838)
 		slot.add_child(lotus)
 	var hero := QFx.make(QFx.HERO) as Node2D
-	if hero != null:
-		hero.name = "Hero"
-		hero.scale = Vector2.ONE * (400.0 / 706.0)
-		hero.position = Vector2(0, -0.5)
-		var seat := hero.get_node_or_null("Rig/Cushion") as CanvasItem
-		if seat != null:
-			seat.visible = false
-		slot.add_child(hero)
-	QFx.play(fx, "idle")
-	return fx
+	if hero == null:
+		return
+	hero.name = "Hero"
+	hero.scale = Vector2.ONE * (400.0 / 706.0)
+	hero.position = Vector2(0, -0.5)
+	var seat := hero.get_node_or_null("Rig/Cushion") as CanvasItem
+	if seat != null:
+		seat.visible = false
+	slot.add_child(hero)
 
 
 ## 成功率环（SPEC_Q：radial_bg_176 + 顺时针 TextureProgressBar radial_fill_166 偏移 (5,5) + radial_center_132 偏移 (22,22)）。

@@ -100,8 +100,8 @@ func test_chain3_breakthrough_needs_the_gate_boss_then_succeeds_and_shows_before
 	assert_true(bool(page.view().can_start))
 	scene.call("_on_breakthrough")
 	var success := scene.get("_success_popup") as BreakthroughSuccess
-	# 充能 2.0s + 成功特效 2.4s 播完才出结算弹窗
-	await wait_until(func() -> bool: return success.visible, 8.0)
+	# 天雷渡劫约 10 秒，播完才出结算弹窗（不再加旧 success 的 2.4s）
+	await wait_until(func() -> bool: return success.visible, 14.0)
 	assert_true(success.visible)
 	var summary := success.summary()
 	assert_eq(int(summary.power_before), before_power)

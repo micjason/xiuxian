@@ -1,0 +1,72 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://anim_q/skill_fx/wind_fx.gd" id="1_fl7g0"]
+[ext_resource type="Texture2D" path="res://anim_q/skill_fx/fx/fx_glow.png" id="2_vsxi0"]
+[ext_resource type="Texture2D" path="res://anim_q/skill_fx/fx/fx_wind_streak.png" id="3_em5t3"]
+[ext_resource type="Texture2D" path="res://anim_q/skill_fx/fx/fx_wind_arc_sm.png" id="4_cf4l0"]
+[ext_resource type="Texture2D" path="res://anim_q/skill_fx/fx/fx_wind_arc.png" id="5_1bxuq"]
+[ext_resource type="Texture2D" path="res://anim_q/skill_fx/fx/fx_wind_leaf.png" id="6_hupqp"]
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_ocygf"]
+blend_mode = 1
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_ma4ru"]
+blend_mode = 1
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_trpo5"]
+blend_mode = 1
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_b11ug"]
+blend_mode = 1
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_yxtfl"]
+blend_mode = 1
+
+[sub_resource type="Gradient" id="Gradient_btudd"]
+colors = PackedColorArray(1, 1, 1, 1, 1, 1, 1, 0)
+
+[node name="WindFx" type="Node2D" unique_id=768022995]
+script = ExtResource("1_fl7g0")
+
+[node name="Root" type="Node2D" parent="." unique_id=1893125775]
+
+[node name="Flash" type="Sprite2D" parent="Root" unique_id=59116503]
+modulate = Color(1, 1, 1, 0)
+material = SubResource("CanvasItemMaterial_ocygf")
+scale = Vector2(0.5, 0.5)
+texture = ExtResource("2_vsxi0")
+
+[node name="Streak" type="Sprite2D" parent="Root" unique_id=1571910935]
+modulate = Color(1, 1, 1, 0)
+material = SubResource("CanvasItemMaterial_ma4ru")
+position = Vector2(15, 0)
+texture = ExtResource("3_em5t3")
+
+[node name="Arc2" type="Sprite2D" parent="Root" unique_id=676544146]
+modulate = Color(1, 1, 1, 0)
+material = SubResource("CanvasItemMaterial_trpo5")
+position = Vector2(8, -8)
+scale = Vector2(1.1, 1)
+texture = ExtResource("4_cf4l0")
+
+[node name="Arc" type="Sprite2D" parent="Root" unique_id=489034372]
+modulate = Color(1, 1, 1, 0)
+material = SubResource("CanvasItemMaterial_b11ug")
+scale = Vector2(1.3, 1.2)
+texture = ExtResource("5_1bxuq")
+
+[node name="Leaves" type="CPUParticles2D" parent="Root" unique_id=1303469542]
+material = SubResource("CanvasItemMaterial_yxtfl")
+emitting = false
+texture = ExtResource("6_hupqp")
+lifetime = 0.5
+one_shot = true
+explosiveness = 0.75
+direction = Vector2(1, -0.4)
+spread = 70.0
+gravity = Vector2(0, 120)
+initial_velocity_min = 90.0
+initial_velocity_max = 240.0
+scale_amount_min = 0.35
+scale_amount_max = 0.7
+color_ramp = SubResource("Gradient_btudd")

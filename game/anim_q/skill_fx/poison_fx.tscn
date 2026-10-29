@@ -1,0 +1,73 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://anim_q/skill_fx/poison_fx.gd" id="1_jtji3"]
+[ext_resource type="Texture2D" path="res://anim_q/skill_fx/fx/fx_glow_purple.png" id="2_53r64"]
+[ext_resource type="Texture2D" path="res://anim_q/skill_fx/fx/fx_poison_mist.png" id="3_7au4l"]
+[ext_resource type="Texture2D" path="res://anim_q/skill_fx/fx/fx_poison_burst.png" id="4_lub6f"]
+[ext_resource type="Texture2D" path="res://anim_q/skill_fx/fx/fx_poison_bubble.png" id="5_6kxha"]
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_ueilt"]
+blend_mode = 1
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_60wmf"]
+blend_mode = 1
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_b0sag"]
+blend_mode = 1
+
+[sub_resource type="Curve" id="Curve_webr5"]
+_data = [Vector2(0, 0.5), 0.0, 0.0, 0, 0, Vector2(0.4, 1), 0.0, 0.0, 0, 0, Vector2(1, 0.2), 0.0, 0.0, 0, 0]
+point_count = 3
+
+[sub_resource type="Gradient" id="Gradient_4ukrd"]
+offsets = PackedFloat32Array(0, 0.2, 1)
+colors = PackedColorArray(1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0)
+
+[node name="PoisonFx" type="Node2D" unique_id=1149146930]
+script = ExtResource("1_jtji3")
+
+[node name="Root" type="Node2D" parent="." unique_id=159164686]
+
+[node name="Glow" type="Sprite2D" parent="Root" unique_id=125360149]
+modulate = Color(1, 1, 1, 0)
+material = SubResource("CanvasItemMaterial_ueilt")
+position = Vector2(0, -15)
+scale = Vector2(1.1, 1)
+texture = ExtResource("2_53r64")
+
+[node name="Mist" type="Sprite2D" parent="Root" unique_id=1238554359]
+modulate = Color(1, 1, 1, 0)
+position = Vector2(-10, -10)
+texture = ExtResource("3_7au4l")
+
+[node name="Mist2" type="Sprite2D" parent="Root" unique_id=612025772]
+modulate = Color(1, 1, 1, 0)
+position = Vector2(18, 5)
+scale = Vector2(0.85, 0.85)
+texture = ExtResource("3_7au4l")
+
+[node name="Burst" type="Sprite2D" parent="Root" unique_id=1855967884]
+modulate = Color(1, 1, 1, 0)
+material = SubResource("CanvasItemMaterial_60wmf")
+position = Vector2(0, -20)
+scale = Vector2(1.1, 1.1)
+texture = ExtResource("4_lub6f")
+
+[node name="Bubbles" type="CPUParticles2D" parent="Root" unique_id=2064239567]
+material = SubResource("CanvasItemMaterial_b0sag")
+emitting = false
+amount = 10
+texture = ExtResource("5_6kxha")
+lifetime = 0.7
+explosiveness = 0.2
+emission_shape = 1
+emission_sphere_radius = 36.0
+direction = Vector2(0, -1)
+spread = 40.0
+gravity = Vector2(0, -50)
+initial_velocity_min = 30.0
+initial_velocity_max = 90.0
+scale_amount_min = 0.25
+scale_amount_max = 0.55
+scale_amount_curve = SubResource("Curve_webr5")
+color_ramp = SubResource("Gradient_4ukrd")

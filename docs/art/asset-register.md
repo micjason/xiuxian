@@ -72,6 +72,20 @@ status: 待审核
 notes: 后台副本在 admin/public/skill-icons/。不包含战斗施法序列帧。
 ```
 
+## skill_fx_v2
+
+```yaml
+id: skill_fx_v2
+file: game/anim_q/skill_fx/
+type_and_purpose: 九套战斗施法特效（slash/thunder/fire/heal_circle/ice/wind/poison/gold_light/shield）
+source: 项目内 Q 版特效模板 v2（skill_fx_nine），Godot 4 内置节点，无 Spine
+license: 项目所有
+acquired_at: 2026-10-29
+budget: 贴图不超过约 420px；含 small/ 预览 jpg
+status: 待审核
+notes: 运行时路径 res://anim_q/skill_fx/。九个真名各有 *_fx.tscn，金光文件名是 gold_light_fx。不改 battle_idle / battle_boss，也不改换装。
+```
+
 ## 登记模板
 
 每项素材使用一个二级标题并复制以下字段：

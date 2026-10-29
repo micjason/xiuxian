@@ -1,0 +1,91 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://anim_q/skill_fx/ice_fx.gd" id="1_sd07q"]
+[ext_resource type="Texture2D" path="res://anim_q/skill_fx/fx/fx_glow_ice.png" id="2_qtiau"]
+[ext_resource type="Texture2D" path="res://anim_q/skill_fx/fx/fx_glow.png" id="3_tq0gy"]
+[ext_resource type="Texture2D" path="res://anim_q/skill_fx/fx/fx_ice_shard.png" id="4_qto7m"]
+[ext_resource type="Texture2D" path="res://anim_q/skill_fx/fx/fx_ice_shard_sm.png" id="5_7bw2q"]
+[ext_resource type="Texture2D" path="res://anim_q/skill_fx/fx/fx_frost_ring.png" id="6_4fdvx"]
+[ext_resource type="Texture2D" path="res://anim_q/skill_fx/fx/fx_spark.png" id="7_q7v23"]
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_igqd5"]
+blend_mode = 1
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_8ak6s"]
+blend_mode = 1
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_otu0t"]
+blend_mode = 1
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_rv2yf"]
+blend_mode = 1
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_xxn6q"]
+blend_mode = 1
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_6erpf"]
+blend_mode = 1
+
+[sub_resource type="Gradient" id="Gradient_nmdrc"]
+colors = PackedColorArray(1, 1, 1, 1, 1, 1, 1, 0)
+
+[node name="IceFx" type="Node2D" unique_id=1836934711]
+script = ExtResource("1_sd07q")
+
+[node name="Root" type="Node2D" parent="." unique_id=2047218574]
+
+[node name="Flash" type="Sprite2D" parent="Root" unique_id=640234494]
+modulate = Color(1, 1, 1, 0)
+material = SubResource("CanvasItemMaterial_igqd5")
+scale = Vector2(0.7, 0.7)
+texture = ExtResource("2_qtiau")
+
+[node name="Burst" type="Sprite2D" parent="Root" unique_id=1996855654]
+modulate = Color(1, 1, 1, 0)
+material = SubResource("CanvasItemMaterial_8ak6s")
+position = Vector2(0, -15)
+scale = Vector2(0.9, 0.9)
+texture = ExtResource("3_tq0gy")
+
+[node name="Shard0" type="Sprite2D" parent="Root" unique_id=724412623]
+modulate = Color(1, 1, 1, 0)
+material = SubResource("CanvasItemMaterial_otu0t")
+position = Vector2(0, -10)
+scale = Vector2(0.85, 0.85)
+texture = ExtResource("4_qto7m")
+
+[node name="Shard1" type="Sprite2D" parent="Root" unique_id=557361791]
+modulate = Color(1, 1, 1, 0)
+material = SubResource("CanvasItemMaterial_rv2yf")
+position = Vector2(-20, 0)
+scale = Vector2(0.9, 0.9)
+texture = ExtResource("5_7bw2q")
+
+[node name="Shard2" type="Sprite2D" parent="Root" unique_id=787187570]
+modulate = Color(1, 1, 1, 0)
+material = SubResource("CanvasItemMaterial_xxn6q")
+position = Vector2(22, 5)
+scale = Vector2(0.8, 0.8)
+texture = ExtResource("5_7bw2q")
+
+[node name="Frost" type="Sprite2D" parent="Root" unique_id=1999914651]
+modulate = Color(1, 1, 1, 0)
+position = Vector2(0, 20)
+scale = Vector2(0.7, 0.45)
+texture = ExtResource("6_4fdvx")
+
+[node name="Sparks" type="CPUParticles2D" parent="Root" unique_id=1237455352]
+material = SubResource("CanvasItemMaterial_6erpf")
+emitting = false
+amount = 10
+texture = ExtResource("7_q7v23")
+lifetime = 0.4
+one_shot = true
+explosiveness = 0.9
+spread = 180.0
+gravity = Vector2(0, 220)
+initial_velocity_min = 70.0
+initial_velocity_max = 220.0
+scale_amount_min = 0.12
+scale_amount_max = 0.3
+color_ramp = SubResource("Gradient_nmdrc")

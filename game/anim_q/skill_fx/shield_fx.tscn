@@ -1,0 +1,79 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://anim_q/skill_fx/shield_fx.gd" id="1_to5l1"]
+[ext_resource type="Texture2D" path="res://anim_q/skill_fx/fx/fx_glow.png" id="2_orlco"]
+[ext_resource type="Texture2D" path="res://anim_q/skill_fx/fx/fx_shield_dome.png" id="3_57oa3"]
+[ext_resource type="Texture2D" path="res://anim_q/skill_fx/fx/fx_shield_ring.png" id="4_ss7y7"]
+[ext_resource type="Texture2D" path="res://anim_q/skill_fx/fx/fx_glow_gold.png" id="5_6351g"]
+[ext_resource type="Texture2D" path="res://anim_q/skill_fx/fx/fx_heal_mote.png" id="6_1dkd2"]
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_mdidb"]
+blend_mode = 1
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_ofrf7"]
+blend_mode = 1
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_4x38y"]
+blend_mode = 1
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_8mm60"]
+blend_mode = 1
+
+[sub_resource type="Curve" id="Curve_fpylq"]
+_data = [Vector2(0, 0.4), 0.0, 0.0, 0, 0, Vector2(0.4, 1), 0.0, 0.0, 0, 0, Vector2(1, 0.15), 0.0, 0.0, 0, 0]
+point_count = 3
+
+[sub_resource type="Gradient" id="Gradient_247ts"]
+offsets = PackedFloat32Array(0, 0.2, 1)
+colors = PackedColorArray(1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0)
+
+[node name="ShieldFx" type="Node2D" unique_id=526786642]
+script = ExtResource("1_to5l1")
+
+[node name="Root" type="Node2D" parent="." unique_id=717504625]
+
+[node name="Glow" type="Sprite2D" parent="Root" unique_id=2048850015]
+modulate = Color(1, 1, 1, 0)
+material = SubResource("CanvasItemMaterial_mdidb")
+position = Vector2(0, -40)
+scale = Vector2(1.2, 1)
+texture = ExtResource("2_orlco")
+
+[node name="Dome" type="Sprite2D" parent="Root" unique_id=1812442320]
+modulate = Color(1, 1, 1, 0)
+position = Vector2(0, -30)
+scale = Vector2(1.05, 1.05)
+texture = ExtResource("3_57oa3")
+
+[node name="Ring" type="Sprite2D" parent="Root" unique_id=773008775]
+modulate = Color(1, 1, 1, 0)
+material = SubResource("CanvasItemMaterial_ofrf7")
+position = Vector2(0, -20)
+scale = Vector2(0.95, 0.95)
+texture = ExtResource("4_ss7y7")
+
+[node name="Flash" type="Sprite2D" parent="Root" unique_id=1469378064]
+modulate = Color(1, 1, 1, 0)
+material = SubResource("CanvasItemMaterial_4x38y")
+position = Vector2(0, -50)
+scale = Vector2(0.7, 0.7)
+texture = ExtResource("5_6351g")
+
+[node name="Motes" type="CPUParticles2D" parent="Root" unique_id=1156782995]
+material = SubResource("CanvasItemMaterial_8mm60")
+emitting = false
+amount = 10
+texture = ExtResource("6_1dkd2")
+lifetime = 0.7
+emission_shape = 6
+emission_ring_inner_radius = 50.0
+emission_ring_radius = 100.0
+direction = Vector2(0, -1)
+spread = 20.0
+gravity = Vector2(0, -20)
+initial_velocity_min = 15.0
+initial_velocity_max = 45.0
+scale_amount_min = 0.2
+scale_amount_max = 0.45
+scale_amount_curve = SubResource("Curve_fpylq")
+color_ramp = SubResource("Gradient_247ts")

@@ -1,0 +1,75 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://anim_q/skill_fx/gold_light_fx.gd" id="1_7mred"]
+[ext_resource type="Texture2D" path="res://anim_q/skill_fx/fx/fx_glow_gold.png" id="2_6tit1"]
+[ext_resource type="Texture2D" path="res://anim_q/skill_fx/fx/fx_gold_burst.png" id="3_qe1pf"]
+[ext_resource type="Texture2D" path="res://anim_q/skill_fx/fx/fx_ring_gold.png" id="4_3bccc"]
+[ext_resource type="Texture2D" path="res://anim_q/skill_fx/fx/fx_glow.png" id="5_nqa21"]
+[ext_resource type="Texture2D" path="res://anim_q/skill_fx/fx/fx_spark.png" id="6_oi5ya"]
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_xdepk"]
+blend_mode = 1
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_wm8f3"]
+blend_mode = 1
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_a3lmb"]
+blend_mode = 1
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_jws8l"]
+blend_mode = 1
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_j0kgj"]
+blend_mode = 1
+
+[sub_resource type="Gradient" id="Gradient_vniki"]
+colors = PackedColorArray(1, 1, 1, 1, 1, 1, 1, 0)
+
+[node name="GoldLightFx" type="Node2D" unique_id=473196658]
+script = ExtResource("1_7mred")
+
+[node name="Root" type="Node2D" parent="." unique_id=629301059]
+
+[node name="Glow" type="Sprite2D" parent="Root" unique_id=1468014534]
+modulate = Color(1, 1, 1, 0)
+material = SubResource("CanvasItemMaterial_xdepk")
+position = Vector2(0, -10)
+scale = Vector2(1.3, 1.3)
+texture = ExtResource("2_6tit1")
+
+[node name="Burst" type="Sprite2D" parent="Root" unique_id=711774454]
+modulate = Color(1, 1, 1, 0)
+material = SubResource("CanvasItemMaterial_wm8f3")
+position = Vector2(0, -15)
+scale = Vector2(1.15, 1.15)
+texture = ExtResource("3_qe1pf")
+
+[node name="Ring" type="Sprite2D" parent="Root" unique_id=1909785507]
+modulate = Color(1, 1, 1, 0)
+material = SubResource("CanvasItemMaterial_a3lmb")
+position = Vector2(0, -5)
+scale = Vector2(0.9, 0.9)
+texture = ExtResource("4_3bccc")
+
+[node name="Core" type="Sprite2D" parent="Root" unique_id=1989942661]
+modulate = Color(1, 1, 1, 0)
+material = SubResource("CanvasItemMaterial_jws8l")
+position = Vector2(0, -15)
+scale = Vector2(0.7, 0.7)
+texture = ExtResource("5_nqa21")
+
+[node name="Sparks" type="CPUParticles2D" parent="Root" unique_id=576147616]
+material = SubResource("CanvasItemMaterial_j0kgj")
+emitting = false
+amount = 12
+texture = ExtResource("6_oi5ya")
+lifetime = 0.4
+one_shot = true
+explosiveness = 0.95
+spread = 180.0
+gravity = Vector2(0, 80)
+initial_velocity_min = 80.0
+initial_velocity_max = 260.0
+scale_amount_min = 0.12
+scale_amount_max = 0.32
+color_ramp = SubResource("Gradient_vniki")

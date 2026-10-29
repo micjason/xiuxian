@@ -28,7 +28,40 @@ static func _dataset() -> Dictionary:
 static func content() -> Dictionary:
 	var out := (_dataset().get("content", {}) as Dictionary).duplicate(true)
 	UiMock.add_essence(out)  # 第五批：数据集是老服务器导出的，补上炼器精粹规则和物品
+	_ensure_dongfu_items(out)  # 洞府物品：旧导出没有这些条目，缺 displayName 时界面会露出 slug
 	return out
+
+
+## 演示 / 截图用的 content 必须带洞府物品中文名。已有正式名不覆盖。
+static func _ensure_dongfu_items(content_data: Dictionary) -> void:
+	var items: Array = content_data.get("items", []) if typeof(content_data.get("items", null)) == TYPE_ARRAY else []
+	var index := {}
+	for i in items.size():
+		var row: Variant = items[i]
+		if typeof(row) != TYPE_DICTIONARY:
+			continue
+		var slug := str((row as Dictionary).get("slug", ""))
+		if not slug.is_empty():
+			index[slug] = i
+	for slug in CaveView.ITEM_DISPLAY_FALLBACK.keys():
+		var display := str(CaveView.ITEM_DISPLAY_FALLBACK[slug])
+		if index.has(slug):
+			var item: Dictionary = items[int(index[slug])]
+			var name := str(item.get("displayName", "")).strip_edges()
+			if name.is_empty() or name == slug:
+				item["displayName"] = display
+			continue
+		var kind := "pill" if str(slug).begins_with("pill_") else "material"
+		items.append({
+			"slug": slug,
+			"displayName": display,
+			"kind": kind,
+			"quality": "green",
+			"stackable": true,
+			"enabled": true,
+			"description": display,
+		})
+	content_data["items"] = items
 
 
 static func realm_snapshot(slug: String) -> Dictionary:

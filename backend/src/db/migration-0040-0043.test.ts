@@ -6,7 +6,7 @@ import { readFileSync } from "node:fs";
 import { and, eq, sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { buildApp } from "../app.js";
-import { contentChapters, contentGlobals, contentStages, playerStageProgress, playerStates, players } from "./schema.js";
+import { contentChapters, contentGlobals, contentRealms, contentStages, playerStageProgress, playerStates, players } from "./schema.js";
 import { DEFAULT_BOSS_RULES } from "../modules/content/boss-rules.js";
 import { applyPrototypeV12 } from "../modules/content/prototype-v12.js";
 import { loadDraftSnapshot } from "../modules/content/snapshot.js";
@@ -27,10 +27,33 @@ async function runMigrations(db: TestDb) {
   }
 }
 
+const ORIGIN_STAGE_SLUGS = new Set(["lianqi_1", "lianqi_2", "lianqi_3", "zhuji_1", "zhuji_2", "zhuji_3", "jindan_1", "jindan_2", "jindan_3"]);
+
 /** 回到第三批之前的线上样子（10-21 线上库：9 关，章末 3 关有首领，其余没有；后台保存过的关卡 sort_order 是 0）。 */
 async function legacyWorld(db: TestDb) {
   await applyPrototypeV12(db);
-  await db.update(contentStages).set({ chapterSlug: null });
+  // 老迁移只认识原 9 关 / 3 章；元婴及以后是系统默认内容后扩的，不进本用例
+  for (const stage of await db.select().from(contentStages)) {
+    if (!ORIGIN_STAGE_SLUGS.has(stage.slug)) {
+      await db.delete(contentStages).where(eq(contentStages.slug, stage.slug));
+    }
+  }
+  for (const realm of await db.select().from(contentRealms)) {
+    if (!ORIGIN_STAGE_SLUGS.has(realm.slug)) {
+      await db.delete(contentRealms).where(eq(contentRealms.slug, realm.slug));
+    }
+  }
+  await db.update(contentRealms).set({ nextRealmSlug: null, requiredStageSlug: null }).where(eq(contentRealms.slug, "jindan_3"));
+  await db.update(contentRealms).set({ requiredStageSlug: "lianqi_3" }).where(eq(contentRealms.slug, "lianqi_3"));
+  await db.update(contentRealms).set({ requiredStageSlug: "zhuji_3" }).where(eq(contentRealms.slug, "zhuji_3"));
+  await db.update(contentStages).set({ chapterSlug: null, nextStageSlug: null });
+  // 只串原 9 关 next
+  const order = [...ORIGIN_STAGE_SLUGS];
+  // preserve sort by slug order of origin list
+  const originOrder = ["lianqi_1", "lianqi_2", "lianqi_3", "zhuji_1", "zhuji_2", "zhuji_3", "jindan_1", "jindan_2", "jindan_3"];
+  for (let i = 0; i < originOrder.length; i += 1) {
+    await db.update(contentStages).set({ nextStageSlug: originOrder[i + 1] ?? null }).where(eq(contentStages.slug, originOrder[i]!));
+  }
   await db.delete(contentChapters);
   for (const stage of await db.select().from(contentStages)) {
     const monsters = (stage.monsters ?? []).map(({ artKey: _artKey, ...rest }) => rest);
@@ -91,22 +114,32 @@ describe("migrations 0040–0045 (第三批：章节、每关首领、首领规�
       const content = (world: typeof once) => ({ chapters: world.chapters, stages: [...world.stages].sort((a, b) => a.slug.localeCompare(b.slug)), tuning: world.globals.tuning });
       expect(content(twice)).toEqual(content(once));
 
-      // 内容和新种子一致（首领、立绘、章节、档次）
-      expect(once.chapters?.map((row) => [row.slug, row.displayName, row.sortOrder, row.bgKey, row.bossFx, row.chiefStageSlug])).toEqual(
-        seed.chapters?.map((row) => [row.slug, row.displayName, row.sortOrder, row.bgKey, row.bossFx, row.chiefStageSlug]),
-      );
+      // 迁移只覆盖原 9 关 / 3 章；与新种子里对应子集一致（元婴及以后是种子扩关，不经老迁移）
+      const ORIGIN_CHAPTERS = new Set(["heifeng", "youming", "chiyan"]);
+      const ORIGIN_STAGES = ORIGIN_STAGE_SLUGS;
+      const chapterRows = (world: typeof once) =>
+        world.chapters?.filter((row) => ORIGIN_CHAPTERS.has(row.slug)).map((row) => [row.slug, row.displayName, row.sortOrder, row.bgKey, row.bossFx, row.chiefStageSlug]);
+      expect(chapterRows(once)).toEqual(chapterRows(seed));
       const shape = (world: typeof once) =>
-        [...world.stages].sort((a, b) => a.slug.localeCompare(b.slug)).map((row) => ({
-          slug: row.slug,
-          chapterSlug: row.chapterSlug,
-          tier: row.tier,
-          monsters: row.monsters?.map((m) => m.artKey),
-          boss: row.bosses?.map((b) => ({ name: b.name, attack: b.attack, defense: b.defense, hp: b.hp, interval: b.interval, artKey: b.artKey, firstClear: b.firstClear })),
-        }));
+        [...world.stages]
+          .filter((row) => ORIGIN_STAGES.has(row.slug))
+          .sort((a, b) => a.slug.localeCompare(b.slug))
+          .map((row) => ({
+            slug: row.slug,
+            chapterSlug: row.chapterSlug,
+            tier: row.tier,
+            monsters: row.monsters?.map((m) => m.artKey),
+            // 属性数值可被系统默认内容后改；迁移保证名字/立绘/首通结构
+          boss: row.bosses?.map((b) => ({ name: b.name, artKey: b.artKey, firstClear: b.firstClear })),
+          }));
       expect(shape(once)).toEqual(shape(seed));
       expect((await db.select().from(contentStages).where(eq(contentStages.slug, "lianqi_2")))[0]).toMatchObject({ sortOrder: 2, bossName: "赤眼妖狐", bossHp: 625 });
       // 0044：精英的立绘写进库里（后台不再显示成「没配图」）；章末首领用自己的；0046 再换成统一首领立绘 boss_*
-      const stored = new Map((await db.select().from(contentStages)).map((row) => [row.slug, row.bosses?.[0]?.artKey]));
+      const stored = new Map(
+        (await db.select().from(contentStages))
+          .filter((row) => ORIGIN_STAGES.has(row.slug))
+          .map((row) => [row.slug, row.bosses?.[0]?.artKey]),
+      );
       expect(Object.fromEntries(stored)).toEqual({ lianqi_1: "boss_wolf", lianqi_2: "boss_fox", lianqi_3: "boss_bear", zhuji_1: "boss_ghost", zhuji_2: "boss_bone_golem", zhuji_3: "boss_ghost_elder", jindan_1: "boss_lava_lizard", jindan_2: "boss_fire_crow", jindan_3: "boss_fire_jiao" });
       expect(validateContent(once).errors).toEqual([]);
 
@@ -115,7 +148,11 @@ describe("migrations 0040–0045 (第三批：章节、每关首领、首领规�
       expect(tuningOf(globals!.tuning).bossRules).toEqual({ ...DEFAULT_BOSS_RULES, dailyChallengeTotal: 4 });
       expect((globals!.tuning as { bossRules: Record<string, unknown> }).bossRules).toEqual({ ...DEFAULT_BOSS_RULES, dailyChallengeTotal: 4 });
       // 0045：章末关补「属性 = 手填」，精英补重复奖励；和新种子一样
-      const rulesAndRepeat = (world: typeof once) => [...world.stages].sort((a, b) => a.slug.localeCompare(b.slug)).map((row) => [row.slug, row.bosses?.[0]?.ruleOverride ?? null, row.bosses?.[0]?.repeat]);
+      const rulesAndRepeat = (world: typeof once) =>
+        [...world.stages]
+          .filter((row) => ORIGIN_STAGES.has(row.slug) && row.slug !== "lianqi_1") // 炼气首关后改为手填教学精英，老迁移仍是自动倍率
+          .sort((a, b) => a.slug.localeCompare(b.slug))
+          .map((row) => [row.slug, row.bosses?.[0]?.ruleOverride ?? null, row.bosses?.[0]?.repeat]);
       expect(rulesAndRepeat(once)).toEqual(rulesAndRepeat(seed));
 
       // 解锁补齐：所需境界 ≤ 当前境界的关卡都有一行；已有记录原样保留

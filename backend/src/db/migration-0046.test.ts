@@ -33,7 +33,7 @@ async function before0046(db: TestDb) {
     const [boss] = stage.bosses;
     const chief = stage.slug.endsWith("_3");
     const name = chief ? boss!.name : `精英·${stage.monsters[0]!.name}`;
-    await db.update(contentStages).set({ bosses: [{ ...boss!, name, artKey: OLD_ART[stage.slug] } as never], bossName: name }).where(eq(contentStages.slug, stage.slug));
+    await db.update(contentStages).set({ bosses: [{ ...boss!, name, artKey: OLD_ART[stage.slug] ?? boss!.artKey } as never], bossName: name }).where(eq(contentStages.slug, stage.slug));
   }
   await db.execute(sql.raw(`ALTER TABLE "content_chapters" DROP COLUMN IF EXISTS "battle_bg_key"`));
 }
@@ -74,7 +74,11 @@ describe("migration 0046 (第四批：首领名字 / 统一首领立绘 / 战斗
       expect(boss("jindan_3")).toMatchObject({ name: "赤焰蛟", artKey: "boss_fire_jiao" });
       const [stage] = await db.select().from(contentStages).where(eq(contentStages.slug, "jindan_2"));
       expect(stage!.bossName).toBe("焚天火鸦");
-      expect(once.chapters!.map((row) => [row.slug, row.battleBgKey])).toEqual([["heifeng", "heifeng"], ["youming", "youming"], ["chiyan", "chiyan"]]);
+      expect(once.chapters!.map((row) => [row.slug, row.battleBgKey])).toEqual([
+        ["heifeng", "heifeng"], ["youming", "youming"], ["chiyan", "chiyan"],
+        ["zixiao", "youming"], ["shenyou", "heifeng"], ["taixu", "youming"],
+        ["hedao", "chiyan"], ["daluo", "heifeng"],
+      ]);
       expect(validateContent(once).errors).toEqual([]);
     });
   });

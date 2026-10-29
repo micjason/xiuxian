@@ -25,38 +25,38 @@ blend_mode = 1
 [sub_resource type="Gradient" id="Gradient_ya0gl"]
 colors = PackedColorArray(1, 1, 1, 1, 1, 1, 1, 0)
 
-[node name="SlashFx" type="Node2D" unique_id=332726802]
+[node name="SlashFx" type="Node2D" unique_id=1024192474]
 script = ExtResource("1_la07m")
 
-[node name="Root" type="Node2D" parent="." unique_id=739419114]
+[node name="Root" type="Node2D" parent="." unique_id=1696967573]
 
-[node name="Flash" type="Sprite2D" parent="Root" unique_id=1732133513]
+[node name="Flash" type="Sprite2D" parent="Root" unique_id=1508892011]
 modulate = Color(1, 1, 1, 0)
 material = SubResource("CanvasItemMaterial_delfx")
 scale = Vector2(0.5, 0.5)
 texture = ExtResource("2_xrea3")
 
-[node name="Streak" type="Sprite2D" parent="Root" unique_id=678773379]
+[node name="Streak" type="Sprite2D" parent="Root" unique_id=1505582196]
 modulate = Color(1, 1, 1, 0)
 material = SubResource("CanvasItemMaterial_xxsje")
 position = Vector2(20, 0)
 scale = Vector2(0.8, 0.9)
 texture = ExtResource("3_hdjio")
 
-[node name="Arc2" type="Sprite2D" parent="Root" unique_id=2017228541]
+[node name="Arc2" type="Sprite2D" parent="Root" unique_id=846815733]
 modulate = Color(1, 1, 1, 0)
 material = SubResource("CanvasItemMaterial_dn687")
 position = Vector2(10, -10)
 scale = Vector2(1, 0.95)
 texture = ExtResource("4_36oxb")
 
-[node name="Arc" type="Sprite2D" parent="Root" unique_id=526225994]
+[node name="Arc" type="Sprite2D" parent="Root" unique_id=2135244452]
 modulate = Color(1, 1, 1, 0)
 material = SubResource("CanvasItemMaterial_ebhki")
 scale = Vector2(1.25, 1.2)
 texture = ExtResource("5_suaj0")
 
-[node name="Sparks" type="CPUParticles2D" parent="Root" unique_id=1918446334]
+[node name="Sparks" type="CPUParticles2D" parent="Root" unique_id=74286523]
 material = SubResource("CanvasItemMaterial_cpimq")
 emitting = false
 texture = ExtResource("6_20mux")

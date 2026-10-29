@@ -1,21 +1,27 @@
 class_name SkillFxCast
 extends RefCounted
 ## 把技能配置 / 战斗事件收成一次施法表现。不改伤害，只决定播哪套、挂在哪。
-## 挂点：斩 / 火 / 风 / 毒 / 金光 → 目标身中偏前；雷 / 冰 → 目标脚底；治疗 / 盾 → 己方脚底。
+## 挂点：斩/风在目标身前；火/冰/毒/金光在目标中心；雷在目标脚底；治疗在己方脚底；盾在己方身中。
 
 const SkillFxRoot := preload("res://anim_q/skill_fx/skill_fx_root.gd")
 
 const ANCHOR_TARGET_BODY := "target_body"
+const ANCHOR_TARGET_CENTER := "target_center"
 const ANCHOR_TARGET_FEET := "target_feet"
 const ANCHOR_SELF_FEET := "self_feet"
+const ANCHOR_SELF_BODY := "self_body"
 
 
 static func anchor_for(stored: String) -> String:
 	match stored:
-		"thunder", "ice":
+		"thunder":
 			return ANCHOR_TARGET_FEET
-		"heal_circle", "shield":
+		"fire", "ice", "poison", "gold_light":
+			return ANCHOR_TARGET_CENTER
+		"heal_circle":
 			return ANCHOR_SELF_FEET
+		"shield":
+			return ANCHOR_SELF_BODY
 		_:
 			return ANCHOR_TARGET_BODY
 

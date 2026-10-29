@@ -31,40 +31,40 @@ point_count = 3
 offsets = PackedFloat32Array(0, 0.2, 1)
 colors = PackedColorArray(1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0)
 
-[node name="HealCircleFx" type="Node2D" unique_id=1093324126]
+[node name="HealCircleFx" type="Node2D" unique_id=640849784]
 script = ExtResource("1_jkg0u")
 
-[node name="Root" type="Node2D" parent="." unique_id=1799947698]
+[node name="Root" type="Node2D" parent="." unique_id=4327220]
 
-[node name="Ground" type="Node2D" parent="Root" unique_id=1501503172]
+[node name="Ground" type="Node2D" parent="Root" unique_id=1432815254]
 position = Vector2(0, 8)
 scale = Vector2(1.15, 0.32)
 
-[node name="Circle" type="Sprite2D" parent="Root/Ground" unique_id=1793193216]
+[node name="Circle" type="Sprite2D" parent="Root/Ground" unique_id=511851509]
 modulate = Color(1, 1, 1, 0)
 scale = Vector2(0.95, 0.95)
 texture = ExtResource("2_ea5e8")
 
-[node name="RingGold" type="Sprite2D" parent="Root/Ground" unique_id=268632538]
+[node name="RingGold" type="Sprite2D" parent="Root/Ground" unique_id=853536918]
 modulate = Color(1, 1, 1, 0)
 material = SubResource("CanvasItemMaterial_clee3")
 scale = Vector2(1.05, 1.05)
 texture = ExtResource("3_pqktb")
 
-[node name="RingCyan" type="Sprite2D" parent="Root/Ground" unique_id=737643696]
+[node name="RingCyan" type="Sprite2D" parent="Root/Ground" unique_id=1174999674]
 modulate = Color(1, 1, 1, 0)
 material = SubResource("CanvasItemMaterial_gbq0v")
 scale = Vector2(0.7, 0.7)
 texture = ExtResource("4_ocm3x")
 
-[node name="Glow" type="Sprite2D" parent="Root" unique_id=1183584765]
+[node name="Glow" type="Sprite2D" parent="Root" unique_id=268612946]
 modulate = Color(1, 1, 1, 0)
 material = SubResource("CanvasItemMaterial_knl3q")
 position = Vector2(0, -20)
 scale = Vector2(1.2, 0.8)
 texture = ExtResource("5_ynfqa")
 
-[node name="Pillar" type="Sprite2D" parent="Root" unique_id=790382569]
+[node name="Pillar" type="Sprite2D" parent="Root" unique_id=490484069]
 visible = false
 modulate = Color(1, 1, 1, 0)
 material = SubResource("CanvasItemMaterial_40c1b")
@@ -72,7 +72,7 @@ position = Vector2(0, -140)
 scale = Vector2(0.65, 0.9)
 texture = ExtResource("6_gx2fg")
 
-[node name="Motes" type="CPUParticles2D" parent="Root" unique_id=1044211207]
+[node name="Motes" type="CPUParticles2D" parent="Root" unique_id=488622961]
 material = SubResource("CanvasItemMaterial_c6mob")
 emitting = false
 amount = 12

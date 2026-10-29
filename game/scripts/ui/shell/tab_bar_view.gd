@@ -1,6 +1,6 @@
 class_name TabBarView
 extends Control
-## 底部标签栏（Q 版设计稿）：五格 —— 修炼 / 历练 / 【突破】/ 功法 / 背包。
+## 底部标签栏（Q 版设计稿）：五格 —— 修炼 / 历练 / 【突破】/ 洞府 / 背包。
 ## 中间是凸出底栏的「突破」大圆钮（QBreakButton），下面一行小字写下一境界名；点它发 center_pressed，
 ## 由外壳决定打开突破弹窗还是提示还差什么（见 set_center）。其余四格点击发 page_selected(页面 id)。
 ## 选中格：浅金圆角底板 + 图标放大上浮 + 白字描边；未选中：图标偏灰 + 灰字。红点 set_dot。

@@ -1,5 +1,5 @@
 extends Control
-## 游戏主界面外壳（Q 版）：背景、顶部栏（头像/境界/战力/货币/修为）、底部五格（修炼 / 历练 /【突破】/ 功法 / 背包）、
+## 游戏主界面外壳（Q 版）：背景、顶部栏（头像/境界/战力/货币/修为）、底部五格（修炼 / 历练 /【突破】/ 洞府 / 背包）、
 ## 页面、通用弹层、离线收益弹窗、突破成功弹窗、登录层。
 ## 底栏正中的「突破」大圆钮打开境界突破弹窗（居中弹出，盖在当前页上）；修炼页右侧「洞府」入口进洞府页；
 ## 历练页「挑战」→ 首领战界面。洞府 / 首领战不占页签，分别高亮「修炼」「历练」。
@@ -275,7 +275,7 @@ func _build_shell() -> void:
 		{"id": PAGE_CULTIVATE, "name": "修炼", "icon": "tab_cultivate"},
 		{"id": PAGE_ADVENTURE, "name": "历练", "icon": "tab_adventure"},
 		{"id": PAGE_BREAKTHROUGH, "name": "突破", "center": true},
-		{"id": PAGE_SKILL, "name": "功法", "icon": "tab_skill"},
+		{"id": PAGE_SKILL, "name": "洞府", "icon": "tab_skill"},
 		{"id": PAGE_BAG, "name": "背包", "icon": "tab_bag"},
 	] as Array[Dictionary], PAGE_CULTIVATE)
 	_tab_bar.page_selected.connect(_show_page)

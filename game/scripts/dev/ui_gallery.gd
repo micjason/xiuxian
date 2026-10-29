@@ -92,7 +92,7 @@ func _tab_bar(inset: Vector4, active: String) -> void:
 	row.offset_top = -(UiTokens.H_TAB + inset.w)
 	row.offset_bottom = -inset.w
 	_page_root.add_child(row)
-	for name in ["修炼", "历练", "行囊", "功法"]:
+	for name in ["修炼", "历练", "行囊", "洞府"]:
 		var tab := _button(name, MainTheme.VAR_TAB_ACTIVE if name == active else MainTheme.VAR_TAB)
 		tab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		tab.custom_minimum_size = Vector2(0, UiTokens.H_TAB)

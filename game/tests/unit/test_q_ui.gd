@@ -30,7 +30,8 @@ func test_tab_bar_has_five_slots_in_design_order_with_the_orb_in_the_middle() ->
 		assert_not_null(button, id)
 		order.append(button.get_global_rect().get_center().x)
 	for i in order.size() - 1:
-		assert_lt(float(order[i]), float(order[i + 1]), "从左到右：修炼 历练 突破 功法 背包")
+		assert_lt(float(order[i]), float(order[i + 1]), "从左到右：修炼 历练 突破 洞府 背包")
+	assert_eq((bar._labels["skill"] as Label).text, "洞府", "底栏这一格文案是洞府，功法页内容仍从原页签进入")
 	assert_almost_eq(float(order[2]), 540.0, 4.0, "突破圆钮在正中")
 	assert_true(bar.button_of("breakthrough") is QBreakButton)
 	assert_eq(bar.center_sub_text(), "筑基一层", "圆钮下面写下一境界（真数据）")

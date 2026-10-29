@@ -230,7 +230,7 @@ func test_main_scene_in_mock_mode_builds_the_five_slot_shell() -> void:
 	for page in ["_home_page", "_stage_page", "_battle_page", "_breakthrough_page", "_bag_page", "_skill_page", "_cave_page", "_tab_bar", "_top_bar", "_backdrop", "_toast"]:
 		assert_not_null(scene.get(page), page)
 	var tab_bar := scene.get("_tab_bar") as TabBarView
-	assert_eq(tab_bar._buttons.size(), 5, "修炼/历练/突破（中间大圆钮）/功法/背包")
+	assert_eq(tab_bar._buttons.size(), 5, "修炼/历练/突破（中间大圆钮）/洞府/背包")
 	assert_not_null(tab_bar.center_button())
 	for id in TABS:
 		assert_not_null(tab_bar.button_of(id), id)

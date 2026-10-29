@@ -4,10 +4,8 @@ extends VBoxContainer
 ## 建筑和数值只取现有配置 CaveView（等级、每小时产出，原型阶段的展示数据，服务器还没有洞府系统）。
 ## 设计稿里有、配置里没有的建筑（静室）照样显示，标「暂未开放」，点了提示「功能暂未开放」；
 ## 「升级」也还没有，点了同样提示。配置里有、设计稿地图上没位置的（藏经阁、炼器室）列在详情下方的小标签里。
-## 详情底部的「强化」是临时入口（信号 enhance_entry_requested），洞府经营总览第三张卡会换掉它。
 
 signal back_requested
-## 总览第三张卡（强化）按下。洞府经营会换掉这页地图；新总览只要发出同名无参信号即可。
 signal enhance_entry_requested
 
 const ORIGIN := Vector2(24, 250)
@@ -27,8 +25,6 @@ var _detail_body: VBoxContainer
 var _selected := "array"
 var _buttons: Dictionary = {}
 var _upgrade: Button
-## 临时强化钮。经营总览第三张卡落地后删掉，信号名保持 enhance_entry_requested。
-var _enhance_entry: Button
 
 
 func _init() -> void:
@@ -187,10 +183,6 @@ func upgrade_button() -> Button:
 	return _upgrade
 
 
-func enhance_entry_button() -> Button:
-	return _enhance_entry
-
-
 func selected_building() -> String:
 	return _selected
 
@@ -235,12 +227,6 @@ func _render_detail() -> void:
 	note.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	note.clip_text = true
 	foot.add_child(note)
-	_enhance_entry = QKit.button("强化", "m", 100, 44)
-	_enhance_entry.name = "EnhanceEntry"
-	_enhance_entry.custom_minimum_size.x = 220
-	_enhance_entry.tooltip_text = "去背包强化已穿戴的装备"
-	_enhance_entry.pressed.connect(func() -> void: enhance_entry_requested.emit())
-	foot.add_child(_enhance_entry)
 	_upgrade = QKit.button("升级", "o", 100, 44)
 	_upgrade.name = "UpgradeButton"
 	_upgrade.custom_minimum_size.x = 290

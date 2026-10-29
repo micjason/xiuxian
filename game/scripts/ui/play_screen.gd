@@ -259,9 +259,7 @@ func _build_shell() -> void:
 	_skill_page = SkillPage.new()
 	_cave_page = CavePage.new()
 	_cave_page.back_requested.connect(func() -> void: _show_page(PAGE_CULTIVATE))
-	# 洞府经营会换掉总览。只要新页发出无参 enhance_entry_requested，就走同一条背包强化入口。
-	if _cave_page.has_signal("enhance_entry_requested"):
-		_cave_page.connect("enhance_entry_requested", open_enhance_entry)
+	_cave_page.enhance_entry_requested.connect(open_enhance_entry)
 	_pages = {PAGE_CULTIVATE: _home_page, PAGE_ADVENTURE: _stage_page, PAGE_BATTLE: _battle_page, PAGE_BREAKTHROUGH: _breakthrough_page, PAGE_BAG: _bag_page, PAGE_SKILL: _skill_page, PAGE_CAVE: _cave_page}
 	for key in _pages:
 		(_pages[key] as Control).visible = false

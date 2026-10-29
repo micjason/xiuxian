@@ -74,9 +74,7 @@ func test_cave_enhance_entry_opens_bag_toast_and_worn_item_detail() -> void:
 	var expected := EquipModel.worn_enhance_target(bag.model)
 	assert_false(expected.is_empty(), "演示数据里有已穿戴且还能强化的装备")
 	scene.call("_show_page", "cave")
-	var button := (scene.get("_cave_page") as CavePage).enhance_entry_button()
-	assert_not_null(button, "洞府页有临时强化入口")
-	button.pressed.emit()
+	(scene.get("_cave_page") as CavePage).enhance_entry_requested.emit()
 	await get_tree().process_frame
 	assert_eq(scene.get("_page"), "bag")
 	assert_true((scene.get("_pages")["bag"] as Control).visible)

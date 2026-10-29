@@ -426,7 +426,13 @@ func _recipe_row(recipe: Dictionary, queue_full: bool) -> Control:
 	var info := UiKit.vbox(6)
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(info)
-	info.add_child(QKit.title("%s ×%d" % [str(recipe.get("outputName", "")), int(recipe.get("outputQty", 1))], 34, UiTokens.TEXT))
+	var heading := str(recipe.get("title", ""))
+	if heading.is_empty():
+		var output_name := str(recipe.get("outputName", ""))
+		if output_name.is_empty():
+			output_name = CaveView.UNKNOWN_ITEM_NAME
+		heading = "%s ×%d" % [output_name, int(recipe.get("outputQty", 1))]
+	info.add_child(QKit.title(heading, 34, UiTokens.TEXT))
 	info.add_child(UiKit.label("%s · %d 秒" % [str(recipe.get("costLine", "")), int(recipe.get("craftSeconds", 0))], UiTokens.FS_MICRO, UiTokens.TEXT_MUTED))
 	var start := QKit.button("炼制", "o", 72, 32)
 	start.custom_minimum_size = Vector2(160, 72)

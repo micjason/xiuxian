@@ -9,6 +9,19 @@ const FACILITIES := [
 	{"id": "enhance", "name": "强化", "sprite": "", "blurb": "前往行囊强化装备"},
 ]
 
+## 内容缺 displayName 时的中文名。界面禁止回落成 slug。
+const ITEM_DISPLAY_FALLBACK := {
+	"seed_lingcao": "灵草种子",
+	"seed_qingxin": "清心草种子",
+	"herb_lingcao": "灵草",
+	"herb_qingxin": "清心草",
+	"pill_cultivate": "修为丹",
+	"pill_atk_temp": "攻击临时丹",
+	"pill_def_temp": "防御临时丹",
+	"wood_lingmu": "灵木",
+}
+const UNKNOWN_ITEM_NAME := "未知物品"
+
 
 static func config_of(content: Dictionary) -> Dictionary:
 	var globals: Variant = content.get("globals", {})
@@ -21,10 +34,28 @@ static func config_of(content: Dictionary) -> Dictionary:
 static func item_name(content: Dictionary, slug: String) -> String:
 	if slug.is_empty():
 		return ""
-	for row in content.get("items", []):
-		if typeof(row) == TYPE_DICTIONARY and str((row as Dictionary).get("slug", "")) == slug:
-			return str((row as Dictionary).get("displayName", slug))
-	return slug
+	var named := _content_display_name(content, slug)
+	if not named.is_empty():
+		return named
+	return str(ITEM_DISPLAY_FALLBACK.get(slug, UNKNOWN_ITEM_NAME))
+
+
+static func _content_display_name(content: Dictionary, slug: String) -> String:
+	var items: Variant = content.get("items", [])
+	if typeof(items) != TYPE_ARRAY:
+		return ""
+	for row in items:
+		if typeof(row) != TYPE_DICTIONARY:
+			continue
+		var item := row as Dictionary
+		if str(item.get("slug", "")) != slug:
+			continue
+		# 空字符串或把 slug 写进 displayName 都算缺名，改走中文回落。
+		var name := str(item.get("displayName", "")).strip_edges()
+		if name.is_empty() or name == slug:
+			return ""
+		return name
+	return ""
 
 
 static func remaining_text(iso: String, now_unix: float = -1.0) -> String:
@@ -294,11 +325,15 @@ static func _recipes(rows: Array, state: Dictionary, content: Dictionary, factor
 		if stones > 0 and int(state.get("spiritStones", 0)) < stones:
 			can_craft = false
 		var output := str(recipe.get("outputItemSlug", ""))
+		var output_name := item_name(content, output)
+		var output_qty := int(recipe.get("outputQty", 1))
 		out.append({
 			"recipeSlug": str(recipe.get("recipeSlug", "")),
 			"outputItemSlug": output,
-			"outputName": item_name(content, output),
-			"outputQty": int(recipe.get("outputQty", 1)),
+			"outputName": output_name,
+			"outputQty": output_qty,
+			# 可见标题只用产出中文名。recipeSlug 只留给请求，不进文案。
+			"title": "%s ×%d" % [output_name if not output_name.is_empty() else UNKNOWN_ITEM_NAME, output_qty],
 			"craftSeconds": _scaled_seconds(int(recipe.get("craftSeconds", 0)), factor),
 			"baseCraftSeconds": int(recipe.get("craftSeconds", 0)),
 			"spiritStones": stones,

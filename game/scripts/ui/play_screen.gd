@@ -259,6 +259,8 @@ func _build_shell() -> void:
 	_skill_page = SkillPage.new()
 	_cave_page = CavePage.new()
 	_cave_page.back_requested.connect(func() -> void: _show_page(PAGE_CULTIVATE))
+	_cave_page.action_requested.connect(_on_dongfu_action)
+	# 强化入口：独立开发超级大师接 open_enhance_entry —— _cave_page.enhance_entry_requested.connect(open_enhance_entry)
 	_pages = {PAGE_CULTIVATE: _home_page, PAGE_ADVENTURE: _stage_page, PAGE_BATTLE: _battle_page, PAGE_BREAKTHROUGH: _breakthrough_page, PAGE_BAG: _bag_page, PAGE_SKILL: _skill_page, PAGE_CAVE: _cave_page}
 	for key in _pages:
 		(_pages[key] as Control).visible = false
@@ -558,6 +560,7 @@ func _render(feedback: bool = false) -> void:
 	_bag_page.bind(_state, _content, _flags)
 	_stage_render()
 	_skill_page.bind(_state, _content)
+	_cave_page.bind(_state, _content)
 	_breakthrough_page.bind(_state, _content, next_name, _realm_after(BagModel.plain(breakthrough.get("nextSlug", null))))
 	_update_dots()
 
@@ -913,6 +916,51 @@ func _apply_action_state(result: Dictionary) -> void:
 		_state = state
 		_state["code"] = 200
 		_render(true)
+
+
+## 洞府药园 / 炼丹写操作。成功后整表刷新（背包与 state.dongfu）；409 BAG_FULL / QUEUE_FULL 用服务器中文文案 toast。
+func _on_dongfu_action(kind: String, payload: Dictionary) -> void:
+	if _busy:
+		return
+	if kind == "toast":
+		_toast.say_neutral(str(payload.get("text", "")))
+		return
+	if _mock:
+		_toast.say_neutral("演示模式暂不支持洞府操作")
+		return
+	var path := ""
+	var body: Dictionary = {}
+	var ok_text := ""
+	match kind:
+		"garden_plant":
+			path = "/api/v1/me/dongfu/garden/plant"
+			body = {"slot": int(payload.get("slot", 0)), "seedSlug": str(payload.get("seedSlug", ""))}
+			ok_text = "种植成功"
+		"garden_claim":
+			path = "/api/v1/me/dongfu/garden/claim"
+			if payload.has("slot"):
+				body = {"slot": int(payload.get("slot", 0))}
+			ok_text = "草药已入行囊"
+		"alchemy_start":
+			path = "/api/v1/me/dongfu/alchemy/start"
+			body = {"recipeSlug": str(payload.get("recipeSlug", ""))}
+			ok_text = "开始炼丹"
+		"alchemy_claim":
+			path = "/api/v1/me/dongfu/alchemy/claim"
+			if payload.has("jobId") and not str(payload.get("jobId", "")).is_empty():
+				body = {"jobId": str(payload.get("jobId", ""))}
+			ok_text = "丹药已入行囊"
+		_:
+			return
+	_busy = true
+	var result := await _post(path, body)
+	_busy = false
+	if int(result.get("code", 0)) != 200:
+		_toast.say(PlayerApi.error_message(result), false)
+		return
+	_toast.say(ok_text)
+	# 接口只回 dongfu（+gained），背包变化需再拉 /me/state
+	await _refresh_state()
 
 
 ## 所有会改变状态的请求都走这里：演示模式用内存里的假数据，正式模式调服务器。

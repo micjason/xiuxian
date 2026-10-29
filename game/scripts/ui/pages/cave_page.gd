@@ -1,233 +1,350 @@
 class_name CavePage
 extends VBoxContainer
-## 洞府页（Q 版设计稿 q_cave，从修炼页右侧「洞府」入口进入）：浮岛建筑地图 + 选中建筑的详情。
-## 建筑和数值只取现有配置 CaveView（等级、每小时产出，原型阶段的展示数据，服务器还没有洞府系统）。
-## 设计稿里有、配置里没有的建筑（静室）照样显示，标「暂未开放」，点了提示「功能暂未开放」；
-## 「升级」也还没有，点了同样提示。配置里有、设计稿地图上没位置的（藏经阁、炼器室）列在详情下方的小标签里。
+## 洞府 v1：总览三卡（药园 / 炼丹 / 强化）+ 药园/炼丹子页。
+## 数据来自 CaveView.build(state, content)；写操作发 action_requested，由 PlayScreen 调接口。
+## 强化第三卡只发 enhance_entry_requested（接线归独立开发超级大师 open_enhance_entry）。
 
 signal back_requested
+signal enhance_entry_requested
+## kind: garden_plant / garden_claim / alchemy_start / alchemy_claim / toast
+## payload: 对应接口字段；toast 时 payload.text 为文案。
+signal action_requested(kind: String, payload: Dictionary)
 
-const ORIGIN := Vector2(24, 250)
-## 地图上的建筑：设计稿位置 + 精灵图 + 对应 CaveView 的 id（空 = 配置里没有，展示用）。
-const MAP := [
-	{"key": "field", "cave_id": "field", "name": "灵田", "sprite": "bd_field", "rect": Rect2(40, 420, 400, 374)},
-	{"key": "alchemy", "cave_id": "alchemy", "name": "丹房", "sprite": "bd_alchemy", "rect": Rect2(680, 430, 300, 402)},
-	{"key": "array", "cave_id": "array", "name": "聚灵阵", "sprite": "bd_array", "rect": Rect2(64, 1000, 380, 415)},
-	{"key": "retreat", "cave_id": "", "name": "静室", "sprite": "bd_hut", "rect": Rect2(676, 1074, 320, 404)},
-]
+const MODE_OVERVIEW := "overview"
+const MODE_GARDEN := "garden"
+const MODE_ALCHEMY := "alchemy"
 
-var _map: Control
-var _map_content: Control
-const MAP_H := 1290.0
-var _detail: PanelContainer
-var _detail_body: VBoxContainer
-var _selected := "array"
-var _buttons: Dictionary = {}
-var _upgrade: Button
-
+var _mode := MODE_OVERVIEW
+var _view: Dictionary = {}
+var _plant_slot := -1  ## >=0 时药园子页显示选种条
+var _bind_sig := 0
+var _title: Label
+var _back: Button
+var _body: VBoxContainer
+var _sheet: PanelContainer
 
 func _init() -> void:
-	add_theme_constant_override("separation", 0)
+	add_theme_constant_override("separation", 12)
 	size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_map = Control.new()
-	_map.name = "CaveMap"
-	_map.custom_minimum_size = Vector2(0, 760)
-	_map.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_map.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_map.clip_contents = false
-	add_child(_map)
-	## 地图按设计稿坐标摆（1032×MAP_H）；矮屏（如 1080×1920）整体等比缩小居中，不压到详情卡和底栏。
-	_map_content = Control.new()
-	_map_content.name = "MapContent"
-	_map_content.size = Vector2(1032, MAP_H)
-	_map_content.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_map.add_child(_map_content)
-	_map.resized.connect(_fit_map)
-	_build_header()
-	for spec in MAP:
-		_build_building(spec)
-	var card := QKit.panel(UiTokens.Q_CREAM, 34, 26, 20)
-	_detail = card.panel
-	_detail.name = "BuildingDetail"
-	_detail.custom_minimum_size = Vector2(0, 340)
-	add_child(_detail)
-	_detail_body = card.body
-	var orb_room := Control.new()
-	orb_room.custom_minimum_size = Vector2(0, 110)
-	orb_room.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(orb_room)
-	_render_detail()
+	_build_chrome()
+	_sheet = QKit.panel(UiTokens.Q_CREAM, 34, 22, 18).panel
+	_sheet.name = "CaveSheet"
+	_sheet.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	add_child(_sheet)
+	var scroll := ScrollContainer.new()
+	scroll.name = "CaveScroll"
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_sheet.add_child(scroll)
+	_body = UiKit.vbox(16)
+	_body.name = "CaveBody"
+	_body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(_body)
+	var orb := Control.new()
+	orb.custom_minimum_size = Vector2(0, 96)
+	orb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(orb)
+	_render()
 
 
-func _fit_map() -> void:
-	var k := clampf(minf(_map.size.y / MAP_H, _map.size.x / 1032.0), 0.3, 1.0)
-	_map_content.scale = Vector2(k, k)
-	_map_content.position = Vector2((_map.size.x - 1032.0 * k) / 2.0, 0)
+func _build_chrome() -> void:
+	var head := UiKit.hbox(12)
+	head.name = "CaveHeader"
+	add_child(head)
+	_back = QKit.button("返回", "m", 72, 36)
+	_back.name = "BackButton"
+	_back.custom_minimum_size = Vector2(160, 72)
+	_back.pressed.connect(_on_back)
+	head.add_child(_back)
+	_title = QKit.title("洞府", 46, UiTokens.TEXT)
+	_title.name = "CaveTitle"
+	_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(_title)
 
 
-func _place(node: Control, rect: Rect2) -> void:
-	node.position = rect.position - ORIGIN
-	node.size = rect.size
-	_map_content.add_child(node)
-
-
-func _build_header() -> void:
-	var back := Button.new()
-	back.name = "BackButton"
-	back.focus_mode = Control.FOCUS_NONE
-	var tex := ArtLib.qui("btn_back")
-	for key in ["normal", "hover", "pressed", "disabled"]:
-		if tex != null:
-			var box := StyleBoxTexture.new()
-			box.texture = tex
-			back.add_theme_stylebox_override(key, box)
-	back.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
-	if tex == null:
-		back.text = "‹"
-	back.tooltip_text = "返回修炼"
-	back.pressed.connect(func() -> void: back_requested.emit())
-	_place(back, Rect2(30, 258, 96, 102))
-	var ribbon := QKit.ribbon("洞府", 48, 160, true)
-	ribbon.name = "CaveTitle"
-	_place(ribbon, Rect2(540 - (ribbon.custom_minimum_size.x / 2.0), 200, ribbon.custom_minimum_size.x, 122))
-
-
-func _cave_def(cave_id: String) -> Dictionary:
-	for building in CaveView.buildings():
-		if str(building.get("id", "")) == cave_id:
-			return building
-	return {}
-
-
-func _build_building(spec: Dictionary) -> void:
-	var rect: Rect2 = spec.rect
-	var def := _cave_def(str(spec.cave_id))
-	var button := Button.new()
-	button.name = "Building_%s" % str(spec.key)
-	button.focus_mode = Control.FOCUS_NONE
-	button.flat = true
-	for state in ["normal", "hover", "pressed", "disabled", "focus"]:
-		button.add_theme_stylebox_override(state, StyleBoxEmpty.new())
-	_place(button, rect)
-	var art := TextureRect.new()
-	art.texture = ArtLib.q("sprites/" + str(spec.sprite)) if ArtLib.has_q("sprites/%s.png" % str(spec.sprite)) else null
-	art.set_anchors_preset(Control.PRESET_FULL_RECT)
-	art.offset_bottom = -60
-	art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	art.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	button.add_child(art)
-	# 名牌：Lv（配置有才显示）+ 名字
-	var plate := PanelContainer.new()
-	plate.name = "NamePlate"
-	plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var gold := str(spec.key) == _selected
-	var cut := "plate_label_gold_66" if gold else "plate_label_cream_66"
-	plate.add_theme_stylebox_override("panel", QKit.cut_box(cut, 18, 0) if ArtLib.qui(cut) != null else QSkin.custom(UiTokens.Q_CREAM, UiTokens.Q_COCOA, 4, 33, 4, 18, 0))
-	var row := UiKit.hbox(8)
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	plate.add_child(row)
-	if not def.is_empty():
-		row.add_child(QKit.tag(CaveView.level_text(def), "mint", 30, 12))
-	row.add_child(QKit.title(str(def.get("name", spec.name)), 38, UiTokens.TEXT))
-	plate.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-	plate.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	plate.offset_top = -78
-	plate.offset_bottom = -8
-	button.add_child(plate)
-	var sub := UiKit.label(_output_short(def) if not def.is_empty() else "暂未开放", UiTokens.FS_MICRO, UiTokens.TEXT if not def.is_empty() else UiTokens.TEXT_MUTED, HORIZONTAL_ALIGNMENT_CENTER)
-	sub.name = "Output"
-	sub.add_theme_color_override("font_outline_color", Color(1, 1, 1, 0.9))
-	sub.add_theme_constant_override("outline_size", 8)
-	sub.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	sub.offset_top = 0
-	sub.offset_bottom = 44
-	button.add_child(sub)
-	if def.is_empty():
-		LockedFeature.wire(button, "cave_" + str(spec.key))
-	else:
-		button.pressed.connect(func() -> void:
-			_selected = str(spec.key)
-			_refresh_plates()
-			_render_detail())
-	_buttons[str(spec.key)] = button
-
-
-static func _output_short(def: Dictionary) -> String:
-	return "%s +%d/时" % [str(def.get("output_name", "")), int(def.get("per_hour", 0))]
-
-
-func _refresh_plates() -> void:
-	for key in _buttons:
-		var plate := (_buttons[key] as Control).get_node("NamePlate") as PanelContainer
-		var cut := "plate_label_gold_66" if key == _selected else "plate_label_cream_66"
-		if ArtLib.qui(cut) != null:
-			plate.add_theme_stylebox_override("panel", QKit.cut_box(cut, 18, 0))
-
-
-## 下半薄荷底板从详情面板上沿开始（设计稿 1590）。
 func sheet_anchor() -> Control:
-	return _detail
+	return _sheet
 
 
 func sheet_pad() -> float:
 	return 8.0
 
 
-func building_button(key: String) -> Button:
-	return _buttons.get(key, null)
+func mode() -> String:
+	return _mode
 
 
-func upgrade_button() -> Button:
-	return _upgrade
+func view() -> Dictionary:
+	return _view
 
 
-func selected_building() -> String:
-	return _selected
+func bind(state: Dictionary, content: Dictionary) -> void:
+	_view = CaveView.build(state, content)
+	var sig := hash([_view, _mode, _plant_slot])
+	if sig == _bind_sig:
+		return
+	_render()
 
 
-func _render_detail() -> void:
-	UiKit.clear(_detail_body)
-	var spec: Dictionary = {}
-	for entry in MAP:
-		if str(entry.key) == _selected:
-			spec = entry
-	var def := _cave_def(str(spec.get("cave_id", "")))
-	var row := UiKit.hbox(22)
-	_detail_body.add_child(row)
-	var tex: Texture2D = ArtLib.q("sprites/" + str(spec.sprite)) if ArtLib.has_q("sprites/%s.png" % str(spec.sprite)) else null
-	row.add_child(QKit.slot(tex, 2, 170))
-	var info := UiKit.vbox(10)
+func _on_back() -> void:
+	if _mode == MODE_OVERVIEW:
+		back_requested.emit()
+		return
+	_plant_slot = -1
+	_mode = MODE_OVERVIEW
+	_render()
+
+
+func _render() -> void:
+	_bind_sig = hash([_view, _mode, _plant_slot])
+	match _mode:
+		MODE_GARDEN:
+			_title.text = "药园"
+		MODE_ALCHEMY:
+			_title.text = "炼丹"
+		_:
+			_title.text = "洞府"
+	UiKit.clear(_body)
+	if _mode == MODE_GARDEN:
+		_render_garden()
+	elif _mode == MODE_ALCHEMY:
+		_render_alchemy()
+	else:
+		_render_overview()
+
+
+func _render_overview() -> void:
+	if not bool(_view.get("available", false)):
+		var hint := UiKit.label(str(_view.get("hint", "洞府配置尚未发布")), UiTokens.FS_BODY, UiTokens.TEXT_MUTED, HORIZONTAL_ALIGNMENT_CENTER)
+		hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_body.add_child(hint)
+	_body.add_child(UiKit.label("经营设施", UiTokens.FS_MICRO, UiTokens.TEXT_MUTED))
+	for card in _view.get("cards", []):
+		_body.add_child(_facility_card(card as Dictionary))
+
+
+func _facility_card(card: Dictionary) -> Control:
+	var wrap := PanelContainer.new()
+	wrap.name = "Facility_%s" % str(card.get("id", ""))
+	wrap.add_theme_stylebox_override("panel", QSkin.custom(UiTokens.Q_CARD, UiTokens.Q_COCOA, 3, 28, 4, 18, 4))
+	var row := UiKit.hbox(16)
+	wrap.add_child(row)
+	var sprite := str(card.get("sprite", ""))
+	var tex: Texture2D = ArtLib.q("sprites/" + sprite) if not sprite.is_empty() and ArtLib.has_q("sprites/%s.png" % sprite) else null
+	if tex == null and str(card.get("id", "")) == "enhance":
+		tex = ArtLib.qui("icon_enhance_exp")
+	row.add_child(QKit.slot(tex, 2 if tex != null else -1, 132))
+	var info := UiKit.vbox(8)
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(info)
-	var head := UiKit.hbox(12)
+	var head := UiKit.hbox(10)
 	info.add_child(head)
-	head.add_child(QKit.title(str(def.get("name", spec.get("name", ""))), 46, UiTokens.TEXT))
-	head.add_child(QKit.tag(CaveView.level_text(def), "cream", 30, 16))
-	info.add_child(UiKit.label("洞府建筑 · 等级与产出为展示数据", UiTokens.FS_MICRO, UiTokens.TEXT_MUTED))
-	var bar := PanelContainer.new()
-	bar.add_theme_stylebox_override("panel", QKit.cut_box("info_bar_blue_62", 24, 0) if ArtLib.qui("info_bar_blue_62") != null else QSkin.custom(Color("dff1fb"), UiTokens.Q_COCOA, 3, 31, 0, 24, 0))
-	bar.custom_minimum_size = Vector2(0, 62)
-	var output := QKit.title(CaveView.output_text(def), 34, UiTokens.TEXT)
-	output.name = "OutputLine"
-	bar.add_child(output)
-	info.add_child(bar)
-	var foot := UiKit.hbox(12)
-	_detail_body.add_child(foot)
-	var others: Array[String] = []
-	for building in CaveView.buildings():
-		var mapped := false
-		for entry in MAP:
-			if str(entry.cave_id) == str(building.id):
-				mapped = true
-		if not mapped:
-			others.append("%s %s" % [str(building.name), CaveView.level_text(building)])
-	var note := UiKit.label("其他建筑：" + "、".join(others) if not others.is_empty() else "", UiTokens.FS_MICRO, UiTokens.TEXT_MUTED)
+	head.add_child(QKit.title(str(card.get("name", "")), 40, UiTokens.TEXT))
+	if int(card.get("claimable", 0)) > 0:
+		var dot := QKit.reddot(34)
+		dot.name = "ClaimDot"
+		head.add_child(dot)
+	info.add_child(UiKit.label(str(card.get("subtitle", "")), UiTokens.FS_MICRO, UiTokens.TEXT_MUTED))
+	var go := QKit.button("进入", "o", 88, 34)
+	go.name = "Enter_%s" % str(card.get("id", ""))
+	go.custom_minimum_size = Vector2(160, 88)
+	var id := str(card.get("id", ""))
+	go.pressed.connect(func() -> void: _enter_facility(id))
+	row.add_child(go)
+	return wrap
+
+
+func _enter_facility(id: String) -> void:
+	match id:
+		"garden":
+			if not bool(_view.get("available", false)):
+				action_requested.emit("toast", {"text": str(_view.get("hint", "洞府尚未开放"))})
+				return
+			_plant_slot = -1
+			_mode = MODE_GARDEN
+			_render()
+		"alchemy":
+			if not bool(_view.get("available", false)):
+				action_requested.emit("toast", {"text": str(_view.get("hint", "洞府尚未开放"))})
+				return
+			_mode = MODE_ALCHEMY
+			_render()
+		"enhance":
+			enhance_entry_requested.emit()
+		_:
+			pass
+
+
+func _render_garden() -> void:
+	var claimable := int((_view.get("claimable", {}) as Dictionary).get("plots", 0))
+	var top := UiKit.hbox(12)
+	_body.add_child(top)
+	var note := UiKit.label("地块 %d · 成熟后领取入行囊" % int(_view.get("plotCount", 0)), UiTokens.FS_MICRO, UiTokens.TEXT_MUTED)
 	note.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	note.clip_text = true
-	foot.add_child(note)
-	_upgrade = QKit.button("升级", "o", 100, 44)
-	_upgrade.name = "UpgradeButton"
-	_upgrade.custom_minimum_size.x = 290
-	LockedFeature.wire(_upgrade, "cave_upgrade")
-	foot.add_child(_upgrade)
+	top.add_child(note)
+	var claim_all := QKit.button("一键领取", "o", 72, 32)
+	claim_all.name = "GardenClaimAll"
+	claim_all.custom_minimum_size = Vector2(220, 72)
+	claim_all.disabled = claimable <= 0
+	claim_all.pressed.connect(func() -> void: action_requested.emit("garden_claim", {}))
+	top.add_child(claim_all)
+
+	for plot in _view.get("plots", []):
+		_body.add_child(_plot_row(plot as Dictionary))
+
+	if _plant_slot >= 0:
+		_body.add_child(_seed_picker(_plant_slot))
+
+
+func _plot_row(plot: Dictionary) -> Control:
+	var wrap := PanelContainer.new()
+	wrap.name = "Plot_%d" % int(plot.get("slot", 0))
+	wrap.add_theme_stylebox_override("panel", QSkin.custom(UiTokens.Q_CARD, UiTokens.Q_COCOA, 3, 24, 3, 16, 3))
+	var row := UiKit.hbox(12)
+	wrap.add_child(row)
+	var info := UiKit.vbox(6)
+	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(info)
+	var head := UiKit.hbox(10)
+	info.add_child(head)
+	head.add_child(QKit.title(str(plot.get("title", "")), 34, UiTokens.TEXT))
+	var status := str(plot.get("status", "empty"))
+	if status == "ready":
+		head.add_child(QKit.reddot(28))
+	info.add_child(UiKit.label(str(plot.get("line", "")), UiTokens.FS_MICRO, UiTokens.TEXT_MUTED))
+	var slot := int(plot.get("slot", 0))
+	match status:
+		"empty":
+			var plant := QKit.button("种植", "m", 72, 32)
+			plant.name = "Plant_%d" % slot
+			plant.custom_minimum_size = Vector2(160, 72)
+			plant.pressed.connect(func() -> void:
+				_plant_slot = slot
+				_render())
+			row.add_child(plant)
+		"ready":
+			var claim := QKit.button("领取", "o", 72, 32)
+			claim.name = "ClaimPlot_%d" % slot
+			claim.custom_minimum_size = Vector2(160, 72)
+			claim.pressed.connect(func() -> void: action_requested.emit("garden_claim", {"slot": slot}))
+			row.add_child(claim)
+		_:
+			var wait := UiKit.label("生长中", UiTokens.FS_MICRO, UiTokens.TEXT_MUTED, HORIZONTAL_ALIGNMENT_CENTER)
+			wait.custom_minimum_size = Vector2(120, 0)
+			row.add_child(wait)
+	return wrap
+
+
+func _seed_picker(slot: int) -> Control:
+	var box := UiKit.vbox(10)
+	box.name = "SeedPicker"
+	box.add_child(QKit.title("选择种子 · 地块 %d" % (slot + 1), 34, UiTokens.TEXT))
+	var seeds: Array = _view.get("seeds", [])
+	if seeds.is_empty():
+		box.add_child(UiKit.label("暂无种子配置", UiTokens.FS_MICRO, UiTokens.TEXT_MUTED))
+		return box
+	var any := false
+	for seed in seeds:
+		var s := seed as Dictionary
+		var have := int(s.get("have", 0))
+		var row := UiKit.hbox(12)
+		var label := UiKit.label("%s ×%d（约 %d 秒）" % [str(s.get("name", "")), have, int(s.get("growSeconds", 0))], UiTokens.FS_BODY, UiTokens.TEXT if have > 0 else UiTokens.TEXT_MUTED)
+		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(label)
+		var btn := QKit.button("种下", "o", 64, 30)
+		btn.disabled = have <= 0
+		var slug := str(s.get("seedSlug", ""))
+		btn.pressed.connect(func() -> void:
+			_plant_slot = -1
+			action_requested.emit("garden_plant", {"slot": slot, "seedSlug": slug}))
+		row.add_child(btn)
+		box.add_child(row)
+		if have > 0:
+			any = true
+	if not any:
+		box.add_child(UiKit.label("行囊里没有种子，先去历练获取", UiTokens.FS_MICRO, UiTokens.WARNING))
+	var cancel := QKit.button("取消", "m", 64, 30)
+	cancel.pressed.connect(func() -> void:
+		_plant_slot = -1
+		_render())
+	box.add_child(cancel)
+	return box
+
+
+func _render_alchemy() -> void:
+	var queue_len := int(_view.get("alchemyQueueLength", 2))
+	var jobs: Array = _view.get("alchemy", [])
+	var claimable := int((_view.get("claimable", {}) as Dictionary).get("alchemy", 0))
+	var top := UiKit.hbox(12)
+	_body.add_child(top)
+	var note := UiKit.label("队列 %d/%d" % [jobs.size(), queue_len], UiTokens.FS_MICRO, UiTokens.TEXT_MUTED)
+	note.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	top.add_child(note)
+	var claim_all := QKit.button("一键领取", "o", 72, 32)
+	claim_all.name = "AlchemyClaimAll"
+	claim_all.custom_minimum_size = Vector2(220, 72)
+	claim_all.disabled = claimable <= 0
+	claim_all.pressed.connect(func() -> void: action_requested.emit("alchemy_claim", {}))
+	top.add_child(claim_all)
+
+	_body.add_child(QKit.title("炼制中", 34, UiTokens.TEXT))
+	if jobs.is_empty():
+		_body.add_child(UiKit.label("队列空闲", UiTokens.FS_MICRO, UiTokens.TEXT_MUTED))
+	for job in jobs:
+		_body.add_child(_alchemy_job_row(job as Dictionary))
+
+	_body.add_child(QKit.title("配方", 34, UiTokens.TEXT))
+	var recipes: Array = _view.get("recipes", [])
+	if recipes.is_empty():
+		_body.add_child(UiKit.label("暂无配方配置", UiTokens.FS_MICRO, UiTokens.TEXT_MUTED))
+	for recipe in recipes:
+		_body.add_child(_recipe_row(recipe as Dictionary, jobs.size() >= queue_len))
+
+
+func _alchemy_job_row(job: Dictionary) -> Control:
+	var wrap := PanelContainer.new()
+	wrap.name = "AlchemyJob_%s" % str(job.get("id", ""))
+	wrap.add_theme_stylebox_override("panel", QSkin.custom(UiTokens.Q_CARD, UiTokens.Q_COCOA, 3, 24, 3, 16, 3))
+	var row := UiKit.hbox(12)
+	wrap.add_child(row)
+	var info := UiKit.vbox(6)
+	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(info)
+	var head := UiKit.hbox(10)
+	info.add_child(head)
+	head.add_child(QKit.title(str(job.get("outputName", "")), 34, UiTokens.TEXT))
+	if str(job.get("status", "")) == "ready":
+		head.add_child(QKit.reddot(28))
+	info.add_child(UiKit.label(str(job.get("line", "")), UiTokens.FS_MICRO, UiTokens.TEXT_MUTED))
+	if str(job.get("status", "")) == "ready":
+		var claim := QKit.button("领取", "o", 72, 32)
+		claim.custom_minimum_size = Vector2(160, 72)
+		var job_id := str(job.get("id", ""))
+		claim.pressed.connect(func() -> void: action_requested.emit("alchemy_claim", {"jobId": job_id}))
+		row.add_child(claim)
+	return wrap
+
+
+func _recipe_row(recipe: Dictionary, queue_full: bool) -> Control:
+	var wrap := PanelContainer.new()
+	wrap.name = "Recipe_%s" % str(recipe.get("recipeSlug", ""))
+	wrap.add_theme_stylebox_override("panel", QSkin.custom(UiTokens.Q_CARD, UiTokens.Q_COCOA, 3, 24, 3, 16, 3))
+	var row := UiKit.hbox(12)
+	wrap.add_child(row)
+	var info := UiKit.vbox(6)
+	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(info)
+	info.add_child(QKit.title("%s ×%d" % [str(recipe.get("outputName", "")), int(recipe.get("outputQty", 1))], 34, UiTokens.TEXT))
+	info.add_child(UiKit.label("%s · %d 秒" % [str(recipe.get("costLine", "")), int(recipe.get("craftSeconds", 0))], UiTokens.FS_MICRO, UiTokens.TEXT_MUTED))
+	var start := QKit.button("炼制", "o", 72, 32)
+	start.custom_minimum_size = Vector2(160, 72)
+	var can := bool(recipe.get("canCraft", false)) and not queue_full
+	start.disabled = not can
+	if queue_full:
+		start.tooltip_text = "炼丹队列已满"
+	elif not bool(recipe.get("canCraft", false)):
+		start.tooltip_text = "材料不足"
+	var slug := str(recipe.get("recipeSlug", ""))
+	start.pressed.connect(func() -> void: action_requested.emit("alchemy_start", {"recipeSlug": slug}))
+	row.add_child(start)
+	return wrap

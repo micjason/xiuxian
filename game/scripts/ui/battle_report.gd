@@ -10,7 +10,7 @@ const SYMBOLS := {
 	Kind.DAMAGE_DEALT: "−",
 	Kind.DAMAGE_TAKEN: "−",
 	Kind.HEAL: "＋",
-	Kind.CRIT: "★ 大招 −",
+	Kind.CRIT: "★ 自动技能 −",
 	Kind.BUFF: "▲",
 	Kind.DEBUFF: "▼",
 	Kind.MISS: "○",

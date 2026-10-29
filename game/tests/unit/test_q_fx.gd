@@ -85,8 +85,10 @@ func test_boss_battle_has_no_manual_controls_besides_speed_and_retreat() -> void
 	assert_eq(_buttons(disc).size(), 0, "大招圆盘里根本没有按钮")
 	for node in _controls(disc):
 		assert_eq(node.mouse_filter, Control.MOUSE_FILTER_IGNORE, "%s 不接收点击" % node.name)
-	var auto := disc.find_child("AutoLabel", true, false)
-	assert_true(auto is Label, "「自动」是纯文字标签")
+	var auto := disc.find_child("AutoLabel", true, false) as Label
+	assert_not_null(auto, "充能提示是纯文字")
+	assert_eq(auto.text, "冷却完自动释放")
+	assert_eq(disc.mouse_filter, Control.MOUSE_FILTER_IGNORE)
 	assert_null(disc.find_child("AutoChip", true, false))
 	assert_null(page.find_child("UltButton", true, false))
 	assert_null(page.find_child("AutoToggle", true, false))
@@ -313,3 +315,72 @@ func test_login_page_covers_the_whole_main_ui() -> void:
 	assert_gt(login.z_index, 20 + 1)
 	for owner in ["_popup", "_toast"]:
 		assert_lt(login.z_index, (scene.get(owner) as CanvasItem).z_index, "%s 在登录页之上（更新弹窗、提示）" % owner)
+
+
+## 自动技能蓄力用 set_skill_charge；首领血量刷新推进 set_boss_hp_ratio。页面没有大招 / 技能按钮。
+func test_skill_charge_and_boss_hp_ratio_follow_the_battle_page() -> void:
+	var fx := (load("res://anim_q/battle_boss/boss_battle.tscn") as PackedScene).instantiate()
+	add_child_autofree(fx)
+	fx.call("set_skill_charge", 0.42, true)
+	assert_almost_eq(float(fx.get("_ult_charge")), 0.42, 0.0001, "set_skill_charge 写入蓄力")
+	fx.call("set_ult_charge", 0.1, true)
+	assert_almost_eq(float(fx.get("_ult_charge")), 0.1, 0.0001, "遗留名仍然可用")
+	fx.call("set_boss_hp_ratio", 1.5)
+	assert_almost_eq(float(fx.get("_boss_hp_ratio")), 1.0, 0.0001)
+	fx.call("set_boss_hp_ratio", -0.2)
+	assert_almost_eq(float(fx.get("_boss_hp_ratio")), 0.0, 0.0001)
+	assert_almost_eq(float(fx.call("skill_impact_delay")), float(fx.call("ult_impact_delay")), 0.0001)
+	var hero := (load("res://anim_q/battle_hero/hero_battle.tscn") as PackedScene).instantiate()
+	add_child_autofree(hero)
+	assert_almost_eq(float(hero.call("play_skill")), 0.32, 0.0001, "play_skill 返回蓄势时长")
+	var trail := (load("res://anim_q/battle_boss/hp_trail.gd") as GDScript).new() as Control
+	add_child_autofree(trail)
+	trail.size = Vector2(240, 48)
+	trail.call("set_ratio", 0.2)
+	assert_true(trail.is_processing(), "低于 30% 继续闪红")
+	for _step in 30:
+		trail.call("_process", 0.16)
+	assert_true(trail.is_processing(), "残影追上后低血仍闪")
+	trail.call("set_ratio", 0.85)
+	assert_false(trail.is_processing(), "回到 30% 以上停止")
+	var boss_src := FileAccess.get_file_as_string("res://anim_q/battle_boss/boss_battle.gd")
+	assert_true(boss_src.contains("_kick_shake(shake_strong, 0.28)"), "登场落地用强震屏")
+	var page_src := FileAccess.get_file_as_string("res://scripts/ui/pages/battle_page.gd")
+	assert_false(page_src.contains("_fx.set_ult_charge("), "页面直接调用用 set_skill_charge")
+	assert_true(page_src.contains("set_skill_charge"))
+	assert_true(page_src.contains("set_boss_hp_ratio"))
+	assert_eq(BattleReport.SYMBOLS[BattleReport.Kind.CRIT], "★ 自动技能 −")
+	assert_eq(BattleReportBuilder._skill_name("大招"), "自动技能")
+	assert_eq(BattleReportBuilder._skill_name("暴击"), "自动技能")
+	assert_eq(BattleReportBuilder._skill_name("青莲剑诀"), "青莲剑诀")
+	var legacy := UltButton.new()
+	add_child_autofree(legacy)
+	legacy.ready_now = true
+	var taps := 0
+	legacy.tapped.connect(func() -> void: taps += 1)
+	var click := InputEventMouseButton.new()
+	click.button_index = MOUSE_BUTTON_LEFT
+	click.pressed = true
+	legacy._gui_input(click)
+	assert_eq(taps, 0, "旧圆钮不再因点击释放")
+	assert_eq(legacy.mouse_filter, Control.MOUSE_FILTER_IGNORE)
+	var scene := await _boot("ready")
+	var slug := str(((scene.get("_state") as Dictionary).breakthrough.requiredStage as Dictionary).slug)
+	scene.call("_open_battle", slug)
+	var page := scene.get("_battle_page") as BattlePage
+	assert_null(page.find_child("UltButton", true, false))
+	page._on_start()
+	var live := page.get("_fx") as Node
+	page.fight.boss_hp = page.fight.boss_max_hp * 0.2
+	page.set("_ult_pending", 0.0)
+	page._refresh_bars(false)
+	assert_almost_eq(float(live.get("_boss_hp_ratio")), 0.2, 0.0001, "血条刷新把比例交给特效")
+	page._refresh_ult()
+	if page.fight.has_ult() and page.phase == BattlePage.Phase.RUNNING:
+		assert_almost_eq(float(live.get("_ult_charge")), page.fight.ult_charge(), 0.0001)
+	var names: Array[String] = []
+	for button in _buttons(page):
+		if not button.disabled and button.is_visible_in_tree():
+			names.append(str(button.name))
+	names.sort()
+	assert_eq(names, ["RetreatButton", "SpeedButton"], "战斗中只能点倍速、撤退")

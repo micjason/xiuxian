@@ -1,13 +1,18 @@
 # 首领战特效 `battle_boss/`（10/20 交付，战斗特效第二部分）
 
 接在**真实首领战页面** `scripts/ui/pages/battle_page.gd` 上，用的是页面原有的事件：
-BossFight 的事件（我方普攻 / 我方大招 `kind:"ult"` / 首领攻击 `side:"boss"`）、`fight.finished / win / reason`。
+BossFight 的事件（我方普攻 / **自动技能** `kind:"ult"`〔事件字段名遗留，不是手动大招〕 / 首领攻击 `side:"boss"`）、`fight.finished / win / reason`。
+**成鹏定：无「大招」按钮、无手动技能按钮**；万剑扇形等表现只由战斗事件自动触发。
 复用第一部分的通用怪物模板 `anim_q/battle_idle/monster_rig.tscn`，所以**必须先接好 battle_idle**（已在仓库里）。
 
 预览（真实页面、演示数据、Compatibility 渲染器 1080×2340）：
-- `../preview/boss.mp4` / `boss.gif`：登场 → 普攻和首领攻击轮流 → 大招 → 胜利溶解 → 结算面板
+- `../preview/boss.mp4` / `boss.gif`：登场 → 普攻和首领攻击轮流 → 自动技能（万剑）→ 胜利溶解 → 结算面板
 - `../preview/boss_lose.mp4` / `boss_lose.gif`：失败（主角变灰下沉 + 「挑战失败」）
-- `screenshot.png` / `screenshot.jpg`：游戏实际运行截图，大招打中那一刻
+- `screenshot.png` / `screenshot.jpg`：自动技能打中那一刻（旧图）
+- `screenshot_auto_skill_peak.jpg`（及 `small/`）：**自动技能峰值**——万剑扇形命中（不是大招按钮）
+- `screenshot_entry.jpg`：登场「首领来袭」横幅 + 压暗泛红 + 落点圈 + 主角「!」
+- `screenshot_hit.jpg`：普攻命中闪白火花 + 伤害数字（震屏瞬间）
+- `screenshot_hp_trail.jpg`：首领血条白色延迟残影（红条已掉、白段还在）
 
 > 预览里为了缩短视频，把首领气血上限乘了 0.55（失败那段还把主角气血乘了 0.22）；**飘的数字全部是事件里的真实伤害**。
 > 演示服务器的结算永远返回「挑战成功」，所以失败那段最后弹出的结算面板仍是成功，正式服务器不会这样。
@@ -15,9 +20,9 @@ BossFight 的事件（我方普攻 / 我方大招 `kind:"ult"` / 首领攻击 `s
 ## 效果内容
 | 时机 | 表现 |
 |---|---|
-| 点「开始挑战」 | 战场压暗 + 四周红色暗角；斜 4° 的「首领来袭」横幅从左滑入、停留、从右滑出；主角头顶「!」；首领原地蓄力跳出画面，从上方落到红色虚线落点圈上（中等震屏 9px + 地面冲击环 + 尘土）。共 1.75 秒，**这段时间战斗时钟不走** |
+| 点「开始挑战」 | 战场压暗 + 四周红色暗角；斜 4° 的「首领来袭」横幅从左滑入、停留、从右滑出；主角头顶「!」；首领原地蓄力跳出画面，从上方落到红色虚线落点圈上（强震屏（shake_strong）+ 地面冲击环 + 尘土）。共 1.75 秒，**这段时间战斗时钟不走** |
 | 我方普攻 | 飞剑从主角前方飞向首领（0.18 秒），命中：首领闪白 + 击退 + 挤压、斩击火花、轻微震屏 5px、伤害数字 |
-| 我方大招（只有大招） | 背景压暗 + 主角脚下法阵；六把剑在主角头顶排成扇形 → 依次转向首领射出 + 月牙剑气横扫 + 速度线；最后一把剑打中时：强震屏 16px + 金色爆散 + **大号数字（digits_crit）**。没有任何文字标签 |
+| 我方**自动技能**（事件 `kind:"ult"`，非手动按钮） | 背景压暗 + 主角脚下法阵；六把剑扇形排开 → 依次射向首领 + 月牙剑气 + 速度线；命中：强震屏 16px + 金色爆散 + **大号数字**。无「大招/暴击」字样，无玩家技能按钮 |
 | 首领攻击 | 首领扑向主角，扑到时主角闪白 + 后仰 + 红色受击星 + 轻微震屏 + 主角身上红色伤害数字 |
 | 首领攻击预警（可选，纯表现） | 每 `telegraph_every` 次首领攻击（默认 3），按实测出手间隔提前约 0.6 秒在主角脚下出红圈、首领身上泛红；打中时稍重一点。设为 0 关闭。不影响任何数值 |
 | 双方血条 | 掉血时白色残影先停 0.3 秒再平滑追上（`hp_trail.gd`） |
@@ -27,7 +32,7 @@ BossFight 的事件（我方普攻 / 我方大招 `kind:"ult"` / 首领攻击 `s
 - 伤害数字 = `BagModel.shown(event.damage)`（即四舍五入），和战报一致；**每个事件正好飘一次**（2 倍速下连着来也会排队，一个不少）。
 - 数字、横幅、特效全部在战场 `_arena` 里面（战场本来就裁剪 `clip_contents`），数字最高只到战场顶部往下 40px，**不会盖住血条和名字**。
 - 震屏只移动战场里的主角、首领和特效，页面背景、血条、战报、按钮都不动。
-- 「暴击」两个字没有出现在特效里。⚠ 但页面原来的**战报**把大招行写成「★ 暴击 − …」（`scripts/ui/battle_report.gd` 第 13 行），见下面第 4 步。
+- 「暴击」「大招」字样都不要出现在特效 UI 上。⚠ 页面原来的**战报**若仍写「★ 暴击 − …」，见下面第 4 步（建议改成「★ 技能 −」一类，由负责人定）。
 
 ## 接入步骤（开发）
 1. **拷文件**：把本文件夹里的这些拷到 `game/anim_q/battle_boss/`：
@@ -47,7 +52,7 @@ BossFight 的事件（我方普攻 / 我方大招 `kind:"ult"` / 首领攻击 `s
    - `_on_start()`：隐藏开始按钮后 `_fx.play_intro()`；`_process()` 开头（判断完 phase 之后）加 `if _fx.is_intro_playing(): return`（登场时不走时钟；`step()` 不受影响，单元测试照常）
    - `_process()` 和 `step()` 里 `fight.finished` 时：`_fx.play_result(fight.win, fight.reason)`
    - `_consume_events()`：`_float_damage(event)` 换成 `_fx.on_event(event)`（原来的 `_float_damage` 可以删掉，也可以留着不用）
-   - `_set_bar()`：不要整块 `UiKit.clear(host)`，保留名为 `HpTrail` 的子节点，顺序 血条 → 残影 → 文字，每次 `trail.set_ratio(ratio)`（补丁里有完整写法；比例变大时会自动对齐，所以换关 / 再来一次不用额外重置）
+   - `_set_bar()`：不要整块 `UiKit.clear(host)`，保留名为 `HpTrail` 的子节点，顺序 血条 → 残影 → 文字，每次 `trail.set_ratio(ratio)`（补丁里有完整写法；比例变大时会自动对齐，所以换关 / 再来一次不用额外重置）。首领血条刷新时顺带 `_fx.set_boss_hp_ratio(ratio)`（低血身红光）
    - `show_submit_error()`：最后加 `_fx.set_boss_from_art()`（首领回到待机）
    - `show_result()`：结算内容照常先建好，`_result_panel.visible = true` 之前加
      ```gdscript
@@ -56,7 +61,7 @@ BossFight 的事件（我方普攻 / 我方大招 `kind:"ult"` / 首领攻击 `s
          if phase != Phase.RESULT:
              return
      ```
-4. **（建议）战报里去掉「暴击」**：`report_no_crit_word.patch`，把 `Kind.CRIT: "★ 暴击 −"` 改成 `"★ 大招 −"`（`test_ui_theme` 只检查 ★ 和加粗，仍然通过）。预览和截图里已经是改后的样子。改不改由负责人定。
+4. **（建议）战报文案**：`report_no_crit_word.patch` 可把 `Kind.CRIT: "★ 暴击 −"` 改成 `"★ 技能 −"`（不要写「大招」；成鹏定无手动大招）。`test_ui_theme` 只检查 ★ 和加粗。改不改由负责人定。
 
 我在仓库的副本里按上面接好后跑了全部 GUT：241 个测试 240 个通过，唯一失败的 `test_idle_battle.gd::test_kill_shows_gain_once_and_hides_hp_during_death` 在**没改过的仓库**上一样失败（无头模式下帧跑得太快，和本次改动无关）。
 
@@ -66,12 +71,23 @@ BossFight 的事件（我方普攻 / 我方大招 `kind:"ult"` / 首领攻击 `s
 | `attach(arena, hero, boss_art)` | 挂到战场上（一次） |
 | `set_boss_from_art()` | 从 `_boss_art` 取首领图、翻转、颜色，首领回到待机（开战前照常站着） |
 | `play_intro()` → 信号 `intro_finished` | 登场；`is_intro_playing()` |
-| `on_event(event)` | BossFight 的一个事件 |
+| `on_event(event)` | BossFight 的一个事件（含自动技能 `kind:"ult"`） |
 | `play_result(win, reason)` → 信号 `result_finished` | 胜负表现；`is_result_playing()` |
-| 信号 `number_shown(side, damage)` | 每飘一个数字发一次（`"boss"` = 打在首领身上，`"hero"` = 打在主角身上），给测试用 |
-| 导出参数 | `shake_light` 5 / `shake_medium` 9 / `shake_strong` 16（px）、`telegraph_every` 3（0 关闭）、`number_top` 40 |
+| `set_skill_charge(v, learned)` | **推荐**：自动技能蓄力 0..1（仅表现环）。**禁止**接到玩家按钮 |
+| `set_ult_charge(v, learned)` | 同上，**遗留名** |
+| `skill_impact_delay()` / `ult_impact_delay()` | 自动技能剑扇命中延迟（秒） |
+| 信号 `ult_landed(damage)` | 剑扇打中（遗留信号名；语义=自动技能命中） |
+| 信号 `number_shown(side, damage)` | 每飘一个数字发一次（`"boss"` / `"hero"`），给测试用 |
+| 导出参数 | `shake_light` 5 / `shake_medium` 9 / `shake_strong` 16（px；登场落地与自动技能用 strong）、`telegraph_every` 3（0 关闭）、`number_top` 40 |
 
-`hp_trail.gd`（Control）：`reset(ratio)`、`set_ratio(ratio)`；导出 `hold` 0.3 秒、`follow_speed` 7、`color` 白色 95%、`inset` 与 `UiKit.ratio_bar` 填充条一致。
+### 自动技能接口（成鹏定：无大招/手动技能按钮）
+- 页面**只**根据战斗事件调用 `_fx.on_event(event)`；蓄力表现用 `set_skill_charge`（或遗留 `set_ult_charge`）。
+- 主角侧：`hero_battle.play_skill()` = `play_ult()`（遗留名），仅由 `boss_battle` 在收到技能事件时调用，**不要**做技能按钮。
+- 事件字段仍可能叫 `kind:"ult"`（后端/协议遗留），特效层把它当成「自动放的技能」，不是玩家点的大招。
+
+`hp_trail.gd`（Control）：`reset(ratio)`、`set_ratio(ratio)`；导出 `hold` 0.3 秒、`follow_speed` 7、`color` 白色 95%、`inset` 与 `UiKit.ratio_bar` 填充条一致；`low_threshold` 0.3（低于此值血条闪红，0=关）。
+`boss_battle.set_boss_hp_ratio(ratio)`：页面刷新首领血量时一并调用，低于 30% 首领身偶尔冒红光。
+
 
 ## 性能（真实页面，opengl3 / Compatibility，演示数据 黑风岭·三，20 秒战斗）
 | | 原页面 | 接入特效后 |
@@ -80,18 +96,18 @@ BossFight 的事件（我方普攻 / 我方大招 `kind:"ult"` / 首领攻击 `s
 | 渲染物体 / 帧（平均 / 最多） | 302.5 / 323 | 310.2 / 351 |
 - 特效脚本每帧：平均 13.6 µs，最多 0.13 ms（含首领模板；桌面 CPU 测得，低端机按 5–10 倍估算也在 1.5 ms 以内）。
 - 粒子：同时最多 50 个（飞剑拖尾 16 + 命中火花 10 + 爆散 24），全部 CPUParticles2D（Compatibility 渲染器安全）。
-- 节点：78 个，全部预先建好循环复用（4 个首领伤害数字、3 个主角伤害数字、1 个大号数字、6 把大招剑、10 条速度线）；运行时不创建 / 释放节点、不用 Tween，`_process` 无内存分配；血条残影只在追赶时运行。原页面每个伤害数字都会新建 Label + Tween，接入后这部分没有了。
+- 节点：78 个，全部预先建好循环复用（4 个首领伤害数字、3 个主角伤害数字、1 个大号数字、6 把自动技能剑、10 条速度线）；运行时不创建 / 释放节点、不用 Tween，`_process` 无内存分配；血条残影只在追赶时运行。原页面每个伤害数字都会新建 Label + Tween，接入后这部分没有了。
 - 贴图共约 0.6 MB（PNG），最大的是三条横幅（1240×236）。
 
 ## 检查与重新生成
 - 场景由 `../_preview_project/tools/build_boss.gd` 生成：`godot --headless --path _preview_project --script res://tools/build_boss.gd`
 - 无头加载检查：`godot --headless --path _preview_project --script res://tools/load_check.gd`（battle_idle 两个场景 + boss_battle.tscn 78 个节点 + hp_trail.gd，无报错）
 - `dev/`（开发用，拷到 `game/scripts/dev/` 再跑，不进游戏）：
-  - `boss_fx_check.gd`：真实页面逐帧打完整场（胜 / 负），核对每个事件都飘了一次数字、数值 = round(damage)。结果：胜 45 个事件（含 2 次大招）、负 18 个事件（含 1 次大招），全部一致，结算面板在表现播完后弹出。
-  - `boss_fx_movie.gd`：录预览视频 + 大招截图。
+  - `boss_fx_check.gd`：真实页面逐帧打完整场（胜 / 负），核对每个事件都飘了一次数字、数值 = round(damage)。结果：胜 45 个事件（含 2 次自动技能）、负 18 个事件（含 1 次自动技能），全部一致，结算面板在表现播完后弹出。
+  - `boss_fx_movie.gd`：录预览视频 + 自动技能截图。
   - `boss_fx_perf.gd`：上面的性能数字（没接特效的原页面也能跑，用来对比）。
 
-## 10/21 新增：精英（每关首领）/ 章末大首领 两种外观（SPEC_Q §14、§16）
+## 10/21 新增：精英（每关首领）/ 章末大首领 两种外观（SPEC_Q §14、§16）【已作废，见文末「10/21 晚」：首领已统一】
 预览：`../preview/elite.mp4` / `elite.gif`（黑风岭·二「精英·赤眼狐妖」完整一场）、`../preview/boss.mp4`（黑风熊王，已换成章末首领外观）、
 `../preview/stills/tiers_on_chapter_bgs.jpg`（三章背景上：精英实时 shader / 精英预渲染 / 首领 shader / 首领预渲染 + 受击闪白，对照可读性）。
 截图：`elite_screenshot.png` / `elite_screenshot.jpg`（真实首领战页面，精英被飞剑打中那一刻）。
@@ -100,8 +116,8 @@ BossFight 的事件（我方普攻 / 我方大招 `kind:"ult"` / 首领攻击 `s
 |---|---|---|
 | 怪物外观（monster_rig） | 本关小怪图 ×1.2（脚底不动往上长）+ 金描边 / 暗金边 / 金色外光呼吸 + 脚下 `boss_aura_elite` 光圈（1.6 秒呼吸）+ 头顶「★精英」名牌 | 原图 + 红橙描边 / 暗红边 / 更大的红色外光 + 火焰光圈 `boss_aura_chief` +「首领」红名牌 + 红冠角标 |
 | 登场 | 金色「精英来袭」横幅、金色落点圈，**不压暗、不泛红** | 红色压暗 + 暗角 +「首领来袭」（和原来一样） |
-| 震屏 | 全部 × `elite_shake_scale`（0.5）：落地 4.5px、普攻 2.5px、大招 8px | 落地 9 / 普攻 5 / 大招 16px |
-| 其他 | 飞剑、大招剑扇、数字、血条残影、胜负表现完全一样；仍然不出现「暴击」，不盖血条和名字 | 同左 |
+| 震屏 | 全部 × `elite_shake_scale`（0.5）：落地 4.5px、普攻 2.5px、自动技能 8px | 落地 16 / 普攻 5 / 自动技能 16px |
+| 其他 | 飞剑、自动技能剑扇、数字、血条残影、胜负表现完全一样；仍然不出现「暴击」，不盖血条和名字 | 同左 |
 
 ### 开发要设的只有一个属性
 `_fx.tier`（`boss_battle.gd` 导出属性，1 = 精英，2 = 章末首领，默认 2）。在 `open_stage()` 里、`_fx.set_boss_from_art()` **之前**：
@@ -139,3 +155,30 @@ _fx.set_boss_from_art()
 - 三章背景上的可读性（对比图）：黑风岭 / 幽冥古道上金边、红边都很清楚；赤炎火山（红橙背景）上金色光圈和首领红光对比偏弱，描边因为有暗边仍然看得清。要更醒目可以让美术把光圈加一圈深色描边，或在火山章把光圈 modulate 调亮。
 
 > 全量 GUT（临时副本，已加精英文件 + 许可行 + 测试用假数据）：243 个通过 242 个。唯一失败的是 test_v10_layout 的 `test_lianqi_2_points_to_lianqi_3_and_the_bear_king`。原因是我只在测试副本里给炼气二层加了一个假的精英首领（「精英·赤眼狐妖」），而这条测试要求炼气二层「没有首领」。特效代码没有引起失败。后端真正给普通关卡加精英首领时，这条测试也要跟着改。
+
+## 10/21 晚：首领统一 + 主角战斗动画（SPEC_Q §17.1 / §17.8 / §17.10）
+**精英 / 章末首领的区分已经取消，一律「首领」。** `boss_battle.gd` 新增导出 `unified_boss = true`（默认）：外观一律首领（红描边 + 光圈）、登场一律红色压暗 +「首领来袭」、震屏全额。
+旧的 `tier` / `elite_shake_scale` / `tier_for_boss()` 只为兼容留着，`unified_boss = true` 时被忽略（页面里现在的 `_fx.tier = TIER_CHIEF` 留着也没关系）；
+`art/banner_elite.png` 不再预加载（只在 `unified_boss = false` 且 tier = 1 时按需加载），可以不拷 / 删掉，对应授权行也可以删。
+上面那节的 `integration_elite.patch`、`elite.mp4/gif`、`elite_screenshot.*` 已移到 `../preview/_deprecated_elite/`（不要再打 / 再用）；首领 HUD 名牌只写「首领」，由页面的 `plate_chief` 显示，特效不改页面文字。
+
+首领图：页面直接给 `sprites/boss_<怪>.png`（统一首领立绘，已带首领描边）时直接用，不再套 shader；给 `mon_<怪>.png` 时自动找同目录的 `boss_<怪>.png`，没有再找旧的 `chief_*`，都没有才用实时 shader。
+
+主角：页面的主角是 `player_fight*.png` 时，特效自动换成主角战斗动画（`../battle_hero/`，说明见那边的 README）：普攻前冲 + 飞剑命中后飞回、受击闪白击退、
+自动技能蓄力聚气（页面刷新时调 `_fx.set_skill_charge(v)` / 遗留 `set_ult_charge`；**无技能按钮**）、事件触发时先蓄势 0.32 秒再出剑扇、失败变灰、胜利小跳。
+接口：`set_skill_charge` / `set_ult_charge`、`play_skill` / `play_ult`（主角）、信号 `ult_landed`、`skill_impact_delay` / `ult_impact_delay`、导出 `use_hero_rig`（默认 true）。
+
+## 10/29 补缺：对照 PLAN §2 核对
+
+| PLAN 项 | 状态 |
+|---|---|
+| 登场压暗+红暗角、「首领来袭」、下落、落点红圈、尘土、强震屏、主角「!」 | **已有**；本次把落地震屏从 medium 改为 **strong** |
+| 普攻/自动技能/首领攻击、震屏辅助 `_kick_shake` | **已有** |
+| 血条白残影 `hp_trail.gd` | **已有**；补验收截图 `screenshot_hp_trail.jpg` |
+| 预警红圈 `telegraph_every` | **已有**（默认每 3 次） |
+| 首领 <30% 血条闪烁 + 身冒红光 | **本次补**：`hp_trail.low_threshold` 闪红；`set_boss_hp_ratio` 驱动身红光 |
+| 胜利掉落飞背包 / 战报「暴击」文案 | 页面侧（掉落复用 float_drop；战报见 `report_no_crit_word.patch`） |
+| 自动技能峰值图 / 无大招按钮 | `screenshot_auto_skill_peak.jpg`；接口改用 `play_skill` / `set_skill_charge`（ult* 为遗留名） |
+
+
+未改仓库。验收截图见上；视频仍用 `../preview/boss.mp4`。

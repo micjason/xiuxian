@@ -181,3 +181,22 @@ func test_only_real_drops_are_queued_and_fly_to_bag_label() -> void:
 	state["lastSettle"] = {"online": true, "seconds": 12, "kills": 1, "drops": [{"itemSlug": "enh_stone_low", "quantity": 1}]}
 	scene.call("_stage_drops")
 	assert_eq((fx.get("_queued_icons") as Array).size(), 0, "不在历练页不攒")
+
+
+## 刷出时脚下有烟圈和轻烟（SpawnRing + SpawnSmoke），约 0.45 秒后烟圈收掉。
+func test_spawn_plays_smoke_ring_then_hides_it() -> void:
+	var fx := await _fx()
+	var monster := fx.get("monster") as Node2D
+	var smoke := monster.get_node("SpawnSmoke") as CPUParticles2D
+	var ring := monster.get_node("SpawnRing") as Sprite2D
+	assert_eq(smoke.amount, 12)
+	assert_true(smoke.one_shot)
+	assert_eq(smoke.texture.resource_path, "res://anim_q/battle_idle/fx/fx_smoke.png")
+	assert_eq(ring.texture.resource_path, "res://anim_q/battle_idle/fx/fx_ring.png")
+	var tex := ArtLib.q("sprites/" + ArtLib.monster_sprite_id("毒牙蟒"))
+	fx.call("set_monster", tex if tex != null else PlaceholderTexture2D.new(), true, 520, 0.0)
+	assert_true(smoke.emitting, "刷出时烟粒子开始播")
+	assert_true(ring.visible, "刷出时烟圈可见")
+	for _i in 12:
+		monster.call("_process", 0.05)
+	assert_false(ring.visible, "约 0.45 秒后烟圈收掉")

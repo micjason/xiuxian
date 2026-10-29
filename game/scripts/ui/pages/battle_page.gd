@@ -18,7 +18,9 @@ signal retreat_requested(running: bool)
 
 enum Phase { READY, RUNNING, SUBMITTING, RESULT }
 
-## 首领战特效（anim_q/battle_boss）：登场、飞剑/大招、受击闪白、震屏、伤害数字、血条白色残影、胜负表现。
+## 首领战特效（anim_q/battle_boss）：登场、飞剑、受击闪白、震屏、伤害数字、血条白色残影、胜负表现。
+## 没有大招按钮、没有手动放技能入口。万剑只在自动战斗事件 kind:ult 到来时由特效播放。
+## 蓄力只调 _fx.set_skill_charge；刷新首领血量时一并 _fx.set_boss_hp_ratio（低于 30% 身冒红光）。
 const BossBattleFx := preload("res://anim_q/battle_boss/boss_battle.tscn")
 ## 统一首领外观（monster_rig Tier.CHIEF）。
 const TIER_CHIEF := 2
@@ -34,7 +36,7 @@ const HERO_RAISE := 60.0
 const REPORT_ROWS := 4
 const SPEED_PREF_PATH := "user://battle_prefs.cfg"
 const REPORT_CHIPS := {
-	"ult": {"text": "大招", "color": Color("ffa43a")},
+	"ult": {"text": "自动技能", "color": Color("ffa43a")},
 	"hit": {"text": "攻击", "color": Color("5aaeff")},
 	"hurt": {"text": "受击", "color": Color("ff5e5e")},
 	"info": {"text": "开战", "color": Color("7ed36a")},
@@ -53,7 +55,7 @@ var _content: Dictionary = {}
 var _stage: Dictionary = {}
 var _gate: Dictionary = {}
 var _boss_name := ""
-var _ult_name := "大招"
+var _ult_name := "自动技能"
 var _clock := 0.0
 var _title: Label
 var _timer_text: Label
@@ -349,6 +351,7 @@ func _build_player_hud() -> Control:
 	_me_stats = UiKit.label("", 28, UiTokens.TEXT_MUTED)
 	_me_stats.name = "MeStats"
 	column.add_child(_me_stats)
+	# 蓄力圆盘只显示自动进度，不接收点击；页面不放 UltButton / 手动技能入口。
 	_ult_disc = UltChargeDisc.new()
 	row.add_child(_ult_disc)
 	return card
@@ -394,7 +397,7 @@ func open_stage(state: Dictionary, content: Dictionary, stage: Dictionary, gate:
 	var boss: Dictionary = bosses[0] if not bosses.is_empty() and typeof(bosses[0]) == TYPE_DICTIONARY else {}
 	_boss_name = str(boss.get("name", "首领"))
 	var ult_cfg: Variant = state.get("ult", {})
-	_ult_name = str((ult_cfg as Dictionary).get("name", "大招")) if typeof(ult_cfg) == TYPE_DICTIONARY and not (ult_cfg as Dictionary).is_empty() else "大招"
+	_ult_name = _skill_display_name(str((ult_cfg as Dictionary).get("name", "")) if typeof(ult_cfg) == TYPE_DICTIONARY else "")
 	fight = BossFight.from_state(state, content, stage)
 	_ult_pending = 0.0
 	phase = Phase.READY
@@ -449,7 +452,7 @@ func open_stage(state: Dictionary, content: Dictionary, stage: Dictionary, gate:
 	_append_info("你（气血 %d）对阵 %s（气血 %d）" % [BagModel.shown(fight.player_max_hp), _boss_name, BagModel.shown(fight.boss_max_hp)])
 	if int(stage.get("recommendedPower", 0)) > 0:
 		_append_info("推荐战力 %d，我的战力 %d" % [int(stage.get("recommendedPower", 0)), int(state.get("power", 0))])
-	_append_feed("info", "限时 %d 秒 · 大招蓄满会自动释放" % int(limit))
+	_append_feed("info", "限时 %d 秒 · 蓄满会自动释放" % int(limit))
 
 
 ## 「章节 · 关」：displayName 本来就是「赤炎火山·三」这种写法，直接用；不再带「精英战 / 首领战」。
@@ -625,7 +628,12 @@ func _consume_events() -> void:
 	_refresh_bars(true)
 
 
-## 事件 → 战报胶囊类型：大招 / 攻击 / 受击。
+## 配置里的技能显示名。空名，或仍写成「大招 / 暴击」时，玩家看到的是「自动技能」。
+static func _skill_display_name(raw: String) -> String:
+	return BattleReportBuilder._skill_name(raw)
+
+
+## 事件 → 战报胶囊类型：自动技能 / 攻击 / 受击。
 static func feed_kind(event: Dictionary) -> String:
 	if str(event.get("side", "")) == "boss":
 		return "hurt"
@@ -694,9 +702,18 @@ func _refresh_bars(animate: bool = true) -> void:
 	if fight == null:
 		_set_me_bar(1.0, "-- / --")
 		_boss_bar.set_hp(1.0, 1.0, false)
+		_push_boss_hp_ratio(1.0)
 		return
+	var shown_hp := minf(fight.boss_hp + _ult_pending, fight.boss_max_hp)
 	_set_me_bar(fight.player_hp / maxf(fight.player_max_hp, 1.0), "%s / %s" % [QKit.grouped(BagModel.shown(maxf(fight.player_hp, 0.0))), QKit.grouped(BagModel.shown(fight.player_max_hp))])
-	_boss_bar.set_hp(minf(fight.boss_hp + _ult_pending, fight.boss_max_hp), fight.boss_max_hp, animate)
+	_boss_bar.set_hp(shown_hp, fight.boss_max_hp, animate)
+	_push_boss_hp_ratio(shown_hp / maxf(fight.boss_max_hp, 1.0))
+
+
+## 首领血量比例交给特效：低于 30% 时身冒红光。没有手动释放入口。
+func _push_boss_hp_ratio(ratio: float) -> void:
+	if _fx != null and _fx.has_method("set_boss_hp_ratio"):
+		_fx.set_boss_hp_ratio(ratio)
 
 
 func _set_me_bar(ratio: float, text: String) -> void:
@@ -723,18 +740,29 @@ func _refresh_time() -> void:
 		_timer_text.text = text
 
 
-## 大招圆盘：只显示蓄力（到下一次自动施放的进度），蓄满那一刻放金光。
+## 蓄力圆盘：只显示到下一次自动施放的进度，蓄满那一刻放金光。没有按钮；蓄满由战斗逻辑出事件。
 func _refresh_ult() -> void:
 	if fight == null or not fight.has_ult():
 		_ult_disc.set_charge(0.0, false)
-		_fx.set_ult_charge(0.0, false)
+		_push_skill_charge(0.0, false)
 		return
 	if fight.cast_count() > _casts_seen:
 		_casts_seen = fight.cast_count()
 		_ult_disc.flash_ready()
-	_ult_disc.set_charge(fight.ult_charge() if phase == Phase.RUNNING else 0.0, true)
-	# 主角脚下聚气环跟着圆盘一起填（蓄满时 BossFight 自动放大招，特效收到 ult 事件后主角蓄势 → 剑扇）
-	_fx.set_ult_charge(fight.ult_charge() if phase == Phase.RUNNING else 0.0, true)
+	var charging := phase == Phase.RUNNING
+	_ult_disc.set_charge(fight.ult_charge() if charging else 0.0, true)
+	# 主角脚下聚气环跟着圆盘一起填。蓄满后 BossFight 自动出 kind:ult 事件，特效 on_event 再播剑扇。
+	_push_skill_charge(fight.ult_charge() if charging else 0.0, true)
+
+
+## 自动技能蓄力（仅表现）。优先 set_skill_charge，没有该方法时退回遗留名 set_ult_charge。
+func _push_skill_charge(value: float, learned: bool) -> void:
+	if _fx == null:
+		return
+	if _fx.has_method("set_skill_charge"):
+		_fx.set_skill_charge(value, learned)
+	elif _fx.has_method("set_ult_charge"):
+		_fx.call("set_ult_charge", value, learned)
 
 
 ## 飘字分「车道」：同一边的飘字依次占用不同高度（再左右错开），同时最多 FLOAT_MAX_PER_SIDE 条，

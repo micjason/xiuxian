@@ -8,11 +8,15 @@ extends Control
 @export var hold := 0.3
 @export var follow_speed := 7.0
 @export var color := Color(1, 1, 1, 0.95)
+## 气血比例低于此值时血条轻微闪红（PLAN §2：首领 <30% 闪烁）。0 = 关闭。
+@export var low_threshold := 0.3
+@export var low_pulse_color := Color(1.0, 0.35, 0.32, 0.35)
 
 var _ratio := 1.0
 var _lag := 1.0
 var _hold_t := 0.0
 var _sb: StyleBoxFlat
+var _pulse_t := 0.0
 
 
 func _ready() -> void:
@@ -36,7 +40,11 @@ func reset(ratio: float = 1.0) -> void:
 func set_ratio(ratio: float) -> void:
 	ratio = clampf(ratio, 0.0, 1.0)
 	if ratio >= _lag:
-		reset(ratio)
+		_ratio = ratio
+		_lag = ratio
+		# 低血仍要闪，继续 process；否则停
+		set_process(low_threshold > 0.0 and _ratio < low_threshold)
+		queue_redraw()
 		return
 	if is_equal_approx(ratio, _ratio):
 		return
@@ -47,22 +55,36 @@ func set_ratio(ratio: float) -> void:
 
 
 func _process(delta: float) -> void:
+	_pulse_t += delta
 	if _hold_t > 0.0:
 		_hold_t -= delta
+		queue_redraw()
 		return
-	_lag = lerpf(_lag, _ratio, 1.0 - exp(-delta * follow_speed))
-	if _lag - _ratio < 0.003:
-		_lag = _ratio
+	if _lag > _ratio + 0.001:
+		_lag = lerpf(_lag, _ratio, 1.0 - exp(-delta * follow_speed))
+		if _lag - _ratio < 0.003:
+			_lag = _ratio
+	# 残影追上后：低血继续闪，否则停
+	if _lag <= _ratio + 0.001 and not (low_threshold > 0.0 and _ratio < low_threshold):
 		set_process(false)
 	queue_redraw()
 
 
 func _draw() -> void:
+	var w := size.x
+	var h := size.y
+	# 低血闪红：盖在已掉血段上（残影左边到条头）
+	if low_threshold > 0.0 and _ratio < low_threshold and _ratio > 0.001:
+		var pulse := 0.55 + 0.45 * sin(_pulse_t * TAU * 2.2)
+		var fill_w := w * maxf(_ratio, min_ratio) - inset.x * 2.0
+		if fill_w > 1.0:
+			var c := low_pulse_color
+			c.a = low_pulse_color.a * pulse
+			draw_rect(Rect2(inset.x, inset.y, fill_w, h - inset.y * 2.0), c)
 	if _lag <= _ratio + 0.001:
 		return
-	var w := size.x
 	var x0 := w * maxf(_ratio, min_ratio) - inset.x
 	var x1 := w * _lag - inset.x
 	if x1 - x0 < 1.0:
 		return
-	draw_style_box(_sb, Rect2(x0, inset.y, x1 - x0, size.y - inset.y * 2.0))
+	draw_style_box(_sb, Rect2(x0, inset.y, x1 - x0, h - inset.y * 2.0))

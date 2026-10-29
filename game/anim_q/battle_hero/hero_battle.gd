@@ -4,7 +4,7 @@ extends Node2D
 ## 动作（全部在 _process 里按时间算，不建节点、不用 Tween、每帧不分配内存）：
 ##   待机（自动）：呼吸挤压 + 轻微起伏 + 上身摆动 + 衣袖 / 衣摆 / 发梢飘动（hero_fight.gdshader）
 ##   play_attack()：前冲出剑 → 回位（飞剑由 boss_battle 发出，attack_release 时机）
-##   set_ult_charge(v)：大招蓄力 0..1 → 脚下聚气环顺时针填满、身后青光变亮、灵气粒子变多、身体外光；≥0.9 环脉动、剑尖闪光
+##   set_ult_charge(v)：自动技能蓄力 0..1 → 脚下聚气环顺时针填满、身后青光变亮、灵气粒子变多、身体外光；≥0.9 环脉动、剑尖闪光
 ##   play_ult()：蓄满自动释放 → 后仰蓄势（WINDUP 秒）→ ult_released（这时 boss_battle 放剑扇）→ 前送 + 聚气环闪亮后清空
 ##   play_hit(heavy)：闪白 + 击退 + 小幅后坐
 ##   play_defeat()：变灰、后仰下沉；play_victory()：小跳 + 剑光；reset()：回到待机
@@ -168,6 +168,12 @@ func play_ult() -> float:
 	_atk_t = -1.0
 	_wind.emitting = true
 	return WINDUP
+
+
+## 自动技能释放（推荐名）。play_ult 为遗留名。仅由战斗事件触发，**不要**挂玩家按钮。
+func play_skill() -> float:
+	return play_ult()
+
 
 
 func play_hit(heavy: bool = false) -> void:

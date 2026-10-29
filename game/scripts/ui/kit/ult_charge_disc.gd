@@ -1,8 +1,9 @@
 class_name UltChargeDisc
 extends Control
-## 大招蓄力圆盘（SPEC_Q §17.1，**不是按钮**，mouse_filter=IGNORE）：radial_bg_176 + radial_fill_166（顺时针，value=蓄力%）
-## + radial_center_132 + 大招图标 80 + 蓄力 % 白字；下方「自动」小字（纯标签）。蓄满瞬间 ult_ready_glow 垫在下面放大淡出（0.45s），
-## 同一刻战斗自动施放；释放后归零重新蓄。本境界没学会大招：整体 modulate 0.6，% 处写「未学会」。
+## 自动技能充能圆盘（不是按钮，mouse_filter=IGNORE，没有 pressed / gui_input 释放）：
+## radial_bg_176 + radial_fill_166（顺时针，value=蓄力%）+ radial_center_132 + 技能图标 + 蓄力 %。
+## 下方只写「冷却完自动释放」。蓄满瞬间光效淡出，释放由战斗逻辑自动出事件，圆盘本身不能点。
+## 本境界没学会：整体 modulate 0.6，% 处写「未学会」。
 
 const SIZE := 204.0
 
@@ -53,8 +54,8 @@ func _init() -> void:
 	_pct.size = Vector2(SIZE, 44)
 	_pct.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_pct)
-	# 「自动」只是说明文字（负责人：除了倍速和撤退，玩家没有任何手动操作）——小字标签，不是按钮、不接收点击、没有按下 / 悬停态
-	var auto := QKit.outlined("自动", 26, UiTokens.Q_WHITE, UiTokens.Q_ORANGE_DARK, 6, HORIZONTAL_ALIGNMENT_CENTER, false)
+	# 只提示冷却完会自动放，不是按钮，不接收点击。
+	var auto := QKit.outlined("冷却完自动释放", 22, UiTokens.Q_WHITE, UiTokens.Q_ORANGE_DARK, 6, HORIZONTAL_ALIGNMENT_CENTER, false)
 	auto.name = "AutoLabel"
 	auto.position = Vector2(0, 172)
 	auto.size = Vector2(SIZE, 36)

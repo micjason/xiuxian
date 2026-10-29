@@ -14,19 +14,22 @@
 [ext_resource type="Texture2D" path="res://anim_q/battle_idle/art/float_word_xiuwei.png" id="12_igsce"]
 [ext_resource type="Texture2D" path="res://anim_q/battle_idle/art/icon_stone.png" id="13_xfrrt"]
 
-[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_ygqnl"]
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_r0u4l"]
 blend_mode = 1
 
-[sub_resource type="Gradient" id="Gradient_v7op7"]
+[sub_resource type="Gradient" id="Gradient_ygqnl"]
 offsets = PackedFloat32Array(0, 0.15, 1)
 colors = PackedColorArray(1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0)
 
-[sub_resource type="Curve" id="Curve_b5ui2"]
+[sub_resource type="Curve" id="Curve_v7op7"]
 _data = [Vector2(0, 1), 0.0, 0.0, 0, 0, Vector2(1, 0.2), 0.0, 0.0, 0, 0]
 point_count = 2
 
-[sub_resource type="Gradient" id="Gradient_xywjf"]
+[sub_resource type="Gradient" id="Gradient_b5ui2"]
 colors = PackedColorArray(1, 1, 1, 0.9, 1, 1, 1, 0)
+
+[sub_resource type="Gradient" id="Gradient_xywjf"]
+colors = PackedColorArray(1, 1, 1, 1, 1, 1, 1, 0)
 
 [sub_resource type="Gradient" id="Gradient_fg1a3"]
 colors = PackedColorArray(1, 1, 1, 1, 1, 1, 1, 0)
@@ -37,25 +40,22 @@ colors = PackedColorArray(1, 1, 1, 1, 1, 1, 1, 0)
 [sub_resource type="Gradient" id="Gradient_1ivfn"]
 colors = PackedColorArray(1, 1, 1, 1, 1, 1, 1, 0)
 
-[sub_resource type="Gradient" id="Gradient_0n36a"]
-colors = PackedColorArray(1, 1, 1, 1, 1, 1, 1, 0)
-
-[node name="IdleBattleFx" type="Node2D" unique_id=1539273141]
+[node name="IdleBattleFx" type="Node2D" unique_id=1489268395]
 script = ExtResource("1_23c3h")
 
-[node name="GroundRing" type="Sprite2D" parent="." unique_id=125658036]
+[node name="GroundRing" type="Sprite2D" parent="." unique_id=1957579463]
 modulate = Color(0.7, 0.96, 1, 1)
-material = SubResource("CanvasItemMaterial_ygqnl")
+material = SubResource("CanvasItemMaterial_r0u4l")
 position = Vector2(730, 860)
 scale = Vector2(1, 0.3)
 texture = ExtResource("2_0rrjf")
 
-[node name="Monster" type="Node2D" parent="." unique_id=526995341 instance=ExtResource("3_q47eh")]
+[node name="Monster" type="Node2D" parent="." unique_id=815215474 instance=ExtResource("3_q47eh")]
 position = Vector2(730, 695)
 script = ExtResource("4_6gnq3")
 
-[node name="DeathBurst" type="CPUParticles2D" parent="." unique_id=103402053]
-material = SubResource("CanvasItemMaterial_ygqnl")
+[node name="DeathBurst" type="CPUParticles2D" parent="." unique_id=1635150549]
+material = SubResource("CanvasItemMaterial_r0u4l")
 emitting = false
 amount = 14
 texture = ExtResource("5_30b3j")
@@ -74,15 +74,15 @@ damping_max = 160.0
 scale_amount_min = 0.5
 scale_amount_max = 1.1
 color = Color(0.7, 0.96, 1, 1)
-color_ramp = SubResource("Gradient_v7op7")
+color_ramp = SubResource("Gradient_ygqnl")
 
-[node name="Sword" type="Node2D" parent="." unique_id=58261335]
+[node name="Sword" type="Node2D" parent="." unique_id=982921795]
 position = Vector2(400, 610)
 rotation = 0.7853982
 
-[node name="Trail" type="CPUParticles2D" parent="Sword" unique_id=761564392]
+[node name="Trail" type="CPUParticles2D" parent="Sword" unique_id=1030244895]
 show_behind_parent = true
-material = SubResource("CanvasItemMaterial_ygqnl")
+material = SubResource("CanvasItemMaterial_r0u4l")
 emitting = false
 amount = 20
 texture = ExtResource("5_30b3j")
@@ -90,47 +90,47 @@ lifetime = 0.3
 gravity = Vector2(0, 0)
 scale_amount_min = 1.6
 scale_amount_max = 2.3
-scale_amount_curve = SubResource("Curve_b5ui2")
+scale_amount_curve = SubResource("Curve_v7op7")
 color = Color(0.72, 0.96, 1, 1)
-color_ramp = SubResource("Gradient_xywjf")
+color_ramp = SubResource("Gradient_b5ui2")
 
-[node name="Glow" type="Sprite2D" parent="Sword" unique_id=595775476]
+[node name="Glow" type="Sprite2D" parent="Sword" unique_id=169214131]
 modulate = Color(0.6, 0.93, 1, 0.5)
-material = SubResource("CanvasItemMaterial_ygqnl")
+material = SubResource("CanvasItemMaterial_r0u4l")
 scale = Vector2(1.4, 1.4)
 texture = ExtResource("6_k6if1")
 
-[node name="Blade" type="Sprite2D" parent="Sword" unique_id=888230313]
+[node name="Blade" type="Sprite2D" parent="Sword" unique_id=1866818231]
 scale = Vector2(0.56, 0.56)
 texture = ExtResource("7_m15ku")
 
-[node name="Hit" type="Node2D" parent="." unique_id=1692871992]
+[node name="Hit" type="Node2D" parent="." unique_id=69604571]
 position = Vector2(650, 685)
 
-[node name="Ring" type="Sprite2D" parent="Hit" unique_id=1834547694]
+[node name="Ring" type="Sprite2D" parent="Hit" unique_id=230127089]
 modulate = Color(1, 0.95, 0.75, 0.9)
-material = SubResource("CanvasItemMaterial_ygqnl")
+material = SubResource("CanvasItemMaterial_r0u4l")
 texture = ExtResource("2_0rrjf")
 
-[node name="SlashA" type="Sprite2D" parent="Hit" unique_id=1735493107]
+[node name="SlashA" type="Sprite2D" parent="Hit" unique_id=1457613164]
 modulate = Color(1, 1, 0.92, 1)
-material = SubResource("CanvasItemMaterial_ygqnl")
+material = SubResource("CanvasItemMaterial_r0u4l")
 rotation = -0.4886922
 texture = ExtResource("8_rn3fh")
 
-[node name="SlashB" type="Sprite2D" parent="Hit" unique_id=1607364374]
+[node name="SlashB" type="Sprite2D" parent="Hit" unique_id=183711624]
 modulate = Color(1, 0.96, 0.8, 1)
-material = SubResource("CanvasItemMaterial_ygqnl")
+material = SubResource("CanvasItemMaterial_r0u4l")
 rotation = 1.0821041
 texture = ExtResource("8_rn3fh")
 
-[node name="Star" type="Sprite2D" parent="Hit" unique_id=1400131039]
+[node name="Star" type="Sprite2D" parent="Hit" unique_id=673139866]
 modulate = Color(1, 0.97, 0.8, 1)
-material = SubResource("CanvasItemMaterial_ygqnl")
+material = SubResource("CanvasItemMaterial_r0u4l")
 texture = ExtResource("9_4qpp3")
 
-[node name="Sparks" type="CPUParticles2D" parent="Hit" unique_id=1782221221]
-material = SubResource("CanvasItemMaterial_ygqnl")
+[node name="Sparks" type="CPUParticles2D" parent="Hit" unique_id=187538839]
+material = SubResource("CanvasItemMaterial_r0u4l")
 emitting = false
 amount = 10
 texture = ExtResource("9_4qpp3")
@@ -146,77 +146,77 @@ damping_max = 420.0
 scale_amount_min = 0.18
 scale_amount_max = 0.36
 color = Color(1, 0.93, 0.6, 1)
-color_ramp = SubResource("Gradient_fg1a3")
+color_ramp = SubResource("Gradient_xywjf")
 
-[node name="HeroHit" type="Sprite2D" parent="." unique_id=942952505]
+[node name="HeroHit" type="Sprite2D" parent="." unique_id=1273119511]
 modulate = Color(1, 0.85, 0.85, 1)
-material = SubResource("CanvasItemMaterial_ygqnl")
+material = SubResource("CanvasItemMaterial_r0u4l")
 position = Vector2(204, 660)
 texture = ExtResource("9_4qpp3")
 
-[node name="Orbs" type="Node2D" parent="." unique_id=1410201244]
+[node name="Orbs" type="Node2D" parent="." unique_id=1689722422]
 
-[node name="O0" type="Sprite2D" parent="Orbs" unique_id=1847886870]
-material = SubResource("CanvasItemMaterial_ygqnl")
+[node name="O0" type="Sprite2D" parent="Orbs" unique_id=1935274761]
+material = SubResource("CanvasItemMaterial_r0u4l")
 texture = ExtResource("5_30b3j")
 
-[node name="O1" type="Sprite2D" parent="Orbs" unique_id=1204624871]
+[node name="O1" type="Sprite2D" parent="Orbs" unique_id=759343174]
 modulate = Color(0.62, 0.95, 1, 1)
-material = SubResource("CanvasItemMaterial_ygqnl")
+material = SubResource("CanvasItemMaterial_r0u4l")
 texture = ExtResource("5_30b3j")
 
-[node name="O2" type="Sprite2D" parent="Orbs" unique_id=937279833]
+[node name="O2" type="Sprite2D" parent="Orbs" unique_id=1429946352]
 modulate = Color(0.62, 0.95, 1, 1)
-material = SubResource("CanvasItemMaterial_ygqnl")
+material = SubResource("CanvasItemMaterial_r0u4l")
 texture = ExtResource("5_30b3j")
 
-[node name="O3" type="Sprite2D" parent="Orbs" unique_id=1370456819]
-material = SubResource("CanvasItemMaterial_ygqnl")
+[node name="O3" type="Sprite2D" parent="Orbs" unique_id=1478072666]
+material = SubResource("CanvasItemMaterial_r0u4l")
 texture = ExtResource("5_30b3j")
 
-[node name="O4" type="Sprite2D" parent="Orbs" unique_id=1201825463]
+[node name="O4" type="Sprite2D" parent="Orbs" unique_id=2076050252]
 modulate = Color(0.62, 0.95, 1, 1)
-material = SubResource("CanvasItemMaterial_ygqnl")
+material = SubResource("CanvasItemMaterial_r0u4l")
 texture = ExtResource("5_30b3j")
 
-[node name="O5" type="Sprite2D" parent="Orbs" unique_id=1016106962]
+[node name="O5" type="Sprite2D" parent="Orbs" unique_id=1519070467]
 modulate = Color(0.62, 0.95, 1, 1)
-material = SubResource("CanvasItemMaterial_ygqnl")
+material = SubResource("CanvasItemMaterial_r0u4l")
 texture = ExtResource("5_30b3j")
 
-[node name="O6" type="Sprite2D" parent="Orbs" unique_id=972954939]
-material = SubResource("CanvasItemMaterial_ygqnl")
+[node name="O6" type="Sprite2D" parent="Orbs" unique_id=1383733379]
+material = SubResource("CanvasItemMaterial_r0u4l")
 texture = ExtResource("5_30b3j")
 
-[node name="O7" type="Sprite2D" parent="Orbs" unique_id=1448883730]
+[node name="O7" type="Sprite2D" parent="Orbs" unique_id=113943874]
 modulate = Color(0.62, 0.95, 1, 1)
-material = SubResource("CanvasItemMaterial_ygqnl")
+material = SubResource("CanvasItemMaterial_r0u4l")
 texture = ExtResource("5_30b3j")
 
-[node name="O8" type="Sprite2D" parent="Orbs" unique_id=665407349]
+[node name="O8" type="Sprite2D" parent="Orbs" unique_id=1613598767]
 modulate = Color(0.62, 0.95, 1, 1)
-material = SubResource("CanvasItemMaterial_ygqnl")
+material = SubResource("CanvasItemMaterial_r0u4l")
 texture = ExtResource("5_30b3j")
 
-[node name="O9" type="Sprite2D" parent="Orbs" unique_id=1016923017]
-material = SubResource("CanvasItemMaterial_ygqnl")
+[node name="O9" type="Sprite2D" parent="Orbs" unique_id=1233641438]
+material = SubResource("CanvasItemMaterial_r0u4l")
 texture = ExtResource("5_30b3j")
 
-[node name="O10" type="Sprite2D" parent="Orbs" unique_id=1116776757]
+[node name="O10" type="Sprite2D" parent="Orbs" unique_id=1187948884]
 modulate = Color(0.62, 0.95, 1, 1)
-material = SubResource("CanvasItemMaterial_ygqnl")
+material = SubResource("CanvasItemMaterial_r0u4l")
 texture = ExtResource("5_30b3j")
 
-[node name="O11" type="Sprite2D" parent="Orbs" unique_id=266338474]
+[node name="O11" type="Sprite2D" parent="Orbs" unique_id=1626758207]
 modulate = Color(0.62, 0.95, 1, 1)
-material = SubResource("CanvasItemMaterial_ygqnl")
+material = SubResource("CanvasItemMaterial_r0u4l")
 texture = ExtResource("5_30b3j")
 
-[node name="Numbers" type="Node2D" parent="." unique_id=1398501381]
+[node name="Numbers" type="Node2D" parent="." unique_id=434472201]
 
-[node name="N0" type="Node2D" parent="Numbers" unique_id=523185665]
+[node name="N0" type="Node2D" parent="Numbers" unique_id=1118276787]
 
-[node name="Label" type="Label" parent="Numbers/N0" unique_id=404091710]
+[node name="Label" type="Label" parent="Numbers/N0" unique_id=873091206]
 offset_left = -210.0
 offset_top = -46.0
 offset_right = 210.0
@@ -231,9 +231,9 @@ text = "-128"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="N1" type="Node2D" parent="Numbers" unique_id=1047856412]
+[node name="N1" type="Node2D" parent="Numbers" unique_id=762256018]
 
-[node name="Label" type="Label" parent="Numbers/N1" unique_id=715868202]
+[node name="Label" type="Label" parent="Numbers/N1" unique_id=23582658]
 offset_left = -210.0
 offset_top = -46.0
 offset_right = 210.0
@@ -248,9 +248,9 @@ text = "-128"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="N2" type="Node2D" parent="Numbers" unique_id=545115432]
+[node name="N2" type="Node2D" parent="Numbers" unique_id=1771396469]
 
-[node name="Label" type="Label" parent="Numbers/N2" unique_id=870052668]
+[node name="Label" type="Label" parent="Numbers/N2" unique_id=1799626422]
 offset_left = -210.0
 offset_top = -46.0
 offset_right = 210.0
@@ -265,9 +265,9 @@ text = "-128"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="N3" type="Node2D" parent="Numbers" unique_id=1018379224]
+[node name="N3" type="Node2D" parent="Numbers" unique_id=1177540821]
 
-[node name="Label" type="Label" parent="Numbers/N3" unique_id=418973084]
+[node name="Label" type="Label" parent="Numbers/N3" unique_id=1299109258]
 offset_left = -210.0
 offset_top = -46.0
 offset_right = 210.0
@@ -282,9 +282,9 @@ text = "-128"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="Gain" type="Node2D" parent="." unique_id=139865407]
+[node name="Gain" type="Node2D" parent="." unique_id=73182560]
 
-[node name="Number" type="Label" parent="Gain" unique_id=16811618]
+[node name="Number" type="Label" parent="Gain" unique_id=302127580]
 offset_left = -300.0
 offset_top = -46.0
 offset_bottom = 46.0
@@ -298,28 +298,52 @@ text = "+20"
 horizontal_alignment = 2
 vertical_alignment = 1
 
-[node name="Word" type="Sprite2D" parent="Gain" unique_id=930054110]
+[node name="Word" type="Sprite2D" parent="Gain" unique_id=1189904028]
 position = Vector2(52, 2)
 scale = Vector2(1.25, 1.25)
 texture = ExtResource("12_igsce")
 
-[node name="Drops" type="Node2D" parent="." unique_id=457221238]
+[node name="Drops" type="Node2D" parent="." unique_id=1384836064]
 z_index = 10
 
-[node name="D0" type="Sprite2D" parent="Drops" unique_id=127106140]
+[node name="D0" type="Sprite2D" parent="Drops" unique_id=1372410720]
 top_level = true
 texture = ExtResource("13_xfrrt")
 
-[node name="Glow" type="Sprite2D" parent="Drops/D0" unique_id=834341535]
+[node name="Glow" type="Sprite2D" parent="Drops/D0" unique_id=1880470119]
 modulate = Color(1, 0.9, 0.55, 0.65)
 show_behind_parent = true
-material = SubResource("CanvasItemMaterial_ygqnl")
+material = SubResource("CanvasItemMaterial_r0u4l")
 scale = Vector2(2.6, 2.6)
 texture = ExtResource("6_k6if1")
 
-[node name="Trail" type="CPUParticles2D" parent="Drops/D0" unique_id=529788786]
+[node name="Trail" type="CPUParticles2D" parent="Drops/D0" unique_id=2137728653]
 show_behind_parent = true
-material = SubResource("CanvasItemMaterial_ygqnl")
+material = SubResource("CanvasItemMaterial_r0u4l")
+emitting = false
+texture = ExtResource("9_4qpp3")
+lifetime = 0.35
+spread = 180.0
+gravity = Vector2(0, 0)
+initial_velocity_max = 20.0
+scale_amount_max = 2.0
+color = Color(1, 0.9, 0.5, 1)
+color_ramp = SubResource("Gradient_fg1a3")
+
+[node name="D1" type="Sprite2D" parent="Drops" unique_id=720878478]
+top_level = true
+texture = ExtResource("13_xfrrt")
+
+[node name="Glow" type="Sprite2D" parent="Drops/D1" unique_id=1301479749]
+modulate = Color(1, 0.9, 0.55, 0.65)
+show_behind_parent = true
+material = SubResource("CanvasItemMaterial_r0u4l")
+scale = Vector2(2.6, 2.6)
+texture = ExtResource("6_k6if1")
+
+[node name="Trail" type="CPUParticles2D" parent="Drops/D1" unique_id=872319029]
+show_behind_parent = true
+material = SubResource("CanvasItemMaterial_r0u4l")
 emitting = false
 texture = ExtResource("9_4qpp3")
 lifetime = 0.35
@@ -330,20 +354,20 @@ scale_amount_max = 2.0
 color = Color(1, 0.9, 0.5, 1)
 color_ramp = SubResource("Gradient_qb8ow")
 
-[node name="D1" type="Sprite2D" parent="Drops" unique_id=909265575]
+[node name="D2" type="Sprite2D" parent="Drops" unique_id=358857366]
 top_level = true
 texture = ExtResource("13_xfrrt")
 
-[node name="Glow" type="Sprite2D" parent="Drops/D1" unique_id=1261710377]
+[node name="Glow" type="Sprite2D" parent="Drops/D2" unique_id=1327089227]
 modulate = Color(1, 0.9, 0.55, 0.65)
 show_behind_parent = true
-material = SubResource("CanvasItemMaterial_ygqnl")
+material = SubResource("CanvasItemMaterial_r0u4l")
 scale = Vector2(2.6, 2.6)
 texture = ExtResource("6_k6if1")
 
-[node name="Trail" type="CPUParticles2D" parent="Drops/D1" unique_id=2007656460]
+[node name="Trail" type="CPUParticles2D" parent="Drops/D2" unique_id=244517167]
 show_behind_parent = true
-material = SubResource("CanvasItemMaterial_ygqnl")
+material = SubResource("CanvasItemMaterial_r0u4l")
 emitting = false
 texture = ExtResource("9_4qpp3")
 lifetime = 0.35
@@ -353,27 +377,3 @@ initial_velocity_max = 20.0
 scale_amount_max = 2.0
 color = Color(1, 0.9, 0.5, 1)
 color_ramp = SubResource("Gradient_1ivfn")
-
-[node name="D2" type="Sprite2D" parent="Drops" unique_id=300637129]
-top_level = true
-texture = ExtResource("13_xfrrt")
-
-[node name="Glow" type="Sprite2D" parent="Drops/D2" unique_id=1571930422]
-modulate = Color(1, 0.9, 0.55, 0.65)
-show_behind_parent = true
-material = SubResource("CanvasItemMaterial_ygqnl")
-scale = Vector2(2.6, 2.6)
-texture = ExtResource("6_k6if1")
-
-[node name="Trail" type="CPUParticles2D" parent="Drops/D2" unique_id=2106701572]
-show_behind_parent = true
-material = SubResource("CanvasItemMaterial_ygqnl")
-emitting = false
-texture = ExtResource("9_4qpp3")
-lifetime = 0.35
-spread = 180.0
-gravity = Vector2(0, 0)
-initial_velocity_max = 20.0
-scale_amount_max = 2.0
-color = Color(1, 0.9, 0.5, 1)
-color_ramp = SubResource("Gradient_0n36a")

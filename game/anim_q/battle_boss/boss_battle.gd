@@ -24,6 +24,22 @@ const ULT_LAUNCH := 0.48    ## 自动技能：剑扇停留到第一把剑射出�
 const ULT_STAGGER := 0.05
 const MonsterRig := preload("res://anim_q/battle_idle/monster_rig.gd")
 
+## 伪3D P0 镜头/顿帧（docs/2026-10-30-pseudo3d-p0-camera.md）。仅作用战场角色+特效，UI/血条/战报不动。
+const SHAKE_LIGHT := 4.0
+const SHAKE_MEDIUM := 8.0
+const SHAKE_STRONG := 12.0
+const SHAKE_LAND := 14.0
+const HITSTOP_FRAMES_LIGHT := 1
+const HITSTOP_FRAMES_SKILL := 2
+const HITSTOP_FRAMES_LAND := 2
+const PUNCH_ZOOM_LIGHT := 1.02
+const PUNCH_ZOOM_SKILL := 1.04
+const PUNCH_ZOOM_LAND := 1.03
+const PUNCH_ZOOM_RETURN_LIGHT := 0.10
+const PUNCH_ZOOM_RETURN_SKILL := 0.18
+const TEX_SHOCKWAVE := preload("res://anim_q/battle_boss/fx/fx_shockwave.png")
+const TEX_DUST_PUFF := preload("res://anim_q/battle_boss/fx/fx_dust_puff.png")
+
 ## 统一首领（SPEC_Q §17.1 / §17.10）：每关一个首领，外观、登场一律首领样式（红描边 + 光圈 + 红色压暗 +「首领来袭」）。
 ## true（默认）时下面的 tier 被忽略，始终按 2 处理。
 @export var unified_boss := true:
@@ -43,9 +59,9 @@ const MonsterRig := preload("res://anim_q/battle_idle/monster_rig.gd")
 @export var elite_shake_scale := 0.5
 ## 页面给的主角是 player_fight*.png 时自动换成主角战斗动画（anim_q/battle_hero/hero_battle.tscn）
 @export var use_hero_rig := true
-@export var shake_light := 5.0      ## 普攻、首领攻击
-@export var shake_medium := 9.0     ## 预留（登场落地已改用 shake_strong）
-@export var shake_strong := 16.0    ## 自动技能命中
+@export var shake_light := SHAKE_LIGHT      ## 普攻、首领扑击（3～5）
+@export var shake_medium := SHAKE_MEDIUM   ## 技能下限
+@export var shake_strong := SHAKE_STRONG   ## 自动技能峰值（原 16 下调到 12；登场可用 14）
 @export var telegraph_every := 3    ## 每几次首领攻击做一次红圈预警（纯表现，0 = 关闭）
 @export var number_top := 40.0      ## 数字最高到战场顶部往下这么多（血条、名字在战场外面上方）
 
@@ -98,6 +114,16 @@ var _size := Vector2(1032, 799)
 var _t := 0.0
 var _shake := 0.0
 var _shake_amp := 0.0
+var _hitstop := 0.0          ## 顿帧剩余秒；后触发盖前，不排队
+var _punch_peak := 1.0       ## 当前轻推拉峰值（相对 1.0）
+var _punch_t := 0.0
+var _punch_ret := 0.10
+var _shock: Sprite2D
+var _dust_puff: Sprite2D
+var _shock_t := 9.0
+var _dust_puff_t := 9.0
+var _ult_behind: Node2D
+var _ult_is_behind: Array[bool] = []
 var _boss_hp_ratio := 1.0
 var _boss_low_t := 0.0
 var _hero_flash := 0.0
@@ -179,6 +205,8 @@ func _ready() -> void:
 		(s as Node2D).visible = false
 	_ult_from.resize(_ult_swords.size())
 	_ult_dir.resize(_ult_swords.size())
+	_setup_ult_z_layers()
+	_ensure_land_fx()
 	for l in $Front/SpeedLines.get_children():
 		_lines.append(l as Sprite2D)
 	$Front/SpeedLines.visible = false
@@ -309,7 +337,8 @@ func skill_anchor_points() -> Dictionary:
 func _play_auto_skill_fx(event: Dictionary) -> void:
 	if not SkillFxCast.is_auto_cast(event):
 		return
-	SkillFxCast.play(self, SkillFxCast.resolve(event, _skill_defs, _skill_running), skill_anchor_points())
+	# 挂 Front：跟震/轻推拉；不挂冷却 UI
+	SkillFxCast.play(_front if _front != null else self, SkillFxCast.resolve(event, _skill_defs, _skill_running), skill_anchor_points())
 
 
 ## 收到 ult 事件到剑扇打中首领的时间（秒，1 倍速）：主角蓄势 + 剑扇停留 + 依次射出 + 飞行。
@@ -490,7 +519,9 @@ func _on_boss_impact() -> void:
 	else:
 		_hero_flash = 1.0
 		_hero_knock = 1.0
-	_kick_shake(shake_light * (1.4 if heavy else 1.0), 0.16)
+	# 首领扑击：shake 4～6，hitstop 1～2，无/极轻 zoom
+	var bamp := shake_light * (1.4 if heavy else 1.0)
+	_kick_feel(bamp, 0.16, HITSTOP_FRAMES_LIGHT + (1 if heavy else 0), 1.0, 0.08)
 
 
 # ================================================================ 对外：登场 / 结算
@@ -547,9 +578,116 @@ func _show_banner(tex: Texture2D, hold: float) -> void:
 func _kick_shake(amp: float, dur: float) -> void:
 	if _tier() != 2:
 		amp *= elite_shake_scale
+	# 同帧取 max，不累加（防晕）
 	if _shake <= 0.0 or amp >= _shake_amp:
 		_shake_amp = amp
 	_shake = maxf(_shake, dur)
+
+
+## 顿帧：后盖前，不排队叠加。
+func _kick_hitstop(frames: int) -> void:
+	if frames <= 0:
+		return
+	_hitstop = float(frames) / 60.0
+
+
+## 轻推拉：只缩放战场 Back/Front/主角；UI 不动。钳制 0.96～1.04。
+func _kick_punch(zoom: float, ret: float) -> void:
+	zoom = clampf(zoom, 0.96, 1.04)
+	if zoom <= 1.0:
+		return
+	if zoom >= _punch_peak:
+		_punch_peak = zoom
+	_punch_t = 0.0
+	_punch_ret = maxf(0.05, ret)
+
+
+func _kick_feel(amp: float, dur: float, hitstop_frames: int = 0, zoom: float = 1.0, zoom_ret: float = 0.10) -> void:
+	_kick_shake(amp, dur)
+	_kick_hitstop(hitstop_frames)
+	_kick_punch(zoom, zoom_ret)
+
+
+func _setup_ult_z_layers() -> void:
+	## 剑扇：偶数把 → Back 内 Boss 之前（z_behind 稍暗稍大）；奇数把留 Front（z_front 亮短）
+	if _ult_behind == null:
+		_ult_behind = Node2D.new()
+		_ult_behind.name = "UltBehind"
+		_back.add_child(_ult_behind)
+		var boss_i := boss.get_index()
+		_back.move_child(_ult_behind, boss_i)
+	_ult_is_behind.clear()
+	for i in _ult_swords.size():
+		var s := _ult_swords[i]
+		var behind := (i % 2) == 0
+		_ult_is_behind.append(behind)
+		if behind and s.get_parent() != _ult_behind:
+			s.reparent(_ult_behind)
+
+
+func _ensure_land_fx() -> void:
+	if _shock == null:
+		_shock = Sprite2D.new()
+		_shock.name = "Shockwave"
+		_shock.texture = TEX_SHOCKWAVE
+		_shock.visible = false
+		_shock.z_index = 2
+		_back.add_child(_shock)
+		# 落在 Boss 脚下层：紧挨 UltBehind / Boss 之前亦可
+		if boss != null:
+			_back.move_child(_shock, mini(boss.get_index(), _back.get_child_count() - 1))
+	if _dust_puff == null:
+		_dust_puff = Sprite2D.new()
+		_dust_puff.name = "DustPuff"
+		_dust_puff.texture = TEX_DUST_PUFF
+		_dust_puff.visible = false
+		_dust_puff.z_index = 1
+		_front.add_child(_dust_puff)
+
+
+## 落地震波 + 尘（脚底锚点）。复用节点，不每帧 new。
+func _play_land_fx(feet: Vector2) -> void:
+	_ensure_land_fx()
+	_shock.position = feet
+	_shock.scale = Vector2(0.35, 0.18)
+	_shock.modulate = Color(1, 0.92, 0.75, 0.85)
+	_shock.visible = true
+	_shock_t = 0.0
+	_dust_puff.position = feet + Vector2(0, -6)
+	_dust_puff.scale = Vector2(0.55, 0.4)
+	_dust_puff.modulate = Color(1, 0.88, 0.7, 0.9)
+	_dust_puff.visible = true
+	_dust_puff_t = 0.0
+	# 旧 dust 环也闪一下，兼容原验收路径
+	_dust.position = feet
+	_dust_t = 0.0
+	_dust.visible = true
+
+
+func _shake_offset() -> Vector2:
+	if _shake <= 0.0:
+		return Vector2.ZERO
+	var k := _shake_amp * minf(1.0, _shake / 0.12)
+	return Vector2(sin(_t * 97.0) + sin(_t * 41.0) * 0.5, cos(_t * 83.0) * 0.7) * k * 0.7
+
+
+## 仅移动战场内 Back/Front/主角；页面背景、血条、战报、按钮不动。
+func _apply_arena_cam(off: Vector2) -> void:
+	var zoom := 1.0
+	if _punch_peak > 1.0 and _punch_ret > 0.0:
+		var p := clampf(_punch_t / _punch_ret, 0.0, 1.0)
+		zoom = lerpf(_punch_peak, 1.0, p * p * (3.0 - 2.0 * p))
+		zoom = clampf(zoom, 0.96, 1.04)
+	var pivot := _size * 0.5
+	var pos := pivot * (1.0 - zoom) + off
+	_front.position = pos
+	_front.scale = Vector2(zoom, zoom)
+	if _back != null and is_instance_valid(_back):
+		_back.position = pos
+		_back.scale = Vector2(zoom, zoom)
+	if hero_rig != null:
+		hero_rig.scale = Vector2(zoom, zoom)
+		hero_rig.position = pivot + (_rig_base - pivot) * zoom + off
 
 
 # ================================================================ 大招
@@ -594,19 +732,23 @@ func _update_ult(delta: float) -> void:
 		var appear := clampf((t - float(i) * 0.03) / 0.18, 0.0, 1.0)
 		var launch := ULT_LAUNCH + float(i) * ULT_STAGGER
 		var aim := (target - _ult_from[i]).angle() + PI * 0.25
+		var behind := i < _ult_is_behind.size() and _ult_is_behind[i]
+		var s_mul := 1.12 if behind else 0.92
+		var tint := Color(0.72, 0.76, 0.9, 1.0) if behind else Color(1.18, 1.15, 1.25, 1.0)
 		if t < launch:
 			var pivot := _ult_from[i].lerp(Vector2(_hero_rect.get_center().x + 30.0, _hero_rect.position.y + 40.0), 1.0 - _back_out(appear))
 			s.position = pivot + Vector2(0, sin(t * 18.0 + float(i)) * 3.0)
-			s.scale = Vector2.ONE * 0.6 * appear
+			s.scale = Vector2.ONE * 0.6 * appear * s_mul
 			var turn := clampf((t - launch + 0.12) / 0.12, 0.0, 1.0)
 			s.rotation = lerp_angle(_ult_dir[i], aim, turn)
-			s.modulate.a = 1.0
+			s.modulate = Color(tint.r, tint.g, tint.b, 1.0)
 		else:
 			var p := clampf((t - launch) / 0.16, 0.0, 1.0)
 			s.position = _ult_from[i].lerp(target + Vector2(float(i) * 8.0 - 20.0, float(i % 3) * 16.0 - 16.0), p * p)
 			s.rotation = aim
-			s.scale = Vector2.ONE * 0.6
-			s.modulate.a = 1.0 - maxf(0.0, p - 0.85) / 0.15
+			s.scale = Vector2.ONE * 0.6 * s_mul
+			var a := 1.0 - maxf(0.0, p - 0.85) / 0.15
+			s.modulate = Color(tint.r, tint.g, tint.b, a)
 			if p >= 1.0:
 				s.visible = false
 	# 速度线：从首领四周往中心收
@@ -636,7 +778,9 @@ func _update_ult(delta: float) -> void:
 		_spark_at(target, 1.6)
 		_burst.position = target
 		_burst.restart()
-		_kick_shake(shake_strong, 0.36)
+		# 自动技能：zoom 1.04 / shake 8～12 / hitstop 2～3 + 落地震波尘
+		_kick_feel(shake_strong, 0.36, HITSTOP_FRAMES_SKILL + 1, PUNCH_ZOOM_SKILL, PUNCH_ZOOM_RETURN_SKILL)
+		_play_land_fx(Vector2(target.x, _boss_rect.end.y - 12.0))
 		_big_label.text = "-%d" % _ult_dmg
 		_big.position = Vector2(_boss_rect.position.x + 70.0, maxf(target.y - _boss_rect.size.y * 0.24, number_top + 70.0))
 		_big_t = 0.0
@@ -654,6 +798,17 @@ func _update_ult(delta: float) -> void:
 # ================================================================ 每帧
 func _process(delta: float) -> void:
 	if not is_visible_in_tree():
+		return
+	# 轻推拉回弹用真实时间
+	if _punch_peak > 1.0:
+		_punch_t += delta
+		if _punch_t >= _punch_ret:
+			_punch_peak = 1.0
+			_punch_t = 0.0
+	# 顿帧：后盖前；冻结战场表现，镜头位移仍按当前振幅贴上
+	if _hitstop > 0.0:
+		_hitstop = maxf(0.0, _hitstop - delta)
+		_apply_arena_cam(_shake_offset())
 		return
 	_t += delta
 	_update_sword(delta)
@@ -683,7 +838,8 @@ func _update_sword(delta: float) -> void:
 		boss.hit(1.0)
 		_spark_at(target, 1.0)
 		_show_boss_number(_sw_dmg)
-		_kick_shake(shake_light, 0.12)
+		# 普攻：zoom 1.02 / shake 3～5 / hitstop 1～2
+		_kick_feel(shake_light, 0.12, HITSTOP_FRAMES_LIGHT, PUNCH_ZOOM_LIGHT, PUNCH_ZOOM_RETURN_LIGHT)
 		_sw_dmg = -1
 	elif hero_rig != null and _sw_queue.is_empty():
 		# 有主角动画：剑打中后弧线飞回主角手边（0.24 秒），最后一段淡掉，和手里的剑合上
@@ -753,6 +909,22 @@ func _update_fx(delta: float) -> void:
 			var e := 1.0 - pow(1.0 - _dust_t, 2.0)
 			_dust.scale = Vector2(1.5 + e * 3.0, (1.5 + e * 3.0) * 0.28)
 			_dust.modulate.a = 1.0 - _dust_t
+	if _shock != null and _shock.visible:
+		_shock_t += delta / 0.45
+		if _shock_t >= 1.0:
+			_shock.visible = false
+		else:
+			var e2 := 1.0 - pow(1.0 - _shock_t, 2.0)
+			_shock.scale = Vector2(0.35 + e2 * 1.4, 0.18 + e2 * 0.55)
+			_shock.modulate.a = (1.0 - _shock_t) * 0.85
+	if _dust_puff != null and _dust_puff.visible:
+		_dust_puff_t += delta / 0.4
+		if _dust_puff_t >= 1.0:
+			_dust_puff.visible = false
+		else:
+			var e3 := 1.0 - pow(1.0 - _dust_puff_t, 2.0)
+			_dust_puff.scale = Vector2(0.55 + e3 * 0.9, 0.4 + e3 * 0.55)
+			_dust_puff.modulate.a = (1.0 - _dust_puff_t) * 0.9
 	if _magic.visible:
 		_magic_t += delta
 		var a := minf(1.0, _magic_t / 0.2)
@@ -867,12 +1039,11 @@ func _update_intro(delta: float) -> void:
 		boss.position = c
 		boss._squash = 0.16
 		_land.visible = false
-		_dust.position = Vector2(c.x, _boss_rect.end.y - 12)
-		_dust_t = 0.0
-		_dust.visible = true
 		_burst.position = Vector2(c.x, _boss_rect.end.y - 30)
 		_burst.restart()
-		_kick_shake(shake_strong, 0.28)  # PLAN §2 落地强震屏
+		# 登场落地：可选 zoom 1.03 / shake 10～14 / hitstop 2 + 震波尘
+		_kick_feel(SHAKE_LAND, 0.28, HITSTOP_FRAMES_LAND, PUNCH_ZOOM_LAND, 0.12)
+		_play_land_fx(Vector2(c.x, _boss_rect.end.y - 12.0))
 	if t > 1.3:
 		_dim_target = 0.0
 		_vig_target = 0.0
@@ -976,17 +1147,13 @@ func _update_hero_and_shake(delta: float) -> void:
 	_hero_knock = move_toward(_hero_knock, 0.0, delta / 0.25)
 	_hero_lean = move_toward(_hero_lean, 0.0, delta / 0.3)
 	_hero_gray = move_toward(_hero_gray, _hero_gray_target, delta / 0.45)
-	var off := Vector2.ZERO
 	if _shake > 0.0:
 		_shake = maxf(0.0, _shake - delta)
-		var k := _shake_amp * minf(1.0, _shake / 0.12)
-		off = Vector2(sin(_t * 97.0) + sin(_t * 41.0) * 0.5, cos(_t * 83.0) * 0.7) * k * 0.7
 	else:
 		_shake_amp = 0.0
-	_front.position = off
-	_back.position = off
+	var off := _shake_offset()
+	_apply_arena_cam(off)
 	if hero_rig != null:
-		hero_rig.position = _rig_base + off
 		return
 	if hero == null:
 		return

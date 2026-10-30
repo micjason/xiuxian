@@ -1,6 +1,7 @@
 extends Node2D
 ## 斩击/刀光 · 1～2 道水平弧 + 短拖尾（银白主 / 淡青辅）
 ## 挂点：目标身前。时长约 0.55s。
+## 伪3D P0：Arc2 = z_behind（稍暗稍大），Arc/Flash/Streak = z_front（亮、短）。见 PSEUDO3D_Z_LAYERS.md。
 
 signal finished
 
@@ -28,9 +29,26 @@ var _t := 0.0
 
 func _ready() -> void:
 	_apply_exports()
+	_apply_z_layers()
 	_reset()
 	if autoplay:
 		play()
+
+
+## 前后景分层：后层稍暗稍大，前层亮短。至少后1+前1。
+func _apply_z_layers() -> void:
+	if _arc2 == null:
+		return
+	_arc2.z_as_relative = true
+	_arc2.z_index = -2
+	_arc.z_as_relative = true
+	_arc.z_index = 2
+	_streak.z_as_relative = true
+	_streak.z_index = 1
+	_flash.z_as_relative = true
+	_flash.z_index = 3
+	_sparks.z_as_relative = true
+	_sparks.z_index = 4
 
 
 func _apply_exports() -> void:
@@ -103,24 +121,29 @@ func _process(delta: float) -> void:
 	if _t > 0.32:
 		fade = clampf(1.0 - (_t - 0.32) / 0.23, 0.0, 1.0)
 
+	# z_front：亮、短刃
 	_arc.rotation = lerpf(-0.4, 0.55, sweep)
-	_arc.scale = Vector2(lerpf(0.55, 1.2, _eo(sweep)), lerpf(0.65, 1.05, _eo(sweep)))
-	_arc.modulate.a = fade * lerpf(0.0, 1.0, clampf(sweep * 2.8, 0.0, 1.0))
+	_arc.scale = Vector2(lerpf(0.55, 1.05, _eo(sweep)), lerpf(0.65, 0.95, _eo(sweep)))
+	var front_a := fade * lerpf(0.0, 1.0, clampf(sweep * 2.8, 0.0, 1.0))
+	_arc.modulate = Color(minf(1.0, primary_color.r * 1.2), minf(1.0, primary_color.g * 1.2), minf(1.0, primary_color.b * 1.2), front_a)
 
-	var a2 := clampf((_t - 0.05) / 0.22, 0.0, 1.0)
+	# z_behind：稍暗、稍大（scale ×1.08～1.15 量级）
+	var a2 := clampf((_t - 0.05) / 0.28, 0.0, 1.0)
 	_arc2.rotation = lerpf(-0.6, 0.4, a2)
-	_arc2.scale = Vector2(lerpf(0.4, 0.95, _eo(a2)), lerpf(0.5, 0.9, _eo(a2)))
-	_arc2.modulate.a = fade * 0.7 * lerpf(0.0, 1.0, clampf(a2 * 2.5, 0.0, 1.0))
+	_arc2.scale = Vector2(lerpf(0.5, 1.15, _eo(a2)), lerpf(0.55, 1.05, _eo(a2)))
+	var back_a := fade * 0.55 * lerpf(0.0, 1.0, clampf(a2 * 2.2, 0.0, 1.0))
+	_arc2.modulate = Color(secondary_color.r * 0.78, secondary_color.g * 0.78, secondary_color.b * 0.85, back_a)
 
 	_streak.rotation = _arc.rotation * 0.5
-	_streak.scale = Vector2(lerpf(0.3, 1.15, sweep), lerpf(0.55, 0.85, sweep))
-	_streak.modulate.a = fade * 0.65 * clampf(sweep * 2.0, 0.0, 1.0)
+	_streak.scale = Vector2(lerpf(0.3, 1.0, sweep), lerpf(0.55, 0.8, sweep))
+	_streak.modulate.a = fade * 0.7 * clampf(sweep * 2.0, 0.0, 1.0)
 
+	# 前层闪光更短更亮
 	var fl := 0.0
-	if _t < 0.16:
-		fl = clampf(_t / 0.05, 0.0, 1.0) * clampf(1.0 - (_t - 0.05) / 0.11, 0.0, 1.0)
-	_flash.modulate.a = fl * 0.75
-	_flash.scale = Vector2.ONE * lerpf(0.3, 0.9, fl)
+	if _t < 0.12:
+		fl = clampf(_t / 0.04, 0.0, 1.0) * clampf(1.0 - (_t - 0.04) / 0.08, 0.0, 1.0)
+	_flash.modulate.a = fl * 0.9
+	_flash.scale = Vector2.ONE * lerpf(0.28, 0.85, fl)
 
 	if _t > 0.22 and _sparks.emitting:
 		_sparks.emitting = false

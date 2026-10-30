@@ -1,7 +1,7 @@
 [gd_scene format=3]
 
 [ext_resource type="Script" path="res://anim_q/battle_idle/monster_rig.gd" id="1_f0i78"]
-[ext_resource type="Texture2D" path="res://anim_q/battle_idle/fx/fx_shadow.png" id="2_c304v"]
+[ext_resource type="Texture2D" path="res://anim_q/battle_idle/fx/fx_contact_shadow.png" id="2_c304v"]
 [ext_resource type="Texture2D" path="res://anim_q/battle_idle/art/boss_aura_elite.png" id="3_lhy0e"]
 [ext_resource type="Shader" path="res://anim_q/battle_idle/monster_fx.gdshader" id="4_01j15"]
 [ext_resource type="Texture2D" path="res://anim_q/battle_idle/fx/fx_noise.png" id="5_51j1c"]
@@ -34,7 +34,7 @@ colors = PackedColorArray(1, 1, 1, 0, 1, 1, 1, 0.95, 1, 1, 1, 0)
 script = ExtResource("1_f0i78")
 
 [node name="Shadow" type="Sprite2D" parent="." unique_id=99165382]
-modulate = Color(1, 1, 1, 0.75)
+modulate = Color(1, 1, 1, 1)
 position = Vector2(0, 180)
 scale = Vector2(2.5, 1)
 texture = ExtResource("2_c304v")

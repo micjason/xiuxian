@@ -267,7 +267,10 @@ func _fit() -> void:
 	_spr.position = Vector2(0, -_disp_h * 0.5 + _baked_pad * s * (1.0 if _baked != null else 0.0))
 	_body.position = Vector2(0, _feet_y)
 	_shadow.position = Vector2(0, _feet_y - 4)
-	_shadow_base = Vector2(sz.x * s / 128.0 * 0.95, 1.0)
+	# 接触影：宽≈可视宽×0.62，高≈宽×0.25（fx_contact_shadow 320×80）
+	var shadow_w := sz.x * s * 0.62
+	var shadow_h := shadow_w * 0.25
+	_shadow_base = Vector2(shadow_w / 320.0, shadow_h / 80.0)
 	var spec := _spec()
 	if not spec.is_empty():
 		# 屏幕上的描边粗细 = SPEC 数值 × 档次缩放（贴图 1:1 时的效果），所以除以贴合缩放

@@ -112,10 +112,13 @@ func _fit() -> void:
 	_mat.set_shader_parameter(&"pad_px", 24.0)
 	_mat.set_shader_parameter(&"glow_px", 14.0)
 	var w := box.x
-	# 脚下阴影 360×56（框 440 时），身后青光 460×420，聚气环
-	_shadow_base = Vector2(w * 0.82 / 128.0, w * 0.13 / 32.0)
+	# 接触影（fx_contact_shadow 320×80）：宽≈框宽×0.62，高≈宽×0.25
+	var sw := w * 0.62
+	var sh := sw * 0.25
+	_shadow_base = Vector2(sw / 320.0, sh / 80.0)
 	_shadow.scale = _shadow_base
 	_shadow.position = Vector2(-6 * _s, 4)
+	_shadow.modulate.a = 1.0
 	_glow_base = Vector2(w * 1.05, box.y * 0.95) / Vector2(_glow.texture.get_size())
 	_glow.position = Vector2(-10 * _s, -box.y * 0.42)
 	_ring_base = Vector2(w * ring_width, w * ring_width * 0.26) / Vector2(_ring.texture.get_size())
@@ -361,7 +364,10 @@ func _process(delta: float) -> void:
 	# 粒子数固定（改 amount 会重启粒子）：用透明度 + 速度表现“越蓄越多”
 	_motes.modulate.a = 0.3 + 0.7 * c
 	_motes.speed_scale = 0.6 + 0.6 * c
-	_shadow.scale = _shadow_base * Vector2(1.0 - (off.y * -0.004), 1.0)
+	# 高度↑ → 接触影缩小变淡
+	var air := clampf(-off.y / 40.0, 0.0, 0.3)
+	_shadow.scale = _shadow_base * (1.0 - air)
+	_shadow.modulate.a = 1.0 - air * 0.85
 	# 剑尖闪光：快蓄满 / 蓄势时闪；胜利时再闪一下
 	var gl := maxf(ready * (0.55 + 0.45 * sin(_t * 9.0)), wind_k)
 	if _vic_t >= 0.3 and _vic_t < 0.9:

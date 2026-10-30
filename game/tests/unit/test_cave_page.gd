@@ -101,3 +101,42 @@ func test_allocate_and_upgrade_emit_actions() -> void:
 	assert_false(upgrade.disabled)
 	upgrade.pressed.emit()
 	assert_signal_emit_count(page, "action_requested", 2)
+
+
+func test_enhance_ring_binds_worn_gear_and_selects_heart() -> void:
+	var page := CavePage.new()
+	add_child_autofree(page)
+	var content := UiMock.content()
+	# 洞府字段保证 L0 可进强化场所
+	content["globals"]["dongfu"] = {"plotCount": 4, "alchemyQueueLength": 2, "seeds": [], "recipes": []}
+	page.bind({
+		"dongfu": {
+			"plotCount": 4,
+			"alchemyQueueLength": 2,
+			"plots": [],
+			"alchemy": [],
+			"claimable": {"plots": 0, "alchemy": 0},
+		},
+		"items": [
+			{"id": "w1", "itemSlug": "sword_b", "equippedSlot": "weapon", "isStack": false, "quantity": 1, "enhanceLevel": 2, "breakLevel": 0},
+			{"id": "h1", "itemSlug": "helm_g", "equippedSlot": "helmet", "isStack": false, "quantity": 1, "enhanceLevel": 0, "breakLevel": 0},
+			{"id": "c1", "itemSlug": "robe_g", "equippedSlot": "clothes", "isStack": false, "quantity": 1, "enhanceLevel": 1, "breakLevel": 0},
+		],
+		"spiritStones": 0,
+		"enhanceExp": 999,
+	}, content)
+	var enter := page.find_child("Enter_enhance", true, false) as BaseButton
+	assert_not_null(enter)
+	enter.pressed.emit()
+	assert_eq(page.mode(), "enhance")
+	assert_not_null(page.find_child("EqRing_0", true, false), "武器环格")
+	assert_not_null(page.find_child("EqRing_1", true, false), "头冠环格")
+	assert_eq(page.selected_enhance_id(), "w1", "默认预选可强化的武器")
+	assert_not_null(page.find_child("ArrayHeart", true, false))
+	var helm := page.find_child("EqRing_1", true, false) as BaseButton
+	helm.pressed.emit()
+	assert_eq(page.selected_enhance_id(), "h1", "点环切换阵心目标")
+	watch_signals(page)
+	var rune := page.find_child("EnhanceBtn", true, false) as BaseButton
+	rune.pressed.emit()
+	assert_signal_emitted(page, "enhance_entry_requested")

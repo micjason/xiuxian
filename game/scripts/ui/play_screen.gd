@@ -1110,7 +1110,7 @@ func salvage_dialog() -> SalvageDialog:
 	return _salvage
 
 
-## 洞府强化入口：切到背包并提示去点装备。身上有还能强化的装备时，打开现有物品详情。
+## 洞府强化入口：切到背包并提示去点装备。优先用强化阵选中的环装，否则预选可强化的已穿戴件。
 ## 真正的强化仍由详情里的按钮走 /api/v1/me/items/:id/enhance，这里不新做面板、不改公式。
 func open_enhance_entry() -> void:
 	if _page == PAGE_BATTLE and _battle_page.is_running():
@@ -1118,7 +1118,11 @@ func open_enhance_entry() -> void:
 		return
 	_show_page(PAGE_BAG)
 	_toast.say_neutral("点一件装备进行强化")
-	var target := EquipModel.worn_enhance_target(_bag_page.model)
+	var target := ""
+	if _cave_page != null:
+		target = _cave_page.selected_enhance_id()
+	if target.is_empty() or _bag_page.model.find(target).is_empty():
+		target = EquipModel.worn_enhance_target(_bag_page.model)
 	if not target.is_empty():
 		_bag_page.show_detail(target)
 

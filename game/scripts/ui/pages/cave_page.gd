@@ -72,6 +72,9 @@ var _water_fx: Node2D
 var _fire_fx: Node2D
 var _array_fx: Node2D
 var _title_label: Label
+## 强化场所：已穿戴装备环 + 阵心选中（同行囊 BagModel / EquipModel，不另做强化系统）。
+var _bag: BagModel
+var _enhance_selected_id := ""
 
 
 func _init() -> void:
@@ -108,11 +111,46 @@ func view() -> Dictionary:
 
 func bind(state: Dictionary, content: Dictionary) -> void:
 	_view = CaveView.build(state, content)
-	var sig := hash([_view, _mode, _plant_slot])
+	_bag = BagModel.from_state(state, content)
+	_ensure_enhance_selection()
+	var sig := hash([_view, _mode, _plant_slot, _enhance_selected_id, _bag_sig()])
 	if sig == _bind_sig:
 		_sync_alchemy_fire()
 		return
 	_render()
+
+
+## 强化阵当前选中的已穿戴装备 id（空 = 未选）；play_screen.open_enhance_entry 优先用它。
+func selected_enhance_id() -> String:
+	return _enhance_selected_id
+
+
+func _bag_sig() -> int:
+	if _bag == null:
+		return 0
+	var rows: Array = []
+	for item in _bag.items:
+		rows.append([item.get("id"), item.get("enhance"), item.get("equipped"), item.get("equipped_slot_id")])
+	return hash([rows, _bag.enhance_exp, _bag.uses_essence])
+
+
+func _ensure_enhance_selection() -> void:
+	if _bag == null:
+		_enhance_selected_id = ""
+		return
+	if not _enhance_selected_id.is_empty() and not _bag.find(_enhance_selected_id).is_empty():
+		return
+	_enhance_selected_id = EquipModel.worn_enhance_target(_bag)
+	if not _enhance_selected_id.is_empty():
+		return
+	# 无可强化时仍预选第一件已穿戴（阵心有展示；强化按钮仍走行囊入口）
+	var slots := EquipModel.slots_of(_bag)
+	for slot in SlotConfig.core():
+		var item: Dictionary = slots.get(str(slot.get("id", "")), {})
+		if not item.is_empty():
+			_enhance_selected_id = str(item.get("id", ""))
+			return
+	_enhance_selected_id = ""
 
 
 func _ensure_fx() -> void:
@@ -164,7 +202,7 @@ func _on_back() -> void:
 
 
 func _render() -> void:
-	_bind_sig = hash([_view, _mode, _plant_slot])
+	_bind_sig = hash([_view, _mode, _plant_slot, _enhance_selected_id, _bag_sig()])
 	_clear_stage()
 	_ensure_fx()
 	match _mode:
@@ -434,6 +472,7 @@ func _enter_facility(id: String) -> void:
 			_render()
 		"enhance":
 			_mode = MODE_ENHANCE
+			_ensure_enhance_selection()
 			_render()
 		_:
 			pass
@@ -770,10 +809,15 @@ func _render_enhance() -> void:
 		arr.position = hr.position
 		arr.size = hr.size
 		_stage.add_child(arr)
-	for i in range(HS_EQ_RING.size()):
-		_chip("槽", HS_EQ_RING[i], "EqRing_%d" % i)
-	_chip("选中装备", HS_ARRAY_HEART, "ArrayHeart")
-	_chip("消耗炼器精粹（同行囊）", Rect2(120, 1280, 840, 88), "EnhanceCost")
+	var worn := EquipModel.slots_of(_bag) if _bag != null else {}
+	var core := SlotConfig.core()
+	for i in range(mini(HS_EQ_RING.size(), core.size())):
+		var slot_cfg: Dictionary = core[i]
+		var slot_id := str(slot_cfg.get("id", ""))
+		var item: Dictionary = worn.get(slot_id, {}) if typeof(worn.get(slot_id, {})) == TYPE_DICTIONARY else {}
+		_ring_cell(i, slot_cfg, item)
+	_render_array_heart()
+	_render_enhance_cost()
 	var btn := _hotspot("EnhanceBtn", HS_ENHANCE_BTN, _emit_enhance, "强化", "stone")
 	btn.modulate = Color(1, 1, 1, 1)
 	_style_rune(btn, true)
@@ -782,7 +826,126 @@ func _render_enhance() -> void:
 	_style_rune(btn2, true)
 	if _array_fx != null:
 		_array_fx.position = _design_center(HS_ARRAY_HEART)
+		# 成功闪锚在阵心，勿盖底栏 y≥2124
 		_array_fx.visible = true
+		if _array_fx.position.y > 2124.0 - ORIGIN.y:
+			_array_fx.position.y = 2124.0 - ORIGIN.y
+
+
+func _ring_cell(index: int, slot_cfg: Dictionary, item: Dictionary) -> void:
+	var rect: Rect2 = HS_EQ_RING[index]
+	var local := _design_rect(rect)
+	var selected := (not item.is_empty()) and str(item.get("id", "")) == _enhance_selected_id
+	var btn := Button.new()
+	btn.name = "EqRing_%d" % index
+	btn.focus_mode = Control.FOCUS_NONE
+	btn.flat = true
+	btn.text = ""
+	btn.position = local.position
+	btn.size = local.size
+	btn.custom_minimum_size = local.size
+	btn.clip_contents = true
+	var rarity := int(item.get("rarity", -1)) if not item.is_empty() else -1
+	var art := KitStyle.icon_for(item) if not item.is_empty() else {"texture": null, "tint": false}
+	var tex: Texture2D = art.get("texture", null) as Texture2D
+	if tex == null and item.is_empty():
+		var slot_tex := ArtLib.icon(ArtLib.slot_icon_name(str(slot_cfg.get("id", ""))))
+		tex = slot_tex
+	var tint := Color.WHITE
+	if bool(art.get("tint", false)) and not item.is_empty():
+		tint = UiTokens.rarity_color(rarity).darkened(0.15)
+	elif item.is_empty():
+		tint = Color(UiTokens.TEXT_DISABLED, 0.55)
+	var level := ("+%d" % int(item.get("enhance", 0))) if not item.is_empty() and int(item.get("enhance", 0)) > 0 else ""
+	var slot_view := QKit.slot(tex, rarity, int(local.size.x), "", level, tint, false)
+	slot_view.name = "EqRingArt_%d" % index
+	slot_view.set_anchors_preset(Control.PRESET_FULL_RECT)
+	slot_view.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	btn.add_child(slot_view)
+	if item.is_empty():
+		var glyph := Label.new()
+		glyph.text = str(slot_cfg.get("glyph", "·"))
+		glyph.set_anchors_preset(Control.PRESET_FULL_RECT)
+		glyph.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		glyph.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		glyph.add_theme_font_size_override("font_size", 36)
+		glyph.add_theme_color_override("font_color", UiTokens.TEXT_DISABLED)
+		glyph.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		btn.add_child(glyph)
+	if selected:
+		var ring := Panel.new()
+		ring.name = "EqRingSel_%d" % index
+		ring.set_anchors_preset(Control.PRESET_FULL_RECT)
+		ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var st := StyleBoxFlat.new()
+		st.bg_color = Color(1, 1, 1, 0)
+		st.border_color = UiTokens.Q_ORANGE
+		st.set_border_width_all(4)
+		st.set_corner_radius_all(18)
+		ring.add_theme_stylebox_override("panel", st)
+		btn.add_child(ring)
+	var item_id := str(item.get("id", ""))
+	var slot_id := str(slot_cfg.get("id", ""))
+	btn.pressed.connect(func() -> void: _on_ring_tap(slot_id, item_id))
+	_stage.add_child(btn)
+
+
+func _on_ring_tap(_slot_id: String, item_id: String) -> void:
+	if item_id.is_empty():
+		action_requested.emit("toast", {"text": "该部位未穿戴装备"})
+		return
+	if _enhance_selected_id == item_id:
+		return
+	_enhance_selected_id = item_id
+	_render()
+
+
+func _render_array_heart() -> void:
+	var item := _bag.find(_enhance_selected_id) if _bag != null and not _enhance_selected_id.is_empty() else {}
+	if item.is_empty():
+		_chip("选中装备", HS_ARRAY_HEART, "ArrayHeart")
+		return
+	var local := _design_rect(HS_ARRAY_HEART)
+	var wrap := Control.new()
+	wrap.name = "ArrayHeart"
+	wrap.position = local.position
+	wrap.size = local.size
+	wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var art := KitStyle.icon_for(item)
+	var tex: Texture2D = art.get("texture", null) as Texture2D
+	var rarity := int(item.get("rarity", 0))
+	var tint := UiTokens.rarity_color(rarity).darkened(0.1) if bool(art.get("tint", false)) else Color.WHITE
+	var level := ("+%d" % int(item.get("enhance", 0))) if int(item.get("enhance", 0)) > 0 else ""
+	var slot_view := QKit.slot(tex, rarity, int(minf(local.size.x, local.size.y)), "", level, tint, false)
+	slot_view.set_anchors_preset(Control.PRESET_FULL_RECT)
+	slot_view.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	wrap.add_child(slot_view)
+	var name_lab := Label.new()
+	name_lab.text = str(item.get("name", ""))
+	name_lab.position = Vector2(0, local.size.y - 4)
+	name_lab.size = Vector2(local.size.x, 40)
+	name_lab.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	name_lab.add_theme_font_size_override("font_size", 24)
+	name_lab.add_theme_color_override("font_color", UiTokens.TEXT)
+	name_lab.add_theme_color_override("font_outline_color", Color(1, 0.973, 0.925, 0.95))
+	name_lab.add_theme_constant_override("outline_size", 6)
+	name_lab.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	wrap.add_child(name_lab)
+	_stage.add_child(wrap)
+
+
+func _render_enhance_cost() -> void:
+	var item := _bag.find(_enhance_selected_id) if _bag != null and not _enhance_selected_id.is_empty() else {}
+	if item.is_empty():
+		_chip("点选环上已穿戴装备", Rect2(120, 1280, 840, 88), "EnhanceCost")
+		return
+	var unit := "炼器精粹" if _bag.uses_essence else "强化经验"
+	var have := int(_bag.enhance_exp)
+	var need := int(item.get("enhance_cost", 0))
+	var level := int(item.get("enhance", 0))
+	var can := BagModel.can_enhance(item)
+	var text := "%s %d/%d · +%d→+%d" % [unit, have, need, level, level + 1] if can else "%s · 已达上限或需突破" % str(item.get("name", "装备"))
+	_chip(text, Rect2(120, 1280, 840, 88), "EnhanceCost")
 
 
 func _style_rune(btn: Button, enabled: bool) -> void:
@@ -800,5 +963,8 @@ func _style_rune(btn: Button, enabled: bool) -> void:
 
 func _emit_enhance() -> void:
 	if _array_fx != null and _array_fx.has_method("play_enhance_success"):
-		_array_fx.call("play_enhance_success", _design_center(HS_ARRAY_HEART))
+		var at := _design_center(HS_ARRAY_HEART)
+		# 成功闪勿盖底栏（设计 y≥2124）
+		at.y = minf(at.y, 2124.0 - ORIGIN.y - 40.0)
+		_array_fx.call("play_enhance_success", at)
 	enhance_entry_requested.emit()

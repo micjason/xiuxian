@@ -2,7 +2,7 @@ class_name CavePage
 extends Control
 ## 洞府 L0+L1 场所硬接：庭院热点 + 药园/炼丹/强化场所页（非按钮墙）。
 ## 数据来自 CaveView.build；写操作发 action_requested；强化复用 enhance_entry_requested。
-## 设计空间 1080×2340；热区见 q_design/DONGFU_A_FINAL_NOTES.md · DONGFU_L1_V2_HOTSPOTS.md。
+## 设计空间 1080×2340；热区见 q_design/DONGFU_L1_V3_HOTSPOTS.md。
 
 signal back_requested
 signal enhance_entry_requested
@@ -26,37 +26,42 @@ const HS_WOOD := Rect2(370, 118, 300, 88)
 const HS_SERVANT := Rect2(700, 118, 340, 88)
 const HS_ALLOC := Rect2(36, 1836, 1008, 120)
 
-# L1 共用 / 药园
+# L1 共用 / 药园（v3：畦下移贴垄 / 种子抽屉顶 y=1580）
 const HS_BACK := Rect2(30, 250, 96, 96)
 const HS_UPGRADE := Rect2(700, 250, 200, 88)
 const HS_CLAIM_ALL := Rect2(40, 360, 260, 72)
 const HS_PLOTS := [
-	Rect2(120, 560, 380, 320),
-	Rect2(580, 560, 380, 320),
-	Rect2(120, 1000, 380, 320),
-	Rect2(580, 1000, 380, 320),
+	Rect2(270, 960, 260, 240),
+	Rect2(550, 960, 260, 240),
+	Rect2(255, 1185, 270, 255),
+	Rect2(550, 1185, 270, 255),
 ]
 const HS_SEEDS := [
-	Rect2(48, 1540, 320, 220),
-	Rect2(388, 1540, 320, 220),
-	Rect2(728, 1540, 320, 220),
+	Rect2(48, 1670, 320, 175),
+	Rect2(388, 1670, 320, 175),
+	Rect2(728, 1670, 320, 175),
 ]
-# 炼丹
+# 炼丹（v3：托盘贴地 y≈1100；石台 SY=1400；炉火仍挂 HS_FURNACE）
 const HS_FURNACE := Rect2(250, 400, 580, 580)
-const HS_TRAYS := [Rect2(20, 860, 280, 260), Rect2(780, 860, 280, 260)]
-const HS_RECIPE_CTAS := [
-	Rect2(780, 1304, 220, 80),
-	Rect2(780, 1489, 220, 80),
-	Rect2(780, 1674, 220, 80),
+const HS_TRAYS := [Rect2(50, 1100, 300, 210), Rect2(730, 1115, 300, 210)]
+const HS_RECIPE_ROWS := [
+	Rect2(48, 1472, 984, 134),
+	Rect2(48, 1620, 984, 134),
+	Rect2(48, 1768, 984, 134),
 ]
-# 强化
+const HS_RECIPE_CTAS := [
+	Rect2(780, 1504, 220, 72),
+	Rect2(780, 1652, 220, 72),
+	Rect2(780, 1800, 220, 72),
+]
+# 强化（v3：阵心略上；符文石 y=1448；成功闪勿盖 y≥2124）
 const HS_EQ_RING := [
 	Rect2(70, 470, 116, 116), Rect2(250, 420, 116, 116), Rect2(470, 400, 116, 116),
 	Rect2(690, 420, 116, 116), Rect2(870, 490, 116, 116), Rect2(900, 710, 116, 116),
 ]
-const HS_ARRAY_HEART := Rect2(440, 800, 200, 200)
-const HS_ENHANCE_BTN := Rect2(140, 1400, 360, 120)
-const HS_ENHANCE_MAX := Rect2(560, 1400, 360, 120)
+const HS_ARRAY_HEART := Rect2(440, 760, 200, 200)
+const HS_ENHANCE_BTN := Rect2(160, 1448, 320, 100)
+const HS_ENHANCE_MAX := Rect2(580, 1448, 320, 100)
 
 const FX_WATER := "res://anim_q/dongfu/garden_water/garden_water_fx.tscn"
 const FX_FIRE := "res://anim_q/dongfu/alchemy_fire/alchemy_fire_fx.tscn"
@@ -553,53 +558,61 @@ func _render_garden() -> void:
 
 
 func _render_plot_ridge(plot: Dictionary, rect: Rect2) -> void:
-	## 贴地椭圆热区：无大浮层标题卡；空/长/熟只留底缘小 chip + 轻描边。
+	## v3：勿用大椭圆盖作物。空畦=中心虚线小坑；生长/成熟=贴作物旁小 chip。
 	var slot := int(plot.get("slot", 0))
 	var status := str(plot.get("status", "empty"))
 	var line := str(plot.get("line", ""))
 	var selected := _plant_slot == slot
 	var local := _design_rect(rect)
-	var ring := Panel.new()
-	ring.name = "PlotRing_%d" % slot
-	ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	ring.position = local.position
-	ring.size = local.size
-	var style := StyleBoxFlat.new()
-	match status:
-		"ready":
-			style.bg_color = Color(1.0, 0.72, 0.25, 0.20)
-			style.border_color = Color(UiTokens.Q_ORANGE, 0.90)
-			style.set_border_width_all(4)
-		"growing":
-			style.bg_color = Color(0.35, 0.55, 0.40, 0.10)
-			style.border_color = Color(UiTokens.Q_MINT_DARK, 0.50)
-			style.set_border_width_all(2)
-		_:
-			style.bg_color = Color(0.42, 0.32, 0.22, 0.14 if selected else 0.08)
-			style.border_color = Color(UiTokens.Q_ORANGE, 0.85) if selected else Color(0.55, 0.42, 0.30, 0.40)
-			style.set_border_width_all(4 if selected else 2)
-	style.set_corner_radius_all(int(minf(local.size.x, local.size.y) * 0.48))
-	ring.add_theme_stylebox_override("panel", style)
-	_stage.add_child(ring)
-	var chip_text := ""
-	match status:
-		"empty":
-			chip_text = "选择下方种子" if selected else "点击种植"
-		"ready":
-			chip_text = "可收"
-		_:
-			chip_text = line if not line.is_empty() else "生长中"
-	_place_chip(chip_text, Rect2(
-		rect.position.x + 48,
-		rect.position.y + rect.size.y - 64,
-		rect.size.x - 96,
-		48
-	), "PlotChip_%d" % slot, status == "ready")
-	if status == "ready":
-		var dot := QKit.reddot(26)
-		dot.position = local.position + Vector2(local.size.x - 40, 12)
-		_stage.add_child(dot)
-	# 透明热区盖在畦上（坐标不变）
+	if status == "empty":
+		# 虚线小坑：热区中心一小圈，不盖整垄
+		var pit_sz := Vector2(minf(local.size.x, local.size.y) * 0.42, minf(local.size.x, local.size.y) * 0.34)
+		var pit := Panel.new()
+		pit.name = "PlotPit_%d" % slot
+		pit.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		pit.position = local.position + (local.size - pit_sz) * 0.5
+		pit.size = pit_sz
+		var style := StyleBoxFlat.new()
+		style.bg_color = Color(0.42, 0.32, 0.22, 0.18 if selected else 0.10)
+		style.border_color = Color(UiTokens.Q_ORANGE, 0.90) if selected else Color(0.55, 0.42, 0.30, 0.55)
+		style.set_border_width_all(3 if selected else 2)
+		style.set_corner_radius_all(int(minf(pit_sz.x, pit_sz.y) * 0.48))
+		pit.add_theme_stylebox_override("panel", style)
+		_stage.add_child(pit)
+		_place_chip("选择下方种子" if selected else "点击种植", Rect2(
+			rect.position.x + rect.size.x * 0.12,
+			rect.position.y + rect.size.y * 0.55,
+			rect.size.x * 0.76,
+			44
+		), "PlotChip_%d" % slot, false)
+	else:
+		# 生长/成熟：仅小状态 chip，不画满格椭圆卡
+		var chip_text := "可收" if status == "ready" else (line if not line.is_empty() else "生长中")
+		var chip_w := minf(rect.size.x * 0.72, 180.0)
+		_place_chip(chip_text, Rect2(
+			rect.position.x + (rect.size.x - chip_w) * 0.5,
+			rect.position.y + 8,
+			chip_w,
+			44
+		), "PlotChip_%d" % slot, status == "ready")
+		if status == "ready":
+			var glow := Panel.new()
+			glow.name = "PlotReadyGlow_%d" % slot
+			glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			var gsz := Vector2(local.size.x * 0.55, local.size.y * 0.45)
+			glow.position = local.position + (local.size - gsz) * 0.5
+			glow.size = gsz
+			var gs := StyleBoxFlat.new()
+			gs.bg_color = Color(1.0, 0.72, 0.25, 0.12)
+			gs.border_color = Color(UiTokens.Q_ORANGE, 0.55)
+			gs.set_border_width_all(2)
+			gs.set_corner_radius_all(int(minf(gsz.x, gsz.y) * 0.48))
+			glow.add_theme_stylebox_override("panel", gs)
+			_stage.add_child(glow)
+			var dot := QKit.reddot(22)
+			dot.position = local.position + Vector2(local.size.x * 0.72, local.size.y * 0.18)
+			_stage.add_child(dot)
+	# 透明热区盖在畦上；浇水 FX 用 HS_PLOTS 中心
 	_hotspot("PlotTap_%d" % slot, rect, func() -> void: _on_plot_tap(slot, status))
 
 
@@ -619,7 +632,7 @@ func _render_seed_drawer() -> void:
 	var drawer := PanelContainer.new()
 	drawer.name = "SeedPicker"
 	drawer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var local := _design_rect(Rect2(0, 1420, 1080, 520))
+	var local := _design_rect(Rect2(0, 1580, 1080, 360))
 	drawer.position = local.position
 	drawer.size = local.size
 	var style := StyleBoxFlat.new()
@@ -631,7 +644,7 @@ func _render_seed_drawer() -> void:
 	_stage.add_child(drawer)
 	var hint := Label.new()
 	hint.text = "种子袋 · 先点空畦再选种" if _plant_slot < 0 else "为地块 %d 选种子" % (_plant_slot + 1)
-	hint.position = _design_to_local(Vector2(48, 1440))
+	hint.position = _design_to_local(Vector2(48, 1600))
 	hint.size = Vector2(900, 40)
 	hint.add_theme_font_size_override("font_size", 26)
 	hint.add_theme_color_override("font_color", Color(1, 0.97, 0.92, 0.95))
@@ -798,9 +811,9 @@ func _render_recipe_cta(index: int, recipe: Dictionary, queue_full: bool) -> voi
 		return
 	var can := bool(recipe.get("canCraft", false)) and not queue_full
 	var label := "开始炼制" if index == 0 and can else ("入队" if can else ("不足" if not bool(recipe.get("canCraft", false)) else "队列满"))
-	# 配方行说明
-	var row_y := 1260 + index * 185
-	_chip("%s · %s" % [str(recipe.get("title", "")), str(recipe.get("costLine", ""))], Rect2(48, row_y, 700, 80), "Recipe_%s" % str(recipe.get("recipeSlug", index)))
+	# 配方行说明（v3 石台 SY=1400：1472/1620/1768）
+	var row: Rect2 = HS_RECIPE_ROWS[index] if index < HS_RECIPE_ROWS.size() else Rect2(48, 1472 + index * 148, 984, 134)
+	_chip("%s · %s" % [str(recipe.get("title", "")), str(recipe.get("costLine", ""))], Rect2(row.position.x, row.position.y + 20, 700, 72), "Recipe_%s" % str(recipe.get("recipeSlug", index)))
 	var cta := _hotspot("RecipeCta_%d" % index, HS_RECIPE_CTAS[index], func() -> void:
 		if not can:
 			action_requested.emit("toast", {"text": "材料不足" if not bool(recipe.get("canCraft", false)) else "炼丹队列已满"})

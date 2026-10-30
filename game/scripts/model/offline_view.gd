@@ -33,7 +33,9 @@ static func grouped(value: float) -> String:
 
 ## state 里的 offlineReport → 展示字典；没有报告返回空字典。
 ## skill_name / bonus_percent 由外壳从运转中的功法取（服务器只给了合计加成）。
-static func build(report: Variant, skill_name: String = "", bonus_percent: float = 0.0) -> Dictionary:
+## name_of(slug) -> 物品显示名（可选）；没有则界面先显示 slug。
+## loot / bagFullSkipped 来自离线挂机掉装（修为早已入账，点领取只是已读）。
+static func build(report: Variant, skill_name: String = "", bonus_percent: float = 0.0, name_of: Callable = Callable()) -> Dictionary:
 	if typeof(report) != TYPE_DICTIONARY or (report as Dictionary).is_empty():
 		return {}
 	var data: Dictionary = report
@@ -45,6 +47,7 @@ static func build(report: Variant, skill_name: String = "", bonus_percent: float
 	var base := float(data.get("baseGained", 0))
 	var bonus := float(data.get("bonusGained", 0))
 	var total := float(data.get("gained", base + bonus))
+	var bag_full := bool(data.get("bagFullSkipped", false))
 	return {
 		"id": str(data.get("id", "")),
 		"away_text": duration_text(seconds),
@@ -62,4 +65,39 @@ static func build(report: Variant, skill_name: String = "", bonus_percent: float
 		"bonus_percent_text": "+%s%%" % ("%.1f" % bonus_percent).trim_suffix(".0") if bonus_percent > 0.0 else "",
 		"formula_text": "%s + %s = %s" % [grouped(base), grouped(bonus), grouped(total)],
 		"realm": str(data.get("realmName", "")),
+		"items": loot_items(data, name_of),
+		"bag_full_skipped": bag_full,
+		"bag_full_note": "行囊已满，部分装备未入包" if bag_full else "",
 	}
+
+
+## offlineReport.loot → 弹窗战利品行。每项：slug / quantity / quality / name / text。
+static func loot_items(report: Dictionary, name_of: Callable = Callable()) -> Array:
+	var raw: Variant = report.get("loot", report.get("items", []))
+	if typeof(raw) != TYPE_ARRAY:
+		return []
+	var out: Array = []
+	for entry in raw:
+		if typeof(entry) != TYPE_DICTIONARY:
+			continue
+		var row: Dictionary = entry
+		var slug := str(row.get("itemSlug", row.get("slug", ""))).strip_edges()
+		if slug.is_empty():
+			continue
+		var qty := maxi(1, int(row.get("quantity", 1)))
+		var quality := str(row.get("quality", "") if row.get("quality", null) != null else "")
+		var item_name := str(name_of.call(slug)) if name_of.is_valid() else ""
+		if item_name.is_empty() or item_name == "名称缺失":
+			item_name = slug
+		var text := item_name if qty <= 1 else "%s ×%d" % [item_name, qty]
+		out.append({
+			"slug": slug,
+			"itemSlug": slug,
+			"quantity": qty,
+			"quality": quality,
+			"name": item_name,
+			"text": text,
+			"idle": bool(row.get("idle", false)),
+			"seed": bool(row.get("seed", false)),
+		})
+	return out

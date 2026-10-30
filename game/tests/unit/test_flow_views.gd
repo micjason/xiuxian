@@ -76,6 +76,26 @@ func test_offline_view_without_cap_or_skill() -> void:
 	assert_eq(OfflineView.build({}), {})
 
 
+func test_offline_view_surfaces_loot_and_bag_full_note() -> void:
+	var view := OfflineView.build({
+		"id": "r3", "seconds": 600, "countedSeconds": 600, "hitCap": false, "offlineCapSeconds": 28800,
+		"gained": 600.0, "baseGained": 600.0, "bonusGained": 0.0,
+		"loot": [
+			{"itemSlug": "gear_major1_gloves_white", "quality": "white", "quantity": 1, "idle": true},
+			{"itemSlug": "seed_lingcao", "quality": null, "quantity": 2, "seed": true},
+		],
+		"bagFullSkipped": true,
+	}, "", 0.0, func(slug: String) -> String: return "白手套" if slug.begins_with("gear_") else "灵草种子")
+	assert_true(view.bag_full_skipped)
+	assert_eq(view.bag_full_note, "行囊已满，部分装备未入包")
+	assert_eq((view.items as Array).size(), 2)
+	assert_eq(str((view.items as Array)[0].text), "白手套")
+	assert_eq(str((view.items as Array)[1].text), "灵草种子 ×2")
+	var empty := OfflineView.build({"id": "r4", "seconds": 60, "countedSeconds": 60, "hitCap": false, "offlineCapSeconds": 28800, "gained": 60.0, "baseGained": 60.0, "bonusGained": 0.0, "loot": [], "bagFullSkipped": false})
+	assert_eq((empty.items as Array).size(), 0)
+	assert_eq(empty.bag_full_note, "")
+
+
 func _break_state() -> Dictionary:
 	return {
 		"power": 915, "hp": 547.3, "attack": 63.4, "defense": 23.7, "speed": 24.2, "cultivation": 3300.0,

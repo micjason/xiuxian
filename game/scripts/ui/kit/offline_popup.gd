@@ -301,18 +301,38 @@ func _total_row() -> Control:
 	return row
 
 
-## 获得物品：离线报告里有物品（items / drops）才列出来；现在的离线结算只给修为。
+## 战利品：offlineReport.loot 非空才列；bagFullSkipped 时补一行行囊已满提示（调子同 BagFullPrompt）。
 func _items() -> Control:
 	var box := QKit.inset(UiTokens.Q_CARD, 30, 22, 14)
 	box.panel.name = "ItemsBox"
 	box.panel.custom_minimum_size = Vector2(0, 200)
-	box.body.add_child(QKit.title("获得物品", 32, UiTokens.TEXT_MUTED))
+	box.body.add_child(QKit.title("战利品", 32, UiTokens.TEXT_MUTED))
 	var rows: Array = _view.get("items", []) if typeof(_view.get("items", null)) == TYPE_ARRAY else []
-	if rows.is_empty():
+	var bag_note := str(_view.get("bag_full_note", ""))
+	if rows.is_empty() and bag_note.is_empty():
 		var none := UiKit.label("本次离线只累计修为，没有获得物品", UiTokens.FS_MICRO, UiTokens.TEXT_MUTED, HORIZONTAL_ALIGNMENT_CENTER)
+		none.name = "LootEmpty"
 		none.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		none.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		box.body.add_child(none)
+		return box.panel
+	var list := UiKit.vbox(8)
+	list.name = "LootList"
+	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	for entry in rows:
+		if typeof(entry) != TYPE_DICTIONARY:
+			continue
+		var row: Dictionary = entry
+		var rarity := Catalog.quality_index(str(row.get("quality", ""))) if not str(row.get("quality", "")).is_empty() else 0
+		var color := UiTokens.rarity_color(rarity).darkened(0.15) if not str(row.get("quality", "")).is_empty() else UiTokens.TEXT
+		var line := UiKit.label(str(row.get("text", row.get("name", ""))), UiTokens.FS_BODY, color, HORIZONTAL_ALIGNMENT_LEFT)
+		line.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		list.add_child(line)
+	box.body.add_child(list)
+	if not bag_note.is_empty():
+		var warn := UiKit.label(bag_note, UiTokens.FS_MICRO, UiTokens.Q_ORANGE_DARK, HORIZONTAL_ALIGNMENT_CENTER)
+		warn.name = "BagFullNote"
+		box.body.add_child(warn)
 	return box.panel
 
 

@@ -207,7 +207,24 @@ static func _wave(content_data: Dictionary, state_data: Dictionary, realm_slug: 
 
 
 static func _offline_report(realm_name: String) -> Dictionary:
-	return {"id": "11111111-2222-3333-4444-555555555555", "seconds": 33120, "countedSeconds": 28800, "hitCap": true, "offlineCapSeconds": 28800, "gained": 33120.0, "baseGained": 28800.0, "bonusGained": 4320.0, "realmName": realm_name}
+	# ready 演示：离线修为 + 挂机战利品；bagFullSkipped 方便验收行囊已满文案。
+	return {
+		"id": "11111111-2222-3333-4444-555555555555",
+		"seconds": 33120,
+		"countedSeconds": 28800,
+		"hitCap": true,
+		"offlineCapSeconds": 28800,
+		"gained": 33120.0,
+		"baseGained": 28800.0,
+		"bonusGained": 4320.0,
+		"realmName": realm_name,
+		"loot": [
+			{"itemSlug": "gear_major1_gloves_white", "quality": "white", "quantity": 1, "idle": true},
+			{"itemSlug": "gear_major1_helmet_green", "quality": "green", "quantity": 1, "idle": true},
+			{"itemSlug": "seed_lingcao", "quality": null, "quantity": 2, "seed": true},
+		],
+		"bagFullSkipped": true,
+	}
 
 
 ## 模拟一次前台心跳：结算 seconds 秒（修为、击杀、偶尔一次掉落）。返回新状态（原地修改后返回）。

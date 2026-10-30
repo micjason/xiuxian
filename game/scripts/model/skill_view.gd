@@ -1,12 +1,9 @@
 class_name SkillView
 extends RefCounted
-## 功法页（原型阶段只展示）：列出带修炼加成的功法、当前生效的是哪本、三本功法的离线收益对比。
+## 功法页（原型阶段只展示）：列出全部带修炼加成的功法（不再截断）、当前生效的是哪本、离线收益对比。
 ## 数据：state.skills（skillSlug/level/runningSlot）、content.skills（cultivateBonusBp）、
 ## state.cultivationRate（gainPerTick）、content.realms（tickSeconds）、content.globals.offlineCapSeconds。
 ## 对比按一层功法的加成算（服务器的实际加成还要乘层数系数，以 state.cultivationRate.bonusBp 为准）。
-
-const MAX_CARDS := 6
-
 
 static func build(state: Dictionary, content: Dictionary) -> Dictionary:
 	var learned := {}
@@ -20,7 +17,7 @@ static func build(state: Dictionary, content: Dictionary) -> Dictionary:
 	defs.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return float(a.get("cultivateBonusBp", 0)) < float(b.get("cultivateBonusBp", 0)))
 	var cards: Array[Dictionary] = []
 	var running_slug := ""
-	for def in defs.slice(0, MAX_CARDS):
+	for def in defs:
 		var slug := str(def.get("slug", ""))
 		var mine: Dictionary = learned.get(slug, {})
 		var running := not BagModel.plain(mine.get("runningSlot", null)).is_empty()

@@ -3,7 +3,7 @@ import { contentDropEntries, contentGlobals, contentItems, contentRealms, conten
 import { AppError } from "../../shared/errors.js";
 import type { Db } from "../operations/record.js";
 import { ratePower, sumReachedRealmStats } from "../combat/stats.js";
-import { tuningOf } from "./tuning.js";
+import { tuningOf, type GearStatKey } from "./tuning.js";
 import { QUALITY_TABLE } from "./catalog.js";
 import { listManualAndSets } from "./manual-gear.js";
 
@@ -17,7 +17,7 @@ export const GEAR_BUDGET_RATIO = 0.55;
  */
 export const DEFAULT_GEAR_SPEED_FACTOR = 0.3;
 
-type GearStat = "attack" | "defense" | "hp" | "speed";
+type GearStat = GearStatKey;
 
 export const GEAR_SLOTS: { key: string; name: string; share: number; stats: readonly GearStat[] }[] = [
   { key: "weapon", name: "武器", share: 0.25, stats: ["attack"] },
@@ -86,12 +86,22 @@ export function gearSpeedFactorOf(value: unknown): number {
   return number;
 }
 
-export function splitGearBudget(input: { budget: Stats; slotKey: string; factor: number; weights: Weights; speedFactor?: number; shares?: Record<string, number> }): Stats {
+export function splitGearBudget(input: {
+  budget: Stats;
+  slotKey: string;
+  factor: number;
+  weights: Weights;
+  speedFactor?: number;
+  shares?: Record<string, number>;
+  /** 覆盖部位属性组合；缺省用 GEAR_SLOTS 出厂值 */
+  stats?: readonly GearStat[];
+}): Stats {
   const found = GEAR_SLOTS.find((row) => row.key === input.slotKey);
   if (!found) {
     throw new AppError("INVALID_INPUT", "请选择部位：武器、头冠、衣服、鞋子、饰品");
   }
-  const slot = { ...found, share: input.shares?.[found.key] ?? found.share };
+  const stats = input.stats && input.stats.length > 0 ? input.stats : found.stats;
+  const slot = { ...found, share: input.shares?.[found.key] ?? found.share, stats };
   const budgetPower =
     input.budget.attack * input.weights.attack +
     input.budget.defense * input.weights.defense +
@@ -257,7 +267,7 @@ export async function syncGear(db: Db, adminId: string | null): Promise<void> {
     for (const slot of GEAR_SLOTS) {
       for (const quality of GEAR_QUALITIES) {
         const slug = gearPieceSlug(majorKey, slot.key, quality.key);
-        const stats = splitGearBudget({ budget, slotKey: slot.key, factor: factors[quality.key], weights, speedFactor, shares: tuning.slotShares });
+        const stats = splitGearBudget({ budget, slotKey: slot.key, factor: factors[quality.key], weights, speedFactor, shares: tuning.slotShares, stats: tuning.slotStats[slot.key as keyof typeof tuning.slotStats] });
         const current = items.find((item) => item.slug === slug);
         const defaults = gearDefaultTexts(majorName, slot.key, quality.key);
         // 重新生成只更新属性；后台改过的名称、描述、图标、掉率倍数不动，没改过的名称/描述跟着默认走。
@@ -465,9 +475,91 @@ export async function listGear(db: Db) {
       gearBudgetRatio: tuning.gearBudgetRatio,
       gearSpeedFactor: gearSpeedFactorOf(globals?.combat?.gearSpeedFactor),
       slotShares: tuning.slotShares,
+      slotStats: tuning.slotStats,
       qualityFactors: factors,
       powerWeights: weights,
     },
-    slots: GEAR_SLOTS.map((slot) => ({ key: slot.key, name: slot.name, stats: slot.stats })),
+    slots: GEAR_SLOTS.map((slot) => ({ key: slot.key, name: slot.name, stats: tuning.slotStats[slot.key as keyof typeof tuning.slotStats] ?? slot.stats })),
+  };
+}
+
+/** 部位属性中文名（后台预览用）。 */
+const STAT_LABELS: Record<GearStat, string> = { attack: "攻击", defense: "防御", hp: "气血", speed: "速度" };
+
+/**
+ * 装备生成参数预览：不写库，按拟保存的参数算一件白品质样例（各大境界第一档）。
+ * 给后台「仅预览」用，避免误点保存就全服重算。
+ */
+export async function previewGearParams(
+  db: Db,
+  input: {
+    gearBudgetRatio?: unknown;
+    gearSpeedFactor?: unknown;
+    qualityFactors?: Record<string, unknown>;
+    slotShares?: Record<string, unknown>;
+    slotStats?: Record<string, unknown>;
+  },
+) {
+  const [globals] = await db.select().from(contentGlobals).where(eq(contentGlobals.id, 1)).limit(1);
+  if (!globals) {
+    throw new AppError("INVALID_INPUT", "请先新建境界");
+  }
+  const current = tuningOf(globals.tuning);
+  const tuning = tuningOf({
+    ...current,
+    ...(input.gearBudgetRatio !== undefined ? { gearBudgetRatio: input.gearBudgetRatio } : {}),
+    ...(input.slotShares !== undefined ? { slotShares: input.slotShares } : {}),
+    ...(input.slotStats !== undefined ? { slotStats: input.slotStats } : {}),
+  });
+  const factors =
+    input.qualityFactors === undefined ? await readGearQualityFactors(db) : gearQualityFactorsFromInput(input.qualityFactors);
+  const speedFactor =
+    input.gearSpeedFactor === undefined ? gearSpeedFactorOf(globals.combat?.gearSpeedFactor) : gearSpeedFactorOf(input.gearSpeedFactor);
+  const weights = weightsOf(globals.powerWeights);
+  const realms = await db.select().from(contentRealms);
+  const groups = new Map<string, typeof realms>();
+  for (const realm of realms) {
+    const majorName = realm.majorName.trim();
+    if (!majorName) continue;
+    groups.set(majorName, [...(groups.get(majorName) ?? []), realm]);
+  }
+  const first = [...groups.entries()].sort((a, b) => {
+    const ao = Math.min(...a[1].map((r) => r.sortOrder));
+    const bo = Math.min(...b[1].map((r) => r.sortOrder));
+    return ao - bo;
+  })[0];
+  if (!first) {
+    throw new AppError("INVALID_INPUT", "请先新建境界");
+  }
+  const [majorName, rows] = first;
+  const budget = gearBudgetOf(realms, rows.map((realm) => realm.sortOrder), tuning.gearBudgetRatio);
+  const quality = GEAR_QUALITIES[0]!;
+  const samples = GEAR_SLOTS.map((slot) => {
+    const stats = splitGearBudget({
+      budget,
+      slotKey: slot.key,
+      factor: factors[quality.key],
+      weights,
+      speedFactor,
+      shares: tuning.slotShares,
+      stats: tuning.slotStats[slot.key as keyof typeof tuning.slotStats],
+    });
+    const chosen = tuning.slotStats[slot.key as keyof typeof tuning.slotStats] ?? slot.stats;
+    return {
+      slot: slot.key,
+      slotName: slot.name,
+      stats: chosen,
+      statsLabel: chosen.map((key) => STAT_LABELS[key]).join(" + "),
+      quality: quality.key,
+      majorName,
+      ...stats,
+      power: ratePower(stats, weights),
+    };
+  });
+  return {
+    majorName,
+    quality: quality.key,
+    note: "预览不写库；保存后会按新参数重算全部公式装备。",
+    samples,
   };
 }

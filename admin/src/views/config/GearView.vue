@@ -91,6 +91,19 @@
             <span :class="shareOk ? 'ok' : 'bad'">合计 {{ shareTotal.toFixed(1) }}% {{ shareOk ? "✓" : "（要等于 100%）" }}</span>
           </template>
         </FormRow>
+        <FormRow label="部位属性组合" help="每个部位至少选 1 项属性；预算按选中属性的战力权重均分。改完保存会重算全部公式装备。" class="row-gap">
+          <div class="slot-stats">
+            <div v-for="slot in slots" :key="slot.key" class="slot-stat-row">
+              <span class="q-label">{{ slot.name }}</span>
+              <el-checkbox-group v-model="slotStats[slot.key]">
+                <el-checkbox v-for="stat in STAT_KEYS" :key="stat" :value="stat">{{ STAT_NAMES[stat] }}</el-checkbox>
+              </el-checkbox-group>
+            </div>
+          </div>
+          <template #note>
+            <span :class="slotStatsOk ? 'ok' : 'bad'">{{ slotStatsOk ? "每个部位至少 1 项 ✓" : "每个部位至少选 1 项属性" }}</span>
+          </template>
+        </FormRow>
         <FormRow label="战力权重" class="row-gap">
           <div class="inline">
             <span class="readonly-text">攻 {{ weightsText.attack }} · 防 {{ weightsText.defense }} · 血 {{ weightsText.hp }} · 速 {{ weightsText.speed }}</span>
@@ -199,7 +212,21 @@
           layout="total, sizes, prev, pager, next, jumper"
         />
       </SectionCard>
-      <SaveBar :dirty="paramsDirty" :saving="savingParams" save-text="保存并重算装备" @save="saveParams" @cancel="resetParams" />
+      <SaveBar :dirty="paramsDirty" :saving="savingParams" save-text="保存并重算装备" @save="saveParams" @cancel="resetParams">
+        <el-button :loading="previewing" @click="previewParams">仅预览样例</el-button>
+      </SaveBar>
+      <el-alert v-if="previewSamples.length" class="preview-alert" type="info" :closable="true" @close="previewSamples = []" title="预览（不写库）">
+        <p class="muted small">{{ previewNote }}</p>
+        <el-table :data="previewSamples" size="small" class="preview-table">
+          <el-table-column prop="slotName" label="部位" width="90" />
+          <el-table-column prop="statsLabel" label="属性组合" min-width="120" />
+          <el-table-column label="攻" align="right" width="80"><template #default="{ row }">{{ fmt(row.attack) }}</template></el-table-column>
+          <el-table-column label="防" align="right" width="80"><template #default="{ row }">{{ fmt(row.defense) }}</template></el-table-column>
+          <el-table-column label="血" align="right" width="80"><template #default="{ row }">{{ fmt(row.hp) }}</template></el-table-column>
+          <el-table-column label="速" align="right" width="80"><template #default="{ row }">{{ fmt(row.speed) }}</template></el-table-column>
+          <el-table-column label="战力" align="right" width="90"><template #default="{ row }"><strong>{{ fmt(row.power) }}</strong></template></el-table-column>
+        </el-table>
+      </el-alert>
       </template>
     </DataState>
 
@@ -388,8 +415,8 @@ type Major = {
 type Row = Piece & { majorKey: string; majorName: string; requiredRealmOrder: number; requiredRealmName: string };
 type GearList = {
   majors: Major[];
-  params: { gearBudgetRatio: number; gearSpeedFactor: number; slotShares: Record<string, number>; qualityFactors: Record<Quality, number>; powerWeights: Record<StatKey, number> | null };
-  slots: { key: string; name: string }[];
+  params: { gearBudgetRatio: number; gearSpeedFactor: number; slotShares: Record<string, number>; slotStats: Record<string, StatKey[]>; qualityFactors: Record<Quality, number>; powerWeights: Record<StatKey, number> | null };
+  slots: { key: string; name: string; stats?: StatKey[] }[];
   manual: ManualPiece[];
   sets: GearSet[];
   qualities: QualityRow[];
@@ -431,7 +458,7 @@ const icons = useItemIcons();
 const loading = ref(false);
 const error = ref("");
 const majors = ref<Major[]>([]);
-const slots = ref<{ key: string; name: string }[]>([]);
+const slots = ref<{ key: string; name: string; stats?: StatKey[] }[]>([]);
 const realms = ref<{ code: number; displayName: string; majorName: string }[]>([]);
 const manual = ref<ManualPiece[]>([]);
 const sets = ref<GearSet[]>([]);
@@ -449,9 +476,13 @@ const stages = ref<StageDrop[]>([]);
 const weights = ref<Record<StatKey, number> | null>(null);
 const params = reactive({ gearBudgetRatio: DEFAULT_RATIO as number | null, gearSpeedFactor: 0.3 as number | null, qualityFactors: { white: 1, green: 1, blue: 1, purple: 1, orange: 1 } as Record<Quality, number | null> });
 const shares = reactive<Record<string, number | null>>({});
+const slotStats = reactive<Record<string, StatKey[]>>({});
 const savedParams = ref("");
 const savingParams = ref(false);
 const regenerating = ref(false);
+const previewing = ref(false);
+const previewSamples = ref<{ slotName: string; statsLabel: string; attack: number; defense: number; hp: number; speed: number; power: number }[]>([]);
+const previewNote = ref("");
 
 const query = ref("");
 const filterMajor = ref("");
@@ -472,12 +503,13 @@ const viewWidth = ref(window.innerWidth);
 const drawerSize = computed(() => (viewWidth.value < 1400 ? "calc(100vw - 220px)" : 1080));
 const setCrumbTail = useCrumbTail();
 
-const paramsSnapshot = () => JSON.stringify({ ...params, shares });
+const paramsSnapshot = () => JSON.stringify({ ...params, shares, slotStats: Object.fromEntries(slots.value.map((slot) => [slot.key, [...(slotStats[slot.key] ?? [])].sort()])) });
 const paramsDirty = computed(() => savedParams.value !== "" && paramsSnapshot() !== savedParams.value);
 useDirtyGuard(paramsDirty, async () => saveParams());
 
 const shareTotal = computed(() => slots.value.reduce((sum, slot) => sum + (shares[slot.key] ?? 0), 0));
 const shareOk = computed(() => Math.abs(shareTotal.value - 100) < 0.01);
+const slotStatsOk = computed(() => slots.value.every((slot) => (slotStats[slot.key] ?? []).length >= 1));
 const weightsText = computed(() => weights.value ?? { attack: "—", defense: "—", hp: "—", speed: "—" });
 
 const allPieces = computed<Row[]>(() =>
@@ -608,7 +640,12 @@ function applyParams(list: GearList): void {
   params.gearBudgetRatio = list.params.gearBudgetRatio;
   params.gearSpeedFactor = list.params.gearSpeedFactor;
   for (const quality of QUALITIES.value) params.qualityFactors[quality.key as Quality] = list.params.qualityFactors[quality.key as Quality];
-  for (const slot of list.slots) shares[slot.key] = Math.round((list.params.slotShares[slot.key] ?? 0) * 1000) / 10;
+  for (const slot of list.slots) {
+    shares[slot.key] = Math.round((list.params.slotShares[slot.key] ?? 0) * 1000) / 10;
+    const fromParams = list.params.slotStats?.[slot.key];
+    const fromSlot = slot.stats;
+    slotStats[slot.key] = [...(fromParams ?? fromSlot ?? [])];
+  }
   weights.value = list.params.powerWeights;
   savedParams.value = paramsSnapshot();
 }
@@ -617,24 +654,68 @@ function resetParams(): void {
   void reload();
 }
 
+function paramsBody() {
+  return {
+    gearBudgetRatio: params.gearBudgetRatio,
+    gearSpeedFactor: params.gearSpeedFactor,
+    qualityFactors: params.qualityFactors,
+    slotShares: Object.fromEntries(slots.value.map((slot) => [slot.key, (shares[slot.key] ?? 0) / 100])),
+    slotStats: Object.fromEntries(slots.value.map((slot) => [slot.key, [...(slotStats[slot.key] ?? [])]])),
+  };
+}
+
+async function previewParams(): Promise<void> {
+  if (!shareOk.value) {
+    ElMessage.error(`部位属性占比合计要等于 100%（现在 ${shareTotal.value.toFixed(1)}%）`);
+    return;
+  }
+  if (!slotStatsOk.value) {
+    ElMessage.error("每个部位至少选 1 项属性");
+    return;
+  }
+  previewing.value = true;
+  try {
+    const result = await api<{ note: string; samples: typeof previewSamples.value }>("/admin/draft/gear-params/preview", {
+      method: "POST",
+      body: JSON.stringify(paramsBody()),
+    });
+    previewNote.value = result.note;
+    previewSamples.value = result.samples;
+    ElMessage.success("已生成预览（未写库）");
+  } catch (cause) {
+    ElMessage.error(cause instanceof Error ? cause.message : "预览失败");
+  } finally {
+    previewing.value = false;
+  }
+}
+
 async function saveParams(): Promise<boolean> {
   if (!shareOk.value) {
     ElMessage.error(`部位属性占比合计要等于 100%（现在 ${shareTotal.value.toFixed(1)}%）`);
+    return false;
+  }
+  if (!slotStatsOk.value) {
+    ElMessage.error("每个部位至少选 1 项属性");
+    return false;
+  }
+  try {
+    await ElMessageBox.confirm(
+      "保存后立刻生效，并按新参数重算全服公式装备（改过的名称 / 描述 / 图标 / 掉率倍数保留）。可先点「仅预览样例」看一件白品质结果。确定保存？",
+      "保存并重算装备",
+      { type: "warning", confirmButtonText: "保存并重算", cancelButtonText: "取消" },
+    );
+  } catch {
     return false;
   }
   savingParams.value = true;
   try {
     await api("/admin/draft/gear-params", {
       method: "PUT",
-      body: JSON.stringify({
-        gearBudgetRatio: params.gearBudgetRatio,
-        gearSpeedFactor: params.gearSpeedFactor,
-        qualityFactors: params.qualityFactors,
-        slotShares: Object.fromEntries(slots.value.map((slot) => [slot.key, (shares[slot.key] ?? 0) / 100])),
-      }),
+      body: JSON.stringify(paramsBody()),
       guard: { revisions: globalRev, id: 1, reload, latest: async () => (await latestGear()).params, title: "装备生成参数" },
     });
     ElMessage.success("已保存，已生效；装备已按新参数重算");
+    previewSamples.value = [];
     await reload();
     return true;
   } catch (cause) {
@@ -1096,4 +1177,10 @@ onBeforeUnmount(() => window.removeEventListener("resize", onResize));
 .small {
   font-size: 12px;
 }
+
+.slot-stats { display: flex; flex-direction: column; gap: 10px; width: 100%; }
+.slot-stat-row { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.slot-stat-row .q-label { min-width: 48px; color: var(--el-text-color-regular); }
+.preview-alert { margin: 12px 0 0; }
+.preview-table { margin-top: 8px; }
 </style>

@@ -12,6 +12,17 @@ export const TUNING_QUALITIES = ["white", "green", "blue", "purple", "orange"] a
 export type TuningQuality = (typeof TUNING_QUALITIES)[number];
 export const TUNING_SLOTS = ["weapon", "clothes", "helmet", "gloves", "shoes", "accessory"] as const;
 export type TuningSlot = (typeof TUNING_SLOTS)[number];
+export const GEAR_STATS = ["attack", "defense", "hp", "speed"] as const;
+export type GearStatKey = (typeof GEAR_STATS)[number];
+/** 各部位默认携带的属性组合（与现网 GEAR_SLOTS.stats 一致）。 */
+export const DEFAULT_SLOT_STATS: Record<TuningSlot, GearStatKey[]> = {
+  weapon: ["attack"],
+  clothes: ["defense", "hp"],
+  helmet: ["defense", "hp"],
+  gloves: ["attack", "defense"],
+  shoes: ["speed", "hp"],
+  accessory: ["attack", "speed"],
+};
 export const SKILL_RANKS = ["yellow", "xuan", "earth", "heaven"] as const;
 export type SkillRank = (typeof SKILL_RANKS)[number];
 /** 装备发放来源（和 player/grant.ts 的 GRANT_SOURCES 相同；这里单独写一份，tuning.ts 不依赖数据库模块）。 */
@@ -23,6 +34,8 @@ export type Tuning = {
   gearBudgetRatio: number;
   /** 6 个部位各占预算的比例，合计 1 */
   slotShares: Record<TuningSlot, number>;
+  /** 每个部位分到哪些属性（至少 1 项）；保存后 syncGear 按此重算公式装备 */
+  slotStats: Record<TuningSlot, GearStatKey[]>;
   /** 功法层数系数：第 1 层 / 第 2–3 层 / 第 4–6 层 / 第 7 层起 */
   skillLayerFactors: [number, number, number, number];
   /** 功法满层；满层后再用功法书折算成修为 */
@@ -54,6 +67,14 @@ export type Tuning = {
 export const DEFAULT_TUNING: Tuning = {
   gearBudgetRatio: 0.55,
   slotShares: { weapon: 0.25, clothes: 0.2, helmet: 0.13, gloves: 0.12, shoes: 0.15, accessory: 0.15 },
+  slotStats: {
+    weapon: ["attack"],
+    clothes: ["defense", "hp"],
+    helmet: ["defense", "hp"],
+    gloves: ["attack", "defense"],
+    shoes: ["speed", "hp"],
+    accessory: ["attack", "speed"],
+  },
   skillLayerFactors: [1, 1.15, 1.35, 1.6],
   skillMaxLayers: 7,
   bagFullSkipSources: ["stage_drop", "boss_first", "boss_repeat"],
@@ -87,6 +108,33 @@ function pick<T>(raw: Raw, key: keyof Tuning, fallback: T): unknown {
   return value === undefined || value === null ? fallback : value;
 }
 
+
+function slotStatsFromInput(raw: unknown, fallback: Tuning["slotStats"]): Tuning["slotStats"] {
+  const source = raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
+  const out = {} as Tuning["slotStats"];
+  for (const slot of TUNING_SLOTS) {
+    const value = source[slot] === undefined || source[slot] === null ? fallback[slot] : source[slot];
+    if (!Array.isArray(value) || value.length === 0) {
+      throw new AppError("INVALID_INPUT", `部位「${slot}」至少选 1 项属性`);
+    }
+    const seen = new Set<string>();
+    const stats: GearStatKey[] = [];
+    for (const entry of value) {
+      if (typeof entry !== "string" || !(GEAR_STATS as readonly string[]).includes(entry)) {
+        throw new AppError("INVALID_INPUT", `部位「${slot}」属性只能是攻击 / 防御 / 气血 / 速度`);
+      }
+      if (seen.has(entry)) continue;
+      seen.add(entry);
+      stats.push(entry as GearStatKey);
+    }
+    if (stats.length === 0) {
+      throw new AppError("INVALID_INPUT", `部位「${slot}」至少选 1 项属性`);
+    }
+    out[slot] = stats;
+  }
+  return out;
+}
+
 /** 严格校验（保存时用）：缺的项取当前默认，填了就必须合法。 */
 export function tuningFromInput(raw: Raw): Tuning {
   const shares = pick(raw, "slotShares", DEFAULT_TUNING.slotShares) as Record<string, unknown>;
@@ -95,6 +143,7 @@ export function tuningFromInput(raw: Raw): Tuning {
   if (Math.abs(total - 1) > 0.0001) {
     throw new AppError("INVALID_INPUT", `部位属性占比合计要等于 100%（现在是 ${Math.round(total * 10000) / 100}%）`);
   }
+  const slotStats = slotStatsFromInput(pick(raw, "slotStats", DEFAULT_TUNING.slotStats), DEFAULT_TUNING.slotStats);
   const layers = pick(raw, "skillLayerFactors", DEFAULT_TUNING.skillLayerFactors) as unknown[];
   if (!Array.isArray(layers) || layers.length !== 4) {
     throw new AppError("INVALID_INPUT", "技能层数系数要填 4 档");
@@ -115,6 +164,7 @@ export function tuningFromInput(raw: Raw): Tuning {
   return {
     gearBudgetRatio: num(pick(raw, "gearBudgetRatio", DEFAULT_TUNING.gearBudgetRatio), "装备预算比例", 0.01, 10),
     slotShares,
+    slotStats,
     skillLayerFactors,
     skillMaxLayers: num(pick(raw, "skillMaxLayers", DEFAULT_TUNING.skillMaxLayers), "技能满层", 1, 99, true),
     bagFullSkipSources: BAG_FULL_SOURCES.filter((key) => (skipRaw as string[]).includes(key)),

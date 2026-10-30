@@ -64,6 +64,13 @@ export const navTree: NavGroup[] = [
         keywords: "洞府 药园 炼丹 种子 配方 地块 灵仆 灵木 升级 分配",
         isNew: true,
       },
+      {
+        path: "/sim/progression",
+        label: "进度模拟",
+        desc: "最勤奋玩家快进推演：总览、卡死明细、流水账；对接当前生效配置",
+        keywords: "模拟 进度 卡死 推演 大乘 最勤奋",
+        isNew: true,
+      },
     ],
   },
   {

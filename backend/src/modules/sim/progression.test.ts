@@ -208,6 +208,78 @@ describe("progression sim", () => {
     expect(result.overview.every((row) => row.status !== "stuck")).toBe(true);
   });
 
+  it("does not count a battle win when player power is below recommended", () => {
+    // 战斗面积极弱、推荐战力虚高：完整 simulateBossFight 会赢，但模拟须按推荐门槛判负
+    const world = baseWorld({
+      stages: [
+        {
+          slug: "fake_hard",
+          displayName: "虚高关",
+          sortOrder: 1,
+          requiredRealmOrder: 1,
+          nextStageSlug: null,
+          bossDropTableSlug: "d1",
+          idleDropTableSlug: "d1",
+          firstClearDropTableSlug: "d1",
+          bossHp: 20,
+          bossInterval: 1.5,
+          bossAttack: 1,
+          bossDefense: 0,
+          bossName: "纸糊怪",
+          bosses: [{ name: "纸糊怪", attack: 1, defense: 0, hp: 20, interval: 1.5, drops: [] }],
+          recommendedPower: 50_000,
+          enabled: true,
+        },
+      ],
+      realms: [
+        {
+          slug: "r1",
+          displayName: "炼气一层",
+          majorName: "炼气",
+          sortOrder: 1,
+          nextRealmSlug: "dacheng_1",
+          tickSeconds: 1,
+          gainPerTick: 1,
+          breakthroughCost: 999999999,
+          baseAttack: 80,
+          baseDefense: 20,
+          baseHp: 400,
+          baseSpeed: 10,
+          baseInterval: 1.5,
+          requiredStageSlug: "fake_hard",
+          recommendedPower: 0,
+          enabled: true,
+        },
+        {
+          slug: "dacheng_1",
+          displayName: "大乘一层",
+          majorName: "大乘",
+          sortOrder: 2,
+          nextRealmSlug: null,
+          tickSeconds: 1,
+          gainPerTick: 1,
+          breakthroughCost: 0,
+          baseAttack: 1,
+          baseDefense: 1,
+          baseHp: 1,
+          baseSpeed: 1,
+          baseInterval: 1.5,
+          requiredStageSlug: null,
+          recommendedPower: 0,
+          enabled: true,
+        },
+      ],
+    });
+    const result = runProgressionSim(world, { wallBudgetMs: 5000 });
+    expect(result.timeline.some((e) => e.kind === "boss_win")).toBe(false);
+    expect(result.timeline.some((e) => e.kind === "boss_lose" && e.text.includes("战力不足"))).toBe(true);
+    expect(result.stuck).not.toBeNull();
+    expect(result.stuck!.bossName).toBe("纸糊怪");
+    const facing = result.overview.find((row) => row.stageLabel.includes("纸糊怪"));
+    expect(facing?.stageLabel).toMatch(/推荐战力/);
+    expect(facing?.stageLabel).toMatch(/战力不足/);
+  });
+
   it("marks stuck after 10 consecutive lose days on an impossible boss", () => {
     const world = baseWorld({
       stages: [

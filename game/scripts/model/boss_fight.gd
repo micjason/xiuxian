@@ -16,8 +16,9 @@ var defense_constant := 1.0
 var time_limit := 45.0
 ## 空字典 = 没有旧的境界技能配置。键：multBp、cooldownSeconds、firstCooldownSeconds、autoCastWindowSeconds。
 var ult := {}
-## 正在运转的自动 / 被动技能。第 1、5、9… 次普攻后各追加一次同等伤害，与服务端 SKILL_CAST_EVERY_ATTACKS 一致。
-const SKILL_CAST_EVERY_ATTACKS := 4
+## 正在运转的自动 / 被动技能。施法间隔 / 伤害倍率读技能表（默认每 4 次普攻、1.0× 普攻伤害），与服务端一致。
+const DEFAULT_SKILL_CAST_EVERY_ATTACKS := 4
+const DEFAULT_SKILL_DAMAGE_MULT_BP := 10000
 var skills: Array[Dictionary] = []
 
 var t := 0.0
@@ -122,6 +123,8 @@ static func combat_skills_from(state: Dictionary, content: Dictionary) -> Array:
 			"slug": str(definition.get("slug", row.slug)),
 			"name": str(definition.get("displayName", "")),
 			"castMode": str(definition.get("castMode", "auto")),
+			"castEveryAttacks": maxi(1, int(definition.get("castEveryAttacks", DEFAULT_SKILL_CAST_EVERY_ATTACKS))),
+			"damageMultBp": maxi(0, int(definition.get("damageMultBp", DEFAULT_SKILL_DAMAGE_MULT_BP))),
 			"fxType": str(definition.get("fxType", "")),
 			"fx": fx if typeof(fx) == TYPE_DICTIONARY else {},
 		})
@@ -214,7 +217,11 @@ func _step(at: float) -> void:
 
 
 func _skill_due() -> bool:
-	return not skills.is_empty() and _player_attacks > 0 and (_player_attacks - 1) % SKILL_CAST_EVERY_ATTACKS == 0
+	if skills.is_empty() or _player_attacks <= 0:
+		return false
+	var skill: Dictionary = skills[_cast_cursor % skills.size()]
+	var every := maxi(1, int(skill.get("castEveryAttacks", DEFAULT_SKILL_CAST_EVERY_ATTACKS)))
+	return (_player_attacks - 1) % every == 0
 
 
 func _accepted_skills(rows: Array) -> Array[Dictionary]:
@@ -234,6 +241,8 @@ func _accepted_skills(rows: Array) -> Array[Dictionary]:
 			"slug": slug,
 			"name": _public_skill_name(str(item.get("name", item.get("displayName", "")))),
 			"castMode": mode,
+			"castEveryAttacks": maxi(1, int(item.get("castEveryAttacks", DEFAULT_SKILL_CAST_EVERY_ATTACKS))),
+			"damageMultBp": maxi(0, int(item.get("damageMultBp", DEFAULT_SKILL_DAMAGE_MULT_BP))),
 			"fxType": str(item.get("fxType", "")),
 			"fx": fx if typeof(fx) == TYPE_DICTIONARY else {},
 		})
@@ -250,11 +259,13 @@ static func _public_skill_name(raw: String) -> String:
 func _cast_skill(at: float, dmg: float) -> void:
 	var skill: Dictionary = skills[_cast_cursor % skills.size()]
 	_cast_cursor += 1
-	boss_hp = maxf(0.0, boss_hp - dmg)
+	var mult_bp := maxi(0, int(skill.get("damageMultBp", DEFAULT_SKILL_DAMAGE_MULT_BP)))
+	var skill_dmg := dmg * float(mult_bp) / 10000.0
+	boss_hp = maxf(0.0, boss_hp - skill_dmg)
 	var event := {
 		"t": at,
 		"side": "player",
-		"damage": dmg,
+		"damage": skill_dmg,
 		"targetHpAfter": boss_hp,
 		"kind": "ult",
 		"skillSlug": str(skill.get("slug", "")),
@@ -268,7 +279,7 @@ func _cast_skill(at: float, dmg: float) -> void:
 	if typeof(fx) == TYPE_DICTIONARY and not (fx as Dictionary).is_empty():
 		event["fx"] = fx
 	_push(event)
-	casts.append({"t": at, "manual": false, "damage": dmg})
+	casts.append({"t": at, "manual": false, "damage": skill_dmg})
 	if boss_hp <= 0.0:
 		_finish(true, "win", at)
 

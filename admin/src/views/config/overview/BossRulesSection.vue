@@ -96,7 +96,7 @@
         <el-switch v-model="rules.unlockNeedsRealm" class="gap" /><span class="sw-text">需要达到下一关境界</span>
       </div>
     </div>
-    <p class="muted small">大招全自动释放（冷却好后过「大招自动释放等待」秒放出），没有手动大招。关卡里单独改过的项显示「已自定义」，在关卡抽屉的首领规则里可以一键恢复默认。</p>
+    <p class="muted small">战斗技能全自动释放（无冷却条、无手动施法）。关卡里单独改过的项显示「已自定义」，在关卡抽屉的首领规则里可以一键恢复默认。</p>
   </SectionCard>
 </template>
 

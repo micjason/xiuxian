@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cleanUltTaps, hitDamage, publicSkillName, simulateBattle, simulateBossFight, toCombatSkills } from "./battle.js";
+import { cleanUltTaps, DEFAULT_SKILL_CAST_EVERY_ATTACKS, DEFAULT_SKILL_DAMAGE_MULT_BP, hitDamage, publicSkillName, skillCastDamage, skillCastsOnAttack, simulateBattle, simulateBossFight, toCombatSkills } from "./battle.js";
 
 const config = { timeLimitSeconds: 60, defenseConstant: 1 };
 
@@ -219,6 +219,46 @@ describe("simulateBossFight (ultimate with tap timestamps)", () => {
     const renamedFight = simulateBossFight(player, boss, { ...limit, timeLimitSeconds: 1 }, null, [], renamed);
     expect(renamedFight.log.find((event) => event.kind === "ult")?.name).toBe("自动技能");
     expect(JSON.stringify(renamedFight)).not.toContain("大招");
+  });
+
+  it("uses per-skill castEveryAttacks and damageMultBp while defaults match the old every-4 / 1.0x path", () => {
+    expect(DEFAULT_SKILL_CAST_EVERY_ATTACKS).toBe(4);
+    expect(DEFAULT_SKILL_DAMAGE_MULT_BP).toBe(10000);
+    expect(skillCastsOnAttack(1)).toBe(true);
+    expect(skillCastsOnAttack(2)).toBe(false);
+    expect(skillCastsOnAttack(5)).toBe(true);
+    expect(skillCastsOnAttack(1, 2)).toBe(true);
+    expect(skillCastsOnAttack(2, 2)).toBe(false);
+    expect(skillCastsOnAttack(3, 2)).toBe(true);
+    expect(skillCastDamage(100, 10000)).toBe(100);
+    expect(skillCastDamage(100, 15000)).toBe(150);
+
+    const player = { attack: 100, defense: 0, hp: 5000, interval: 1 };
+    const boss = { attack: 1, defense: 0, hp: 100000, interval: 5 };
+    const limit = { timeLimitSeconds: 12, defenseConstant: 1 };
+    const basic = hitDamage(100, 0, 1);
+
+    const defaults = toCombatSkills(
+      [{ skillSlug: "skill_a", runningSlot: "run_1" }],
+      [{ slug: "skill_a", displayName: "测", castMode: "auto", enabled: true }],
+      1,
+    );
+    expect(defaults[0]).toMatchObject({ castEveryAttacks: 4, damageMultBp: 10000 });
+    const defaultFight = simulateBossFight(player, boss, limit, null, [], defaults);
+    const defaultCasts = defaultFight.log.filter((event) => event.kind === "ult");
+    expect(defaultCasts.map((event) => event.t)).toEqual([1, 5, 9]);
+    expect(defaultCasts.every((event) => event.damage === basic)).toBe(true);
+
+    const custom = toCombatSkills(
+      [{ skillSlug: "skill_b", runningSlot: "run_1" }],
+      [{ slug: "skill_b", displayName: "快斩", castMode: "auto", castEveryAttacks: 2, damageMultBp: 20000, enabled: true }],
+      1,
+    );
+    expect(custom[0]).toMatchObject({ castEveryAttacks: 2, damageMultBp: 20000 });
+    const customFight = simulateBossFight(player, boss, limit, null, [], custom);
+    const customCasts = customFight.log.filter((event) => event.kind === "ult");
+    expect(customCasts.map((event) => event.t)).toEqual([1, 3, 5, 7, 9, 11]);
+    expect(customCasts.every((event) => event.damage === basic * 2)).toBe(true);
   });
 
   it("timeout and defeat are reported like simulateBattle", () => {

@@ -131,6 +131,8 @@ export const skillSchema: Schema = {
       { label: "自动", value: "auto" },
       { label: "被动", value: "passive" },
     ], hint: "自动或被动。没有手动释放。", column: { width: 90 } },
+    { key: "castEveryAttacks", label: "施法间隔", kind: "int", group: "fx", required: true, min: 1, max: 99, step: 1, unit: "次普攻", default: 4, hint: "每 N 次普攻追加一次自动技能（默认 4：第 1、5、9… 次）。战斗全自动，无冷却条。", affects: "首领战自动技能", column: { width: 100 } },
+    { key: "damageMultBp", label: "技能伤害", kind: "int", group: "fx", required: true, min: 0, max: 1000000, step: 100, unit: "万分比", default: 10000, hint: "相对当次普攻伤害的万分比。10000 = 与普攻相同。", affects: "首领战自动技能", column: { width: 100 } },
     { key: "fx", label: "表现参数", kind: "textarea", group: "fx", hint: "可选 JSON：{\"type\":\"slash\",\"primary\":\"#F5FBFF\",\"secondary\":\"#A8E8E0\",\"scale\":1}。type 必须和表现类型一致。留空表示不额外配色。" },
     { key: "attack", label: "攻击加成", kind: "number", group: "bonus", min: 0, max: 100, step: 0.01, unit: "%", default: 0, hint: "运转时给境界基础攻击增加的百分比。实际值 = 基础百分比 × 层数系数。", affects: "面板攻击、战力", column: { width: 90 } },
     { key: "defense", label: "防御加成", kind: "number", group: "bonus", min: 0, max: 100, step: 0.01, unit: "%", default: 0, hint: "给境界基础防御增加的百分比。", affects: "面板防御、战力", column: { width: 90 } },
@@ -191,7 +193,6 @@ export const rulesSchema: Schema = {
     { key: "onlineGapSeconds", label: "在线判定间隔", kind: "int", group: "world", min: 1, max: 600, step: 1, unit: "秒", default: 15, hint: "“在线”= 玩家前台打开游戏。两次请求间隔不超过这个秒数算在线（打普通怪、拿击杀修为和掉落）；超过就按离线段结算（只产修为）。客户端前台每 15 秒内至少请求一次。", affects: "普通怪波次、击杀修为、装备掉落、离线结算" },
     { key: "offlinePopupMinSeconds", label: "离线弹窗最短时长", kind: "int", group: "world", min: 0, max: 86400, step: 60, unit: "秒", default: 300, hint: "离线达到这个秒数才弹“闭关归来”窗；不足时修为照常入账，只是不弹窗。", affects: "离线弹窗" },
     { key: "dayStartHour", label: "每日重置整点", kind: "int", group: "world", min: 0, max: 23, step: 1, unit: "点", default: 5, hint: "北京时间的几点算新的一天（首领每日奖励次数按它重置）。", affects: "首领每日奖励次数" },
-    { key: "ultAutoCastWindowSeconds", label: "大招自动释放等待", kind: "number", group: "battle", min: 0, max: 30, step: 0.5, precision: 1, unit: "秒", default: 0, hint: "大招蓄满后再等几秒自动释放（0＝蓄满立刻放）。境界不再自带大招；战斗大招只跟玩家学的技能。", affects: "首领战大招" },
     { key: "waveSize", label: "每波怪物数", kind: "int", group: "battle", min: 1, max: 10, step: 1, unit: "只", default: 3, hint: "普通怪一波有几只，依次上前，一次只和一只交战，中间不回血。", affects: "普通怪击杀速度" },
     { key: "waveTransitionSeconds", label: "波次转场秒数", kind: "number", group: "battle", min: 0, max: 60, step: 0.5, precision: 1, unit: "秒", default: 2, hint: "一波打完到下一波之间的转场时间，转场时主角回满血。", affects: "普通怪击杀速度" },
     { key: "reviveSeconds", label: "阵亡复活秒数", kind: "number", group: "battle", min: 0, max: 60, step: 0.5, precision: 1, unit: "秒", default: 3, hint: "普通怪打输（阵亡）后原地复活、回满血所需的秒数，无其他惩罚。", affects: "普通怪击杀速度" },
@@ -258,12 +259,12 @@ const extraLabels: Record<string, string> = {
   baseInterval: "基础出手间隔", powerWeights: "战力权重", combat: "战斗参数", requiredRealmOrder: "所需境界编号", quality: "品质", slot: "部位",
   kind: "类型", stackable: "可叠加", enabled: "启用", bosses: "首领与掉落", entries: "掉落条目", recommendedPower: "推荐战力", rank: "品阶",
   role: "技能类型", cultivateBonusBp: "修炼加成（万分比）", prerequisiteSkillSlugs: "前置技能",
-  fxType: "表现类型", fx: "表现参数", castMode: "释放方式",
+  fxType: "表现类型", fx: "表现参数", castMode: "释放方式", castEveryAttacks: "施法间隔", damageMultBp: "技能伤害",
   requiredStageSlug: "所需通关关卡", requiredStageId: "突破前要先通关", ultName: "大招名称", ultMultiplier: "大招伤害倍数", ultCooldownSeconds: "大招冷却", ultFirstCooldownSeconds: "开战首次冷却",
   skillSlug: "对应技能", bossName: "首领名称", bossAttack: "首领攻击", bossDefense: "首领防御", bossHp: "首领气血", bossInterval: "首领出手间隔",
   tickSeconds: "修炼间隔", gainPerTick: "每次获得修为", breakthroughCost: "突破消耗修为", starterItems: "新手物品", startingRealmSlug: "初始境界",
   artSlotRules: "技能栏位规则", bagCapacity: "行囊容量",
-  offlineCapSeconds: "离线收益上限", onlineGapSeconds: "在线判定间隔", offlinePopupMinSeconds: "离线弹窗最短时长", dayStartHour: "每日重置整点", bossDailyRewardCount: "首领每日奖励次数", ultAutoCastWindowSeconds: "大招自动释放等待", waveSize: "每波怪物数", waveTransitionSeconds: "波次转场秒数", reviveSeconds: "阵亡复活秒数", attack: "攻击", defense: "防御", hp: "气血", speed: "速度", displayName: "名称",
+  offlineCapSeconds: "离线收益上限", onlineGapSeconds: "在线判定间隔", offlinePopupMinSeconds: "离线弹窗最短时长", dayStartHour: "每日重置整点", bossDailyRewardCount: "首领每日奖励次数", waveSize: "每波怪物数", waveTransitionSeconds: "波次转场秒数", reviveSeconds: "阵亡复活秒数", attack: "攻击", defense: "防御", hp: "气血", speed: "速度", displayName: "名称",
 };
 
 const labelIndex = new Map<string, string>();

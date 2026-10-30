@@ -368,6 +368,10 @@ export const contentSkills = pgTable("content_skills", {
   fx: jsonb("fx").$type<{ type: string; primary?: string; secondary?: string; scale?: number } | null>(),
   /** 自动或被动。不提供手动释放。 */
   castMode: text("cast_mode").notNull().default("auto"),
+  /** 每 N 次普攻追加一次自动技能（默认 4：第 1、5、9… 次）。 */
+  castEveryAttacks: integer("cast_every_attacks").notNull().default(4),
+  /** 自动技能伤害 = 当次普攻伤害 × damageMultBp / 10000（默认 10000 = 1.0×）。 */
+  damageMultBp: integer("damage_mult_bp").notNull().default(10000),
   enabled: boolean("enabled").notNull().default(true),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   updatedBy: uuid("updated_by"),

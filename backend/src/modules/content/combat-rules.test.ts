@@ -24,12 +24,12 @@ const base = {
 };
 
 describe("combat-system rules are admin-configurable with table defaults", () => {
-  it("old content without the new keys reads the defaults (15 s, 300 s, 2 s, 5 per day, 05:00, 3 per wave, 2 s, 3 s)", async () => {
+  it("old content without the new keys reads the defaults (15 s, 300 s, 5 per day, 05:00, 3 per wave, 2 s, 3 s)", async () => {
     await withDb(async (db) => {
       await insertStartingRealm(db);
       const rules = await readRules(db);
       expect(rules).toMatchObject(DEFAULT_OPTIONAL_RULES);
-      expect(DEFAULT_OPTIONAL_RULES).toEqual({ onlineGapSeconds: 15, offlinePopupMinSeconds: 300, ultAutoCastWindowSeconds: 0, bossDailyRewardCount: 5, dayStartHour: 5, waveSize: 3, waveTransitionSeconds: 2, reviveSeconds: 3 });
+      expect(DEFAULT_OPTIONAL_RULES).toEqual({ onlineGapSeconds: 15, offlinePopupMinSeconds: 300, bossDailyRewardCount: 5, dayStartHour: 5, waveSize: 3, waveTransitionSeconds: 2, reviveSeconds: 3 });
       const world = await loadCurrentWorld(db);
       expect(readGameRules(world!)).toMatchObject(DEFAULT_OPTIONAL_RULES);
     });
@@ -38,8 +38,9 @@ describe("combat-system rules are admin-configurable with table defaults", () =>
   it("saves, reads back and keeps the values when a later save omits them", async () => {
     await withDb(async (db) => {
       await insertStartingRealm(db);
-      const saved = await saveRules(db, { ...base, onlineGapSeconds: 20, offlinePopupMinSeconds: 600, ultAutoCastWindowSeconds: 3, bossDailyRewardCount: 5, dayStartHour: 4, waveSize: 4, waveTransitionSeconds: 1.5, reviveSeconds: 5 }, null);
-      expect(saved).toMatchObject({ onlineGapSeconds: 20, offlinePopupMinSeconds: 600, ultAutoCastWindowSeconds: 3, bossDailyRewardCount: 5, dayStartHour: 4, waveSize: 4, waveTransitionSeconds: 1.5, reviveSeconds: 5 });
+      const saved = await saveRules(db, { ...base, onlineGapSeconds: 20, offlinePopupMinSeconds: 600, bossDailyRewardCount: 5, dayStartHour: 4, waveSize: 4, waveTransitionSeconds: 1.5, reviveSeconds: 5 }, null);
+      expect(saved).toMatchObject({ onlineGapSeconds: 20, offlinePopupMinSeconds: 600, bossDailyRewardCount: 5, dayStartHour: 4, waveSize: 4, waveTransitionSeconds: 1.5, reviveSeconds: 5 });
+      expect(saved).not.toHaveProperty("ultAutoCastWindowSeconds");
       const [row] = await db.select().from(contentGlobals).where(eq(contentGlobals.id, 1));
       expect(row?.combat?.onlineGapSeconds).toBe(20);
       const again = await saveRules(db, { ...base }, null);
@@ -54,7 +55,7 @@ describe("combat-system rules are admin-configurable with table defaults", () =>
       await expect(saveRules(db, { ...base, dayStartHour: 24 }, null)).rejects.toThrow(/每日重置整点/);
       await expect(saveRules(db, { ...base, waveSize: 2.5 }, null)).rejects.toThrow(/每波怪物数要填整数/);
       await expect(saveRules(db, { ...base, bossDailyRewardCount: -1 }, null)).rejects.toThrow(/首领每日奖励次数/);
-      expect(Object.keys(OPTIONAL_RULES)).toHaveLength(8);
+      expect(Object.keys(OPTIONAL_RULES)).toHaveLength(7);
     });
   });
 });

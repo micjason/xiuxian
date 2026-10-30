@@ -130,6 +130,8 @@ async function saveSkill(values: Record<string, unknown>, mode: "create" | "edit
     prerequisiteIds: Array.isArray(values.prerequisiteIds) ? values.prerequisiteIds : undefined,
     fxType: values.fxType || null,
     castMode: values.castMode === "passive" ? "passive" : "auto",
+    castEveryAttacks: values.castEveryAttacks ?? 4,
+    damageMultBp: values.damageMultBp ?? 10000,
     fx: fxPayload(values.fx),
   });
   if (mode === "create") {

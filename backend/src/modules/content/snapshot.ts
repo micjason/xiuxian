@@ -207,6 +207,8 @@ export async function loadDraftSnapshot(db: Db | Tx): Promise<ContentSnapshot> {
       fxType: row.fxType ?? null,
       fx: row.fx ?? null,
       castMode: row.castMode === "passive" ? "passive" : "auto",
+      castEveryAttacks: row.castEveryAttacks ?? 4,
+      damageMultBp: row.damageMultBp ?? 10000,
       enabled: row.enabled,
     })),
   };

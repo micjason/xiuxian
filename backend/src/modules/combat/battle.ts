@@ -5,6 +5,10 @@ export type CombatSkill = {
   slug: string;
   name: string;
   castMode: "auto" | "passive";
+  /** 每 N 次普攻施放；默认 4。 */
+  castEveryAttacks: number;
+  /** 相对普攻伤害的万分比；默认 10000 = 1.0×。 */
+  damageMultBp: number;
   fxType?: string;
   fx?: { type: string; primary?: string; secondary?: string; scale?: number };
 };
@@ -23,8 +27,10 @@ export type BattleEvent = {
   castMode?: CombatSkill["castMode"];
 };
 
-/** 第 1、5、9… 次普攻之后各追加一次自动技能，伤害与当次普攻相同。不另做冷却条。 */
-export const SKILL_CAST_EVERY_ATTACKS = 4;
+/** 默认每 4 次普攻追加一次自动技能（第 1、5、9… 次）。由技能表 castEveryAttacks 覆盖。 */
+export const DEFAULT_SKILL_CAST_EVERY_ATTACKS = 4;
+/** 默认自动技能伤害 = 当次普攻 × 1.0（万分比 10000）。由技能表 damageMultBp 覆盖。 */
+export const DEFAULT_SKILL_DAMAGE_MULT_BP = 10000;
 
 const HIDDEN_SKILL_NAMES = new Set(["大招", "暴击"]);
 
@@ -37,8 +43,29 @@ export function publicSkillName(raw: string | null | undefined): string {
   return name;
 }
 
-export function skillCastsOnAttack(attackIndex: number): boolean {
-  return attackIndex > 0 && (attackIndex - 1) % SKILL_CAST_EVERY_ATTACKS === 0;
+export function normalizeCastEveryAttacks(value: unknown): number {
+  const n = Math.floor(Number(value));
+  if (!Number.isFinite(n) || n < 1) {
+    return DEFAULT_SKILL_CAST_EVERY_ATTACKS;
+  }
+  return Math.min(n, 99);
+}
+
+export function normalizeDamageMultBp(value: unknown): number {
+  const n = Math.floor(Number(value));
+  if (!Number.isFinite(n) || n < 0) {
+    return DEFAULT_SKILL_DAMAGE_MULT_BP;
+  }
+  return Math.min(n, 1_000_000);
+}
+
+export function skillCastsOnAttack(attackIndex: number, everyAttacks: number = DEFAULT_SKILL_CAST_EVERY_ATTACKS): boolean {
+  const every = normalizeCastEveryAttacks(everyAttacks);
+  return attackIndex > 0 && (attackIndex - 1) % every === 0;
+}
+
+export function skillCastDamage(basicAttackDamage: number, damageMultBp: number = DEFAULT_SKILL_DAMAGE_MULT_BP): number {
+  return basicAttackDamage * (normalizeDamageMultBp(damageMultBp) / 10000);
 }
 
 type LearnedSkill = { skillSlug: string; runningSlot: string | null };
@@ -47,6 +74,8 @@ type SkillDefinition = {
   displayName?: string | null;
   enabled?: boolean;
   castMode?: string | null;
+  castEveryAttacks?: number | null;
+  damageMultBp?: number | null;
   fxType?: string | null;
   fx?: { type?: string; primary?: string; secondary?: string; scale?: number } | null;
 };
@@ -74,7 +103,13 @@ export function toCombatSkills(learned: LearnedSkill[], definitions: SkillDefini
       if (!castMode) {
         return [];
       }
-      const combat: CombatSkill = { slug: definition.slug, name: publicSkillName(definition.displayName), castMode };
+      const combat: CombatSkill = {
+        slug: definition.slug,
+        name: publicSkillName(definition.displayName),
+        castMode,
+        castEveryAttacks: normalizeCastEveryAttacks(definition.castEveryAttacks),
+        damageMultBp: normalizeDamageMultBp(definition.damageMultBp),
+      };
       if (definition.fxType) {
         combat.fxType = definition.fxType;
       }
@@ -161,10 +196,11 @@ export function simulateBattle(player: BattleSide, boss: BattleSide, config: Bat
         return { win: true, reason: "win", durationSeconds: next, log: trimLog(log) };
       }
       const skill = skills[castCursor];
-      if (skill && skillCastsOnAttack(playerAttacks)) {
+      if (skill && skillCastsOnAttack(playerAttacks, skill.castEveryAttacks)) {
         castCursor = (castCursor + 1) % skills.length;
-        bossHp = Math.max(0, bossHp - playerDamage);
-        log.push(skillCastEvent(next, playerDamage, bossHp, skill));
+        const castDamage = skillCastDamage(playerDamage, skill.damageMultBp);
+        bossHp = Math.max(0, bossHp - castDamage);
+        log.push(skillCastEvent(next, castDamage, bossHp, skill));
         if (bossHp <= 0) {
           return { win: true, reason: "win", durationSeconds: next, log: trimLog(log) };
         }

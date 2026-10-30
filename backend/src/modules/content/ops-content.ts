@@ -784,6 +784,8 @@ function skillView(row: typeof contentSkills.$inferSelect, categories: { slug: s
     prerequisiteIds: row.prerequisiteSkillSlugs ?? [],
     fxType: row.fxType ?? "",
     castMode: row.castMode === "passive" ? "passive" : "auto",
+    castEveryAttacks: row.castEveryAttacks ?? 4,
+    damageMultBp: row.damageMultBp ?? 10000,
     fx: row.fx ? JSON.stringify(row.fx) : "",
   };
 }
@@ -849,6 +851,8 @@ export async function createOpsSkill(
     fxType?: string | null;
     fx?: unknown;
     castMode?: string | null;
+    castEveryAttacks?: number | null;
+    damageMultBp?: number | null;
   },
   adminId: string | null,
 ) {
@@ -878,6 +882,8 @@ export async function updateOpsSkill(
     fxType?: string | null;
     fx?: unknown;
     castMode?: string | null;
+    castEveryAttacks?: number | null;
+    damageMultBp?: number | null;
   },
   adminId: string | null,
 ) {
@@ -917,6 +923,8 @@ async function skillValues(
     fxType?: string | null;
     fx?: unknown;
     castMode?: string | null;
+    castEveryAttacks?: number | null;
+    damageMultBp?: number | null;
   },
   adminId: string | null,
   current: typeof contentSkills.$inferSelect | null = null,
@@ -980,9 +988,34 @@ async function skillValues(
     cultivateBonusBp: numberOf(input.cultivateBonus, "修炼加成"),
     prerequisiteSkillSlugs,
     ...readSkillFx(input, current),
+    castEveryAttacks: readCastEveryAttacks(input.castEveryAttacks, current),
+    damageMultBp: readDamageMultBp(input.damageMultBp, current),
     updatedAt: new Date(),
     updatedBy: adminId,
   };
+}
+
+
+function readCastEveryAttacks(value: unknown, current: typeof contentSkills.$inferSelect | null): number {
+  if (value === undefined || value === null || value === "") {
+    return current?.castEveryAttacks ?? 4;
+  }
+  const n = Math.floor(Number(value));
+  if (!Number.isFinite(n) || n < 1 || n > 99) {
+    throw new AppError("INVALID_INPUT", "施法间隔要在 1 到 99 次普攻之间");
+  }
+  return n;
+}
+
+function readDamageMultBp(value: unknown, current: typeof contentSkills.$inferSelect | null): number {
+  if (value === undefined || value === null || value === "") {
+    return current?.damageMultBp ?? 10000;
+  }
+  const n = Math.floor(Number(value));
+  if (!Number.isFinite(n) || n < 0 || n > 1000000) {
+    throw new AppError("INVALID_INPUT", "技能伤害倍率要在 0 到 1000000 万分比之间");
+  }
+  return n;
 }
 
 function readSkillFx(

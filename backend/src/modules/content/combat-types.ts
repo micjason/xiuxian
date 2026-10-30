@@ -7,7 +7,6 @@
 export const OPTIONAL_RULES = {
   onlineGapSeconds: { label: "在线判定间隔", default: 15, min: 1, max: 600, integer: true },
   offlinePopupMinSeconds: { label: "离线弹窗最短时长", default: 300, min: 0, max: 86400, integer: true },
-  ultAutoCastWindowSeconds: { label: "大招自动释放等待", default: 0, min: 0, max: 30, integer: false },
   bossDailyRewardCount: { label: "首领每日奖励次数", default: 5, min: 0, max: 99, integer: true },
   dayStartHour: { label: "每日重置整点（北京时间）", default: 5, min: 0, max: 23, integer: true },
   waveSize: { label: "每波怪物数", default: 3, min: 1, max: 10, integer: true },

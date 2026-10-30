@@ -471,3 +471,81 @@ ui/icon_refine_essence.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 
 ui/icon_refine_essence@2x.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（白底抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,Grok Bot 图像生成原图 /workspace/q_src/icon_refine_essence.jpg（2026-10-21 生成）→ _src/r0121/cut_essence.py（白底抠图+去外光+描边+缩放）→ art_out_q/ui/icon_refine_essence@2x.png
 ui/ring_set_current.png,B. 代码绘制（HTML/CSS/SVG 无头 Chrome 渲染），无第三方图片素材,自有（本项目代码生成）,无,art_out_q/_src/set_build.py
 items/refine_essence.png,A. AI 生成（Grok Bot 内置图像生成模型）+ 代码后处理（白底抠图/描边/缩放/压缩）,AI 生成：图像模型提供方的商用/再授权条款【尚未确认】,发布前确认条款并留存生成记录；确认不了则用人工原创图替换同名文件,Grok Bot 图像生成原图 /workspace/q_src/icon_refine_essence.jpg（2026-10-21 生成）→ _src/r0121/cut_essence.py（白底抠图+去外光+描边+缩放）→ art_out_q/icons/item_refine_essence.png
+anim_q/battle_boss/fx/fx_contact_shadow.png,B. 美术交付接触影（软边椭圆）+ 动画侧镜像,自有（本项目美术/动画包）,无（角色层脚底影）,art_out_q/battle_depth/battle_shadow_ref.png → anim_out_q/shared/fx/fx_contact_shadow.png → game/anim_q/battle_boss/fx/
+anim_q/battle_idle/fx/fx_contact_shadow.png,B. 美术交付接触影（软边椭圆）+ 动画侧镜像,自有（本项目美术/动画包）,无（角色层脚底影）,同 battle_boss/fx/fx_contact_shadow.png
+anim_q/battle_hero/art/fx_contact_shadow.png,B. 美术交付接触影（软边椭圆）+ 动画侧镜像,自有（本项目美术/动画包）,无（角色层脚底影）,同 battle_boss/fx/fx_contact_shadow.png
+anim_q/battle_boss/fx/fx_shockwave.png,B. 动画特效包（落地震波）,自有（本项目动画包）,无,anim_out_q/battle_boss/fx/fx_shockwave.png → game/anim_q/battle_boss/fx/
+anim_q/battle_boss/fx/fx_dust_puff.png,B. 动画特效包（落地尘）,自有（本项目动画包）,无,anim_out_q/battle_boss/fx/fx_dust_puff.png → game/anim_q/battle_boss/fx/
+anim_q/skill_fx/PALETTE.md,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/skill_fx/heal_circle_fx.tscn,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/skill_fx/fire_fx.gd,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/skill_fx/slash_fx.tscn,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/skill_fx/README.md,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/skill_fx/gold_light_fx.gd,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/skill_fx/ice_fx.gd,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/skill_fx/shield_fx.tscn,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/skill_fx/poison_fx.tscn,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/skill_fx/wind_fx.tscn,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/skill_fx/poison_fx.gd,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/skill_fx/fire_fx.tscn,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/skill_fx/heal_circle_fx.gd,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/skill_fx/skill_fx_root.gd,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/skill_fx/thunder_fx.gd,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/skill_fx/ice_fx.tscn,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/skill_fx/wind_fx.gd,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/skill_fx/thunder_fx.tscn,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/skill_fx/shield_fx.gd,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/skill_fx/slash_fx.gd,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/skill_fx/gold_light_fx.tscn,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/skill_fx/small/heal.jpg,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/skill_fx/small/poison.jpg,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/skill_fx/small/board_new.jpg,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/skill_fx/small/wind.jpg,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/skill_fx/small/ice.jpg,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/skill_fx/small/fire.jpg,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/skill_fx/small/shield.jpg,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/skill_fx/small/slash.jpg,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/skill_fx/small/board.jpg,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/skill_fx/small/thunder.jpg,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/skill_fx/small/gold_light.jpg,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/skill_fx/fx/fx_gold_burst.png,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/skill_fx/fx/fx_bolt_c.png,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/skill_fx/fx/fx_crack.png,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/skill_fx/fx/fx_slash_arc.png,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/skill_fx/fx/fx_shield_dome.png,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/skill_fx/fx/fx_shield_ring.png,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/skill_fx/fx/fx_bolt_b.png,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/skill_fx/fx/fx_glow_ice.png,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/skill_fx/fx/fx_impact.png,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/skill_fx/fx/fx_slash_arc_sm.png,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/skill_fx/fx/fx_ring.png,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/skill_fx/fx/fx_glow_hot.png,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/skill_fx/fx/fx_heal_mote.png,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/skill_fx/fx/fx_glow_gold.png,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/skill_fx/fx/fx_fire_core.png,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/skill_fx/fx/fx_flame_c.png,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/skill_fx/fx/fx_poison_bubble.png,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/skill_fx/fx/fx_glow_purple.png,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/skill_fx/fx/fx_scorch.png,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/skill_fx/fx/fx_frost_ring.png,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/skill_fx/fx/fx_bolt_a.png,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/skill_fx/fx/fx_heal_circle.png,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/skill_fx/fx/fx_wind_leaf.png,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/skill_fx/fx/fx_ring_cyan.png,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/skill_fx/fx/fx_flame_b.png,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/skill_fx/fx/fx_glow.png,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/skill_fx/fx/fx_wind_arc.png,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/skill_fx/fx/fx_ember.png,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/skill_fx/fx/fx_fire_burst.png,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/skill_fx/fx/fx_dot.png,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/skill_fx/fx/fx_wind_arc_sm.png,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/skill_fx/fx/fx_slash_streak.png,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/skill_fx/fx/fx_spark.png,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/skill_fx/fx/fx_poison_burst.png,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/skill_fx/fx/fx_pillar_cyan.png,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/skill_fx/fx/fx_ice_shard.png,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/skill_fx/fx/fx_ice_shard_sm.png,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/skill_fx/fx/fx_ring_gold.png,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/skill_fx/fx/fx_flame_a.png,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/skill_fx/fx/fx_poison_mist.png,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/skill_fx/fx/fx_wind_streak.png,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx

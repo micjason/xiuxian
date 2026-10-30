@@ -172,6 +172,30 @@ describe("progression sim", () => {
     expect(resolveDefaultTargetRealmId(world)).toBe("dacheng_1");
   });
 
+  it("overview gear/skill tiers use Chinese labels, not English keys", () => {
+    const world = baseWorld();
+    world.globals.starterItems = [{ slug: "sword_r1", quantity: 1 }];
+    const result = runProgressionSim(world, { targetRealmId: "r2", wallBudgetMs: 5000 });
+    const withGear = result.overview.filter((row) => row.gearTier !== "无装");
+    expect(withGear.length).toBeGreaterThan(0);
+    for (const row of withGear) {
+      expect(row.gearTier).toMatch(/装 · 强化\+\d+/);
+      expect(row.gearTier).not.toMatch(/white|green|blue|purple|orange/i);
+    }
+    const withSkill = result.overview.filter((row) => row.skillTier !== "无技能");
+    expect(withSkill.length).toBeGreaterThan(0);
+    for (const row of withSkill) {
+      expect(row.skillTier).toContain("基础剑诀");
+      expect(row.skillTier).not.toMatch(/basic_atk|skill_/);
+    }
+    const equipEvents = result.timeline.filter((e) => e.kind === "equip");
+    for (const ev of equipEvents) {
+      expect(ev.text).toContain("炼气剑");
+      expect(ev.text).not.toContain("sword_r1");
+      expect(ev.text).toMatch(/武器/);
+    }
+  });
+
   it("reaches a lower target cleanly without stuck", () => {
     const world = baseWorld();
     const result = runProgressionSim(world, { targetRealmId: "r2", wallBudgetMs: 5000 });

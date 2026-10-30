@@ -3,6 +3,7 @@
  * 战斗判定复用 simulateBossFight + combatStats（与线上挑战同一套）。
  */
 import { simulateBossFight, toCombatSkills, type CombatSkill } from "../combat/battle.js";
+import { qualityRow, slotName } from "../content/catalog.js";
 import { enhanceCap, enhancedStat, essenceCost, readEnhanceRules } from "../content/enhance.js";
 import { readGameRules } from "../content/rules.js";
 import { stageAccessList, type StageAccess } from "../content/stage-order.js";
@@ -141,18 +142,33 @@ function playerStats(world: ContentSnapshot, state: SimState) {
   return combatStats(world, state.realmSlug, equippedEntries(state), runningSkills(state));
 }
 
-function gearTierLabel(state: SimState): string {
-  const worn = state.gear.filter((g) => g.equipped);
-  if (worn.length === 0) return "无装";
-  const avg = worn.reduce((sum, g) => sum + g.enhanceLevel, 0) / worn.length;
-  const qualities = [...new Set(worn.map((g) => g.quality))].join("/");
-  return `${qualities}+${Math.floor(avg)}`;
+/** 品质 key → 白/绿/蓝/紫/橙；未知 key 原样回退。 */
+function qualityShortZh(quality: string): string {
+  return qualityRow(quality)?.short ?? quality;
 }
 
-function skillTierLabel(state: SimState): string {
+/** 装备档：白/蓝装 · 强化+2（多品质按品质表顺序）。 */
+function gearTierLabel(state: Pick<SimState, "gear">): string {
+  const worn = state.gear.filter((g) => g.equipped);
+  if (worn.length === 0) return "无装";
+  const avg = Math.floor(worn.reduce((sum, g) => sum + g.enhanceLevel, 0) / worn.length);
+  const qualities = [...new Set(worn.map((g) => g.quality))]
+    .map((q) => ({ key: q, short: qualityShortZh(q), order: qualityRow(q)?.sortOrder ?? 99 }))
+    .sort((a, b) => a.order - b.order || a.short.localeCompare(b.short, "zh"));
+  const qualityPart = `${qualities.map((q) => q.short).join("/")}装`;
+  return `${qualityPart} · 强化+${avg}`;
+}
+
+/** 技能档：紫府金章 Lv1、青元诀 Lv1（displayName，不用 slug）。 */
+function skillTierLabel(world: ContentSnapshot, state: Pick<SimState, "skills">): string {
   const run = state.skills.filter((s) => s.runningSlot);
   if (run.length === 0) return "无技能";
-  return run.map((s) => `${s.skillSlug}Lv${s.level}`).join(",");
+  return run
+    .map((s) => {
+      const name = world.skills.find((d) => d.slug === s.skillSlug)?.displayName ?? s.skillSlug;
+      return `${name} Lv${s.level}`;
+    })
+    .join("、");
 }
 
 function stageLabelOf(world: ContentSnapshot, state: SimState): string {
@@ -174,7 +190,7 @@ function pushOverview(overview: OverviewRow[], world: ContentSnapshot, state: Si
     stageLabel: stageLabelOf(world, state),
     power: stats.power,
     gearTier: gearTierLabel(state),
-    skillTier: skillTierLabel(state),
+    skillTier: skillTierLabel(world, state),
     status,
   });
 }
@@ -252,7 +268,9 @@ function autoEquip(world: ContentSnapshot, state: SimState, timeline: TimelineEv
     }
     best.equipped = true;
     if (!wasEquipped) {
-      emit(timeline, state, "equip", `穿戴 ${best.slug}（${best.slot}+${best.enhanceLevel}），战力 ${playerStats(world, state).power}`);
+      const gearName = world.items.find((i) => i.slug === best.slug)?.displayName ?? best.slug;
+      const slotZh = slotName(best.slot) || best.slot;
+      emit(timeline, state, "equip", `穿戴 ${gearName}（${slotZh} · 强化+${best.enhanceLevel}），战力 ${playerStats(world, state).power}`);
     }
   }
 }

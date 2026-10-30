@@ -65,7 +65,7 @@
           <div class="stuck-item">
             <span class="cap">卡在</span>
             <strong>{{ result.stuck.bossName }}</strong>
-            <span class="sub">第 {{ result.stuck.day }} 游戏天 · {{ result.stuck.bossId }}</span>
+            <span class="sub">第 {{ result.stuck.day }} 游戏天</span>
           </div>
           <div class="stuck-item">
             <span class="cap">战力差距</span>

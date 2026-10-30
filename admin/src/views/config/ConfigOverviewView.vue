@@ -67,6 +67,7 @@
               <dt>装备速度比例</dt><dd>{{ data.gear.gearSpeedFactor }}</dd>
               <dt>品质系数</dt><dd><span v-for="quality in QUALITIES" :key="quality.key" class="chip"><i class="dot" :style="{ background: quality.color }" />{{ quality.name }} {{ data.gear.qualityFactors?.[quality.key] ?? "—" }}</span></dd>
               <dt>部位属性占比</dt><dd><span v-for="(value, key) in data.gear.slotShares" :key="key" class="chip">{{ SLOT_NAMES[key] ?? key }} {{ Math.round(value * 1000) / 10 }}%</span></dd>
+              <dt>部位属性组合</dt><dd><span v-for="(stats, key) in data.gear.slotStats" :key="key" class="chip">{{ SLOT_NAMES[key] ?? key }} {{ slotStatsLabel(stats) }}</span></dd>
             </dl>
           </SectionCard>
 
@@ -274,7 +275,7 @@ type Overview = {
   tuning: Tuning;
   tuningDefaults: Tuning;
   enhance: { rules: Enhance | null };
-  gear: { gearBudgetRatio: number; gearSpeedFactor: number; slotShares: Record<string, number>; qualityFactors: Record<Quality, number> | null };
+  gear: { gearBudgetRatio: number; gearSpeedFactor: number; slotShares: Record<string, number>; slotStats: Record<string, string[]>; qualityFactors: Record<Quality, number> | null };
   stages: { total: number; customized: StageRow[] };
   newbie?: Newbie & { limits: { maxRows: number; maxQuantity: number } };
   skillSlots?: { rules: SlotRule[]; max: number };
@@ -311,6 +312,10 @@ const RANKS: { key: Rank; name: string }[] = [
 ];
 const LAYER_LABELS = ["第 1 层", "第 2–3 层", "第 4–6 层", "第 7 层起"];
 const SLOT_NAMES = computed<Record<string, string>>(() => Object.fromEntries((data.value?.catalog?.slots ?? []).map((slot) => [slot.key, slot.name])));
+const STAT_LABEL: Record<string, string> = { attack: "攻", defense: "防", hp: "血", speed: "速" };
+function slotStatsLabel(stats: string[] | undefined): string {
+  return (stats ?? []).map((key) => STAT_LABEL[key] ?? key).join("+") || "—";
+}
 const ANCHORS = [
   { id: "power", label: "战力公式" },
   { id: "drop", label: "装备掉落默认" },

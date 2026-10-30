@@ -83,7 +83,11 @@ export async function saveTuning(db: Db, input: Partial<Record<keyof Tuning, unk
   const before = tuningOf(row.tuning);
   const next = tuningFromInput({ ...before, ...stripUndefined(input) });
   await db.update(contentGlobals).set({ tuning: next, updatedAt: new Date(), updatedBy: adminId }).where(eq(contentGlobals.id, 1));
-  if (next.gearBudgetRatio !== before.gearBudgetRatio || JSON.stringify(next.slotShares) !== JSON.stringify(before.slotShares)) {
+  if (
+    next.gearBudgetRatio !== before.gearBudgetRatio ||
+    JSON.stringify(next.slotShares) !== JSON.stringify(before.slotShares) ||
+    JSON.stringify(next.slotStats) !== JSON.stringify(before.slotStats)
+  ) {
     await syncGear(db, adminId);
   }
   return next;
@@ -121,6 +125,7 @@ export async function readConfigOverview(db: Db) {
       gearBudgetRatio: tuning.gearBudgetRatio,
       gearSpeedFactor: gearSpeedFactorOf(row?.combat?.gearSpeedFactor),
       slotShares: tuning.slotShares,
+      slotStats: tuning.slotStats,
       qualityFactors: row ? await readGearQualityFactors(db) : null,
     },
     stages: await stageInheritance(db, tuning),
@@ -185,7 +190,13 @@ export async function saveConfigOverview(
 /** 装备配置页「生成参数」一次保存：预算比例、速度比例、品质系数、部位占比，存完重算 90 件。 */
 export async function saveGearParams(
   db: Db,
-  input: { gearBudgetRatio?: unknown; gearSpeedFactor?: unknown; qualityFactors?: Record<string, unknown>; slotShares?: Record<string, unknown> },
+  input: {
+    gearBudgetRatio?: unknown;
+    gearSpeedFactor?: unknown;
+    qualityFactors?: Record<string, unknown>;
+    slotShares?: Record<string, unknown>;
+    slotStats?: Record<string, unknown>;
+  },
   adminId: string | null,
 ) {
   const row = await globalsRow(db);
@@ -196,6 +207,7 @@ export async function saveGearParams(
     ...tuningOf(row.tuning),
     ...(input.gearBudgetRatio !== undefined ? { gearBudgetRatio: input.gearBudgetRatio } : {}),
     ...(input.slotShares !== undefined ? { slotShares: input.slotShares } : {}),
+    ...(input.slotStats !== undefined ? { slotStats: input.slotStats } : {}),
   });
   const speed = input.gearSpeedFactor === undefined ? gearSpeedFactorOf(row.combat?.gearSpeedFactor) : gearSpeedFactorOf(input.gearSpeedFactor);
   const factors = input.qualityFactors === undefined ? await readGearQualityFactors(db) : gearQualityFactorsFromInput(input.qualityFactors);

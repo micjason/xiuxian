@@ -260,7 +260,7 @@ const extraLabels: Record<string, string> = {
   kind: "类型", stackable: "可叠加", enabled: "启用", bosses: "首领与掉落", entries: "掉落条目", recommendedPower: "推荐战力", rank: "品阶",
   role: "技能类型", cultivateBonusBp: "修炼加成（万分比）", prerequisiteSkillSlugs: "前置技能",
   fxType: "表现类型", fx: "表现参数", castMode: "释放方式", castEveryAttacks: "施法间隔", damageMultBp: "技能伤害",
-  requiredStageSlug: "所需通关关卡", requiredStageId: "突破前要先通关", ultName: "大招名称", ultMultiplier: "大招伤害倍数", ultCooldownSeconds: "大招冷却", ultFirstCooldownSeconds: "开战首次冷却",
+  requiredStageSlug: "所需通关关卡", requiredStageId: "突破前要先通关",
   skillSlug: "对应技能", bossName: "首领名称", bossAttack: "首领攻击", bossDefense: "首领防御", bossHp: "首领气血", bossInterval: "首领出手间隔",
   tickSeconds: "修炼间隔", gainPerTick: "每次获得修为", breakthroughCost: "突破消耗修为", starterItems: "新手物品", startingRealmSlug: "初始境界",
   artSlotRules: "技能栏位规则", bagCapacity: "行囊容量",

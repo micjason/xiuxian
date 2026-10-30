@@ -11,7 +11,7 @@ import { loadCurrentWorld, loadDraftSnapshot } from "./snapshot.js";
 import { readEnhanceView, saveEnhanceRules } from "./enhance.js";
 import { enhanceExpMigrationStatus, migrateAllEnhanceExp } from "../loop/essence-migration.js";
 import { readDongfuView, saveDongfuConfig } from "../dongfu/admin.js";
-import { listGear, resetGearPiece, saveGearQualityFactors, syncGear, updateGearPiece } from "./gear.js";
+import { listGear, previewGearParams, resetGearPiece, saveGearQualityFactors, syncGear, updateGearPiece } from "./gear.js";
 import { createGearSet, createManualGear, deleteGearSet, updateGearSet, updateManualGear } from "./manual-gear.js";
 import { readConfigOverview, readTuning, resetStageDrop, saveConfigOverview, saveGearParams, saveTuning } from "./config-overview.js";
 import { SCHEME_TIME_LIMIT_SECONDS } from "./numeric-scheme.js";
@@ -70,7 +70,7 @@ type RealmExtras = {
   requiredStageId?: string | null;
 };
 
-/** 境界表单里“大境界突破要先通关的首领关”。境界自带大招已取消。 */
+/** 境界表单里“大境界突破要先通关的首领关”。境界自带终极技字段已停用，保存时清零。 */
 async function realmExtras(db: Db, body: RealmExtras, current?: typeof contentRealms.$inferSelect) {
   const out: Partial<typeof contentRealms.$inferInsert> = {};
   if (body.requiredStageId !== undefined) {
@@ -245,6 +245,7 @@ export async function registerDraftRoutes(app: FastifyInstance, deps: { db: Db; 
     resetGearPiece(deps.db, (request.params as { id: string }).id, request.actor?.actorId ?? null),
   );
   app.put("/admin/draft/gear-params", async (request) => saveGearParams(deps.db, (request.body ?? {}) as never, request.actor?.actorId ?? null));
+  app.post("/admin/draft/gear-params/preview", async (request) => previewGearParams(deps.db, (request.body ?? {}) as never));
   app.post("/admin/draft/gear/regenerate", async (request) => {
     await syncGear(deps.db, request.actor?.actorId ?? null);
     return { ok: true };

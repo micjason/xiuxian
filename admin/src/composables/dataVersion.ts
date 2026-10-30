@@ -10,7 +10,7 @@ import { dirtyPaths, tabFor } from "./tabs";
 export const dataVersion = ref(0);
 
 /** 不改数据的 POST（试打、公式预览、登录），不算写操作 */
-const READ_ONLY_POSTS = ["/admin/auth/login", "/admin/draft/trial", "/admin/draft/formula-preview"];
+const READ_ONLY_POSTS = ["/admin/auth/login", "/admin/draft/trial", "/admin/draft/formula-preview", "/admin/draft/gear-params/preview"];
 
 export function noteRequest(path: string, method: string | undefined): void {
   const verb = (method ?? "GET").toUpperCase();

@@ -29,12 +29,12 @@ func _labels(root: Node, out: Array[String] = []) -> Array[String]:
 	return out
 
 
-## Q 版设计稿（10-20 成鹏确认）：「领取」（真的确认已读）+「双倍领取」（广告，没有：提示功能暂未开放）。
+## 离线弹窗：吸底「一键领取」（确认已读）+「双倍领取」（广告，没有：提示功能暂未开放）。
 func test_offline_popup_has_claim_and_locked_double_and_hint_is_outside_the_frame() -> void:
 	var scene := await _boot("ready")
 	var popup := scene.get("_offline_popup") as OfflinePopup
 	assert_true(popup.visible)
-	assert_eq(popup.claim_text().replace(" ", ""), "领取")  # 动画按钮上写「领 取」
+	assert_eq(popup.claim_text().replace(" ", ""), "一键领取")  # 吸底主按钮
 	assert_eq(popup.double_button().text, "双倍领取")
 	assert_true(LockedFeature.is_locked(popup.double_button()))
 	assert_false(LockedFeature.is_locked(popup.claim_button()))

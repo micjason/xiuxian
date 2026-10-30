@@ -31,7 +31,7 @@ const slots = ["武器", "头冠", "衣袍", "护手", "鞋履", "玉佩"];
 const qualities = ["白", "绿", "蓝", "紫", "橙"];
 const names = { 武器: "青锋", 头冠: "素木冠", 衣袍: "云纹袍", 护手: "银丝护手", 鞋履: "踏云靴", 玉佩: "凝玉佩" };
 const suffix = ["·凡", "·良", "·精", "·珍", "·绝"];
-const factor = [1, 1.35, 1.8, 2.4, 3.3];
+const factor = [1, 1.15, 1.3, 1.5, 1.8];
 const majors = ["炼气", "筑基"].map((majorName, mi) => ({
   majorName,
   majorKey: mi === 0 ? "qi" : "foundation",
@@ -69,7 +69,7 @@ const STARTING_MATERIALS = [
   { slug: "enh_stone_high", displayName: "突破石·上品" },
 ];
 let enhance = process.env.MOCK_NO_ENHANCE ? null : clone(STARTING_ENHANCE);
-let factors = { white: 1, green: 1.35, blue: 1.8, purple: 2.4, orange: 3.3 };
+let factors = { white: 1, green: 1.15, blue: 1.3, purple: 1.5, orange: 1.8 };
 
 let items = [
   { id: "i-qi", displayName: "聚气丹", description: "服用后获得少量修为" },

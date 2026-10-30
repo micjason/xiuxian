@@ -28,7 +28,7 @@ describe("gear quality factors", () => {
       });
 
       const defaults = await readGearQualityFactors(db);
-      expect(defaults).toEqual({ white: 1, green: 1.35, blue: 1.8, purple: 2.4, orange: 3.3 });
+      expect(defaults).toEqual({ white: 1, green: 1.15, blue: 1.3, purple: 1.5, orange: 1.8 });
 
       await syncGear(db, null);
       const whiteSlug = gearSlug("qi", "weapon", "white");
@@ -45,7 +45,7 @@ describe("gear quality factors", () => {
         quality: "white",
         requiredRealmOrder: 1,
       });
-      expect(orange?.attack).toBeCloseTo((schemeWhite?.attack ?? 0) * 3.3, 1);
+      expect(orange?.attack).toBeCloseTo((schemeWhite?.attack ?? 0) * 1.8, 1);
       const pieces = await db.select().from(contentItems);
       expect(pieces.filter((item) => item.kind === "equipment")).toHaveLength(30);
 
@@ -77,7 +77,7 @@ describe("gear quality factors", () => {
         id: 1,
         startingRealmSlug: "qi_early",
         powerWeights: { attack: 4.7, defense: 1.6, hp: 0.95, speed: 2.6 },
-        gearQualityFactors: { white: 1, green: 1.35, blue: 1.8, purple: 2.4, orange: 3.3 },
+        gearQualityFactors: { white: 1, green: 1.15, blue: 1.3, purple: 1.5, orange: 1.8 },
       });
       await expect(saveGearQualityFactors(db, { white: 1, green: 1.15, blue: 1.3, purple: 1.5 }, null)).rejects.toThrow(
         "请填写橙品质系数",
@@ -109,7 +109,7 @@ describe("gear quality factors", () => {
         offlineCapSeconds: 36000,
         bagCapacity: 20,
         powerWeights: { attack: 4.7, defense: 1.6, hp: 0.95, speed: 2.6 },
-        gearQualityFactors: { white: 1, green: 1.35, blue: 1.8, purple: 2.4, orange: 3.3 },
+        gearQualityFactors: { white: 1, green: 1.15, blue: 1.3, purple: 1.5, orange: 1.8 },
         combat: {
           minInterval: 0.5,
           challengeCooldownSeconds: 0,

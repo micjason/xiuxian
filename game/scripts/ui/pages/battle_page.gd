@@ -316,6 +316,7 @@ func _hero_rect(tex: Texture2D, tint: Color) -> TextureRect:
 
 
 ## 有 appearance 时换战斗整图和圆头像；没有或图缺失时保持现默认。
+## 战斗骨架挂好后 TextureRect 已透明，必须再把贴图 sync 进 HeroRig，白→橙才看得见。
 func apply_appearance(appearance: Variant) -> void:
 	if _hero_art != null:
 		if _hero_base == null:
@@ -323,6 +324,8 @@ func apply_appearance(appearance: Variant) -> void:
 		var preview := OutfitAppearance.texture(appearance, "preview")
 		_hero_art.texture = preview if preview != null else _hero_base
 		_hero_art.visible = true
+		if _fx != null and _fx.has_method("set_hero_texture_from_art"):
+			_fx.call("set_hero_texture_from_art")
 	if _player_avatar != null:
 		if _avatar_base == null:
 			_avatar_base = _player_avatar.texture

@@ -154,22 +154,40 @@ func _ensure_enhance_selection() -> void:
 
 
 func _ensure_fx() -> void:
-	if _water_fx == null and ResourceLoader.exists(FX_WATER):
-		_water_fx = (load(FX_WATER) as PackedScene).instantiate()
-		_water_fx.name = "GardenWaterFx"
-		_fx_host.add_child(_water_fx)
-	if _fire_fx == null and ResourceLoader.exists(FX_FIRE):
-		_fire_fx = (load(FX_FIRE) as PackedScene).instantiate()
-		_fire_fx.name = "AlchemyFireFx"
-		_fire_fx.position = _design_center(HS_FURNACE)
-		_fx_host.add_child(_fire_fx)
-	if _array_fx == null and ResourceLoader.exists(FX_ARRAY):
-		_array_fx = (load(FX_ARRAY) as PackedScene).instantiate()
-		_array_fx.name = "EnhanceArrayFx"
-		_array_fx.position = _design_center(HS_ARRAY_HEART)
-		if _array_fx.has_method("play_idle"):
-			_array_fx.call("play_idle")
-		_fx_host.add_child(_array_fx)
+	if _fx_host == null or not is_instance_valid(_fx_host):
+		_fx_host = Node2D.new()
+		_fx_host.name = "CaveFxHost"
+		_stage.add_child(_fx_host)
+	_water_fx = _attach_fx(_water_fx, FX_WATER, "GardenWaterFx", Vector2.ZERO)
+	_fire_fx = _attach_fx(_fire_fx, FX_FIRE, "AlchemyFireFx", _design_center(HS_FURNACE))
+	_array_fx = _attach_fx(_array_fx, FX_ARRAY, "EnhanceArrayFx", _design_center(HS_ARRAY_HEART))
+	# enhance_array_fx 自带 autoplay_idle；勿在 @onready 未就绪时强播
+
+
+func _attach_fx(existing: Node2D, path: String, node_name: String, at: Vector2) -> Node2D:
+	var node := existing
+	if node != null and not is_instance_valid(node):
+		node = null
+	if node == null:
+		if not ResourceLoader.exists(path):
+			push_warning("CavePage FX missing: %s" % path)
+			return null
+		var packed := load(path) as PackedScene
+		if packed == null:
+			push_warning("CavePage FX load failed: %s" % path)
+			return null
+		node = packed.instantiate() as Node2D
+		if node == null:
+			push_warning("CavePage FX not Node2D: %s" % path)
+			return null
+		node.name = node_name
+	if node.get_parent() != _fx_host:
+		if node.get_parent() != null:
+			node.get_parent().remove_child(node)
+		_fx_host.add_child(node)
+	if node_name != "GardenWaterFx":
+		node.position = at
+	return node
 
 
 func _design_to_local(p: Vector2) -> Vector2:
@@ -295,6 +313,35 @@ func _chip(text: String, rect: Rect2, name: String = "Chip") -> Label:
 	wrap.add_child(lab)
 	_stage.add_child(wrap)
 	return lab
+
+
+func _place_chip(text: String, rect: Rect2, name: String = "PlaceChip", warm: bool = false) -> void:
+	## 场所底缘小牌：半透木色，不挡场景。
+	var wrap := PanelContainer.new()
+	wrap.name = name
+	wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var local := _design_rect(rect)
+	wrap.position = local.position
+	wrap.size = local.size
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.95, 0.62, 0.28, 0.82) if warm else Color(0.28, 0.18, 0.12, 0.62)
+	style.border_color = Color(UiTokens.Q_ORANGE, 0.9) if warm else Color(UiTokens.Q_COCOA, 0.55)
+	style.set_border_width_all(2)
+	style.set_corner_radius_all(18)
+	style.content_margin_left = 10
+	style.content_margin_right = 10
+	style.content_margin_top = 4
+	style.content_margin_bottom = 4
+	wrap.add_theme_stylebox_override("panel", style)
+	var lab := Label.new()
+	lab.text = text
+	lab.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lab.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	lab.add_theme_font_size_override("font_size", 22)
+	lab.add_theme_color_override("font_color", Color(1, 0.97, 0.92, 0.96))
+	lab.autowrap_mode = TextServer.AUTOWRAP_OFF
+	wrap.add_child(lab)
+	_stage.add_child(wrap)
 
 
 func _status_capsule(card: Dictionary, rect: Rect2) -> void:
@@ -506,61 +553,53 @@ func _render_garden() -> void:
 
 
 func _render_plot_ridge(plot: Dictionary, rect: Rect2) -> void:
+	## 贴地椭圆热区：无大浮层标题卡；空/长/熟只留底缘小 chip + 轻描边。
 	var slot := int(plot.get("slot", 0))
 	var status := str(plot.get("status", "empty"))
 	var line := str(plot.get("line", ""))
-	var wrap := PanelContainer.new()
-	wrap.name = "Plot_%d" % slot
-	wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var selected := _plant_slot == slot
 	var local := _design_rect(rect)
-	wrap.position = local.position
-	wrap.size = local.size
+	var ring := Panel.new()
+	ring.name = "PlotRing_%d" % slot
+	ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ring.position = local.position
+	ring.size = local.size
 	var style := StyleBoxFlat.new()
 	match status:
 		"ready":
-			style.bg_color = Color(1.0, 0.82, 0.35, 0.55)
-			style.border_color = UiTokens.Q_ORANGE
+			style.bg_color = Color(1.0, 0.72, 0.25, 0.20)
+			style.border_color = Color(UiTokens.Q_ORANGE, 0.90)
+			style.set_border_width_all(4)
 		"growing":
-			style.bg_color = Color(0.45, 0.72, 0.55, 0.40)
-			style.border_color = UiTokens.Q_MINT_DARK
+			style.bg_color = Color(0.35, 0.55, 0.40, 0.10)
+			style.border_color = Color(UiTokens.Q_MINT_DARK, 0.50)
+			style.set_border_width_all(2)
 		_:
-			style.bg_color = Color(0.42, 0.32, 0.22, 0.28)
-			style.border_color = Color(0.55, 0.42, 0.30, 0.7)
-	style.set_border_width_all(3)
-	style.set_corner_radius_all(120)
-	style.content_margin_left = 16
-	style.content_margin_right = 16
-	style.content_margin_top = 20
-	style.content_margin_bottom = 20
-	wrap.add_theme_stylebox_override("panel", style)
-	var col := VBoxContainer.new()
-	col.alignment = BoxContainer.ALIGNMENT_CENTER
-	wrap.add_child(col)
-	var title := Label.new()
-	title.text = str(plot.get("title", "地块"))
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 30)
-	title.add_theme_color_override("font_color", UiTokens.TEXT)
-	col.add_child(title)
-	var body := Label.new()
+			style.bg_color = Color(0.42, 0.32, 0.22, 0.14 if selected else 0.08)
+			style.border_color = Color(UiTokens.Q_ORANGE, 0.85) if selected else Color(0.55, 0.42, 0.30, 0.40)
+			style.set_border_width_all(4 if selected else 2)
+	style.set_corner_radius_all(int(minf(local.size.x, local.size.y) * 0.48))
+	ring.add_theme_stylebox_override("panel", style)
+	_stage.add_child(ring)
+	var chip_text := ""
 	match status:
 		"empty":
-			body.text = "点击种植" if _plant_slot != slot else "选择下方种子"
+			chip_text = "选择下方种子" if selected else "点击种植"
 		"ready":
-			body.text = "可收 · %s" % line
+			chip_text = "可收"
 		_:
-			body.text = line
-	body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	body.add_theme_font_size_override("font_size", 24)
-	body.add_theme_color_override("font_color", UiTokens.TEXT_MUTED)
-	col.add_child(body)
+			chip_text = line if not line.is_empty() else "生长中"
+	_place_chip(chip_text, Rect2(
+		rect.position.x + 48,
+		rect.position.y + rect.size.y - 64,
+		rect.size.x - 96,
+		48
+	), "PlotChip_%d" % slot, status == "ready")
 	if status == "ready":
 		var dot := QKit.reddot(26)
-		dot.position = Vector2(local.size.x - 40, 12)
-		wrap.add_child(dot)
-	_stage.add_child(wrap)
-	# 透明热区盖在畦上
+		dot.position = local.position + Vector2(local.size.x - 40, 12)
+		_stage.add_child(dot)
+	# 透明热区盖在畦上（坐标不变）
 	_hotspot("PlotTap_%d" % slot, rect, func() -> void: _on_plot_tap(slot, status))
 
 
@@ -584,8 +623,8 @@ func _render_seed_drawer() -> void:
 	drawer.position = local.position
 	drawer.size = local.size
 	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.42, 0.30, 0.20, 0.55)
-	style.border_color = UiTokens.Q_COCOA
+	style.bg_color = Color(0.42, 0.30, 0.20, 0.28)
+	style.border_color = Color(UiTokens.Q_COCOA, 0.35)
 	style.set_border_width_all(0)
 	style.set_corner_radius_all(0)
 	drawer.add_theme_stylebox_override("panel", style)
@@ -635,12 +674,17 @@ func _on_seed_tap(seed: Dictionary) -> void:
 
 
 func _play_water_at_slot(slot: int) -> void:
+	_ensure_fx()
 	if _water_fx == null:
 		return
 	var idx := clampi(slot, 0, HS_PLOTS.size() - 1)
 	var at := _design_center(HS_PLOTS[idx])
+	_water_fx.visible = true
 	if _water_fx.has_method("play_water"):
-		_water_fx.call("play_water", at)
+		if _water_fx.is_node_ready():
+			_water_fx.call("play_water", at)
+		else:
+			_water_fx.call_deferred("play_water", at)
 
 
 # ───────── L1 炼丹 ─────────
@@ -683,49 +727,49 @@ func _render_alchemy() -> void:
 
 
 func _render_alchemy_tray(index: int, rect: Rect2, job: Dictionary, locked: bool) -> void:
-	var wrap := PanelContainer.new()
-	wrap.name = "AlchemyJob_%s" % (str(job.get("id", "")) if not job.is_empty() else str(index))
-	wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	## 空/锁托盘：低透明木描边，不盖场景托盘；忙/可领：紧凑状态 chip。
 	var local := _design_rect(rect)
-	wrap.position = local.position
-	wrap.size = local.size
+	var outline := Panel.new()
+	outline.name = "TrayOutline_%d" % index
+	outline.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	outline.position = local.position
+	outline.size = local.size
 	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.55, 0.38, 0.22, 0.72)
-	style.border_color = UiTokens.Q_COCOA
-	style.set_border_width_all(3)
-	style.set_corner_radius_all(24)
-	style.content_margin_left = 12
-	style.content_margin_right = 12
-	style.content_margin_top = 16
-	style.content_margin_bottom = 16
-	wrap.add_theme_stylebox_override("panel", style)
-	var col := VBoxContainer.new()
-	col.alignment = BoxContainer.ALIGNMENT_CENTER
-	wrap.add_child(col)
-	var title := Label.new()
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 26)
-	title.add_theme_color_override("font_color", Color(1, 0.97, 0.92))
-	var body := Label.new()
-	body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	body.add_theme_font_size_override("font_size", 22)
-	body.add_theme_color_override("font_color", Color(1, 0.97, 0.92, 0.85))
-	if locked:
-		title.text = "未解锁"
-		body.text = "升级炼丹房"
-	elif job.is_empty():
-		title.text = "空闲托盘"
-		body.text = "点选下方配方"
+	var ready := (not job.is_empty()) and str(job.get("status", "")) == "ready"
+	if locked or job.is_empty():
+		style.bg_color = Color(0.42, 0.30, 0.18, 0.10)
+		style.border_color = Color(0.55, 0.40, 0.26, 0.45)
+		style.set_border_width_all(2)
+	elif ready:
+		style.bg_color = Color(1.0, 0.72, 0.25, 0.16)
+		style.border_color = Color(UiTokens.Q_ORANGE, 0.85)
+		style.set_border_width_all(3)
 	else:
-		title.text = str(job.get("outputName", "丹药"))
-		body.text = str(job.get("line", ""))
-		if str(job.get("status", "")) == "ready":
-			var dot := QKit.reddot(24)
-			wrap.add_child(dot)
-	col.add_child(title)
-	col.add_child(body)
-	_stage.add_child(wrap)
+		style.bg_color = Color(0.55, 0.30, 0.15, 0.12)
+		style.border_color = Color(0.85, 0.45, 0.22, 0.55)
+		style.set_border_width_all(2)
+	style.set_corner_radius_all(28)
+	outline.add_theme_stylebox_override("panel", style)
+	_stage.add_child(outline)
+	var chip_text := ""
+	if locked:
+		chip_text = "未解锁"
+	elif job.is_empty():
+		chip_text = "点选配方"
+	elif ready:
+		chip_text = "可领 · %s" % str(job.get("outputName", "丹药"))
+	else:
+		chip_text = "%s · %s" % [str(job.get("outputName", "丹药")), str(job.get("line", "炼制中"))]
+	_place_chip(chip_text, Rect2(
+		rect.position.x + 16,
+		rect.position.y + rect.size.y - 72,
+		rect.size.x - 32,
+		56
+	), "TrayChip_%d" % index, ready)
+	if ready:
+		var dot := QKit.reddot(24)
+		dot.position = local.position + Vector2(local.size.x - 36, 10)
+		_stage.add_child(dot)
 	_hotspot("TrayTap_%d" % index, rect, func() -> void: _on_tray_tap(job, locked))
 
 
@@ -737,8 +781,13 @@ func _on_tray_tap(job: Dictionary, locked: bool) -> void:
 		action_requested.emit("toast", {"text": "先选下方配方"})
 		return
 	if str(job.get("status", "")) == "ready":
+		_ensure_fx()
 		if _fire_fx != null and _fire_fx.has_method("play_claim"):
-			_fire_fx.call("play_claim")
+			_fire_fx.visible = true
+			if _fire_fx.is_node_ready():
+				_fire_fx.call("play_claim")
+			else:
+				_fire_fx.call_deferred("play_claim")
 		action_requested.emit("alchemy_claim", {"jobId": str(job.get("id", ""))})
 	else:
 		action_requested.emit("toast", {"text": str(job.get("line", "炼制中"))})
@@ -756,8 +805,13 @@ func _render_recipe_cta(index: int, recipe: Dictionary, queue_full: bool) -> voi
 		if not can:
 			action_requested.emit("toast", {"text": "材料不足" if not bool(recipe.get("canCraft", false)) else "炼丹队列已满"})
 			return
+		_ensure_fx()
 		if _fire_fx != null and _fire_fx.has_method("set_alchemy_on"):
-			_fire_fx.call("set_alchemy_on", true)
+			_fire_fx.visible = true
+			if _fire_fx.is_node_ready():
+				_fire_fx.call("set_alchemy_on", true)
+			else:
+				_fire_fx.call_deferred("set_alchemy_on", true)
 		action_requested.emit("alchemy_start", {"recipeSlug": str(recipe.get("recipeSlug", ""))})
 	, label, "stone")
 	cta.disabled = not can
@@ -776,16 +830,20 @@ func _render_recipe_cta(index: int, recipe: Dictionary, queue_full: bool) -> voi
 
 
 func _sync_alchemy_fire() -> void:
-	if _fire_fx == null or not _fire_fx.has_method("set_alchemy_on"):
-		return
+	_ensure_fx()
 	var on := false
 	if _mode == MODE_ALCHEMY:
 		for job in _view.get("alchemy", []):
 			if typeof(job) == TYPE_DICTIONARY and str((job as Dictionary).get("status", "")) == "crafting":
 				on = true
 				break
-	_fire_fx.call("set_alchemy_on", on)
-	_fire_fx.visible = _mode == MODE_ALCHEMY
+	if _fire_fx != null and _fire_fx.has_method("set_alchemy_on"):
+		if _fire_fx.is_node_ready():
+			_fire_fx.call("set_alchemy_on", on)
+		else:
+			_fire_fx.call_deferred("set_alchemy_on", on)
+	if _fire_fx != null:
+		_fire_fx.visible = _mode == MODE_ALCHEMY
 	if _water_fx != null:
 		_water_fx.visible = _mode == MODE_GARDEN or _mode == MODE_OVERVIEW
 	if _array_fx != null:
@@ -962,9 +1020,15 @@ func _style_rune(btn: Button, enabled: bool) -> void:
 
 
 func _emit_enhance() -> void:
+	_ensure_fx()
 	if _array_fx != null and _array_fx.has_method("play_enhance_success"):
 		var at := _design_center(HS_ARRAY_HEART)
 		# 成功闪勿盖底栏（设计 y≥2124）
 		at.y = minf(at.y, 2124.0 - ORIGIN.y - 40.0)
-		_array_fx.call("play_enhance_success", at)
+		_array_fx.visible = true
+		_array_fx.position = at
+		if _array_fx.is_node_ready():
+			_array_fx.call("play_enhance_success", at)
+		else:
+			_array_fx.call_deferred("play_enhance_success", at)
 	enhance_entry_requested.emit()

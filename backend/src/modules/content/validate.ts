@@ -548,12 +548,8 @@ export function validateContent(
   }
 
   const droppedBooks = new Set(draft.dropTables.flatMap((table) => table.entries.map((entry) => entry.itemSlug)));
-  const rewardedMajors = new Set(
-    draft.stages.flatMap((stage) => (stage.bosses ?? []).flatMap((boss) => (boss.reward ? [boss.reward.major] : []))),
-  );
   for (const [skillSlug, bookSlug] of bookBySkill) {
-    const rewarded = [...rewardedMajors].some((major) => skillSlug.startsWith(`skill_${major}_`));
-    if (!droppedBooks.has(bookSlug) && !rewarded) {
+    if (!droppedBooks.has(bookSlug)) {
       warn("item", bookSlug, "slug", `技能 ${skillSlug} 的书不在任何掉落表里`);
     }
   }

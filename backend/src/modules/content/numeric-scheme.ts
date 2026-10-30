@@ -183,7 +183,6 @@ export type SchemeBoss = {
   hp: number;
   interval: number;
   drops: [];
-  reward: { major: string; stageIndex: number; nextMajor: string | null };
 };
 
 export function bossOf(index: number): SchemeBoss {
@@ -194,7 +193,6 @@ export function bossOf(index: number): SchemeBoss {
   }
   const raw = panelRaw(index);
   const panel = standardPanel(index);
-  const next = MAJORS[Math.floor(index / 3) + 1];
   return {
     name: `${major.name}${phase.name}·守关`,
     attack: round2(raw.attack * phase.difficulty),
@@ -202,7 +200,6 @@ export function bossOf(index: number): SchemeBoss {
     hp: round2(raw.hp * phase.difficulty),
     interval: intervalOf(panel.speed),
     drops: [],
-    reward: { major: major.key, stageIndex: index, nextMajor: next?.key ?? null },
   };
 }
 
@@ -401,11 +398,18 @@ export function buildScheme(): SchemeContent {
       { slug: "scheme_idle", displayName: "方案挂机掉落" },
       { slug: "scheme_first", displayName: "方案首通掉落" },
     ],
-    // 起始值：每次挑战首领成功后，有机会掉落突破石。全部可在后台「掉落表」里改。
+    // 起始值：挑战首领有机会掉突破石/技能书。旧方案奖励（boss.reward）已退役，书也进掉落表。可在后台「掉落表」改。
     dropEntries: [
       { dropTableSlug: "scheme_boss", itemSlug: "enh_stone_low", chanceBp: 3500, minQty: 1, maxQty: 2 },
       { dropTableSlug: "scheme_boss", itemSlug: "enh_stone_mid", chanceBp: 1500, minQty: 1, maxQty: 1 },
       { dropTableSlug: "scheme_boss", itemSlug: "enh_stone_high", chanceBp: 500, minQty: 1, maxQty: 1 },
+      ...skills.map((skill) => ({
+        dropTableSlug: "scheme_boss" as const,
+        itemSlug: `book_${skill.slug}`,
+        chanceBp: 800,
+        minQty: 1,
+        maxQty: 1,
+      })),
     ],
     stages,
   };

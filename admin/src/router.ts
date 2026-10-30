@@ -24,6 +24,7 @@ export const router = createRouter({
         { path: "config/skills", component: () => import("./views/config/SkillsView.vue") },
         { path: "config/chapters", component: () => import("./views/config/ChaptersView.vue") },
         { path: "config/stages", component: () => import("./views/config/StagesView.vue") },
+        { path: "config/drop-tables", component: () => import("./views/config/DropTablesView.vue") },
         { path: "config/enhance", component: () => import("./views/config/EnhanceView.vue") },
         { path: "config/dongfu", component: () => import("./views/config/DongfuView.vue") },
         { path: "config/combat", component: () => import("./views/config/CombatView.vue") },

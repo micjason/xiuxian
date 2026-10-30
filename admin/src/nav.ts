@@ -55,6 +55,13 @@ export const navTree: NavGroup[] = [
       { path: "/config/skills", label: "技能", desc: "技能与分类", keywords: "技能 心法 技能分类" },
       { path: "/config/chapters", label: "章节", desc: "章节顺序、战斗区背景、首领特效、章末首领关", keywords: "章节 背景 首领 精英 章末 特效 赤炎", isNew: true },
       { path: "/config/stages", label: "关卡与Boss", desc: "关卡、首领属性与掉落、试打", keywords: "首领 掉落 掉率 试打 历练" },
+      {
+        path: "/config/drop-tables",
+        label: "掉落表",
+        desc: "掉落表与条目：物品、概率、数量；查看哪些关卡引用",
+        keywords: "掉落表 掉落 概率 万分比 条目 首领 挂机 首通",
+        isNew: true,
+      },
       { path: "/config/enhance", label: "装备强化", desc: "强化经验、等级上限、属性加成、突破节点、分解返还", keywords: "强化 经验 分解 上限 品质 成长 突破 材料" },
       { path: "/config/combat", label: "战斗公式与参数", desc: "伤害、出手、战力权重、行囊与离线参数、试炼模拟", keywords: "规则 公式 k 权重 人偶 战力 模拟 冷却" },
       {

@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { contentRealms, contentStages } from "../../db/schema.js";
 import type { Db } from "../operations/record.js";
 import { AppError } from "../../shared/errors.js";
-import { saveDraftDropTable } from "./draft-service.js";
+import { deleteDraftDropTable, listDraftDropTables, saveDraftDropTable } from "./draft-service.js";
 import { readRules, readGameRules, rulesForSave, rulesFromInput, saveRules } from "./rules.js";
 import { formulaExamples } from "./formula-examples.js";
 import { buildFormulaPreview } from "./formula-preview.js";
@@ -289,8 +289,16 @@ export async function registerDraftRoutes(app: FastifyInstance, deps: { db: Db; 
     deleteTrialPuppet(deps.db, (request.params as { id: string }).id),
   );
   app.post("/admin/draft/trial", async (request) => runTrial(deps.db, request.body as TrialInput));
+  app.get("/admin/draft/drop-tables", async () => listDraftDropTables(deps.db));
   app.post("/admin/draft/drop-tables", async (request) =>
     saveDraftDropTable(deps.db, request.body as never, request.actor?.actorId ?? null),
+  );
+  app.put("/admin/draft/drop-tables/:slug", async (request) => {
+    const slug = (request.params as { slug: string }).slug;
+    return saveDraftDropTable(deps.db, { ...(request.body as object), slug }, request.actor?.actorId ?? null);
+  });
+  app.delete("/admin/draft/drop-tables/:slug", async (request) =>
+    deleteDraftDropTable(deps.db, (request.params as { slug: string }).slug),
   );
 
   // 可选快照/对比（开发阶段玩家读配置表，不依赖发布）。保留给种子脚本与版本历史页。

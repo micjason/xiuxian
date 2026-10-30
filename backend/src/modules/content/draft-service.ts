@@ -167,6 +167,104 @@ export async function saveDraftDropTable(
   return { ok: true };
 }
 
+export type DropTableStageRef = {
+  stageId: string;
+  displayName: string;
+  roles: ("boss" | "idle" | "firstClear")[];
+};
+
+export type DropTableRow = {
+  id: string;
+  displayName: string;
+  entries: { itemSlug: string; itemName: string; chanceBp: number; minQty: number; maxQty: number }[];
+  stageRefs: DropTableStageRef[];
+};
+
+/** 掉落表列表：条目 + 哪些关卡引用了这张表（首领/挂机/首通）。 */
+export async function listDraftDropTables(db: Db): Promise<DropTableRow[]> {
+  const tables = await db.select().from(contentDropTables);
+  const entries = await db.select().from(contentDropEntries);
+  const items = await db.select({ slug: contentItems.slug, displayName: contentItems.displayName }).from(contentItems);
+  const stages = await db
+    .select({
+      slug: contentStages.slug,
+      displayName: contentStages.displayName,
+      bossDropTableSlug: contentStages.bossDropTableSlug,
+      idleDropTableSlug: contentStages.idleDropTableSlug,
+      firstClearDropTableSlug: contentStages.firstClearDropTableSlug,
+    })
+    .from(contentStages);
+  const itemName = new Map(items.map((row) => [row.slug, row.displayName]));
+  const refsByTable = new Map<string, Map<string, DropTableStageRef>>();
+  const pushRef = (tableSlug: string, stageId: string, displayName: string, role: DropTableStageRef["roles"][number]) => {
+    let byStage = refsByTable.get(tableSlug);
+    if (!byStage) {
+      byStage = new Map();
+      refsByTable.set(tableSlug, byStage);
+    }
+    const existing = byStage.get(stageId);
+    if (existing) {
+      if (!existing.roles.includes(role)) existing.roles.push(role);
+      return;
+    }
+    byStage.set(stageId, { stageId, displayName, roles: [role] });
+  };
+  for (const stage of stages) {
+    pushRef(stage.bossDropTableSlug, stage.slug, stage.displayName, "boss");
+    pushRef(stage.idleDropTableSlug, stage.slug, stage.displayName, "idle");
+    pushRef(stage.firstClearDropTableSlug, stage.slug, stage.displayName, "firstClear");
+  }
+  return tables
+    .map((table) => ({
+      id: table.slug,
+      displayName: table.displayName,
+      entries: entries
+        .filter((entry) => entry.dropTableSlug === table.slug)
+        .map((entry) => ({
+          itemSlug: entry.itemSlug,
+          itemName: itemName.get(entry.itemSlug) ?? entry.itemSlug,
+          chanceBp: entry.chanceBp,
+          minQty: entry.minQty,
+          maxQty: entry.maxQty,
+        })),
+      stageRefs: [...(refsByTable.get(table.slug)?.values() ?? [])].sort((a, b) =>
+        a.displayName.localeCompare(b.displayName, "zh"),
+      ),
+    }))
+    .sort((a, b) => a.displayName.localeCompare(b.displayName, "zh") || a.id.localeCompare(b.id));
+}
+
+export async function deleteDraftDropTable(db: Db, slug: string) {
+  const [table] = await db.select().from(contentDropTables).where(eq(contentDropTables.slug, slug)).limit(1);
+  if (!table) {
+    throw new AppError("NOT_FOUND", "掉落表不存在");
+  }
+  const referring = await db
+    .select({
+      slug: contentStages.slug,
+      displayName: contentStages.displayName,
+      bossDropTableSlug: contentStages.bossDropTableSlug,
+      idleDropTableSlug: contentStages.idleDropTableSlug,
+      firstClearDropTableSlug: contentStages.firstClearDropTableSlug,
+    })
+    .from(contentStages);
+  const hits = referring.filter(
+    (row) => row.bossDropTableSlug === slug || row.idleDropTableSlug === slug || row.firstClearDropTableSlug === slug,
+  );
+  if (hits.length > 0) {
+    const names = hits
+      .slice(0, 5)
+      .map((row) => row.displayName)
+      .join("、");
+    const more = hits.length > 5 ? ` 等 ${hits.length} 个` : "";
+    throw new AppError("INVALID_INPUT", `掉落表正被关卡引用：${names}${more}。请先在关卡里改掉引用再删。`);
+  }
+  await assertDeletable(db, "dropTable", slug);
+  await db.delete(contentDropEntries).where(eq(contentDropEntries.dropTableSlug, slug));
+  await db.delete(contentDropTables).where(eq(contentDropTables.slug, slug));
+  return { ok: true };
+}
+
 export async function deleteDraftRealm(db: Db, slug: string) {
   await assertDeletable(db, "realm", slug);
   await db.delete(contentRealms).where(eq(contentRealms.slug, slug));

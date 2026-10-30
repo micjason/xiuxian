@@ -13,7 +13,7 @@ import { computePower, ratePower, resolveBreakthrough, skillLayerFactor, sumReac
 import { ensureSkillBook } from "../content/ops-content.js";
 import { loadCurrentWorld } from "../content/snapshot.js";
 import { rollDropTable } from "../content/roll-drops.js";
-import { bookOverflowCultivation, rollSchemeReward } from "../content/scheme-drops.js";
+import { bookOverflowCultivation } from "../content/scheme-drops.js";
 import { enhanceCap, enhancedStat, essenceCost, essenceRules, pendingBreakNode, qualityRule, readEnhanceRules } from "../content/enhance.js";
 import type { ContentSnapshot } from "../content/validate.js";
 import { settleTicks } from "../progress/settle.js";
@@ -959,7 +959,6 @@ async function fightStageBoss(tx: Tx, world: World, playerId: string, settled: F
   const skills = toCombatSkills(settled.pieces.skills, world.skills, openSkillSlotsFor(world, settled.state.realmSlug));
   const battle = simulateBossFight(fighter, monsterSide, battleConfigOf(world), ult, [], skills);
   const drops: { itemSlug: string; quantity: number; decomposed?: boolean; enhanceExp?: number; dropped?: boolean; freed?: { itemSlug: string; enhanceExp: number }[] }[] = [];
-  let nextPity: Record<string, number> | undefined;
   let bagFullNotice = false;
   let rewardInfo: Awaited<ReturnType<typeof grantBossRewards>> | null = null;
   if (battle.win && boss && usesRewardModel(boss)) {
@@ -978,36 +977,18 @@ async function fightStageBoss(tx: Tx, world: World, playerId: string, settled: F
     drops.push(...rewardInfo.drops);
     bagFullNotice = rewardInfo.bagFull;
   } else if (battle.win) {
-    const reward = boss?.reward;
-    if (reward) {
-      const rolled = rollSchemeReward({
-        major: reward.major,
-        nextMajor: reward.nextMajor,
-        stageIndex: reward.stageIndex,
-        firstClear: !progress.firstClearedAt,
-        pity: settled.state.dropPity,
+    // 旧方案奖励（boss.reward → rollSchemeReward）已退役；未配首通/重复奖励模型时一律走配置掉落表。
+    drops.push(
+      ...rollDropTable(
+        (boss?.drops ?? []).map((drop) => ({ itemSlug: drop.itemSlug, chanceBp: drop.chanceBp, minQty: 1, maxQty: 1 })),
         randomInt,
-      });
-      nextPity = rolled.pity;
-      for (const row of rolled.grants) {
-        drops.push({ itemSlug: row.slug, quantity: 1 });
-      }
-      // 方案首领的装备/技能书仍按方案掉落；后台掉落表里配置的材料（例如突破石）也一并掷骰。
-      const rewardTable = world.dropTables.find((row) => row.slug === stage.bossDropTableSlug);
-      drops.push(...rollDropTable(rewardTable?.entries ?? [], randomInt));
-    } else {
-      drops.push(
-        ...rollDropTable(
-          (boss?.drops ?? []).map((drop) => ({ itemSlug: drop.itemSlug, chanceBp: drop.chanceBp, minQty: 1, maxQty: 1 })),
-          randomInt,
-        ),
-      );
-      const bossTable = world.dropTables.find((row) => row.slug === stage.bossDropTableSlug);
-      drops.push(...rollDropTable(bossTable?.entries ?? [], randomInt));
-      if (!progress.firstClearedAt) {
-        const firstTable = world.dropTables.find((row) => row.slug === stage.firstClearDropTableSlug);
-        drops.push(...rollDropTable(firstTable?.entries ?? [], randomInt));
-      }
+      ),
+    );
+    const bossTable = world.dropTables.find((row) => row.slug === stage.bossDropTableSlug);
+    drops.push(...rollDropTable(bossTable?.entries ?? [], randomInt));
+    if (!progress.firstClearedAt) {
+      const firstTable = world.dropTables.find((row) => row.slug === stage.firstClearDropTableSlug);
+      drops.push(...rollDropTable(firstTable?.entries ?? [], randomInt));
     }
     for (const drop of drops) {
       const skill = world.skills.find((row) => row.slug === drop.itemSlug);
@@ -1062,10 +1043,10 @@ async function fightStageBoss(tx: Tx, world: World, playerId: string, settled: F
       await tx.insert(playerStageProgress).values({ playerId, stageSlug: next.slug, unlockedAt: now }).onConflictDoNothing();
     }
   }
-  if (fight.mode === "manual" || nextPity) {
+  if (fight.mode === "manual") {
     await tx
       .update(playerStates)
-      .set({ ...(fight.mode === "manual" ? { lastChallengeAt: now } : {}), ...(nextPity ? { dropPity: nextPity } : {}) })
+      .set({ lastChallengeAt: now })
       .where(eq(playerStates.playerId, playerId));
   }
   return {

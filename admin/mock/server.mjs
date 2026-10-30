@@ -116,7 +116,6 @@ let popupTypes = [
   { slug: "update_notice", template: "update_dialog", priority: 2, enabled: true },
   { slug: "daily_gift", template: "reward_dialog", priority: 3, enabled: false },
 ];
-let buildings = [{ slug: "spirit_field", displayName: "灵田", maxLevel: 10, laborBonus: 0.1, cultivateBonusPerLevel: 0.05 }];
 let releases = [
   { id: "r3", versionName: "0.6.7", versionCode: 24, forceUpdate: false, isCurrent: true, sha256: "9f2c1d7a5be04a6c8d33e0a1c2f4b7d9a0e51c3b6f8a2d4e7c9b1a3d5f7e9c2b" },
   { id: "r2", versionName: "0.6.3", versionCode: 20, forceUpdate: true, isCurrent: false, sha256: "3a7bd9e12c4f5a60b8d1e3f7a9c2b4d6e8f0a1b3c5d7e9f1a3b5c7d9e1f3a5b7" },
@@ -277,8 +276,11 @@ async function api(req, res, url) {
   if (p === "/admin/announcements") { if (body.id) announcements = announcements.map((a) => (a.id === body.id ? { ...a, ...body } : a)); else announcements.push({ ...body, id: uid("a") }); return json(res, {}); }
   if (p === "/admin/popup-types") return json(res, popupTypes);
   if (p.startsWith("/admin/popup-types/") && m === "PUT") { const slug = p.split("/").pop(); popupTypes = popupTypes.map((t) => (t.slug === slug ? { ...t, ...body } : t)); return json(res, {}); }
-  if (p === "/admin/content/buildings") return json(res, buildings);
-  if (p.startsWith("/admin/content/buildings/") && m === "PUT") return json(res, {});
+  if (p === "/admin/content/buildings" || (p.startsWith("/admin/content/buildings/") && m === "PUT")) {
+    res.writeHead(410, { "content-type": "application/json; charset=utf-8" });
+    res.end(JSON.stringify({ error: { code: "GONE", message: "洞府建筑接口已下线，请使用「洞府」配置" } }));
+    return;
+  }
   if (p === "/content/current") return json(res, { globals: baseGlobals });
 
   if (p === "/admin/draft/enhance") {

@@ -724,6 +724,13 @@ export const playerOfflineReports = pgTable("player_offline_reports", {
   baseGained: bigint("base_gained", { mode: "number" }).notNull().default(0),
   bonusGained: bigint("bonus_gained", { mode: "number" }).notNull().default(0),
   realmSlug: text("realm_slug").notNull(),
+  /** 离线发放的物品（挂机掉落表 + 种子等），供客户端战利品弹层。 */
+  loot: jsonb("loot")
+    .$type<{ itemSlug: string; quantity: number; quality: string | null; idle?: boolean; seed?: boolean }[]>()
+    .notNull()
+    .default([]),
+  /** 行囊满导致装备掉落被跳过。 */
+  bagFullSkipped: boolean("bag_full_skipped").notNull().default(false),
   acknowledgedAt: timestamp("acknowledged_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

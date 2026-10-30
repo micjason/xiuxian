@@ -64,7 +64,6 @@ async function draftLongterm(db: Db): Promise<{ releaseId: string; body: JsonRec
     queue_limit: 4,
     resources: {},
     cave_rates: {},
-    buildings: [],
   };
   return { releaseId, body };
 }
@@ -167,35 +166,6 @@ export async function saveDrop(
   await writeDocument(db, releaseId, ADVENTURE, body);
 }
 
-export async function listBuildings(db: Db) {
-  const { body } = await draftLongterm(db);
-  return arrayOf(body.buildings).map(buildingSummary);
-}
-
-export async function saveBuilding(
-  db: Db,
-  id: string,
-  input: { displayName: string; maxLevel: number; laborBonus: number; cultivateBonusPerLevel: number },
-): Promise<void> {
-  const { releaseId, body } = await draftLongterm(db);
-  const buildings = arrayOf(body.buildings);
-  const index = buildings.findIndex((building) => building.id === id);
-  const next = {
-    ...(index >= 0 ? buildings[index] : { id, costs: {}, production_bonus: {} }),
-    id,
-    display_name: input.displayName,
-    max_level: input.maxLevel,
-    labor_bonus: input.laborBonus,
-    cultivate_bonus_per_level: input.cultivateBonusPerLevel,
-  };
-  if (index >= 0) {
-    buildings[index] = next;
-  } else {
-    buildings.push(next);
-  }
-  body.buildings = buildings;
-  await writeDocument(db, releaseId, LONGTERM, body);
-}
 
 export async function importContentBodies(
   db: Db,
@@ -290,14 +260,3 @@ function stageSummary(stage: JsonRecord) {
   return record ?? { slug: "", displayName: "", bossName: "", attack: 0, defense: 0, hp: 0, interval: 1, drops: [] };
 }
 
-function buildingSummary(building: JsonRecord) {
-  const id = String(building.id ?? "");
-  return {
-    id,
-    slug: id,
-    displayName: String(building.display_name ?? ""),
-    maxLevel: numberOf(building.max_level, 1),
-    laborBonus: numberOf(building.labor_bonus, 0),
-    cultivateBonusPerLevel: numberOf(building.cultivate_bonus_per_level, 0),
-  };
-}

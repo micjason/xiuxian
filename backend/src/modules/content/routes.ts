@@ -4,10 +4,8 @@ import {
   buildPublishedContent,
   importContentBodies,
   type JsonRecord,
-  listBuildings,
   listStages,
   readDraftSettings,
-  saveBuilding,
   saveDrop,
   saveStage,
   updateDraftSettings,
@@ -17,6 +15,7 @@ import { PublishRejected } from "./service.js";
 import { ensureSkillBooks } from "./ops-content.js";
 import { loadCurrentWorld } from "./snapshot.js";
 import { stageRecommendedPower } from "./stage-power.js";
+import { scanOutfitAssets } from "../loop/outfit-assets.js";
 import {
   diffDraft,
   listDraftItems,
@@ -117,20 +116,18 @@ export async function registerContentRoutes(
     return { ok: true };
   });
 
-  app.get("/admin/content/buildings", async (request, reply) => {
-    return listBuildings(deps.db);
+  // 旧洞府建筑 CRUD 已下线；洞府 v1 走 /config/dongfu（globals.dongfu）。
+  app.get("/admin/content/buildings", async (_request, reply) => {
+    return reply.code(410).send({ error: { code: "GONE", message: "洞府建筑接口已下线，请使用「洞府」配置（/config/dongfu）" } });
   });
 
-  app.put("/admin/content/buildings/:id", async (request, reply) => {
-    const params = request.params as { id: string };
-    const body = request.body as {
-      displayName: string;
-      maxLevel: number;
-      laborBonus: number;
-      cultivateBonusPerLevel: number;
-    };
-    await saveBuilding(deps.db, params.id, body);
-    return { ok: true };
+  app.put("/admin/content/buildings/:id", async (_request, reply) => {
+    return reply.code(410).send({ error: { code: "GONE", message: "洞府建筑接口已下线，请使用「洞府」配置（/config/dongfu）" } });
+  });
+
+  /** 换装 A：五品质 × preview/meditate/avatar/avatar_round 缺图只读告警。 */
+  app.get("/admin/content/outfit-assets", async () => {
+    return scanOutfitAssets();
   });
 
   app.post("/admin/content/import", async (request, reply) => {

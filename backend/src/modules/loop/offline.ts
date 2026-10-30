@@ -3,6 +3,14 @@ import type { Tx } from "../../db/tx.js";
 import { playerOfflineReports } from "../../db/schema.js";
 import { AppError } from "../../shared/errors.js";
 
+export type OfflineLootItem = {
+  itemSlug: string;
+  quantity: number;
+  quality: string | null;
+  idle?: boolean;
+  seed?: boolean;
+};
+
 export type OfflineReportInput = {
   playerId: string;
   startedAt: Date;
@@ -13,6 +21,8 @@ export type OfflineReportInput = {
   gained: number;
   baseGained: number;
   realmSlug: string;
+  loot?: OfflineLootItem[];
+  bagFullSkipped?: boolean;
 };
 
 /**
@@ -34,6 +44,8 @@ export async function recordOfflineReport(tx: Tx, input: OfflineReportInput) {
       baseGained: Math.min(input.baseGained, input.gained),
       bonusGained,
       realmSlug: input.realmSlug,
+      loot: input.loot ?? [],
+      bagFullSkipped: Boolean(input.bagFullSkipped),
     })
     .returning();
   return row;

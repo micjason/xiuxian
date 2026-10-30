@@ -94,12 +94,15 @@ describe("monster kill drops (5% per kill, regional quality weights, equal 6-slo
     });
   });
 
-  it("offline gaps never drop gear, even with a guaranteed roll", async () => {
+  it("offline gaps roll idleDropTableSlug (not monsterDrop); empty idle table still yields kills but no gear", async () => {
     await withDb(async (db) => {
       const { app, control, jump, bag } = await boot(db, "drop_c");
-      control.chance = 0;
+      control.chance = 0; // monsterDrop 仅在线；离线不走它
       const result = await jump(3600);
-      expect(result.lastSettle).toMatchObject({ online: false, kills: 0 });
+      expect(result.lastSettle.online).toBe(false);
+      expect(result.lastSettle.kills).toBeGreaterThan(0); // 等效击杀 = countedSeconds / waveCycle
+      // 原型 idle 表无条目 → 不发装备；材料也不会凭空出现
+      expect(result.lastSettle.drops.filter((row: { idle?: boolean }) => row.idle)).toEqual([]);
       expect(await bag()).toHaveLength(0);
       await app.close();
     });

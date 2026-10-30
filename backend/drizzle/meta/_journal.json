@@ -309,6 +309,13 @@
       "when": 1800300000000,
       "tag": "0063_skill_cast_config",
       "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1800400000000,
+      "tag": "0064_offline_loot",
+      "breakpoints": true
     }
   ]
 }

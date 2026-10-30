@@ -57,7 +57,7 @@ describe("normal-monster waves (server-deterministic, online only)", () => {
     });
   }, 120_000);
 
-  it("a gap longer than 15 s is one offline segment: only the passive cultivation, no kills, wave progress reset", async () => {
+  it("a gap longer than 15 s is one offline segment: passive cultivation + idle equivalent kills; remainder carried in wave.progress", async () => {
     await withDb(async (db) => {
       const { app, at, state, playerId } = await boot(db, "wave_b");
       at(6);
@@ -66,13 +66,16 @@ describe("normal-monster waves (server-deterministic, online only)", () => {
       await db.update(playerStates).set({ waveProgress: 5, waveDeathsInRow: 2 }).where(eq(playerStates.playerId, playerId));
       at(6 + 16); // 16 秒 > 15 秒
       const away = await state();
-      expect(away.lastSettle).toMatchObject({ online: false, seconds: 16, passiveGained: 16, kills: 0, killCultivation: 0 });
+      expect(away.lastSettle).toMatchObject({ online: false, seconds: 16, passiveGained: 16, killCultivation: 0 });
+      expect(away.lastSettle.kills).toBeGreaterThanOrEqual(0); // 等效击杀按 waveCycle，可能有
       expect(away.cultivation).toBe(online.cultivation + 16);
-      expect(away.wave.progress).toBe(0);
+      // 余数携带：不再强制清零
+      expect(away.wave.progress).toBeGreaterThanOrEqual(0);
       expect(away.wave.deathsInRow).toBe(0);
       at(6 + 16 + 2 * 3600);
       const long = await state();
-      expect(long.lastSettle).toMatchObject({ online: false, passiveGained: 7200, kills: 0 });
+      expect(long.lastSettle).toMatchObject({ online: false, passiveGained: 7200 });
+      expect(long.lastSettle.kills).toBeGreaterThan(0);
       expect(long.cultivation).toBe(away.cultivation + 7200);
       // 重新回到前台：下一次 3 秒轮询又算在线
       at(6 + 16 + 2 * 3600 + 3);

@@ -71,6 +71,29 @@
             </dl>
           </SectionCard>
 
+          <SectionCard title="换装资源" anchor="outfit" desc="只读校验：五品质 × 战斗/打坐/头像/圆头像。缺图会报警；不在此页改映射（B/C 未做）。">
+            <template #extra>
+              <CustomTag v-if="outfitAssets?.ok" kind="info">齐全 {{ outfitAssets.present }}/{{ outfitAssets.expected }}</CustomTag>
+              <CustomTag v-else-if="outfitAssets" kind="custom">缺 {{ outfitAssets.missing.length }} 张</CustomTag>
+            </template>
+            <el-alert
+              v-if="outfitAssets && !outfitAssets.ok"
+              type="warning"
+              :closable="false"
+              show-icon
+              title="有换装整图缺失"
+              class="row-gap"
+            />
+            <el-table v-if="outfitAssets?.missing?.length" :data="outfitAssets.missing" size="small" empty-text="齐全">
+              <el-table-column prop="quality" label="品质" width="90" />
+              <el-table-column prop="kind" label="类型" width="120" />
+              <el-table-column prop="key" label="资源 key" min-width="160" />
+              <el-table-column prop="relativePath" label="路径" min-width="240" />
+            </el-table>
+            <p v-else-if="outfitAssets?.ok" class="muted small">五品质 preview_* / meditate_* / avatar_* / avatar_*_round 均已就位。</p>
+            <p v-else-if="!outfitAssets" class="muted small">正在检查…</p>
+          </SectionCard>
+
           <SectionCard title="强化与分解" anchor="enhance">
             <template #extra><el-button link type="primary" @click="router.push('/config/enhance')">突破节点与材料在「装备强化」 ›</el-button></template>
             <FormRow label="行囊满时不发装备的来源" help="行囊满时，这些来源的装备直接不发（挂机 / 离线同样），游戏端在历练页显示「行囊已满」提示，玩家点开自己选装备分解。没勾的来源满包照发（可以超出容量）。不再有自动分解。" :help-meta="`出厂值 ${(data.tuningDefaults.bagFullSkipSources ?? []).map((key) => GRANT_SOURCE_NAMES[key] ?? key).join(' / ')}`">
@@ -321,6 +344,7 @@ const ANCHORS = [
   { id: "drop", label: "装备掉落默认" },
   { id: "boss", label: "首领规则" },
   { id: "gear", label: "装备生成" },
+  { id: "outfit", label: "换装资源" },
   { id: "enhance", label: "强化与分解" },
   { id: "skill", label: "技能层数系数" },
   { id: "slots", label: "技能栏位" },
@@ -339,6 +363,13 @@ const loading = ref(false);
 const saving = ref(false);
 const error = ref("");
 const data = ref<Overview | null>(null);
+type OutfitAssetReport = {
+  expected: number;
+  present: number;
+  missing: { quality: string; kind: string; key: string; relativePath: string; message: string }[];
+  ok: boolean;
+};
+const outfitAssets = ref<OutfitAssetReport | null>(null);
 const rules = ref<FormValues>({});
 const tuning = ref<Tuning>({} as Tuning);
 const enhance = ref<Enhance | null>(null);
@@ -495,14 +526,16 @@ async function reload(): Promise<void> {
   try {
     // 先取版本号再读数据（旧表单覆盖保护）
     await rev.load();
-    const [overview, realmList, itemList] = await Promise.all([
+    const [overview, realmList, itemList, outfit] = await Promise.all([
       api<Overview>("/admin/draft/config-overview"),
       api<{ code: number; displayName: string; slug: string }[]>("/admin/draft/realms"),
       api<{ id: string; displayName: string }[]>("/admin/draft/items"),
+      api<OutfitAssetReport>("/admin/content/outfit-assets").catch(() => null),
     ]);
     apply(overview);
     realms.value = realmList;
     itemNames.value = new Map(itemList.map((item) => [item.id, item.displayName]));
+    outfitAssets.value = outfit;
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : "加载失败";
   } finally {

@@ -8,6 +8,7 @@ import type { GameRules } from "../content/rules.js";
 import { orderedStages, type StageAccess } from "../content/stage-order.js";
 import { grantItem } from "./bag.js";
 import { resolveSeedDrops, rollSeedDropsForKill, seedDropsOf } from "../content/seed-drops.js";
+import { rollDropTable } from "../content/roll-drops.js";
 import { tuningOf } from "../content/tuning.js";
 
 type World = ContentSnapshot & { version: number };
@@ -58,6 +59,8 @@ export type WaveDrop = {
   designated?: boolean;
   /** 这件来自洞府种子掉落。 */
   seed?: boolean;
+  /** 这件来自离线挂机掉落表（idleDropTableSlug）。 */
+  idle?: boolean;
   quantity?: number;
 };
 
@@ -226,7 +229,7 @@ export async function settleWaves(
 }
 
 /**
- * 离线时段只发种子（不发装备、不算击杀修为）：按同样的波次节奏估算击杀数，再按生效种子表掷骰。
+ * 离线时段种子仍按估算击杀发（装备改走 idleDropTableSlug，见 settleOfflineIdleDrops）：按同样的波次节奏估算击杀数，再按生效种子表掷骰。
  * 装备掉落仍仅在线（见 settleLocked 注释）；种子给洞府药园，离线也要能攒。
  */
 export async function settleOfflineSeedDrops(
@@ -279,4 +282,81 @@ export async function settleOfflineSeedDrops(
     }
   }
   return drops;
+}
+
+/**
+ * 离线等效击杀：计入秒数 ÷ 一波周期秒数，余数携带到下次结算。
+ * 不额外 ×0.5；离线上限由 settleTicks 的 offlineCapSeconds 管。
+ */
+export function idleEquivalentKills(
+  countedSeconds: number,
+  waveCycleSeconds: number,
+  remainderSeconds = 0,
+): { kills: number; remainderSeconds: number } {
+  if (!(waveCycleSeconds > 0) || !(countedSeconds >= 0)) {
+    return { kills: 0, remainderSeconds: Math.max(0, remainderSeconds) };
+  }
+  const total = Math.max(0, remainderSeconds) + countedSeconds;
+  const kills = Math.floor(total / waveCycleSeconds);
+  return { kills, remainderSeconds: total - kills * waveCycleSeconds };
+}
+
+/**
+ * 离线挂机掉装：按等效击杀次数掷关卡 idleDropTableSlug；装备+材料都发。
+ * 满包时装备按行囊规则跳过并标记 bagFull（材料可堆叠仍发）。
+ * 余数写回 progress，下次离线/在线接着算。
+ */
+export async function settleOfflineIdleDrops(
+  tx: Tx,
+  world: World,
+  playerId: string,
+  input: {
+    rules: GameRules;
+    stage: Stage;
+    stats: { attack: number; defense: number; hp: number; interval: number };
+    countedSeconds: number;
+    remainderSeconds: number;
+    capacity: number;
+    now: Date;
+  },
+): Promise<{ kills: number; drops: WaveDrop[]; bagFull: boolean; progress: number }> {
+  const monster = input.stage.monsters?.[0];
+  if (!monster || input.countedSeconds <= 0) {
+    return { kills: 0, drops: [], bagFull: false, progress: Math.max(0, input.remainderSeconds) };
+  }
+  const cycle = cycleFor(input.rules, input.stats, monster);
+  const { kills, remainderSeconds } = idleEquivalentKills(input.countedSeconds, cycle.cycleSeconds, input.remainderSeconds);
+  if (kills <= 0) {
+    return { kills: 0, drops: [], bagFull: false, progress: remainderSeconds };
+  }
+  const table = world.dropTables.find((row) => row.slug === input.stage.idleDropTableSlug);
+  const entries = (table?.entries ?? []).filter((entry) => entry.chanceBp > 0 && world.items.some((item) => item.slug === entry.itemSlug));
+  const drops: WaveDrop[] = [];
+  let bagFull = false;
+  if (entries.length === 0) {
+    return { kills, drops, bagFull: false, progress: remainderSeconds };
+  }
+  for (let index = 0; index < kills; index += 1) {
+    for (const rolled of rollDropTable(entries, waveRandom)) {
+      const definition = world.items.find((item) => item.slug === rolled.itemSlug);
+      const granted = await grantItem(tx, world, playerId, rolled.itemSlug, rolled.quantity, `wave:${input.stage.slug}`, input.now, {
+        capacity: input.capacity,
+        grant: { source: "stage_drop", sourceRef: input.stage.slug },
+      });
+      drops.push({
+        itemSlug: rolled.itemSlug,
+        quality: definition?.quality ?? null,
+        decomposed: granted.decomposed > 0,
+        dropped: granted.dropped > 0,
+        freed: granted.freed,
+        enhanceExp: granted.enhanceExp,
+        idle: true,
+        quantity: rolled.quantity,
+      });
+      if (granted.dropped > 0) {
+        bagFull = true;
+      }
+    }
+  }
+  return { kills, drops, bagFull, progress: remainderSeconds };
 }

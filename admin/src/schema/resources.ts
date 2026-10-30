@@ -236,22 +236,11 @@ export const popupSchema: Schema = {
   ],
 };
 
-/** @deprecated 旧版劳作加成建筑；洞府 v1 请用 /config/dongfu（globals.dongfu）。 */
-export const buildingSchema: Schema = {
-  title: "洞府建筑（已停用）",
-  fields: [
-    { key: "slug", label: "编号", kind: "text", required: true, lockedAfterCreate: true, hint: "建筑的唯一标识，英文小写加下划线，创建后不能改。", example: "spirit_field", column: { width: 150 } },
-    { key: "displayName", label: "名称", kind: "text", required: true, hint: "已停用：请到「洞府」页配置药园/炼丹。", column: { minWidth: 140 } },
-    { key: "maxLevel", label: "等级上限", kind: "int", min: 1, default: 1, hint: "建筑最高几级。", column: { width: 100 } },
-    { key: "laborBonus", label: "劳作加成", kind: "number", min: 0, default: 0, hint: "劳作产出加成。", column: { width: 100 } },
-    { key: "cultivateBonusPerLevel", label: "每级修炼加成", kind: "number", min: 0, default: 0, hint: "每升一级增加的修炼加成。", column: { width: 120 } },
-  ],
-};
 
 /** 在字段说明里按 key 查中文名，发布变更清单用它把英文字段名翻成中文。 */
 export const allSchemas: Schema[] = [
   realmSchema, itemSchema, gearPieceSchema, qualityFactorSchema, skillSchema, skillCategorySchema, stageSchema, bossSchema,
-  rulesSchema, puppetManualSchema, announcementSchema, popupSchema, buildingSchema,
+  rulesSchema, puppetManualSchema, announcementSchema, popupSchema,
 ];
 
 const extraLabels: Record<string, string> = {

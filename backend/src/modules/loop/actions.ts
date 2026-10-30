@@ -27,7 +27,7 @@ import { maxSkillSlots, nextSkillSlotRule, openSkillSlots } from "../content/ski
 import { announcementNoticesForPlayer, noticesForPlayer } from "../notices/service.js";
 import { bossDailyUsed, grantBossRewards, usesRewardModel } from "./boss-rewards.js";
 import { acknowledgeOfflineReport, pendingOfflineReport, recordOfflineReport } from "./offline.js";
-import { EMPTY_WAVES, cycleFor, farmableStages, resolveFarmStage, settleOfflineSeedDrops, settleWaves, waveRandomInt, wavesCompletedIn, type WaveSettlement } from "./waves.js";
+import { EMPTY_WAVES, cycleFor, farmableStages, resolveFarmStage, settleOfflineIdleDrops, settleOfflineSeedDrops, settleWaves, waveRandomInt, wavesCompletedIn, type WaveSettlement } from "./waves.js";
 import { activeBuffsDto, applyBuffsToStats, listActiveBuffs, sumActiveBuffs } from "./active-buffs.js";
 import { bossRulesFor, globalBossRules, nextStageOf, orderedStages, stageAccessList, stageTier, type StageAccess } from "../content/stage-order.js";
 import { stageRecommendedPower } from "../content/stage-power.js";
@@ -421,7 +421,17 @@ async function settleLocked(tx: Tx, playerId: string, world: World, now: Date, o
   } else if (online && stage) {
     waves = { ...EMPTY_WAVES, online, stageSlug: stage.slug, monsterName: stage.monsters?.[0]?.name ?? null, progress: state.waveProgress, deathsInRow: state.waveDeathsInRow };
   } else if (!online && stage && settled.countedSeconds > 0) {
-    // 离线：装备仍不掉；种子按估算击杀发放（洞府药园）。
+    // 离线：等效击杀 = countedSeconds / waveCycle（余数携带），掷 idleDropTableSlug；种子仍按估算击杀发。
+    // 不额外 ×0.5（离线上限已管时长）。满包装备跳过并 notice。
+    const idle = await settleOfflineIdleDrops(tx, world, playerId, {
+      rules,
+      stage,
+      stats,
+      countedSeconds: settled.countedSeconds,
+      remainderSeconds: state.waveProgress,
+      capacity: rules.bagCapacity + state.bagBonus,
+      now,
+    });
     const seedDrops = await settleOfflineSeedDrops(tx, world, playerId, {
       rules,
       stage,
@@ -430,11 +440,27 @@ async function settleLocked(tx: Tx, playerId: string, world: World, now: Date, o
       capacity: rules.bagCapacity + state.bagBonus,
       now,
     });
-    if (seedDrops.length > 0) {
-      waves = { ...EMPTY_WAVES, online: false, stageSlug: stage.slug, monsterName: stage.monsters?.[0]?.name ?? null, drops: seedDrops };
-    }
+    waves = {
+      ...EMPTY_WAVES,
+      online: false,
+      stageSlug: stage.slug,
+      monsterName: stage.monsters?.[0]?.name ?? null,
+      kills: idle.kills,
+      drops: [...idle.drops, ...seedDrops],
+      bagFull: idle.bagFull,
+      progress: idle.progress,
+    };
+  } else if (!online && stage) {
+    waves = {
+      ...EMPTY_WAVES,
+      online: false,
+      stageSlug: stage.slug,
+      monsterName: stage.monsters?.[0]?.name ?? null,
+      progress: state.waveProgress,
+    };
   }
-  const waveProgress = online ? (stage ? waves.progress : 0) : 0;
+  // 在线推进波次进度；离线把等效击杀余数写回 waveProgress，下次接着算。
+  const waveProgress = stage ? waves.progress : 0;
   const waveDeathsInRow = online ? (stage ? waves.deathsInRow : 0) : 0;
   const cultivation = settled.cultivation + waves.killCultivation;
   const [saved] = await tx
@@ -451,6 +477,15 @@ async function settleLocked(tx: Tx, playerId: string, world: World, now: Date, o
     .returning();
   // 离线弹窗：这一段离线 ≥ 弹窗最短时长就记一条（修为已经入账，没有领取步骤）。
   if (!online && gapSeconds >= rules.offlinePopupMinSeconds && settled.countedSeconds > 0) {
+    const loot = waves.drops
+      .filter((drop) => !drop.dropped)
+      .map((drop) => ({
+        itemSlug: drop.itemSlug,
+        quantity: drop.quantity ?? 1,
+        quality: drop.quality,
+        idle: Boolean(drop.idle),
+        seed: Boolean(drop.seed),
+      }));
     await recordOfflineReport(tx, {
       playerId,
       startedAt: state.lastSettledAt,
@@ -461,6 +496,8 @@ async function settleLocked(tx: Tx, playerId: string, world: World, now: Date, o
       gained: settled.gained,
       baseGained: Math.floor(settled.countedSeconds / Math.max(1, realm.tickSeconds)) * realm.gainPerTick,
       realmSlug: state.realmSlug,
+      loot,
+      bagFullSkipped: waves.bagFull,
     });
   }
   const offlineReport = await pendingOfflineReport(tx, playerId);
@@ -578,6 +615,9 @@ async function stateDto(tx: Tx, world: World, playerId: string, settled: Awaited
           baseGained: settled.offlineReport.baseGained,
           bonusGained: settled.offlineReport.bonusGained,
           realmName: world.realms.find((row) => row.slug === settled.offlineReport?.realmSlug)?.displayName ?? settled.offlineReport.realmSlug,
+          /** 离线发放的物品清单（含挂机表 + 种子），供客户端离线战利品弹层；二号接 UI。 */
+          loot: settled.offlineReport.loot ?? [],
+          bagFullSkipped: Boolean(settled.offlineReport.bagFullSkipped),
         }
       : null,
     ult: ultOf(world, settled.state.realmSlug),
@@ -596,6 +636,7 @@ async function stateDto(tx: Tx, world: World, playerId: string, settled: Awaited
       killCultivation: settled.waves.killCultivation,
       drops: settled.waves.drops,
       bagFull: settled.waves.bagFull,
+      bagFullSkipped: settled.waves.bagFull,
       autoChallenge: settled.autoChallenge,
       idleBoss: settled.idleBoss,
     },

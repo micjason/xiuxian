@@ -174,7 +174,7 @@ describe("progression sim", () => {
 
   it("overview gear/skill tiers use Chinese labels, not English keys", () => {
     const world = baseWorld();
-    world.globals.starterItems = [{ slug: "sword_r1", quantity: 1 }];
+    world.globals.starterItems = [{ itemSlug: "sword_r1", quantity: 1 }];
     const result = runProgressionSim(world, { targetRealmId: "r2", wallBudgetMs: 5000 });
     const withGear = result.overview.filter((row) => row.gearTier !== "无装");
     expect(withGear.length).toBeGreaterThan(0);

@@ -8,7 +8,7 @@ extends Node2D
 ##   on_event(event)                         —— BossFight 的每个事件（我方普攻 / 自动技能 kind:"ult"(事件名遗留) / 首领攻击）
 ##   play_result(win, reason) → 等 result_finished —— 战斗结束
 ##   set_skill_charge(v) / set_ult_charge(v) —— 自动技能蓄力 0..1（仅表现）；**成鹏定：无手动大招/技能按钮**，蓄满由战斗逻辑自动放技能事件
-## 主角：页面给的主角是 player_fight*.png 的 TextureRect（或直接给 hero_battle.tscn 实例）时，自动换成主角战斗动画
+## 主角：页面给的主角是 player_fight* / 换装 preview_*（outfit/）TextureRect（或直接给 hero_battle.tscn 实例）时，自动换成主角战斗动画
 ## （anim_q/battle_hero：待机呼吸 / 前冲出剑 / 受击闪白击退 / 蓄力聚气 / 自动技能蓄势 / 失败变灰 / 胜利小跳）。其他主角节点照旧整体位移、染色。
 ## 首领：不再区分精英 / 章末首领，一律统一首领外观 +「首领来袭」（unified_boss = true；tier 只为兼容保留，被忽略）。
 ## 伤害数字 = 事件里的 damage 四舍五入（和战报一致）。自动技能用大号数字和强震屏；数字旁不加任何文字、不出现「大招/暴击」按钮文案。
@@ -57,7 +57,7 @@ const TEX_DUST_PUFF := preload("res://anim_q/battle_boss/fx/fx_dust_puff.png")
 			_layout()
 ## 【已废弃】旧精英的震屏系数（unified_boss = false 且 tier = 1 时才用）
 @export var elite_shake_scale := 0.5
-## 页面给的主角是 player_fight*.png 时自动换成主角战斗动画（anim_q/battle_hero/hero_battle.tscn）
+## 页面给的主角是 player_fight* 或换装 preview_* 时自动换成主角战斗动画（anim_q/battle_hero/hero_battle.tscn）
 @export var use_hero_rig := true
 @export var shake_light := SHAKE_LIGHT      ## 普攻、首领扑击（3～5）
 @export var shake_medium := SHAKE_MEDIUM   ## 技能下限
@@ -278,14 +278,29 @@ func _do_attach() -> void:
 		set_boss_from_art()
 
 
-## 主角：直接给的 hero_battle 实例，或 player_fight*.png 的 TextureRect（换成动画，原 TextureRect 隐藏，只用它的框定位）。
+## 战斗主角贴图：默认 player_fight*，或换装整图 preview_* / outfit/ 下的预览。冥想/头像图不要走这里。
+static func hero_tex_allows_rig(resource_path: String) -> bool:
+	if resource_path.is_empty():
+		return false
+	var file := resource_path.get_file()
+	if file.begins_with("player_fight"):
+		return true
+	if file.begins_with("preview_"):
+		return true
+	# 换装预览目录（含 preview_*.png）；排除 meditate/avatar 子目录以免误挂战斗骨架
+	if resource_path.contains("/outfit/") and not resource_path.contains("/meditate/") and not resource_path.contains("/avatar/"):
+		return true
+	return false
+
+
+## 主角：直接给的 hero_battle 实例，或可接受的战斗贴图 TextureRect（换成动画，原 TextureRect 隐藏，只用它的框定位）。
 func _setup_hero_rig() -> void:
 	if hero_rig != null:
 		return
 	if hero != null and hero.has_method("play_ult") and hero is Node2D:
 		hero_rig = hero as Node2D
 	elif use_hero_rig and hero is TextureRect and (hero as TextureRect).texture != null \
-			and (hero as TextureRect).texture.resource_path.get_file().begins_with("player_fight") and ResourceLoader.exists(HERO_RIG_PATH):
+			and hero_tex_allows_rig((hero as TextureRect).texture.resource_path) and ResourceLoader.exists(HERO_RIG_PATH):
 		var rect := hero as TextureRect
 		hero_rig = (load(HERO_RIG_PATH) as PackedScene).instantiate() as Node2D
 		hero_rig.name = "HeroRig"
@@ -297,6 +312,23 @@ func _setup_hero_rig() -> void:
 		rect.self_modulate.a = 0.0
 	if hero_rig != null:
 		hero_rig.attack_release.connect(_on_rig_attack_release)
+
+
+## 换装后：把页面 TextureRect 上的新贴图同步进已挂好的 HeroRig（TextureRect 本身已透明，只作定位框）。
+## 若尚未建骨架且当前贴图已是 preview/outfit，则补建一次。
+func set_hero_texture_from_art() -> void:
+	if not (hero is TextureRect):
+		return
+	var rect := hero as TextureRect
+	if rect.texture == null:
+		return
+	if hero_rig == null:
+		_setup_hero_rig()
+		if hero_rig != null and is_node_ready():
+			_layout()
+		return
+	if hero_rig.has_method("set_texture"):
+		hero_rig.set_texture(rect.texture)
 
 
 func _on_rig_attack_release() -> void:

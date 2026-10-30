@@ -1,6 +1,6 @@
 /**
  * 第四批迁移 0046：章节战斗背景列 + 第 1、2 关首领默认名字 + 统一首领立绘 boss_*。
- * 另外把「大招自动释放等待」从旧默认 2 改成 0（蓄满立刻放）。
+ * 历史上还曾把「大招自动释放等待」从旧默认 2 改成 0；该配置项现已下线（无大招等待 UI），种子不再写入。
  * 只改还是默认值的（名字 = 0041 / 种子的「精英·<小怪>」，立绘 = 0041 / 0044 / 种子的旧编号），后台改过的不动。可以重复执行。
  */
 import { readFileSync } from "node:fs";
@@ -99,15 +99,22 @@ describe("migration 0046 (第四批：首领名字 / 统一首领立绘 / 战斗
     });
   });
 
-  it("ult auto-cast wait: the old default 2 becomes 0, an admin-chosen value is kept; the seed is already 0", async () => {
+  it("legacy ultAutoCastWindowSeconds: seed omits the retired field; migration still turns old default 2 into 0 and keeps other values", async () => {
     await withDb(async (db) => {
       await applyPrototypeV12(db);
-      const wait = async () => ((await db.select().from(contentGlobals))[0]!.combat as { ultAutoCastWindowSeconds?: number } | null)?.ultAutoCastWindowSeconds;
-      expect(await wait()).toBe(0);
+      type CombatWait = { ultAutoCastWindowSeconds?: number } | null | undefined;
+      const wait = async () => ((await db.select().from(contentGlobals))[0]!.combat as CombatWait)?.ultAutoCastWindowSeconds;
+      // 产品锁死：无「大招等待」；当前种子 / 规则表不再写入该键。
+      expect(await wait()).toBeUndefined();
+      expect(JSON.stringify((await db.select().from(contentGlobals))[0]!.combat)).not.toContain("ultAutoCastWindowSeconds");
+
       const setWait = async (value: number) => {
         const [row] = await db.select().from(contentGlobals);
-        await db.update(contentGlobals).set({ combat: { ...(row!.combat as object), ultAutoCastWindowSeconds: value } as NonNullable<typeof row.combat> });
+        await db.update(contentGlobals).set({
+          combat: { ...(row!.combat as object), ultAutoCastWindowSeconds: value } as NonNullable<typeof row.combat>,
+        });
       };
+      // 0046 SQL 仍对历史数据生效：旧默认 2 → 0，其它取值保留。
       await setWait(2);
       await migrate(db);
       expect(await wait()).toBe(0);

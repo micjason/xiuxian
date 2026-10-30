@@ -285,7 +285,7 @@ async function save(again: boolean): Promise<void> {
     const result = props.editing
       ? await api<{ id: string }>(`/admin/draft/gear/manual/${props.editing.id}`, { method: "PUT", body, guard: guardOf(props.editing.id, `手动装备「${props.editing.displayName}」`) })
       : await api<{ id: string }>("/admin/draft/gear/manual", { method: "POST", body });
-    ElMessage.success(props.editing ? "已保存到草稿" : `已创建 ${result.id}`);
+    ElMessage.success(props.editing ? "已保存，已生效" : `已创建 ${result.id}`);
     emit("saved", result.id);
     if (again) {
       const keep = { majorName: form.majorName, requiredRealmOrder: form.requiredRealmOrder, quality: form.quality, setSlug: form.setSlug };

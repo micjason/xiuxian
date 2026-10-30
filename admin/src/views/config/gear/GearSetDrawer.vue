@@ -202,7 +202,7 @@ async function save(): Promise<void> {
     const body = JSON.stringify({ displayName: form.displayName, description: form.description, tiers: form.tiers, members: form.members });
     if (props.editing) await api(`/admin/draft/gear-sets/${props.editing.id}`, { method: "PUT", body, guard: guardOf(props.editing.id, `套装「${props.editing.displayName}」`) });
     else await api("/admin/draft/gear-sets", { method: "POST", body });
-    ElMessage.success("已保存到草稿");
+    ElMessage.success("已保存，已生效");
     original.value = snapshot();
     open.value = false;
     emit("saved");

@@ -1,6 +1,6 @@
 <template>
   <div>
-    <PageHeader title="版本历史" desc="每次发布都会留下一个不可修改的快照。可以对比任意两个版本（或版本与草稿），查看每次发布改了什么。">
+    <PageHeader title="版本历史" desc="可选历史快照对比。开发阶段玩家读当前配置表，不依赖这里的快照；正式上线后再用发布双轨。">
       <template #actions><el-button :icon="Refresh" :loading="loading" @click="load">刷新</el-button></template>
     </PageHeader>
 
@@ -18,7 +18,7 @@
 
     <section class="block">
       <h2>历史版本（{{ versions.length }}）</h2>
-      <DataState :loading="loading" :error="error" :has-data="versions.length > 0" empty-text="还没有发布过任何版本" @retry="load">
+      <DataState :loading="loading" :error="error" :has-data="versions.length > 0" empty-text="还没有可选快照（开发阶段不必发快照，保存即生效）" @retry="load">
         <el-table :data="versions">
           <el-table-column label="版本" width="110">
             <template #default="{ row }"><strong>v{{ row.version }}</strong> <el-tag v-if="row.isCurrent" type="success" size="small" effect="light">线上</el-tag></template>
@@ -68,7 +68,7 @@ const shown = ref<Version | null>(null);
 const shownDiff = ref<DiffResult | null>(null);
 
 const refOptions = computed(() => [
-  { label: "草稿（正在编辑）", value: "draft" },
+  { label: "当前配置（保存即生效）", value: "draft" },
   ...versions.value.map((row) => ({ label: `v${row.version}${row.isCurrent ? "（线上）" : ""}`, value: String(row.version) })),
 ]);
 

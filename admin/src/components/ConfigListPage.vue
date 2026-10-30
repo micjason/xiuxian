@@ -178,7 +178,7 @@ const props = withDefaults(
     drawerSize?: string | number;
     pageSize?: number;
     savedMessage?: string;
-    /** 保存后是否刷新草稿状态（草稿类数据 true；演示数据 false） */
+    /** 保存后是否刷新配置体检状态 */
     refreshDraft?: boolean;
     exportName?: string;
     /** 抽屉标题后的灰色副标题，例如「炼气 · 第 1 关 · 无首领」 */
@@ -188,7 +188,7 @@ const props = withDefaults(
     /** 按这一列分组：相邻同值的行合并成一格（例如关卡按章节）。只合并这一列，排序后不相邻就不合并。 */
     spanKey?: string;
   }>(),
-  { drawerSize: 800, pageSize: 20, savedMessage: "已保存到草稿", refreshDraft: true, exportName: "export" },
+  { drawerSize: 800, pageSize: 20, savedMessage: "已保存，已生效", refreshDraft: true, exportName: "export" },
 );
 const emit = defineEmits<{ reload: [] }>();
 

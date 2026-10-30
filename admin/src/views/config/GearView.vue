@@ -634,7 +634,7 @@ async function saveParams(): Promise<boolean> {
       }),
       guard: { revisions: globalRev, id: 1, reload, latest: async () => (await latestGear()).params, title: "装备生成参数" },
     });
-    ElMessage.success("已保存到草稿，装备已按新参数重算");
+    ElMessage.success("已保存，已生效；装备已按新参数重算");
     await reload();
     return true;
   } catch (cause) {
@@ -758,7 +758,7 @@ async function savePiece(): Promise<void> {
         title: `装备「${row.displayName}」`,
       },
     });
-    ElMessage.success("已保存到草稿");
+    ElMessage.success("已保存，已生效");
     formOriginal.value = JSON.stringify(form);
     drawer.value = false;
     await reload();

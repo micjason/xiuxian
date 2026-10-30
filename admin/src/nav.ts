@@ -68,11 +68,11 @@ export const navTree: NavGroup[] = [
   },
   {
     key: "publish",
-    title: "发布中心",
+    title: "发布与体检",
     icon: "Promotion",
     items: [
-      { path: "/publish", label: "草稿与发布", desc: "校验、变更清单、发布", keywords: "发布 草稿 变更 校验" },
-      { path: "/publish/versions", label: "版本历史", desc: "每次发布的快照、任意两个版本（或草稿）的差别", keywords: "快照 对比 历史 版本" },
+      { path: "/publish", label: "内容体检", desc: "配置错误与提醒；开发阶段保存即生效，无需再点发布", keywords: "体检 校验 配置 错误" },
+      { path: "/publish/versions", label: "版本历史", desc: "可选快照与对比（开发阶段玩家读当前配置表，不依赖快照）", keywords: "快照 对比 历史 版本" },
       { path: "/publish/client", label: "客户端安装包", desc: "上传安装包、设为当前版本、强制更新", keywords: "apk 更新 版本 安装包" },
     ],
   },

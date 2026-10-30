@@ -11,7 +11,7 @@ export type SnapshotChange = {
 };
 export type DiffResult = { from: string | number; to: string | number; total: number; added: number; removed: number; changed: number; changes: SnapshotChange[] };
 
-/** 全局草稿状态：顶栏的「N 项未发布」、概览页待办、发布中心都读它。 */
+/** 全局配置体检状态：顶栏错误数、概览页待办、内容体检页都读它。开发阶段无草稿双轨。 */
 export const draft = reactive({
   loaded: false,
   loading: false,
@@ -53,7 +53,7 @@ export async function refreshDraftStatus(): Promise<void> {
     if (realms && stages && items && skills) {
       draft.problems = analyzeDraft({ realms, stages, items, skills, rules, puppets: puppets ?? [] });
     } else {
-      draft.error = "部分草稿数据加载失败，体检结果可能不完整。";
+      draft.error = "部分配置数据加载失败，体检结果可能不完整。";
     }
     draft.loaded = true;
   } finally {

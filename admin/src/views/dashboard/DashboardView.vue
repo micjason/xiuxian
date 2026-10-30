@@ -5,13 +5,9 @@
     </PageHeader>
 
     <div class="tiles">
-      <router-link to="/publish/versions" class="xx-card tile">
-        <span class="cap">线上内容版本</span>
-        <strong class="big">{{ draft.contentVersion === null ? "未发布" : `v${draft.contentVersion}` }}</strong>
-      </router-link>
-      <router-link to="/publish" class="xx-card tile" :class="{ warn: draft.changes > 0 }">
-        <span class="cap">待发布改动</span>
-        <strong class="big">{{ draft.diffAvailable ? draft.changes : "—" }}</strong>
+      <router-link to="/publish" class="xx-card tile">
+        <span class="cap">配置生效方式</span>
+        <strong class="big">保存即生效</strong>
       </router-link>
       <router-link to="/publish" class="xx-card tile" :class="{ bad: errorCount > 0 }">
         <span class="cap">配置体检</span>
@@ -120,16 +116,12 @@ const todos = computed<Todo[]>(() => {
   for (const problem of draft.problems.filter((item) => item.level === "error").slice(0, 3)) {
     list.push({ level: "error", tag: "错误", text: problem.message, action: "去修改", to: problem.to });
   }
-  if (draft.diffAvailable && draft.changes > 0) {
-    list.push({ level: "warn", tag: "待发布", text: `草稿里有 ${draft.changes} 项改动还没有发布`, action: "去发布", to: "/publish" });
-  }
   const broken = (players.value ?? []).filter((item) => item.power === null).length;
   if (broken > 0) list.push({ level: "warn", tag: "玩家", text: `${broken} 名玩家的战力算不出来`, action: "查看", to: "/players" });
   if (announcements.value && !announcements.value.some((item) => item.enabled)) {
     list.push({ level: "info", tag: "运营", text: "当前没有启用的公告", action: "去新增", to: "/ops/announcements" });
   }
   if (releases.value.length === 0) list.push({ level: "info", tag: "客户端", text: "还没有上传过安装包", action: "去上传", to: "/publish/client" });
-  if (draft.contentVersion === null) list.push({ level: "warn", tag: "发布", text: "内容还没有发布过，玩家读不到配置", action: "去发布", to: "/publish" });
   return list;
 });
 
@@ -137,7 +129,7 @@ const quick = [
   { label: "调整境界", to: "/config/realms" },
   { label: "配置掉落", to: "/config/stages" },
   { label: "调战斗公式", to: "/config/combat" },
-  { label: "发布内容", to: "/publish" },
+  { label: "内容体检", to: "/publish" },
   { label: "上传安装包", to: "/publish/client" },
   { label: "查看玩家", to: "/players" },
 ];
@@ -176,7 +168,7 @@ onMounted(load);
 <style scoped>
 .tiles {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: var(--xx-space-4);
   margin-bottom: var(--xx-space-4);
 }

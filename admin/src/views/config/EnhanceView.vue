@@ -11,11 +11,11 @@
       <div class="savebar" :class="{ dirty }">
         <span v-if="!hasSaved" class="state">还没有保存过强化规则：游戏端强化和分解会直接报错，请先填写并保存。</span>
         <span v-else-if="dirty" class="state">有未保存的改动。下面的表和曲线按你正在填的数字实时计算。</span>
-        <span v-else class="state ok">已和草稿一致。保存后还要到「发布中心」发布，玩家才会看到。</span>
+        <span v-else class="state ok">已保存，已对玩家生效。</span>
         <span class="spacer" />
         <el-button @click="fillStarting">填入建议起始值</el-button>
         <el-button :disabled="!dirty" @click="revert">还原</el-button>
-        <el-button type="primary" :disabled="!dirty || problems.length > 0" :loading="saving" @click="save">保存到草稿</el-button>
+        <el-button type="primary" :disabled="!dirty || problems.length > 0" :loading="saving" @click="save">保存</el-button>
       </div>
 
       <el-alert v-if="problems.length > 0 && touched" type="warning" :closable="false" show-icon class="gap" title="有几项还没填对">
@@ -764,7 +764,7 @@ async function save(): Promise<void> {
     original.value = JSON.stringify(form.value);
     const created = view.createdMaterials ?? [];
     if (created.length > 0) await loadItems();
-    ElMessage.success(created.length > 0 ? `已保存到草稿，并创建了 ${created.length} 个物品（突破材料 / 炼器精粹）；发布后玩家生效` : "已保存到草稿，发布后玩家生效");
+    ElMessage.success(created.length > 0 ? `已保存，已生效，并创建了 ${created.length} 个物品（突破材料 / 炼器精粹）` : "已保存，已生效");
     void refreshDraftStatus();
   } catch (cause) {
     if (isConflictAbort(cause)) {

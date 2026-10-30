@@ -326,7 +326,7 @@ const ANCHORS = [
 
 const pick = (keys: string[], title: string): Schema => ({ title, fields: rulesSchema.fields.filter((field) => keys.includes(field.key)).map((field) => ({ ...field, group: undefined })) });
 const powerSchema = pick(["defenseConstant", "baseInterval", "speedBase", "minInterval", "attackWeight", "defenseWeight", "hpWeight", "speedWeight", "recommendedPowerMargin"], "战力公式");
-const paceSchema = pick(["waveSize", "waveTransitionSeconds", "reviveSeconds", "onlineGapSeconds", "offlineCapSeconds", "offlinePopupMinSeconds", "dayStartHour", "bagCapacity", "challengeCooldownSeconds", "timeLimitSeconds", "ultAutoCastWindowSeconds"], "挂机与战斗节奏");
+const paceSchema = pick(["waveSize", "waveTransitionSeconds", "reviveSeconds", "onlineGapSeconds", "offlineCapSeconds", "offlinePopupMinSeconds", "dayStartHour", "bagCapacity", "challengeCooldownSeconds", "timeLimitSeconds"], "挂机与战斗节奏");
 
 const route = useRoute();
 const router = useRouter();

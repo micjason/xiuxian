@@ -187,6 +187,8 @@ export type ContentSnapshot = {
     fxType?: string | null;
     fx?: { type?: string; primary?: string; secondary?: string; scale?: number } | null;
     castMode?: string | null;
+    castEveryAttacks?: number | null;
+    damageMultBp?: number | null;
     enabled: boolean;
   }[];
 };

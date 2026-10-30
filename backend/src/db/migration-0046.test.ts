@@ -102,11 +102,11 @@ describe("migration 0046 (第四批：首领名字 / 统一首领立绘 / 战斗
   it("ult auto-cast wait: the old default 2 becomes 0, an admin-chosen value is kept; the seed is already 0", async () => {
     await withDb(async (db) => {
       await applyPrototypeV12(db);
-      const wait = async () => (await db.select().from(contentGlobals))[0]!.combat!.ultAutoCastWindowSeconds;
+      const wait = async () => ((await db.select().from(contentGlobals))[0]!.combat as { ultAutoCastWindowSeconds?: number } | null)?.ultAutoCastWindowSeconds;
       expect(await wait()).toBe(0);
       const setWait = async (value: number) => {
         const [row] = await db.select().from(contentGlobals);
-        await db.update(contentGlobals).set({ combat: { ...row!.combat!, ultAutoCastWindowSeconds: value } });
+        await db.update(contentGlobals).set({ combat: { ...(row!.combat as object), ultAutoCastWindowSeconds: value } as NonNullable<typeof row.combat> });
       };
       await setWait(2);
       await migrate(db);

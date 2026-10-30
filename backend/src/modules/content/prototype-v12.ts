@@ -224,10 +224,6 @@ export async function applyPrototypeV12(db: Db): Promise<{ stageSlugs: string[];
       baseDefense: layer.stats.defense - previous.defense,
       baseSpeed: layer.stats.speed - previous.speed,
       baseInterval: 1.5,
-      ultName: "",
-      ultDamageMultBp: 0,
-      ultCooldownSeconds: 0,
-      ultFirstCooldownSeconds: 0,
       requiredStageSlug: gate,
       updatedAt: now,
     });

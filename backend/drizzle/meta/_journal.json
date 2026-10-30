@@ -316,6 +316,13 @@
       "when": 1800400000000,
       "tag": "0064_offline_loot",
       "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1800500000000,
+      "tag": "0065_drop_realm_ult",
+      "breakpoints": true
     }
   ]
 }

@@ -136,10 +136,6 @@ export async function registerDraftRoutes(app: FastifyInstance, deps: { db: Db; 
     }
     const patch: Partial<typeof contentRealms.$inferInsert> = {
       tickSeconds: 1,
-      ultName: "",
-      ultDamageMultBp: 0,
-      ultCooldownSeconds: 0,
-      ultFirstCooldownSeconds: 0,
       updatedAt: deps.now(),
       updatedBy: request.actor?.actorId ?? null,
     };

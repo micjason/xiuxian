@@ -208,8 +208,8 @@ describe("progression sim", () => {
     expect(result.overview.every((row) => row.status !== "stuck")).toBe(true);
   });
 
-  it("does not count a battle win when player power is below recommended", () => {
-    // 战斗面积极弱、推荐战力虚高：完整 simulateBossFight 会赢，但模拟须按推荐门槛判负
+  it("counts a battle win even when player power is below recommended", () => {
+    // 软门槛：对砍赢就是过关；推荐战力只做提示，不强制判负
     const world = baseWorld({
       stages: [
         {
@@ -271,13 +271,11 @@ describe("progression sim", () => {
       ],
     });
     const result = runProgressionSim(world, { wallBudgetMs: 5000 });
-    expect(result.timeline.some((e) => e.kind === "boss_win")).toBe(false);
-    expect(result.timeline.some((e) => e.kind === "boss_lose" && e.text.includes("战力不足"))).toBe(true);
-    expect(result.stuck).not.toBeNull();
-    expect(result.stuck!.bossName).toBe("纸糊怪");
-    const facing = result.overview.find((row) => row.stageLabel.includes("纸糊怪"));
-    expect(facing?.stageLabel).toMatch(/推荐战力/);
-    expect(facing?.stageLabel).toMatch(/战力不足/);
+    expect(result.timeline.some((e) => e.kind === "boss_win")).toBe(true);
+    expect(result.timeline.some((e) => e.kind === "boss_lose" && e.text.includes("战力不足"))).toBe(false);
+    const win = result.timeline.find((e) => e.kind === "boss_win");
+    expect(win?.text).toMatch(/推荐战力 50000/);
+    expect(result.stuck).toBeNull();
   });
 
   it("marks stuck after 10 consecutive lose days on an impossible boss", () => {

@@ -27,6 +27,7 @@ export const router = createRouter({
         { path: "config/enhance", component: () => import("./views/config/EnhanceView.vue") },
         { path: "config/dongfu", component: () => import("./views/config/DongfuView.vue") },
         { path: "config/combat", component: () => import("./views/config/CombatView.vue") },
+        { path: "sim/progression", component: () => import("./views/sim/ProgressionSimView.vue") },
         { path: "publish", component: () => import("./views/publish/PublishView.vue") },
         { path: "publish/versions", component: () => import("./views/publish/VersionsView.vue") },
         { path: "publish/client", component: () => import("./views/publish/ClientView.vue") },

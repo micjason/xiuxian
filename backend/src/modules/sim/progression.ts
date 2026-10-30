@@ -376,14 +376,19 @@ function grantLoot(
       if (entry.kind === "spirit_stones" && entry.amount) state.spiritStones += entry.amount;
     }
   }
-  // 勤奋假设：首通额外给一些精粹与本关可用装备（若表里有）
+  // 勤奋假设：首通额外精粹；装备走首通表 + 下面 farm（不再白送橙装）
   if (firstClear) {
     state.essence += 200;
     const realmOrder = stage.requiredRealmOrder ?? 0;
-    const candidates = world.items.filter(
-      (i) => i.kind === "equipment" && i.slot && (i.requiredRealmOrder ?? 0) <= realmOrder && (i.requiredRealmOrder ?? 0) >= Math.max(0, realmOrder - 1),
+    const mid = world.items.filter(
+      (i) =>
+        i.kind === "equipment" &&
+        i.slot &&
+        (i.requiredRealmOrder ?? 0) <= realmOrder &&
+        (i.requiredRealmOrder ?? 0) >= Math.max(0, realmOrder - 1) &&
+        (i.quality === "green" || i.quality === "blue"),
     );
-    for (const item of candidates.slice(0, 2)) {
+    for (const item of mid.slice(0, 2)) {
       drops.push({ itemSlug: item.slug, quantity: 1 });
     }
   } else {
@@ -416,6 +421,50 @@ function grantLoot(
   if (names.length > 0) {
     emit(timeline, state, "loot", `获得 ${names.join("、")}`);
   }
+  autoEquip(world, state, timeline);
+  enhanceAll(world, state, timeline);
+}
+
+/** 卡 Boss 时刷装：按本关境界掉绿/蓝（章末压力下偶发紫），逼近真实挂机掉落。 */
+function farmGearBeforeRetry(
+  world: ContentSnapshot,
+  state: SimState,
+  stage: ContentSnapshot["stages"][number],
+  timeline: TimelineEvent[],
+  intense: boolean,
+) {
+  const realmOrder = stage.requiredRealmOrder ?? realmOf(world, state.realmSlug).sortOrder ?? 0;
+  const pool = world.items.filter(
+    (i) => i.kind === "equipment" && i.slot && (i.requiredRealmOrder ?? 0) <= realmOrder && (i.requiredRealmOrder ?? 0) >= Math.max(0, realmOrder - 1),
+  );
+  if (pool.length === 0) return;
+  const want = intense ? 2 : 1;
+  const names: string[] = [];
+  const qualityPick = (n: number): string => {
+    if (intense && n % 5 === 0) return "purple";
+    if (n % 3 === 0) return "blue";
+    return "green";
+  };
+  for (let i = 0; i < want; i += 1) {
+    const q = qualityPick(state.day * 10 + state.hour + i + state.nextGearId);
+    const slotted = pool.filter((p) => p.quality === q);
+    const pick = (slotted.length > 0 ? slotted : pool.filter((p) => p.quality === "green" || p.quality === "blue" || p.quality === "white"))[state.nextGearId % Math.max(1, slotted.length || pool.length)];
+    if (!pick || !pick.slot) continue;
+    state.gear.push({
+      id: `g${state.nextGearId++}`,
+      slug: pick.slug,
+      slot: pick.slot,
+      quality: pick.quality ?? "white",
+      enhanceLevel: 0,
+      equipped: false,
+      requiredRealmOrder: pick.requiredRealmOrder ?? 0,
+    });
+    names.push(pick.displayName ?? pick.slug);
+  }
+  if (names.length > 0) {
+    emit(timeline, state, "loot", `刷装获得 ${names.join("、")}`);
+  }
+  state.essence += intense ? 60 : 25;
   autoEquip(world, state, timeline);
   enhanceAll(world, state, timeline);
 }
@@ -654,7 +703,8 @@ export function runProgressionSim(
         }
       } else {
         dayFailedBoss = stage;
-        // 失败后挂一点修为再试；同日可多次挑战
+        // 失败后刷装/强化 + 挂一点修为再试（同日可多次挑战）
+        farmGearBeforeRetry(world, state, stage, timeline, state.failDays >= 2);
         settleOnlineCultivation(world, state, 0.5);
       }
     }
@@ -664,9 +714,12 @@ export function runProgressionSim(
       break;
     }
 
-    // 挂机 8h + 洞府
+    // 挂机 8h + 洞府；若当日卡 Boss，挂机也刷装
     state.hour = ONLINE_HOURS;
     settleIdle(world, state, timeline);
+    if (dayFailedBoss) {
+      farmGearBeforeRetry(world, state, dayFailedBoss, timeline, true);
+    }
     settleDongfu(world, state, timeline);
     while (tryBreakthrough(world, state, timeline, targetRealmId)) {
       /* after idle */

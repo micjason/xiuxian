@@ -31,7 +31,7 @@ const slots = ["武器", "头冠", "衣袍", "护手", "鞋履", "玉佩"];
 const qualities = ["白", "绿", "蓝", "紫", "橙"];
 const names = { 武器: "青锋", 头冠: "素木冠", 衣袍: "云纹袍", 护手: "银丝护手", 鞋履: "踏云靴", 玉佩: "凝玉佩" };
 const suffix = ["·凡", "·良", "·精", "·珍", "·绝"];
-const factor = [1, 1.15, 1.3, 1.5, 1.8];
+const factor = [1, 1.35, 1.8, 2.4, 3.3];
 const majors = ["炼气", "筑基"].map((majorName, mi) => ({
   majorName,
   majorKey: mi === 0 ? "qi" : "foundation",
@@ -69,7 +69,7 @@ const STARTING_MATERIALS = [
   { slug: "enh_stone_high", displayName: "突破石·上品" },
 ];
 let enhance = process.env.MOCK_NO_ENHANCE ? null : clone(STARTING_ENHANCE);
-let factors = { white: 1, green: 1.15, blue: 1.3, purple: 1.5, orange: 1.8 };
+let factors = { white: 1, green: 1.35, blue: 1.8, purple: 2.4, orange: 3.3 };
 
 let items = [
   { id: "i-qi", displayName: "聚气丹", description: "服用后获得少量修为" },
@@ -99,7 +99,7 @@ let stages = [
 ];
 let rules = {
   defenseConstant: 1, speedBase: 100, minInterval: 0.5, attackWeight: 4.7, defenseWeight: 1.6, hpWeight: 0.95, speedWeight: 2.6,
-  challengeCooldownSeconds: 0, timeLimitSeconds: 45, recommendedPowerMargin: 1.05, gearSpeedFactor: 0.3, onlineGapSeconds: 15, offlinePopupMinSeconds: 300, dayStartHour: 5, bossDailyRewardCount: 3, waveSize: 3, waveTransitionSeconds: 2, reviveSeconds: 3, bagCapacity: 20, offlineCapSeconds: 28800, idleKillCap: 200, minClientVersionCode: 20,
+  challengeCooldownSeconds: 0, timeLimitSeconds: 45, recommendedPowerMargin: 1.1, gearSpeedFactor: 0.3, onlineGapSeconds: 15, offlinePopupMinSeconds: 300, dayStartHour: 5, bossDailyRewardCount: 3, waveSize: 3, waveTransitionSeconds: 2, reviveSeconds: 3, bagCapacity: 20, offlineCapSeconds: 28800, idleKillCap: 200, minClientVersionCode: 20,
 };
 let puppets = [
   { id: "pp1", displayName: "炼气中期·青锋良", kind: "configured", kindName: "按配置", realmCode: 3, realmName: "炼气中期", realmMissing: false, weapons: [{ id: "炼气武器绿", displayName: "青锋·良" }], skills: [{ id: "k1", displayName: "养气诀" }], attack: 63, defense: 49, hp: 428, speed: 14, interval: 1.32, power: 1024, powerDetail: null, tendency: "均衡", tendencyNote: null, problem: null },

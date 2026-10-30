@@ -333,7 +333,7 @@ describe("第三批后台接口", () => {
       const saved = await put({ dailyChallengeTotal: 3, idleSpawnCountsDaily: true, repeatGearQualityPct: { green: 48, orange: 4 } });
       expect(saved.statusCode).toBe(200);
       expect(saved.json().rules).toMatchObject({ dailyChallengeTotal: 3, idleSpawnCountsDaily: true, repeatGearQualityPct: { white: 0, green: 48, blue: 35, purple: 13, orange: 4 } });
-      expect(saved.json().rules.statMul).toEqual({ hp: 5, attack: 1.3, defense: 1.2 });
+      expect(saved.json().rules.statMul).toEqual({ hp: 6.5, attack: 1.55, defense: 1.4 });
       const bad = await put({ gearQualityPct: { green: 90 } });
       expect(bad.statusCode).toBe(400);
       expect(bad.json().error.message).toContain("100%");

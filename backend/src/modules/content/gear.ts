@@ -33,10 +33,10 @@ export const GEAR_QUALITIES = QUALITY_TABLE.map((row) => ({ key: row.key, name: 
 
 export const DEFAULT_GEAR_QUALITY_FACTORS = {
   white: 1,
-  green: 1.15,
-  blue: 1.3,
-  purple: 1.5,
-  orange: 1.8,
+  green: 1.35,
+  blue: 1.8,
+  purple: 2.4,
+  orange: 3.3,
 } as const;
 
 export type GearQualityKey = keyof typeof DEFAULT_GEAR_QUALITY_FACTORS;

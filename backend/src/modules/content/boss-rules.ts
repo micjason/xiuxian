@@ -83,7 +83,7 @@ export type BossRuleOverride = Partial<Omit<BossRuleSet, GroupKey>> & {
  */
 export const DEFAULT_BOSS_RULE_SET: BossRuleSet = {
   statMode: "auto",
-  statMul: { hp: 5, attack: 1.3, defense: 1.2 },
+  statMul: { hp: 6.5, attack: 1.55, defense: 1.4 },
   allowRepeat: true,
   repeatRewards: true,
   gearQualityPct: { white: 0, green: 70, blue: 25, purple: 5, orange: 0 },

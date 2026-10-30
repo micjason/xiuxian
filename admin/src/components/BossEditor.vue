@@ -51,6 +51,7 @@
               <th class="num">气血</th>
               <th class="num">攻击间隔<HelpTip title="首领攻击间隔" text="每次出手相隔的秒数，越小越快；比境界基础间隔快的部分会折算成速度，计入首领战力。自动模式下跟本关普通怪一样。" /></th>
               <th class="num">首领战力<HelpTip title="首领战力（只读）" :text="`攻击 × ${weights.attack} + 防御 × ${weights.defense} + 气血 × ${weights.hp} + 速度 × ${weights.speed}`" /></th>
+              <th class="num">推荐战力<HelpTip title="推荐战力" :text="`玩家在历练页看到的参考战力。默认 = 首领战力 × 推荐战力倍数（当前 ${recommendedPowerMargin}）；关卡基础信息里可手动覆盖。`" /></th>
               <th class="ops">操作</th>
             </tr>
           </thead>
@@ -72,6 +73,7 @@
                 <NumInput v-else v-model="boss[stat.key]" :width="120" :unit="stat.unit" :precision="stat.precision" :min="stat.min" :step="stat.key === 'interval' ? 0.05 : 1" />
               </td>
               <td class="num"><NumInput :model-value="powerOf(effectiveBoss(boss))" :width="120" unit="战力" readonly /></td>
+              <td class="num"><NumInput :model-value="stageRecommendedPower" :width="120" unit="战力" readonly /></td>
               <td class="ops">
                 <el-button link type="primary" :disabled="!(effectiveBoss(boss).hp > 0 && effectiveBoss(boss).interval > 0)" @click="$emit('trial', effectiveBoss(boss))">试打</el-button>
                 <el-button v-if="(boss.statsCustom?.length ?? 0) > 0 && eff(boss).statMode === 'auto'" link type="primary" @click="boss.statsCustom = []">↺ 属性</el-button>
@@ -341,6 +343,10 @@ const props = defineProps<{
   defaults: BossRules;
   /** 本关第一只普通怪（自动属性的基准） */
   monster?: MonsterLike | null;
+  /** 本关推荐战力（与列表「推荐战力」同源：手动或 首领战力×倍数） */
+  stageRecommendedPower?: number | null;
+  /** 推荐战力倍数（展示用） */
+  recommendedPowerMargin?: number;
 }>();
 const bosses = defineModel<BossRow[]>({ required: true });
 defineEmits<{ trial: [boss: BossRow]; "open-overview": [] }>();

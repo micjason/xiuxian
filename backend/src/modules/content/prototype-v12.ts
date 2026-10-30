@@ -162,7 +162,7 @@ export async function applyPrototypeV12(db: Db): Promise<{ stageSlugs: string[];
       timeLimitSeconds: 45,
       defenseConstant: 1,
       speedBase: 100,
-      recommendedPowerMargin: 1.05,
+      recommendedPowerMargin: 1.1,
       gearSpeedFactor: 0.3,
       ...DEFAULT_OPTIONAL_RULES,
     },

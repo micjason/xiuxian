@@ -40,7 +40,7 @@ export const GROUP_RULE_KEYS: GroupRuleKey[] = ["statMul", "gearQualityPct", "re
 /** 读不到首领规则时的占位（和服务端 DEFAULT_BOSS_RULES 一样） */
 export const FALLBACK_BOSS_RULES: BossRules = {
   statMode: "auto",
-  statMul: { hp: 5, attack: 1.3, defense: 1.2 },
+  statMul: { hp: 6.5, attack: 1.55, defense: 1.4 },
   allowRepeat: true,
   repeatRewards: true,
   gearQualityPct: { white: 0, green: 70, blue: 25, purple: 5, orange: 0 },

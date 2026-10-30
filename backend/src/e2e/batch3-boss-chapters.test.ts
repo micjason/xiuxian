@@ -333,7 +333,7 @@ describe("第三批后台接口", () => {
       const saved = await put({ dailyChallengeTotal: 3, idleSpawnCountsDaily: true, repeatGearQualityPct: { green: 48, orange: 4 } });
       expect(saved.statusCode).toBe(200);
       expect(saved.json().rules).toMatchObject({ dailyChallengeTotal: 3, idleSpawnCountsDaily: true, repeatGearQualityPct: { white: 0, green: 48, blue: 35, purple: 13, orange: 4 } });
-      expect(saved.json().rules.statMul).toEqual({ hp: 5, attack: 1.3, defense: 1.2 });
+      expect(saved.json().rules.statMul).toEqual({ hp: 6.5, attack: 1.55, defense: 1.4 });
       const bad = await put({ gearQualityPct: { green: 90 } });
       expect(bad.statusCode).toBe(400);
       expect(bad.json().error.message).toContain("100%");
@@ -345,11 +345,11 @@ describe("第三批后台接口", () => {
       expect(updated.statusCode).toBe(200);
       let world = await loadDraftSnapshot(db);
       let elite = world.stages.find((row) => row.slug === "lianqi_2")!.bosses![0]!;
-      expect(elite.ruleOverride).toEqual({ autoChallenge: false, statMul: { hp: 6 }, idleSpawnWaves: 300 });
+      expect(elite.ruleOverride).toEqual({ autoChallenge: false, statMul: { hp: 6, attack: 1.3 }, idleSpawnWaves: 300 });
       expect(elite).toMatchObject({ hp: 750, attack: 42 }); // 125×6 / 32×1.3
       expect(elite.rules).toMatchObject({ idleSpawnWaves: 300, idleSpawnCountsDaily: true });
       expect((await app.inject({ method: "GET", url: "/admin/draft/boss-rules", headers: admin })).json().usage).toMatchObject({ customized: 10 }); // 原 9 + 本关
-      expect((await app.inject({ method: "GET", url: "/admin/draft/boss-rules", headers: admin })).json().usage.customizedStages).toContainEqual({ id: "lianqi_2", displayName: foxStage.displayName, customCount: 3 });
+      expect((await app.inject({ method: "GET", url: "/admin/draft/boss-rules", headers: admin })).json().usage.customizedStages).toContainEqual({ id: "lianqi_2", displayName: foxStage.displayName, customCount: 4 });
       // 只恢复一项
       const partial = await app.inject({ method: "POST", url: "/admin/draft/stages/lianqi_2/reset-boss-rule", headers: admin, payload: { keys: ["statMul"] } });
       expect(partial.json()).toEqual({ id: "lianqi_2", ruleOverride: { autoChallenge: false, idleSpawnWaves: 300 } });
@@ -360,7 +360,7 @@ describe("第三批后台接口", () => {
       world = await loadDraftSnapshot(db);
       elite = world.stages.find((row) => row.slug === "lianqi_2")!.bosses![0]!;
       expect(elite.ruleOverride ?? null).toBeNull();
-      expect(elite.hp).toBe(625);
+      expect(elite.hp).toBe(813); // 125×6.5
       await app.close();
     });
   });

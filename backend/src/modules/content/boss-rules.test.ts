@@ -6,10 +6,10 @@ import { DEFAULT_BOSS_RULES, bossRuleProblems, bossRulesFromInput, bossRulesOf, 
 const wolf = { name: "青鬃狼", hp: 110, attack: 24, defense: 14, interval: 1.5, killCultivation: 3 };
 
 describe("首领规则（第四批：一套规则）", () => {
-  it("defaults: one rule set — auto ×5/×1.3/×1.2, first-clear 0/70/25/5/0, repeat 0/50/35/13/2 with rewards, auto-challenge, idle boss every 1000 waves not counted; 5 per day in total", () => {
+  it("defaults: one rule set — auto ×6.5/×1.55/×1.4, first-clear 0/70/25/5/0, repeat 0/50/35/13/2 with rewards, auto-challenge, idle boss every 1000 waves not counted; 5 per day in total", () => {
     expect(DEFAULT_BOSS_RULES).toEqual({
       statMode: "auto",
-      statMul: { hp: 5, attack: 1.3, defense: 1.2 },
+      statMul: { hp: 6.5, attack: 1.55, defense: 1.4 },
       allowRepeat: true,
       repeatRewards: true,
       gearQualityPct: { white: 0, green: 70, blue: 25, purple: 5, orange: 0 },
@@ -66,13 +66,13 @@ describe("首领规则（第四批：一套规则）", () => {
 
   it("per-stage override keeps only the differences; global-only keys and old keys are ignored; the merged quality must still total 100", () => {
     const defaults = DEFAULT_BOSS_RULES;
-    expect(compactBossRuleOverride({ idleSpawnWaves: 1000, statMul: { hp: 5 }, dailyChallengeTotal: 9, dailyRewardLimit: 3 }, defaults)).toBeNull();
-    const override = compactBossRuleOverride({ autoChallenge: false, idleSpawnWaves: 200, idleSpawnCountsDaily: true, statMul: { hp: 6, attack: 1.3 } }, defaults);
+    expect(compactBossRuleOverride({ idleSpawnWaves: 1000, statMul: { hp: 6.5 }, dailyChallengeTotal: 9, dailyRewardLimit: 3 }, defaults)).toBeNull();
+    const override = compactBossRuleOverride({ autoChallenge: false, idleSpawnWaves: 200, idleSpawnCountsDaily: true, statMul: { hp: 6, attack: 1.55 } }, defaults);
     expect(override).toEqual({ autoChallenge: false, idleSpawnWaves: 200, idleSpawnCountsDaily: true, statMul: { hp: 6 } });
     expect(customRuleCount(override)).toBe(4);
     expect(customRuleCount({ dailyRewardLimit: 3 } as never)).toBe(0);
     const resolved = resolveBossRules(defaults, override);
-    expect(resolved).toMatchObject({ autoChallenge: false, idleSpawnWaves: 200, statMul: { hp: 6, attack: 1.3, defense: 1.2 } });
+    expect(resolved).toMatchObject({ autoChallenge: false, idleSpawnWaves: 200, statMul: { hp: 6, attack: 1.55, defense: 1.4 } });
     expect(resolved).not.toHaveProperty("dailyChallengeTotal");
     expect(resolveBossRules(defaults, { dailyRewardLimit: 3 } as never)).not.toHaveProperty("dailyRewardLimit");
     expect(() => compactBossRuleOverride({ gearQualityPct: { orange: 10 } }, defaults)).toThrow(/100%/);
@@ -83,8 +83,8 @@ describe("首领规则（第四批：一套规则）", () => {
 
   it("stats: auto = the stage's first monster × multipliers (rounded, same interval), hand-filled keys in statsCustom stay; manual = as filled; auto without a monster = as filled (第四批)", () => {
     const boss = { attack: 99, defense: 98, hp: 97, interval: 2 };
-    expect(expandBossStats(boss, wolf, DEFAULT_BOSS_RULES)).toEqual({ attack: 31, defense: 17, hp: 550, interval: 1.5 });
-    expect(expandBossStats({ ...boss, statsCustom: ["hp", "interval"] }, wolf, DEFAULT_BOSS_RULES)).toEqual({ attack: 31, defense: 17, hp: 97, interval: 2 });
+    expect(expandBossStats(boss, wolf, DEFAULT_BOSS_RULES)).toEqual({ attack: 37, defense: 20, hp: 715, interval: 1.5 });
+    expect(expandBossStats({ ...boss, statsCustom: ["hp", "interval"] }, wolf, DEFAULT_BOSS_RULES)).toEqual({ attack: 37, defense: 20, hp: 97, interval: 2 });
     expect(expandBossStats(boss, wolf, { ...DEFAULT_BOSS_RULES, statMode: "manual" })).toEqual(boss);
     expect(expandBossStats(boss, undefined, DEFAULT_BOSS_RULES)).toEqual(boss);
   });

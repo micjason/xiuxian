@@ -31,7 +31,12 @@
         <span class="chapter-cell">{{ row.chapterName }}</span>
       </template>
       <template #cell-bossText="{ row }">
-        <span class="boss-cell">{{ row.bossText }}<TierTag :tier="row.tier as BossTier" /></span>
+        <span class="boss-cell">
+          <span class="boss-name">{{ row.bossText }}<TierTag :tier="row.tier as BossTier" /></span>
+          <span v-if="row.powerProblem" class="boss-rec muted">推荐战力 算不出</span>
+          <span v-else-if="row.effectivePower != null" class="boss-rec">推荐战力 {{ row.effectivePower }}</span>
+          <span v-else class="boss-rec muted">推荐战力 —</span>
+        </span>
       </template>
       <template #cell-realmName="{ row }">
         <el-tag v-if="row.realmMissing" type="danger" effect="light" size="small">境界 {{ row.realmCode }} 不存在</el-tag>
@@ -225,6 +230,8 @@
               :tier="tierOf(form as StageForm)"
               :defaults="bossRules"
               :monster="(form as StageForm).monsters[0] ?? null"
+              :stage-recommended-power="stageRecPower(form as StageForm)"
+              :recommended-power-margin="rules.recommendedPowerMargin"
               @trial="openTrial"
               @open-overview="goOverviewBoss"
             />
@@ -432,6 +439,17 @@ function bossPowerOf(boss: BossRow, realmCode: number | undefined): number | nul
   const speed = Math.max(0, rules.value.speedBase * (realm.interval / boss.interval - 1));
   const raw = boss.attack * weights.value.attack + boss.defense * weights.value.defense + boss.hp * weights.value.hp + speed * weights.value.speed;
   return Math.round(raw);
+}
+
+/** 列表/抽屉同源：手动覆盖优先，否则首领战力 × 推荐战力倍数。 */
+function stageRecPower(form: StageForm): number | null {
+  if (form.recommendedPower != null) return form.recommendedPower;
+  if (form.autoPower != null) return form.autoPower;
+  const boss = form.bosses?.[0];
+  if (!boss) return null;
+  const raw = bossPowerOf(boss, form.realmCode);
+  if (raw == null) return null;
+  return Math.round(raw * rules.value.recommendedPowerMargin);
 }
 
 function customCount(form: StageForm): number {
@@ -728,11 +746,6 @@ onBeforeUnmount(() => window.removeEventListener("resize", onResize));
   color: var(--xx-text-primary);
   font-weight: 600;
 }
-.boss-cell {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
 .power-cell {
   display: inline-flex;
   align-items: center;
@@ -744,5 +757,24 @@ onBeforeUnmount(() => window.removeEventListener("resize", onResize));
 }
 .pad {
   margin: 8px 0 0;
+}
+.boss-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  line-height: 1.35;
+}
+.boss-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.boss-rec {
+  font-size: var(--xx-fs-xs, 12px);
+  color: var(--xx-text-secondary);
+}
+.boss-rec.muted {
+  color: var(--xx-text-placeholder, #a8a29e);
 }
 </style>

@@ -75,7 +75,7 @@ describe("migration 0045 (第四批：一套首领规则)", () => {
       expect(content(twice)).toEqual(content(once));
 
       const [globals] = await db.select().from(contentGlobals);
-      expect((globals!.tuning as Record<string, unknown>).bossRules).toEqual({ ...DEFAULT_BOSS_RULES, repeatGearQualityPct: { white: 0, green: 45, blue: 35, purple: 15, orange: 5 }, dailyChallengeTotal: 4 });
+      expect((globals!.tuning as Record<string, unknown>).bossRules).toEqual({ ...DEFAULT_BOSS_RULES, statMul: { hp: 5, attack: 1.3, defense: 1.2 }, repeatGearQualityPct: { white: 0, green: 45, blue: 35, purple: 15, orange: 5 }, dailyChallengeTotal: 4 });
       expect(tuningOf(globals!.tuning).bossRules.dailyChallengeTotal).toBe(4);
 
       const override = (slug: string) => once.stages.find((row) => row.slug === slug)!.bosses![0]!.ruleOverride ?? null;

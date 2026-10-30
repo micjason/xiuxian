@@ -94,7 +94,8 @@ func _init() -> void:
 	_fx_host = Node2D.new()
 	_fx_host.name = "CaveFxHost"
 	_stage.add_child(_fx_host)
-	_ensure_fx()
+	# 不在 _init 加载 3 个洞府 FX（Android 启动时 PlayScreen 构造即实例化 CavePage 易闪退）；
+	# bind / _render / 播放路径再 _ensure_fx。空 _fx_host 保留。
 	_render()
 
 
@@ -118,6 +119,8 @@ func bind(state: Dictionary, content: Dictionary) -> void:
 	_view = CaveView.build(state, content)
 	_bag = BagModel.from_state(state, content)
 	_ensure_enhance_selection()
+	# 首次 bind / 入树后再加载 FX，与改前进入洞府后的表现一致
+	_ensure_fx()
 	var sig := hash([_view, _mode, _plant_slot, _enhance_selected_id, _bag_sig()])
 	if sig == _bind_sig:
 		_sync_alchemy_fire()
@@ -159,6 +162,9 @@ func _ensure_enhance_selection() -> void:
 
 
 func _ensure_fx() -> void:
+	# _init → _render 时尚未进树：跳过，避免启动期加载 3 个 FX 场景
+	if not is_inside_tree():
+		return
 	if _fx_host == null or not is_instance_valid(_fx_host):
 		_fx_host = Node2D.new()
 		_fx_host.name = "CaveFxHost"

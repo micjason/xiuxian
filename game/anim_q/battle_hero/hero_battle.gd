@@ -94,23 +94,28 @@ func _ready() -> void:
 
 
 ## 换主角图（例如以后换皮）。图要朝右、脚底在 SRC_FEET 附近。
+## 未 ready / _spr·_mat 为空时跳过或延后，避免 Android 启动 SCRIPT ERROR。
 func set_texture(tex: Texture2D) -> void:
 	if tex == null:
+		return
+	if not is_node_ready() or _spr == null:
+		call_deferred("set_texture", tex)
 		return
 	_spr.texture = tex
 	_fit()
 
 
 func _fit() -> void:
-	if _spr == null or _spr.texture == null:
+	if not is_node_ready() or _spr == null or _spr.texture == null:
 		return
 	var sz := Vector2(_spr.texture.get_size())
 	_s = minf(box.x / sz.x, box.y / sz.y)
 	_spr.scale = Vector2(_s * face, _s)
 	# 精灵居中显示（shader 往四周扩边要求居中）：把脚底挪到节点原点
 	_spr.position = Vector2((sz.x * 0.5 - SRC_FEET.x) * _s * face, (sz.y * 0.5 - SRC_FEET.y) * _s)
-	_mat.set_shader_parameter(&"pad_px", 24.0)
-	_mat.set_shader_parameter(&"glow_px", 14.0)
+	if _mat != null:
+		_mat.set_shader_parameter(&"pad_px", 24.0)
+		_mat.set_shader_parameter(&"glow_px", 14.0)
 	var w := box.x
 	# 接触影（fx_contact_shadow 320×80）：宽≈框宽×0.62，高≈宽×0.25
 	var sw := w * 0.62

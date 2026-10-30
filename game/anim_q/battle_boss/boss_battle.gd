@@ -302,16 +302,21 @@ func _setup_hero_rig() -> void:
 	elif use_hero_rig and hero is TextureRect and (hero as TextureRect).texture != null \
 			and hero_tex_allows_rig((hero as TextureRect).texture.resource_path) and ResourceLoader.exists(HERO_RIG_PATH):
 		var rect := hero as TextureRect
+		var parent := rect.get_parent()
+		# TextureRect 尚未入树时 parent 为空；跳过/延后，避免 parent.add_child 空引用闪退
+		if parent == null or not is_instance_valid(parent):
+			call_deferred("_setup_hero_rig")
+			return
 		hero_rig = (load(HERO_RIG_PATH) as PackedScene).instantiate() as Node2D
 		hero_rig.name = "HeroRig"
 		_rig_owned = true
-		var parent := rect.get_parent()
 		parent.add_child(hero_rig)
 		parent.move_child(hero_rig, rect.get_index() + 1)
 		hero_rig.set_texture(rect.texture)
 		rect.self_modulate.a = 0.0
 	if hero_rig != null:
-		hero_rig.attack_release.connect(_on_rig_attack_release)
+		if not hero_rig.attack_release.is_connected(_on_rig_attack_release):
+			hero_rig.attack_release.connect(_on_rig_attack_release)
 
 
 ## 换装后：把页面 TextureRect 上的新贴图同步进已挂好的 HeroRig（TextureRect 本身已透明，只作定位框）。
@@ -323,6 +328,10 @@ func set_hero_texture_from_art() -> void:
 	if rect.texture == null:
 		return
 	if hero_rig == null:
+		var parent := rect.get_parent()
+		if parent == null or not is_instance_valid(parent):
+			call_deferred("set_hero_texture_from_art")
+			return
 		_setup_hero_rig()
 		if hero_rig != null and is_node_ready():
 			_layout()

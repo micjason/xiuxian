@@ -2,10 +2,10 @@
   <div class="formula-tab">
     <div class="savebar" :class="{ dirty }">
       <span v-if="dirty" class="state">有未保存的改动（{{ dirtyCount }} 项）。下面的图和数字是按你正在填的值实时算的。</span>
-      <span v-else class="state ok">已和草稿一致。下面的图和数字是按当前值算的。</span>
+      <span v-else class="state ok">已保存。下面的图和数字是按当前值算的。</span>
       <span class="spacer" />
       <el-button :disabled="!dirty" @click="revert">还原</el-button>
-      <el-button type="primary" :disabled="!dirty" :loading="saving" @click="save">保存到草稿</el-button>
+      <el-button type="primary" :disabled="!dirty" :loading="saving" @click="save">保存</el-button>
     </div>
     <p v-if="previewError" class="hint">{{ previewError }}</p>
     <div class="layout">
@@ -453,7 +453,7 @@ async function save(): Promise<void> {
     await api("/admin/draft/rules", { method: "PUT", body: JSON.stringify(body), guard: { revisions: rev, id: 1, reload: load, latest: () => api("/admin/draft/rules"), title: "战斗公式与参数" } });
     original.value = JSON.stringify(form.value);
     await refreshPreview();
-    ElMessage.success("已保存到草稿");
+    ElMessage.success("已保存，已生效");
     void refreshDraftStatus();
   } catch (cause) {
     if (isConflictAbort(cause)) {

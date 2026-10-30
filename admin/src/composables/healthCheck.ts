@@ -1,4 +1,4 @@
-// 草稿体检：用现有的草稿接口数据，提前发现「发布后玩家会卡住」的问题。纯函数，便于测试。
+// 配置体检：用现有配置接口数据，提前发现会卡住玩家的问题。纯函数，便于测试。
 export type Problem = { level: "error" | "warn"; area: string; message: string; to: string };
 
 export type HealthInput = {

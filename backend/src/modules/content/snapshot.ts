@@ -212,14 +212,17 @@ export async function loadDraftSnapshot(db: Db | Tx): Promise<ContentSnapshot> {
   };
 }
 
+/** 玩家运行时读的「当前世界」。开发阶段直接读配置表（与后台编辑同一份），保存即生效；不做草稿/已发布双缓冲。
+ *  `publishSnapshot` 仍可写可选历史快照（种子脚本 / 版本历史），但不参与玩家读路径。正式上线后再恢复双轨。 */
 export async function loadCurrentWorld(db: Db | Tx): Promise<(ContentSnapshot & { version: number }) | null> {
-  const draft = await loadDraftSnapshot(db);
-  if (draft.realms.length === 0) {
+  const live = await loadDraftSnapshot(db);
+  if (live.realms.length === 0) {
     return null;
   }
-  return { ...draft, version: 0 };
+  return { ...live, version: 0 };
 }
 
+/** 写入可选内容快照到 content_versions（历史/种子用）。开发阶段玩家不读这里；后台「内容体检」页也不再要求点发布。 */
 export async function publishSnapshot(db: Db, note: string, adminId: string | null, now: Date) {
   if (!note.trim()) {
     throw new AppError("INVALID_INPUT", "发布说明不能为空");

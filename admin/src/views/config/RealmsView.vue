@@ -441,7 +441,7 @@ async function save(): Promise<void> {
         title: `境界「${row.displayName}」`,
       },
     });
-    ElMessage.success("已保存到草稿");
+    ElMessage.success("已保存，已生效");
     snapshot.value = JSON.stringify(payloadOf(row));
     drawer.value = false;
     await reload();

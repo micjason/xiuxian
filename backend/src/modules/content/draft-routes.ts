@@ -293,10 +293,11 @@ export async function registerDraftRoutes(app: FastifyInstance, deps: { db: Db; 
     saveDraftDropTable(deps.db, request.body as never, request.actor?.actorId ?? null),
   );
 
-  // 发布中心用的只读接口：版本列表、任意两版（或版本与草稿）的改动清单。
+  // 可选快照/对比（开发阶段玩家读配置表，不依赖发布）。保留给种子脚本与版本历史页。
   app.get("/admin/draft/versions", async () => listContentVersions(deps.db));
   app.get("/admin/draft/diff", async (request) => diffContent(deps.db, request.query as { from?: unknown; to?: unknown }));
 
+  // 可选：写入历史快照。后台 UI 开发阶段已去掉「必须发布」；种子/e2e 仍可调用。
   app.post("/admin/draft/publish", async (request) => {
     const body = (request.body ?? {}) as { note?: string };
     return publishSnapshot(deps.db, body.note ?? "", request.actor?.actorId ?? null, deps.now());

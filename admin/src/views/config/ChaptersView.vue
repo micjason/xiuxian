@@ -207,7 +207,7 @@ async function save(): Promise<void> {
     }
     baseline.value = JSON.stringify(form.value);
     drawer.value = false;
-    ElMessage.success("已保存到草稿");
+    ElMessage.success("已保存，已生效");
     void refreshDraftStatus();
     await reload();
   } catch (cause) {

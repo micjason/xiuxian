@@ -1,18 +1,18 @@
 <template>
   <div>
-    <PageHeader title="洞府" desc="药园地块、种子、炼丹配方，以及灵仆分配系数和设施升级。改完保存到草稿，再到「发布中心」发布后玩家才生效。强化规则仍在「装备强化」页。">
+    <PageHeader title="洞府" desc="药园地块、种子、炼丹配方，以及灵仆分配系数和设施升级。保存后立刻对玩家生效（开发阶段无草稿）。强化规则仍在「装备强化」页。">
       <template #actions><el-button :icon="Refresh" :loading="loading" @click="load">刷新</el-button></template>
     </PageHeader>
 
     <DataState :loading="loading && !loaded" :error="error" :has-data="loaded" empty-text="" @retry="load">
       <div class="savebar" :class="{ dirty }">
-        <span v-if="!hasSaved" class="state">还没有保存过洞府配置：游戏端药园/炼丹会报「尚未发布」，请先填写并保存。</span>
+        <span v-if="!hasSaved" class="state">还没有保存过洞府配置：游戏端药园/炼丹会报错，请先填写并保存（保存后立即生效）。</span>
         <span v-else-if="dirty" class="state">有未保存的改动。</span>
-        <span v-else class="state ok">已和草稿一致。保存后还要到「发布中心」发布，玩家才会看到。</span>
+        <span v-else class="state ok">已保存，已对玩家生效。</span>
         <span class="spacer" />
         <el-button @click="fillStarting">填入建议起始值</el-button>
         <el-button :disabled="!dirty" @click="revert">还原</el-button>
-        <el-button type="primary" :disabled="!dirty || problems.length > 0" :loading="saving" @click="save">保存到草稿</el-button>
+        <el-button type="primary" :disabled="!dirty || problems.length > 0" :loading="saving" @click="save">保存</el-button>
       </div>
 
       <el-alert v-if="problems.length > 0 && touched" type="warning" :closable="false" show-icon class="gap" title="有几项还没填对">
@@ -662,7 +662,7 @@ async function save(): Promise<void> {
     if (view.config) form.value = normalize(view.config);
     original.value = JSON.stringify(form.value);
     touched.value = false;
-    ElMessage.success("已保存到草稿，发布后玩家生效");
+    ElMessage.success("已保存，已生效");
     void refreshDraftStatus();
   } catch (cause) {
     if (isConflictAbort(cause)) {

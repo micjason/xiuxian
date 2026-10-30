@@ -42,10 +42,9 @@
         <div class="tools">
           <el-button class="search-btn" @click="searchOpen = true"><el-icon><Search /></el-icon><span>搜索</span><kbd>Ctrl K</kbd></el-button>
           <el-tooltip :content="draftTip" placement="bottom">
-            <el-button :type="draft.changes > 0 || errorCount > 0 ? 'warning' : 'default'" plain :loading="draft.loading && !draft.loaded" @click="router.push('/publish')">
+            <el-button :type="errorCount > 0 ? 'warning' : 'default'" plain :loading="draft.loading && !draft.loaded" @click="router.push('/publish')">
               <template v-if="errorCount > 0">{{ errorCount }} 个配置错误</template>
-              <template v-else-if="draft.diffAvailable && draft.changes > 0">{{ draft.changes }} 项未发布</template>
-              <template v-else>草稿已同步</template>
+              <template v-else>保存即生效</template>
             </el-button>
           </el-tooltip>
           <el-dropdown trigger="click" @command="onCommand">
@@ -155,7 +154,7 @@ watch(
 );
 const activePath = computed(() => current.value?.path ?? route.path);
 const errorCount = computed(() => draft.problems.filter((item) => item.level === "error").length);
-const draftTip = computed(() => `线上内容版本：${draft.contentVersion ?? "未发布"}。点击进入发布中心。`);
+const draftTip = computed(() => `开发阶段：后台保存后玩家立即读到当前配置。点击查看内容体检。`);
 
 function onCommand(command: string): void {
   if (command === "theme") {

@@ -542,7 +542,7 @@ async function save(): Promise<boolean> {
     });
     apply(overview);
     void bossSection.value?.reloadUsage();
-    ElMessage.success("已保存到草稿；跟随默认的关卡立即生效");
+    ElMessage.success("已保存，已生效；跟随默认的关卡同步更新");
     return true;
   } catch (cause) {
     if (isConflictAbort(cause)) {

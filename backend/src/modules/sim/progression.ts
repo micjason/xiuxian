@@ -179,7 +179,7 @@ function stageLabelOf(world: ContentSnapshot, state: SimState): string {
     try {
       rec = stageRecommendedPower(world, next);
     } catch {
-      rec = 0;
+      /* keep 0 */
     }
     const recPart = rec > 0 ? ` · 推荐战力 ${rec}` : "";
     return `${next.displayName ?? next.slug}/${boss}${recPart}`;
@@ -502,7 +502,7 @@ function fightBoss(
   try {
     recPower = stageRecommendedPower(world, stage);
   } catch {
-    recPower = 0;
+    /* keep 0 */
   }
   const recSuffix = recPower > 0 ? `，推荐战力 ${recPower}` : "";
   if (battle.win) {

@@ -51,10 +51,6 @@ export type ContentSnapshot = {
     baseInterval?: number;
     majorKey?: string;
     majorName?: string;
-    ultName?: string;
-    ultDamageMultBp?: number;
-    ultCooldownSeconds?: number;
-    ultFirstCooldownSeconds?: number;
     requiredStageSlug: string | null;
     recommendedPower: number;
     enabled: boolean;

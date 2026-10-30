@@ -282,11 +282,6 @@ export const contentRealms = pgTable("content_realms", {
   baseHp: doublePrecision("base_hp").notNull().default(0),
   baseSpeed: doublePrecision("base_speed").notNull().default(0),
   baseInterval: doublePrecision("base_interval"),
-  /** 手动大招（按层填，同一个大境界的几层填一样的）。倍率 0 = 没有大招。 */
-  ultName: text("ult_name").notNull().default(""),
-  ultDamageMultBp: integer("ult_damage_mult_bp").notNull().default(0),
-  ultCooldownSeconds: doublePrecision("ult_cooldown_seconds").notNull().default(0),
-  ultFirstCooldownSeconds: doublePrecision("ult_first_cooldown_seconds").notNull().default(8),
   breakthroughCost: doublePrecision("breakthrough_cost").notNull().default(0),
   requiredStageSlug: text("required_stage_slug"),
   recommendedPower: integer("recommended_power").notNull().default(0),

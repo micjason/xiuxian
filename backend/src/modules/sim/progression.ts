@@ -510,17 +510,7 @@ function fightBoss(
     /* keep 0 */
   }
   const recSuffix = recPower > 0 ? `，推荐战力 ${recPower}` : "";
-  // 推荐战力语义：打赢所需战力 × 余量。完整战斗可能因技能/血厚权重等在远低于推荐时仍判胜；
-  // 进度模拟按推荐门槛收束，避免「战力 4k 打过推荐 1 万」误导调参。
-  if (battle.win && recPower > 0 && fighterStats.power < recPower) {
-    emit(
-      timeline,
-      state,
-      "boss_lose",
-      `挑战 ${bossName} 失败（战力不足），战力 ${fighterStats.power}${recSuffix}`,
-    );
-    return false;
-  }
+  // 过关只看对砍结果；推荐战力仍写进时间线/总览提示，不强制判负。
   if (battle.win) {
     const first = !state.stages.some((s) => s.stageSlug === stage.slug && s.firstClearedAt);
     const existing = state.stages.find((s) => s.stageSlug === stage.slug);

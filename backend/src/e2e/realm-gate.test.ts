@@ -59,7 +59,11 @@ describe("realm table: fixed 24 rows and major-breakthrough boss gate (admin API
       });
       expect(list[23]).toMatchObject({ code: 24, displayName: "大乘三层", showBreakthroughCost: false, showGate: true, etaLabel: "约 55 天", breakthroughCost: 0 });
       const created = await db.select().from(contentRealms).where(eq(contentRealms.slug, "yuanying_1"));
-      expect(created[0]).toMatchObject({ tickSeconds: 1, gainPerTick: 27, nextRealmSlug: "yuanying_2", ultDamageMultBp: 0, baseInterval: 1.5 });
+      expect(created[0]).toMatchObject({ tickSeconds: 1, gainPerTick: 27, nextRealmSlug: "yuanying_2", baseInterval: 1.5 });
+      expect(created[0]).not.toHaveProperty("ultName");
+      expect(created[0]).not.toHaveProperty("ultDamageMultBp");
+      expect(created[0]).not.toHaveProperty("ultCooldownSeconds");
+      expect(created[0]).not.toHaveProperty("ultFirstCooldownSeconds");
       const [lianqi1] = await db.select().from(contentRealms).where(eq(contentRealms.slug, "lianqi_1"));
       expect(lianqi1).toMatchObject({ nextRealmSlug: "lianqi_2", breakthroughCost: 60, gainPerTick: 1 });
       const [jindan3] = await db.select().from(contentRealms).where(eq(contentRealms.slug, "jindan_3"));
@@ -142,7 +146,7 @@ describe("realm table: fixed 24 rows and major-breakthrough boss gate (admin API
     });
   });
 
-  it("saves requiredStageId on a major's third layer, keeps the slug, clears the gate, and wipes legacy ult fields", async () => {
+  it("saves requiredStageId on a major's third layer, keeps the slug, clears the gate, and has no realm ult columns", async () => {
     await withDb(async (db) => {
       const { app, admin } = await boot(db);
       const put = (code: number, payload: Record<string, unknown>) =>
@@ -162,13 +166,15 @@ describe("realm table: fixed 24 rows and major-breakthrough boss gate (admin API
       const [row] = await db.select().from(contentRealms).where(eq(contentRealms.slug, "lianqi_3"));
       expect(row).toMatchObject({
         requiredStageSlug: "lianqi_3",
-        ultDamageMultBp: 0,
-        ultName: "",
         displayName: "炼气三层",
         slug: "lianqi_3",
         nextRealmSlug: before?.nextRealmSlug,
         gainPerTick: before?.gainPerTick,
       });
+      expect(row).not.toHaveProperty("ultName");
+      expect(row).not.toHaveProperty("ultDamageMultBp");
+      expect(row).not.toHaveProperty("ultCooldownSeconds");
+      expect(row).not.toHaveProperty("ultFirstCooldownSeconds");
       const cleared = await put(3, { requiredStageId: "" });
       expect(cleared.statusCode).toBe(200);
       const [after] = await db.select().from(contentRealms).where(eq(contentRealms.slug, "lianqi_3"));

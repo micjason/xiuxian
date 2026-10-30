@@ -87,10 +87,6 @@ export async function loadDraftSnapshot(db: Db | Tx): Promise<ContentSnapshot> {
       baseInterval: row.baseInterval ?? undefined,
       majorKey: row.majorKey ?? undefined,
       majorName: row.majorName || undefined,
-      ultName: row.ultName,
-      ultDamageMultBp: row.ultDamageMultBp,
-      ultCooldownSeconds: row.ultCooldownSeconds,
-      ultFirstCooldownSeconds: row.ultFirstCooldownSeconds,
       enabled: row.enabled,
     })),
     stages: withDerivedNextStage(stages.map((row) => {

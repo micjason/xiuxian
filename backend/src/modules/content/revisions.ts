@@ -13,7 +13,7 @@ import type { Db } from "../operations/record.js";
  * - 不带 If-Match 的请求照旧放行（脚本、测试、旧页面），后台网页的保存全部会带。
  * - 保存成功的响应头 X-Revision 是新版本号，页面接着改再存不会误报冲突。
  */
-export type RevisionKind = "stage" | "globals" | "item" | "skill" | "skillCategory" | "realm" | "chapter" | "gearSet" | "puppet" | "popupType";
+export type RevisionKind = "stage" | "globals" | "item" | "skill" | "skillCategory" | "realm" | "chapter" | "gearSet" | "puppet" | "popupType" | "dropTable";
 
 const TABLES: Record<RevisionKind, { table: string; key: string; numeric?: boolean }> = {
   stage: { table: "content_stages", key: "slug" },
@@ -26,6 +26,7 @@ const TABLES: Record<RevisionKind, { table: string; key: string; numeric?: boole
   gearSet: { table: "content_gear_sets", key: "slug" },
   puppet: { table: "content_trial_puppets", key: "slug" },
   popupType: { table: "popup_types", key: "slug" },
+  dropTable: { table: "content_drop_tables", key: "slug" },
 };
 
 type Guard = { kind: RevisionKind; key: (request: FastifyRequest) => string | number; after?: (request: FastifyRequest) => string | number };
@@ -56,6 +57,7 @@ export const GUARDED: Record<string, Guard> = {
     after: (request) => Number((request.body as { code?: unknown } | null)?.code ?? (request.params as { code: string }).code),
   },
   "PUT /admin/draft/chapters/:id": { kind: "chapter", key: id("id") },
+  "PUT /admin/draft/drop-tables/:slug": { kind: "dropTable", key: id("slug") },
   "PUT /admin/draft/puppets/:id": { kind: "puppet", key: id("id") },
   "PUT /admin/popup-types/:slug": { kind: "popupType", key: id("slug") },
 };

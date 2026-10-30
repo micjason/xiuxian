@@ -23,7 +23,7 @@ const PAGE_BACKGROUNDS := {
 	PAGE_BREAKTHROUGH: "breakthrough",
 	PAGE_BAG: "",
 	PAGE_SKILL: "",
-	PAGE_CAVE: "character",
+	PAGE_CAVE: "",
 }
 ## 不在页签里的页面 → 高亮哪个页签。
 const TAB_OF := {PAGE_BATTLE: PAGE_ADVENTURE, PAGE_SKILL: PAGE_CULTIVATE}

@@ -1,0 +1,73 @@
+[gd_scene load_steps=10 format=3]
+
+[ext_resource type="Script" path="res://anim_q/dongfu/garden_water/garden_water_fx.gd" id="1"]
+[ext_resource type="Texture2D" path="res://anim_q/dongfu/garden_water/fx/fx_contact_shadow.png" id="2"]
+[ext_resource type="Texture2D" path="res://anim_q/dongfu/garden_water/fx/fx_lingpu.png" id="3"]
+[ext_resource type="Texture2D" path="res://anim_q/dongfu/garden_water/fx/fx_watering_can.png" id="4"]
+[ext_resource type="Texture2D" path="res://anim_q/dongfu/garden_water/fx/fx_water_arc.png" id="5"]
+[ext_resource type="Texture2D" path="res://anim_q/dongfu/garden_water/fx/fx_water_drop.png" id="6"]
+[ext_resource type="Texture2D" path="res://anim_q/dongfu/garden_water/fx/fx_dew.png" id="7"]
+[ext_resource type="Texture2D" path="res://anim_q/dongfu/garden_water/fx/fx_harvest_glow.png" id="8"]
+[ext_resource type="Texture2D" path="res://anim_q/dongfu/garden_water/fx/fx_harvest_glow.png" id="9"]
+
+[sub_resource type="CanvasItemMaterial" id="mat_add"]
+blend_mode = 1
+
+[node name="GardenWaterFx" type="Node2D"]
+script = ExtResource("1")
+
+[node name="Root" type="Node2D" parent="."]
+
+[node name="Shadow" type="Sprite2D" parent="Root"]
+modulate = Color(1, 1, 1, 0.55)
+position = Vector2(0, 36)
+scale = Vector2(0.7, 0.45)
+texture = ExtResource("2")
+
+[node name="HarvestGlow" type="Sprite2D" parent="Root"]
+modulate = Color(0.7, 1, 0.85, 0)
+position = Vector2(20, -10)
+texture = ExtResource("8")
+
+[node name="CropPulse" type="Sprite2D" parent="Root"]
+modulate = Color(0.85, 1, 0.9, 0)
+position = Vector2(36, 8)
+scale = Vector2(1.6, 1.2)
+texture = ExtResource("9")
+
+[node name="Lingpu" type="Sprite2D" parent="Root"]
+position = Vector2(-48, 0)
+scale = Vector2(0.72, 0.72)
+texture = ExtResource("3")
+
+[node name="Can" type="Sprite2D" parent="Root"]
+position = Vector2(-8, -18)
+scale = Vector2(0.55, 0.55)
+texture = ExtResource("4")
+
+[node name="WaterArc" type="Sprite2D" parent="Root"]
+modulate = Color(1, 1, 1, 0)
+position = Vector2(40, 10)
+rotation = 0.35
+texture = ExtResource("5")
+
+[node name="Dew" type="Sprite2D" parent="Root"]
+modulate = Color(1, 1, 1, 0)
+position = Vector2(50, -20)
+texture = ExtResource("7")
+
+[node name="Drops" type="CPUParticles2D" parent="Root"]
+position = Vector2(55, 18)
+emitting = false
+amount = 10
+lifetime = 0.45
+one_shot = false
+explosiveness = 0.1
+texture = ExtResource("6")
+direction = Vector2(0.6, 1)
+spread = 18.0
+gravity = Vector2(0, 180)
+initial_velocity_min = 40.0
+initial_velocity_max = 90.0
+scale_amount_min = 0.4
+scale_amount_max = 0.8

@@ -1,8 +1,8 @@
 extends GutTest
-## 洞府 v1 客户端：总览三卡、强化只发信号、药园子页可进。
+## 洞府 L0+L1 场所硬接：庭院三热点、强化进场所页再走行囊、药园子页可进。
 
 
-func test_enhance_card_only_emits_signal() -> void:
+func test_enhance_hotspot_opens_place_then_emits() -> void:
 	var page := CavePage.new()
 	add_child_autofree(page)
 	page.bind({
@@ -14,13 +14,17 @@ func test_enhance_card_only_emits_signal() -> void:
 			"claimable": {"plots": 0, "alchemy": 0},
 		},
 		"items": [],
+		"spiritStones": 10,
 	}, {"globals": {"dongfu": {"plotCount": 4, "alchemyQueueLength": 2, "seeds": [], "recipes": []}}, "items": []})
-	watch_signals(page)
 	var enter := page.find_child("Enter_enhance", true, false) as BaseButton
-	assert_not_null(enter, "总览有强化进入按钮")
+	assert_not_null(enter, "L0 有强化热点")
 	enter.pressed.emit()
+	assert_eq(page.mode(), "enhance", "强化进场所页")
+	watch_signals(page)
+	var rune := page.find_child("EnhanceBtn", true, false) as BaseButton
+	assert_not_null(rune, "场所页有强化符文石")
+	rune.pressed.emit()
 	assert_signal_emitted(page, "enhance_entry_requested")
-	assert_eq(page.mode(), "overview", "强化不切子页")
 
 
 func test_garden_card_opens_subpage() -> void:
@@ -38,6 +42,7 @@ func test_garden_card_opens_subpage() -> void:
 			"claimable": {"plots": 0, "alchemy": 0},
 		},
 		"items": [{"id": "s1", "itemSlug": "seed_lingcao", "quantity": 1, "isStack": true}],
+		"spiritStones": 0,
 	}, {
 		"globals": {"dongfu": {
 			"plotCount": 4,
@@ -54,6 +59,7 @@ func test_garden_card_opens_subpage() -> void:
 	assert_not_null(page.find_child("GardenClaimAll", true, false))
 	assert_not_null(page.find_child("Plot_0", true, false))
 	assert_not_null(page.find_child("Upgrade_garden", true, false))
+	assert_not_null(page.find_child("SeedPicker", true, false))
 
 
 func test_allocate_and_upgrade_emit_actions() -> void:
@@ -79,6 +85,7 @@ func test_allocate_and_upgrade_emit_actions() -> void:
 			},
 		},
 		"items": [],
+		"spiritStones": 0,
 	}, {"globals": {"dongfu": {"plotCount": 4, "alchemyQueueLength": 2, "seeds": [], "recipes": []}}, "items": [{"slug": "wood_lingmu", "displayName": "灵木"}]})
 	var plus := page.find_child("AllocPlus_garden", true, false) as BaseButton
 	assert_not_null(plus)
@@ -86,6 +93,9 @@ func test_allocate_and_upgrade_emit_actions() -> void:
 	watch_signals(page)
 	plus.pressed.emit()
 	assert_signal_emitted(page, "action_requested")
+	# 升级在药园 L1
+	var enter := page.find_child("Enter_garden", true, false) as BaseButton
+	enter.pressed.emit()
 	var upgrade := page.find_child("Upgrade_garden", true, false) as BaseButton
 	assert_not_null(upgrade)
 	assert_false(upgrade.disabled)

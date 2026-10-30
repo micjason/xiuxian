@@ -1,73 +1,101 @@
 class_name CavePage
-extends VBoxContainer
-## 洞府 v1：总览三卡（药园 / 炼丹 / 强化）+ 药园/炼丹子页。
-## 数据来自 CaveView.build(state, content)；写操作发 action_requested，由 PlayScreen 调接口。
-## 强化第三卡只发 enhance_entry_requested（接线归独立开发超级大师 open_enhance_entry）。
+extends Control
+## 洞府 L0+L1 场所硬接：庭院热点 + 药园/炼丹/强化场所页（非按钮墙）。
+## 数据来自 CaveView.build；写操作发 action_requested；强化复用 enhance_entry_requested。
+## 设计空间 1080×2340；热区见 q_design/DONGFU_A_FINAL_NOTES.md · DONGFU_L1_V2_HOTSPOTS.md。
 
 signal back_requested
 signal enhance_entry_requested
-## kind: garden_plant / garden_claim / alchemy_start / alchemy_claim / toast
-## payload: 对应接口字段；toast 时 payload.text 为文案。
 signal action_requested(kind: String, payload: Dictionary)
 
 const MODE_OVERVIEW := "overview"
 const MODE_GARDEN := "garden"
 const MODE_ALCHEMY := "alchemy"
+const MODE_ENHANCE := "enhance"
+
+## 页面区相对画布原点：洞府页顶栏为紧凑态（无修为条），约 y=160；左 24 为 PAGE_MARGIN。
+const ORIGIN := Vector2(24, 160)
+const DESIGN := Vector2(1080, 2340)
+
+# L0 热区 (x,y,w,h) 画布坐标
+const HS_GARDEN := Rect2(40, 820, 420, 480)
+const HS_ALCHEMY := Rect2(520, 620, 500, 540)
+const HS_ENHANCE := Rect2(280, 1220, 500, 420)
+const HS_STONE := Rect2(40, 118, 300, 88)
+const HS_WOOD := Rect2(370, 118, 300, 88)
+const HS_SERVANT := Rect2(700, 118, 340, 88)
+const HS_ALLOC := Rect2(36, 1836, 1008, 120)
+
+# L1 共用 / 药园
+const HS_BACK := Rect2(30, 250, 96, 96)
+const HS_UPGRADE := Rect2(700, 250, 200, 88)
+const HS_CLAIM_ALL := Rect2(40, 360, 260, 72)
+const HS_PLOTS := [
+	Rect2(120, 560, 380, 320),
+	Rect2(580, 560, 380, 320),
+	Rect2(120, 1000, 380, 320),
+	Rect2(580, 1000, 380, 320),
+]
+const HS_SEEDS := [
+	Rect2(48, 1540, 320, 220),
+	Rect2(388, 1540, 320, 220),
+	Rect2(728, 1540, 320, 220),
+]
+# 炼丹
+const HS_FURNACE := Rect2(250, 400, 580, 580)
+const HS_TRAYS := [Rect2(20, 860, 280, 260), Rect2(780, 860, 280, 260)]
+const HS_RECIPE_CTAS := [
+	Rect2(780, 1304, 220, 80),
+	Rect2(780, 1489, 220, 80),
+	Rect2(780, 1674, 220, 80),
+]
+# 强化
+const HS_EQ_RING := [
+	Rect2(70, 470, 116, 116), Rect2(250, 420, 116, 116), Rect2(470, 400, 116, 116),
+	Rect2(690, 420, 116, 116), Rect2(870, 490, 116, 116), Rect2(900, 710, 116, 116),
+]
+const HS_ARRAY_HEART := Rect2(440, 800, 200, 200)
+const HS_ENHANCE_BTN := Rect2(140, 1400, 360, 120)
+const HS_ENHANCE_MAX := Rect2(560, 1400, 360, 120)
+
+const FX_WATER := "res://anim_q/dongfu/garden_water/garden_water_fx.tscn"
+const FX_FIRE := "res://anim_q/dongfu/alchemy_fire/alchemy_fire_fx.tscn"
+const FX_ARRAY := "res://anim_q/dongfu/enhance_array/enhance_array_fx.tscn"
 
 var _mode := MODE_OVERVIEW
 var _view: Dictionary = {}
-var _plant_slot := -1  ## >=0 时药园子页显示选种条
+var _plant_slot := -1
 var _bind_sig := 0
-var _title: Label
-var _back: Button
-var _body: VBoxContainer
-var _sheet: PanelContainer
+var _stage: Control
+var _fx_host: Node2D
+var _water_fx: Node2D
+var _fire_fx: Node2D
+var _array_fx: Node2D
+var _title_label: Label
+
 
 func _init() -> void:
-	add_theme_constant_override("separation", 12)
 	size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_build_chrome()
-	_sheet = QKit.panel(UiTokens.Q_CREAM, 34, 22, 18).panel
-	_sheet.name = "CaveSheet"
-	_sheet.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	add_child(_sheet)
-	var scroll := ScrollContainer.new()
-	scroll.name = "CaveScroll"
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_sheet.add_child(scroll)
-	_body = UiKit.vbox(16)
-	_body.name = "CaveBody"
-	_body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(_body)
-	var orb := Control.new()
-	orb.custom_minimum_size = Vector2(0, 96)
-	orb.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(orb)
+	size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	mouse_filter = Control.MOUSE_FILTER_PASS
+	_stage = Control.new()
+	_stage.name = "CaveStage"
+	_stage.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_stage.mouse_filter = Control.MOUSE_FILTER_PASS
+	add_child(_stage)
+	_fx_host = Node2D.new()
+	_fx_host.name = "CaveFxHost"
+	_stage.add_child(_fx_host)
+	_ensure_fx()
 	_render()
 
 
-func _build_chrome() -> void:
-	var head := UiKit.hbox(12)
-	head.name = "CaveHeader"
-	add_child(head)
-	_back = QKit.button("返回", "m", 72, 36)
-	_back.name = "BackButton"
-	_back.custom_minimum_size = Vector2(160, 72)
-	_back.pressed.connect(_on_back)
-	head.add_child(_back)
-	_title = QKit.title("洞府", 46, UiTokens.TEXT)
-	_title.name = "CaveTitle"
-	_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	head.add_child(_title)
-
-
 func sheet_anchor() -> Control:
-	return _sheet
+	return null
 
 
 func sheet_pad() -> float:
-	return 8.0
+	return 0.0
 
 
 func mode() -> String:
@@ -82,8 +110,48 @@ func bind(state: Dictionary, content: Dictionary) -> void:
 	_view = CaveView.build(state, content)
 	var sig := hash([_view, _mode, _plant_slot])
 	if sig == _bind_sig:
+		_sync_alchemy_fire()
 		return
 	_render()
+
+
+func _ensure_fx() -> void:
+	if _water_fx == null and ResourceLoader.exists(FX_WATER):
+		_water_fx = (load(FX_WATER) as PackedScene).instantiate()
+		_water_fx.name = "GardenWaterFx"
+		_fx_host.add_child(_water_fx)
+	if _fire_fx == null and ResourceLoader.exists(FX_FIRE):
+		_fire_fx = (load(FX_FIRE) as PackedScene).instantiate()
+		_fire_fx.name = "AlchemyFireFx"
+		_fire_fx.position = _design_center(HS_FURNACE)
+		_fx_host.add_child(_fire_fx)
+	if _array_fx == null and ResourceLoader.exists(FX_ARRAY):
+		_array_fx = (load(FX_ARRAY) as PackedScene).instantiate()
+		_array_fx.name = "EnhanceArrayFx"
+		_array_fx.position = _design_center(HS_ARRAY_HEART)
+		if _array_fx.has_method("play_idle"):
+			_array_fx.call("play_idle")
+		_fx_host.add_child(_array_fx)
+
+
+func _design_to_local(p: Vector2) -> Vector2:
+	return p - ORIGIN
+
+
+func _design_rect(r: Rect2) -> Rect2:
+	return Rect2(_design_to_local(r.position), r.size)
+
+
+func _design_center(r: Rect2) -> Vector2:
+	return _design_to_local(r.get_center())
+
+
+func _clear_stage() -> void:
+	for child in _stage.get_children():
+		if child == _fx_host:
+			continue
+		_stage.remove_child(child)
+		child.queue_free()
 
 
 func _on_back() -> void:
@@ -97,73 +165,245 @@ func _on_back() -> void:
 
 func _render() -> void:
 	_bind_sig = hash([_view, _mode, _plant_slot])
+	_clear_stage()
+	_ensure_fx()
 	match _mode:
 		MODE_GARDEN:
-			_title.text = "药园"
+			_render_garden()
 		MODE_ALCHEMY:
-			_title.text = "炼丹"
+			_render_alchemy()
+		MODE_ENHANCE:
+			_render_enhance()
 		_:
-			_title.text = "洞府"
-	UiKit.clear(_body)
-	if _mode == MODE_GARDEN:
-		_render_garden()
-	elif _mode == MODE_ALCHEMY:
-		_render_alchemy()
-	else:
-		_render_overview()
+			_render_overview()
+	_sync_alchemy_fire()
+	_fx_host.move_to_front()
 
+
+func _bg(name: String) -> void:
+	var tex: Texture2D = ArtLib.bg(name)
+	if tex == null:
+		return
+	var node := TextureRect.new()
+	node.name = "SceneBg"
+	node.texture = tex
+	node.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	node.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	node.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# 铺满设计画布相对页面区：从画布 (0,0) 起，盖住顶栏下至底栏上的可视区
+	node.position = _design_to_local(Vector2(0, 0))
+	node.size = DESIGN
+	_stage.add_child(node)
+
+
+func _hotspot(name: String, rect: Rect2, on_press: Callable, label_text: String = "", kind: String = "ghost") -> Button:
+	var btn := Button.new()
+	btn.name = name
+	btn.focus_mode = Control.FOCUS_NONE
+	var local := _design_rect(rect)
+	btn.position = local.position
+	btn.size = local.size
+	btn.custom_minimum_size = local.size
+	if label_text.is_empty():
+		btn.flat = true
+		btn.modulate = Color(1, 1, 1, 0.01)
+		btn.text = ""
+	else:
+		btn.text = label_text
+		var style := StyleBoxFlat.new()
+		style.bg_color = Color(1.0, 0.973, 0.925, 0.88) if kind != "o" else Color("ff9f43")
+		style.border_color = UiTokens.Q_COCOA
+		style.set_border_width_all(3)
+		style.set_corner_radius_all(28 if kind != "stone" else 18)
+		style.content_margin_left = 12
+		style.content_margin_right = 12
+		btn.add_theme_stylebox_override("normal", style)
+		var pressed := style.duplicate() as StyleBoxFlat
+		pressed.bg_color = pressed.bg_color.darkened(0.08)
+		btn.add_theme_stylebox_override("pressed", pressed)
+		btn.add_theme_stylebox_override("hover", style)
+		btn.add_theme_stylebox_override("disabled", style)
+		btn.add_theme_color_override("font_color", UiTokens.TEXT if kind != "o" else Color.WHITE)
+		btn.add_theme_font_size_override("font_size", 28)
+	btn.pressed.connect(on_press)
+	_stage.add_child(btn)
+	return btn
+
+
+func _chip(text: String, rect: Rect2, name: String = "Chip") -> Label:
+	var wrap := PanelContainer.new()
+	wrap.name = name
+	wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var local := _design_rect(rect)
+	wrap.position = local.position
+	wrap.size = local.size
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(1.0, 0.973, 0.925, 0.92)
+	style.border_color = UiTokens.Q_COCOA
+	style.set_border_width_all(2)
+	style.set_corner_radius_all(24)
+	style.content_margin_left = 14
+	style.content_margin_right = 14
+	style.content_margin_top = 8
+	style.content_margin_bottom = 8
+	wrap.add_theme_stylebox_override("panel", style)
+	var lab := Label.new()
+	lab.text = text
+	lab.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lab.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	lab.add_theme_font_size_override("font_size", 26)
+	lab.add_theme_color_override("font_color", UiTokens.TEXT)
+	lab.autowrap_mode = TextServer.AUTOWRAP_OFF
+	wrap.add_child(lab)
+	_stage.add_child(wrap)
+	return lab
+
+
+func _status_capsule(card: Dictionary, rect: Rect2) -> void:
+	var subtitle := str(card.get("subtitle", ""))
+	if subtitle.is_empty():
+		return
+	var cap := Rect2(rect.position.x + 24, rect.position.y + rect.size.y - 72, rect.size.x - 48, 56)
+	_chip(subtitle, cap, "Status_%s" % str(card.get("id", "")))
+	if int(card.get("claimable", 0)) > 0 or bool(card.get("can_upgrade", false)):
+		var dot := QKit.reddot(28)
+		dot.name = "ClaimDot_%s" % str(card.get("id", ""))
+		dot.position = _design_to_local(Vector2(rect.position.x + rect.size.x - 56, rect.position.y + 16))
+		_stage.add_child(dot)
+
+
+# ───────── L0 庭院 ─────────
 
 func _render_overview() -> void:
+	_bg("dongfu_l0")
+	_render_resource_pills()
 	if not bool(_view.get("available", false)):
-		var hint := UiKit.label(str(_view.get("hint", "洞府配置尚未发布")), UiTokens.FS_BODY, UiTokens.TEXT_MUTED, HORIZONTAL_ALIGNMENT_CENTER)
-		hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		_body.add_child(hint)
-	else:
-		_body.add_child(_allocation_panel())
-		_body.add_child(_upgrade_row("garden"))
-		_body.add_child(_upgrade_row("alchemy"))
-	_body.add_child(UiKit.label("经营设施", UiTokens.FS_MICRO, UiTokens.TEXT_MUTED))
-	for card in _view.get("cards", []):
-		_body.add_child(_facility_card(card as Dictionary))
+		_chip(str(_view.get("hint", "洞府配置尚未发布")), Rect2(120, 900, 840, 120), "UnavailableHint")
+		return
+	var cards: Dictionary = {}
+	for c in _view.get("cards", []):
+		if typeof(c) == TYPE_DICTIONARY:
+			cards[str((c as Dictionary).get("id", ""))] = c
+	_hotspot("Enter_garden", HS_GARDEN, func() -> void: _enter_facility("garden"))
+	_status_capsule(cards.get("garden", {}), HS_GARDEN)
+	_hotspot("Enter_alchemy", HS_ALCHEMY, func() -> void: _enter_facility("alchemy"))
+	_status_capsule(cards.get("alchemy", {}), HS_ALCHEMY)
+	_hotspot("Enter_enhance", HS_ENHANCE, func() -> void: _enter_facility("enhance"))
+	_status_capsule(cards.get("enhance", {"subtitle": "可强化"}), HS_ENHANCE)
+	_render_alloc_bar()
 
 
-func _allocation_panel() -> Control:
-	var box := UiKit.vbox(8)
-	box.name = "ServantAllocation"
+func _render_resource_pills() -> void:
+	var stones := int(_view.get("spiritStones", 0))
+	var wood := int(_view.get("woodCount", 0))
+	var wood_name := str(_view.get("woodName", "灵木"))
+	var alloc: Dictionary = _view.get("allocation", {}) if typeof(_view.get("allocation", {})) == TYPE_DICTIONARY else {}
+	var total := int(_view.get("servantTotal", 0))
+	var used := int(alloc.get("garden", 0)) + int(alloc.get("alchemy", 0))
+	_resource_pill("StonePill", HS_STONE, "icons/res_stone", OfflineView.grouped(float(stones)))
+	_resource_pill("WoodPill", HS_WOOD, "icons/icon_lingmu", "%s %d" % [wood_name, wood])
+	_resource_pill("ServantPill", HS_SERVANT, "icons/icon_lingpu", "灵仆 %d/%d" % [used, total])
+
+
+func _resource_pill(name: String, rect: Rect2, icon_path: String, text: String) -> void:
+	var wrap := PanelContainer.new()
+	wrap.name = name
+	wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var local := _design_rect(rect)
+	wrap.position = local.position
+	wrap.size = local.size
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(1.0, 0.973, 0.925, 0.94)
+	style.border_color = UiTokens.Q_COCOA
+	style.set_border_width_all(3)
+	style.set_corner_radius_all(44)
+	style.content_margin_left = 18
+	style.content_margin_right = 18
+	wrap.add_theme_stylebox_override("panel", style)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	wrap.add_child(row)
+	var icon := TextureRect.new()
+	icon.custom_minimum_size = Vector2(56, 56)
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var tex: Texture2D = null
+	if ArtLib.has_q(icon_path + ".png"):
+		tex = ArtLib.q(icon_path)
+	elif icon_path.ends_with("res_stone") and ArtLib.has_q("icons/res_stone.png"):
+		tex = ArtLib.q("icons/res_stone")
+	icon.texture = tex
+	row.add_child(icon)
+	var lab := Label.new()
+	lab.text = text
+	lab.add_theme_font_size_override("font_size", 28)
+	lab.add_theme_color_override("font_color", UiTokens.TEXT)
+	lab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(lab)
+	_stage.add_child(wrap)
+
+
+func _render_alloc_bar() -> void:
 	var alloc: Dictionary = _view.get("allocation", {}) if typeof(_view.get("allocation", {})) == TYPE_DICTIONARY else {}
 	var garden := int(alloc.get("garden", 0))
 	var alchemy := int(alloc.get("alchemy", 0))
 	var total := int(_view.get("servantTotal", 0))
 	var idle := maxi(0, total - garden - alchemy)
-	var scale: Dictionary = _view.get("timeScale", {}) if typeof(_view.get("timeScale", {})) == TYPE_DICTIONARY else {}
-	var garden_pct := int(round(float(scale.get("garden", 1.0)) * 100.0))
-	var alchemy_pct := int(round(float(scale.get("alchemy", 1.0)) * 100.0))
-	box.add_child(QKit.title("灵仆", 36, UiTokens.TEXT))
-	box.add_child(UiKit.label("共 %d · 闲置 %d · %s ×%d" % [total, idle, str(_view.get("woodName", "灵木")), int(_view.get("woodCount", 0))], UiTokens.FS_MICRO, UiTokens.TEXT_MUTED))
-	box.add_child(UiKit.label("成熟时长 %d%% · 炼制时长 %d%%" % [garden_pct, alchemy_pct], UiTokens.FS_MICRO, UiTokens.TEXT_MUTED))
-	box.add_child(_alloc_row("药园", "garden", garden, idle))
-	box.add_child(_alloc_row("炼丹", "alchemy", alchemy, idle))
-	return box
+	var wrap := PanelContainer.new()
+	wrap.name = "ServantAllocation"
+	var local := _design_rect(HS_ALLOC)
+	wrap.position = local.position
+	wrap.size = local.size
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(1.0, 0.973, 0.925, 0.94)
+	style.border_color = UiTokens.Q_COCOA
+	style.set_border_width_all(3)
+	style.set_corner_radius_all(28)
+	style.content_margin_left = 16
+	style.content_margin_right = 16
+	style.content_margin_top = 10
+	style.content_margin_bottom = 10
+	wrap.add_theme_stylebox_override("panel", style)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	wrap.add_child(row)
+	row.add_child(_alloc_side("药园", "garden", garden, idle))
+	var mid := Label.new()
+	mid.text = "闲置 %d" % idle
+	mid.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	mid.add_theme_font_size_override("font_size", 28)
+	mid.add_theme_color_override("font_color", UiTokens.TEXT_MUTED)
+	mid.custom_minimum_size = Vector2(180, 0)
+	row.add_child(mid)
+	row.add_child(_alloc_side("炼丹", "alchemy", alchemy, idle))
+	_stage.add_child(wrap)
 
 
-func _alloc_row(title: String, key: String, value: int, idle: int) -> Control:
-	var row := UiKit.hbox(10)
-	var label := UiKit.label("%s %d" % [title, value], UiTokens.FS_BODY, UiTokens.TEXT)
-	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(label)
-	var minus := QKit.button("-", "m", 48, 32)
+func _alloc_side(title: String, key: String, value: int, idle: int) -> Control:
+	var box := HBoxContainer.new()
+	box.add_theme_constant_override("separation", 6)
+	var lab := Label.new()
+	lab.text = "%s %d" % [title, value]
+	lab.add_theme_font_size_override("font_size", 28)
+	lab.add_theme_color_override("font_color", UiTokens.TEXT)
+	lab.custom_minimum_size = Vector2(140, 0)
+	box.add_child(lab)
+	var minus := QKit.button("-", "m", 56, 28)
 	minus.name = "AllocMinus_%s" % key
-	minus.custom_minimum_size = Vector2(88, 72)
+	minus.custom_minimum_size = Vector2(72, 72)
 	minus.disabled = value <= 0
 	minus.pressed.connect(func() -> void: _shift_allocation(key, -1))
-	row.add_child(minus)
-	var plus := QKit.button("+", "o", 48, 32)
+	box.add_child(minus)
+	var plus := QKit.button("+", "o", 56, 28)
 	plus.name = "AllocPlus_%s" % key
-	plus.custom_minimum_size = Vector2(88, 72)
+	plus.custom_minimum_size = Vector2(72, 72)
 	plus.disabled = idle <= 0
 	plus.pressed.connect(func() -> void: _shift_allocation(key, 1))
-	row.add_child(plus)
-	return row
+	box.add_child(plus)
+	return box
 
 
 func _shift_allocation(key: String, delta: int) -> void:
@@ -175,71 +415,6 @@ func _shift_allocation(key: String, delta: int) -> void:
 	else:
 		alchemy += delta
 	action_requested.emit("dongfu_allocate", {"garden": garden, "alchemy": alchemy})
-
-
-func _upgrade_row(facility: String) -> Control:
-	var upgrades: Dictionary = _view.get("upgrades", {}) if typeof(_view.get("upgrades", {})) == TYPE_DICTIONARY else {}
-	var row_data: Dictionary = upgrades.get(facility, {}) if typeof(upgrades.get(facility, {})) == TYPE_DICTIONARY else {}
-	var wrap := UiKit.hbox(10)
-	wrap.name = "UpgradeRow_%s" % facility
-	var level := int(row_data.get("level", 1))
-	var next: Variant = row_data.get("next", null)
-	var title := "药园" if facility == "garden" else "炼丹"
-	var effect_name := "地块" if facility == "garden" else "队列"
-	var text := "%s %d 级" % [title, level]
-	if typeof(next) == TYPE_DICTIONARY:
-		var nxt := next as Dictionary
-		var cost := "%s ×%d" % [str(_view.get("woodName", "灵木")), int(nxt.get("wood", 0))]
-		if int(nxt.get("spiritStones", 0)) > 0:
-			cost = "%s · 灵石 ×%d" % [cost, int(nxt.get("spiritStones", 0))]
-		text = "%s · 下一级 %s +%d（%s）" % [text, effect_name, int(nxt.get("bonus", 1)), cost]
-	else:
-		text = "%s · 已满级" % text
-	var reason := str(row_data.get("reason", ""))
-	if not bool(row_data.get("canUpgrade", false)) and reason != "" and typeof(next) == TYPE_DICTIONARY:
-		text = "%s · %s" % [text, reason]
-	var label := UiKit.label(text, UiTokens.FS_MICRO, UiTokens.TEXT_MUTED)
-	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	wrap.add_child(label)
-	var button := QKit.button("升级", "o", 72, 32)
-	button.name = "Upgrade_%s" % facility
-	button.custom_minimum_size = Vector2(160, 72)
-	button.disabled = not bool(row_data.get("canUpgrade", false))
-	button.pressed.connect(func() -> void: action_requested.emit("dongfu_upgrade", {"facility": facility}))
-	wrap.add_child(button)
-	return wrap
-
-
-func _facility_card(card: Dictionary) -> Control:
-	var wrap := PanelContainer.new()
-	wrap.name = "Facility_%s" % str(card.get("id", ""))
-	wrap.add_theme_stylebox_override("panel", QSkin.custom(UiTokens.Q_CARD, UiTokens.Q_COCOA, 3, 28, 4, 18, 4))
-	var row := UiKit.hbox(16)
-	wrap.add_child(row)
-	var sprite := str(card.get("sprite", ""))
-	var tex: Texture2D = ArtLib.q("sprites/" + sprite) if not sprite.is_empty() and ArtLib.has_q("sprites/%s.png" % sprite) else null
-	if tex == null and str(card.get("id", "")) == "enhance":
-		tex = ArtLib.qui("icon_enhance_exp")
-	row.add_child(QKit.slot(tex, 2 if tex != null else -1, 132))
-	var info := UiKit.vbox(8)
-	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(info)
-	var head := UiKit.hbox(10)
-	info.add_child(head)
-	head.add_child(QKit.title(str(card.get("name", "")), 40, UiTokens.TEXT))
-	if int(card.get("claimable", 0)) > 0 or bool(card.get("can_upgrade", false)):
-		var dot := QKit.reddot(34)
-		dot.name = "ClaimDot"
-		head.add_child(dot)
-	info.add_child(UiKit.label(str(card.get("subtitle", "")), UiTokens.FS_MICRO, UiTokens.TEXT_MUTED))
-	var go := QKit.button("进入", "o", 88, 34)
-	go.name = "Enter_%s" % str(card.get("id", ""))
-	go.custom_minimum_size = Vector2(160, 88)
-	var id := str(card.get("id", ""))
-	go.pressed.connect(func() -> void: _enter_facility(id))
-	row.add_child(go)
-	return wrap
 
 
 func _enter_facility(id: String) -> void:
@@ -258,191 +433,372 @@ func _enter_facility(id: String) -> void:
 			_mode = MODE_ALCHEMY
 			_render()
 		"enhance":
-			enhance_entry_requested.emit()
+			_mode = MODE_ENHANCE
+			_render()
 		_:
 			pass
 
 
+# ───────── L1 药园 ─────────
+
 func _render_garden() -> void:
+	_bg("dongfu_garden_l1")
+	_hotspot("BackButton", HS_BACK, _on_back, "←", "ghost")
+	var level := int(_view.get("gardenLevel", 1))
+	_title_label = _chip("药园 Lv%d" % level, Rect2(140, 250, 420, 88), "CaveTitle")
+	var upgrades: Dictionary = _view.get("upgrades", {}) if typeof(_view.get("upgrades", {})) == TYPE_DICTIONARY else {}
+	var g_up: Dictionary = upgrades.get("garden", {}) if typeof(upgrades.get("garden", {})) == TYPE_DICTIONARY else {}
+	var up := _hotspot("Upgrade_garden", HS_UPGRADE, func() -> void: action_requested.emit("dongfu_upgrade", {"facility": "garden"}), "升级", "o")
+	up.disabled = not bool(g_up.get("canUpgrade", false))
 	var claimable := int((_view.get("claimable", {}) as Dictionary).get("plots", 0))
-	var top := UiKit.hbox(12)
-	_body.add_child(top)
-	var garden_pct := int(round(float((_view.get("timeScale", {}) as Dictionary).get("garden", 1.0)) * 100.0))
-	var note := UiKit.label("地块 %d · 成熟时长 %d%%" % [int(_view.get("plotCount", 0)), garden_pct], UiTokens.FS_MICRO, UiTokens.TEXT_MUTED)
-	note.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	top.add_child(note)
-	var claim_all := QKit.button("一键领取", "o", 72, 32)
-	claim_all.name = "GardenClaimAll"
-	claim_all.custom_minimum_size = Vector2(220, 72)
+	var claim_all := _hotspot("GardenClaimAll", HS_CLAIM_ALL, func() -> void: action_requested.emit("garden_claim", {}), "一键领取", "o")
 	claim_all.disabled = claimable <= 0
-	claim_all.pressed.connect(func() -> void: action_requested.emit("garden_claim", {}))
-	top.add_child(claim_all)
-	_body.add_child(_upgrade_row("garden"))
+	var garden_pct := int(round(float((_view.get("timeScale", {}) as Dictionary).get("garden", 1.0)) * 100.0))
+	var alloc: Dictionary = _view.get("allocation", {}) if typeof(_view.get("allocation", {})) == TYPE_DICTIONARY else {}
+	_chip("灵仆 %d · 成熟 %d%%" % [int(alloc.get("garden", 0)), garden_pct], Rect2(320, 362, 300, 68), "GardenServantHint")
 
-	for plot in _view.get("plots", []):
-		_body.add_child(_plot_row(plot as Dictionary))
+	var plots: Array = _view.get("plots", [])
+	for i in range(mini(4, maxi(plots.size(), HS_PLOTS.size()))):
+		var rect: Rect2 = HS_PLOTS[i]
+		var plot: Dictionary = plots[i] if i < plots.size() and typeof(plots[i]) == TYPE_DICTIONARY else {"slot": i, "status": "empty", "line": "空畦 · 点击种植", "title": "地块 %d" % (i + 1)}
+		_render_plot_ridge(plot, rect)
 
-	if _plant_slot >= 0:
-		_body.add_child(_seed_picker(_plant_slot))
+	_render_seed_drawer()
 
 
-func _plot_row(plot: Dictionary) -> Control:
-	var wrap := PanelContainer.new()
-	wrap.name = "Plot_%d" % int(plot.get("slot", 0))
-	wrap.add_theme_stylebox_override("panel", QSkin.custom(UiTokens.Q_CARD, UiTokens.Q_COCOA, 3, 24, 3, 16, 3))
-	var row := UiKit.hbox(12)
-	wrap.add_child(row)
-	var info := UiKit.vbox(6)
-	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(info)
-	var head := UiKit.hbox(10)
-	info.add_child(head)
-	head.add_child(QKit.title(str(plot.get("title", "")), 34, UiTokens.TEXT))
-	var status := str(plot.get("status", "empty"))
-	if status == "ready":
-		head.add_child(QKit.reddot(28))
-	info.add_child(UiKit.label(str(plot.get("line", "")), UiTokens.FS_MICRO, UiTokens.TEXT_MUTED))
+func _render_plot_ridge(plot: Dictionary, rect: Rect2) -> void:
 	var slot := int(plot.get("slot", 0))
+	var status := str(plot.get("status", "empty"))
+	var line := str(plot.get("line", ""))
+	var wrap := PanelContainer.new()
+	wrap.name = "Plot_%d" % slot
+	wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var local := _design_rect(rect)
+	wrap.position = local.position
+	wrap.size = local.size
+	var style := StyleBoxFlat.new()
+	match status:
+		"ready":
+			style.bg_color = Color(1.0, 0.82, 0.35, 0.55)
+			style.border_color = UiTokens.Q_ORANGE
+		"growing":
+			style.bg_color = Color(0.45, 0.72, 0.55, 0.40)
+			style.border_color = UiTokens.Q_MINT_DARK
+		_:
+			style.bg_color = Color(0.42, 0.32, 0.22, 0.28)
+			style.border_color = Color(0.55, 0.42, 0.30, 0.7)
+	style.set_border_width_all(3)
+	style.set_corner_radius_all(120)
+	style.content_margin_left = 16
+	style.content_margin_right = 16
+	style.content_margin_top = 20
+	style.content_margin_bottom = 20
+	wrap.add_theme_stylebox_override("panel", style)
+	var col := VBoxContainer.new()
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	wrap.add_child(col)
+	var title := Label.new()
+	title.text = str(plot.get("title", "地块"))
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 30)
+	title.add_theme_color_override("font_color", UiTokens.TEXT)
+	col.add_child(title)
+	var body := Label.new()
 	match status:
 		"empty":
-			var plant := QKit.button("种植", "m", 72, 32)
-			plant.name = "Plant_%d" % slot
-			plant.custom_minimum_size = Vector2(160, 72)
-			plant.pressed.connect(func() -> void:
-				_plant_slot = slot
-				_render())
-			row.add_child(plant)
+			body.text = "点击种植" if _plant_slot != slot else "选择下方种子"
 		"ready":
-			var claim := QKit.button("领取", "o", 72, 32)
-			claim.name = "ClaimPlot_%d" % slot
-			claim.custom_minimum_size = Vector2(160, 72)
-			claim.pressed.connect(func() -> void: action_requested.emit("garden_claim", {"slot": slot}))
-			row.add_child(claim)
+			body.text = "可收 · %s" % line
 		_:
-			var wait := UiKit.label("生长中", UiTokens.FS_MICRO, UiTokens.TEXT_MUTED, HORIZONTAL_ALIGNMENT_CENTER)
-			wait.custom_minimum_size = Vector2(120, 0)
-			row.add_child(wait)
-	return wrap
+			body.text = line
+	body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	body.add_theme_font_size_override("font_size", 24)
+	body.add_theme_color_override("font_color", UiTokens.TEXT_MUTED)
+	col.add_child(body)
+	if status == "ready":
+		var dot := QKit.reddot(26)
+		dot.position = Vector2(local.size.x - 40, 12)
+		wrap.add_child(dot)
+	_stage.add_child(wrap)
+	# 透明热区盖在畦上
+	_hotspot("PlotTap_%d" % slot, rect, func() -> void: _on_plot_tap(slot, status))
 
 
-func _seed_picker(slot: int) -> Control:
-	var box := UiKit.vbox(10)
-	box.name = "SeedPicker"
-	box.add_child(QKit.title("选择种子 · 地块 %d" % (slot + 1), 34, UiTokens.TEXT))
+func _on_plot_tap(slot: int, status: String) -> void:
+	match status:
+		"empty":
+			_plant_slot = slot
+			_render()
+		"ready":
+			action_requested.emit("garden_claim", {"slot": slot})
+		_:
+			action_requested.emit("toast", {"text": "还在生长中"})
+
+
+func _render_seed_drawer() -> void:
 	var seeds: Array = _view.get("seeds", [])
-	if seeds.is_empty():
-		box.add_child(UiKit.label("暂无种子配置", UiTokens.FS_MICRO, UiTokens.TEXT_MUTED))
-		return box
-	var any := false
-	for seed in seeds:
-		var s := seed as Dictionary
-		var have := int(s.get("have", 0))
-		var row := UiKit.hbox(12)
-		var label := UiKit.label("%s ×%d（约 %d 秒）" % [str(s.get("name", "")), have, int(s.get("growSeconds", 0))], UiTokens.FS_BODY, UiTokens.TEXT if have > 0 else UiTokens.TEXT_MUTED)
-		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		row.add_child(label)
-		var btn := QKit.button("种下", "o", 64, 30)
-		btn.disabled = have <= 0
-		var slug := str(s.get("seedSlug", ""))
-		btn.pressed.connect(func() -> void:
-			_plant_slot = -1
-			action_requested.emit("garden_plant", {"slot": slot, "seedSlug": slug}))
-		row.add_child(btn)
-		box.add_child(row)
-		if have > 0:
-			any = true
-	if not any:
-		box.add_child(UiKit.label("行囊里没有种子，先去历练获取", UiTokens.FS_MICRO, UiTokens.WARNING))
-	var cancel := QKit.button("取消", "m", 64, 30)
-	cancel.pressed.connect(func() -> void:
-		_plant_slot = -1
-		_render())
-	box.add_child(cancel)
-	return box
+	var drawer := PanelContainer.new()
+	drawer.name = "SeedPicker"
+	drawer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var local := _design_rect(Rect2(0, 1420, 1080, 520))
+	drawer.position = local.position
+	drawer.size = local.size
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.42, 0.30, 0.20, 0.55)
+	style.border_color = UiTokens.Q_COCOA
+	style.set_border_width_all(0)
+	style.set_corner_radius_all(0)
+	drawer.add_theme_stylebox_override("panel", style)
+	_stage.add_child(drawer)
+	var hint := Label.new()
+	hint.text = "种子袋 · 先点空畦再选种" if _plant_slot < 0 else "为地块 %d 选种子" % (_plant_slot + 1)
+	hint.position = _design_to_local(Vector2(48, 1440))
+	hint.size = Vector2(900, 40)
+	hint.add_theme_font_size_override("font_size", 26)
+	hint.add_theme_color_override("font_color", Color(1, 0.97, 0.92, 0.95))
+	_stage.add_child(hint)
+	for i in range(HS_SEEDS.size()):
+		var rect: Rect2 = HS_SEEDS[i]
+		var seed: Dictionary = seeds[i] if i < seeds.size() and typeof(seeds[i]) == TYPE_DICTIONARY else {}
+		var have := int(seed.get("have", 0))
+		var label := str(seed.get("name", "空袋")) if not seed.is_empty() else "—"
+		var btn := _hotspot("SeedBag_%d" % i, rect, func() -> void: _on_seed_tap(seed), "%s\n×%d" % [label, have] if not seed.is_empty() else "—", "ghost")
+		btn.disabled = seed.is_empty() or have <= 0
+		btn.modulate = Color(1, 1, 1, 1)
+		var bag_style := StyleBoxFlat.new()
+		bag_style.bg_color = Color(0.92, 0.82, 0.62, 0.92)
+		bag_style.border_color = UiTokens.Q_COCOA
+		bag_style.set_border_width_all(3)
+		bag_style.set_corner_radius_all(22)
+		btn.add_theme_stylebox_override("normal", bag_style)
+		btn.add_theme_stylebox_override("pressed", bag_style)
+		btn.add_theme_stylebox_override("hover", bag_style)
+		btn.add_theme_stylebox_override("disabled", bag_style)
+		btn.add_theme_color_override("font_color", UiTokens.TEXT if have > 0 else UiTokens.TEXT_MUTED)
+		btn.add_theme_font_size_override("font_size", 26)
 
+
+func _on_seed_tap(seed: Dictionary) -> void:
+	if seed.is_empty():
+		return
+	if _plant_slot < 0:
+		action_requested.emit("toast", {"text": "先点一块空畦"})
+		return
+	if int(seed.get("have", 0)) <= 0:
+		action_requested.emit("toast", {"text": "行囊里没有这颗种子"})
+		return
+	var slot := _plant_slot
+	var slug := str(seed.get("seedSlug", ""))
+	_plant_slot = -1
+	_play_water_at_slot(slot)
+	action_requested.emit("garden_plant", {"slot": slot, "seedSlug": slug})
+
+
+func _play_water_at_slot(slot: int) -> void:
+	if _water_fx == null:
+		return
+	var idx := clampi(slot, 0, HS_PLOTS.size() - 1)
+	var at := _design_center(HS_PLOTS[idx])
+	if _water_fx.has_method("play_water"):
+		_water_fx.call("play_water", at)
+
+
+# ───────── L1 炼丹 ─────────
 
 func _render_alchemy() -> void:
-	var queue_len := int(_view.get("alchemyQueueLength", 2))
+	_bg("dongfu_alchemy_l1")
+	_hotspot("BackButton", HS_BACK, _on_back, "←", "ghost")
+	var level := int(_view.get("alchemyLevel", 1))
+	_chip("炼丹 Lv%d" % level, Rect2(140, 250, 420, 88), "CaveTitle")
+	var upgrades: Dictionary = _view.get("upgrades", {}) if typeof(_view.get("upgrades", {})) == TYPE_DICTIONARY else {}
+	var a_up: Dictionary = upgrades.get("alchemy", {}) if typeof(upgrades.get("alchemy", {})) == TYPE_DICTIONARY else {}
+	var up := _hotspot("Upgrade_alchemy", HS_UPGRADE, func() -> void: action_requested.emit("dongfu_upgrade", {"facility": "alchemy"}), "升级", "o")
+	up.disabled = not bool(a_up.get("canUpgrade", false))
+
+	# 丹炉地标（展示）
+	if ArtLib.has_q("sprites/bd_alchemy_landmark.png"):
+		var furnace := TextureRect.new()
+		furnace.name = "FurnaceLandmark"
+		furnace.texture = ArtLib.q("sprites/bd_alchemy_landmark")
+		furnace.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		furnace.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		furnace.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var fr := _design_rect(HS_FURNACE)
+		furnace.position = fr.position
+		furnace.size = fr.size
+		_stage.add_child(furnace)
+
 	var jobs: Array = _view.get("alchemy", [])
-	var claimable := int((_view.get("claimable", {}) as Dictionary).get("alchemy", 0))
-	var top := UiKit.hbox(12)
-	_body.add_child(top)
-	var alchemy_pct := int(round(float((_view.get("timeScale", {}) as Dictionary).get("alchemy", 1.0)) * 100.0))
-	var note := UiKit.label("队列 %d/%d · 炼制时长 %d%%" % [jobs.size(), queue_len, alchemy_pct], UiTokens.FS_MICRO, UiTokens.TEXT_MUTED)
-	note.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	top.add_child(note)
-	var claim_all := QKit.button("一键领取", "o", 72, 32)
-	claim_all.name = "AlchemyClaimAll"
-	claim_all.custom_minimum_size = Vector2(220, 72)
-	claim_all.disabled = claimable <= 0
-	claim_all.pressed.connect(func() -> void: action_requested.emit("alchemy_claim", {}))
-	top.add_child(claim_all)
-	_body.add_child(_upgrade_row("alchemy"))
+	var queue_len := int(_view.get("alchemyQueueLength", 2))
+	for i in range(HS_TRAYS.size()):
+		var rect: Rect2 = HS_TRAYS[i]
+		var job: Dictionary = jobs[i] if i < jobs.size() and typeof(jobs[i]) == TYPE_DICTIONARY else {}
+		_render_alchemy_tray(i, rect, job, i >= queue_len)
 
-	_body.add_child(QKit.title("炼制中", 34, UiTokens.TEXT))
-	if jobs.is_empty():
-		_body.add_child(UiKit.label("队列空闲", UiTokens.FS_MICRO, UiTokens.TEXT_MUTED))
-	for job in jobs:
-		_body.add_child(_alchemy_job_row(job as Dictionary))
-
-	_body.add_child(QKit.title("配方", 34, UiTokens.TEXT))
 	var recipes: Array = _view.get("recipes", [])
-	if recipes.is_empty():
-		_body.add_child(UiKit.label("暂无配方配置", UiTokens.FS_MICRO, UiTokens.TEXT_MUTED))
-	for recipe in recipes:
-		_body.add_child(_recipe_row(recipe as Dictionary, jobs.size() >= queue_len))
+	var queue_full := jobs.size() >= queue_len
+	for i in range(HS_RECIPE_CTAS.size()):
+		var recipe: Dictionary = recipes[i] if i < recipes.size() and typeof(recipes[i]) == TYPE_DICTIONARY else {}
+		_render_recipe_cta(i, recipe, queue_full)
 
 
-func _alchemy_job_row(job: Dictionary) -> Control:
+func _render_alchemy_tray(index: int, rect: Rect2, job: Dictionary, locked: bool) -> void:
 	var wrap := PanelContainer.new()
-	wrap.name = "AlchemyJob_%s" % str(job.get("id", ""))
-	wrap.add_theme_stylebox_override("panel", QSkin.custom(UiTokens.Q_CARD, UiTokens.Q_COCOA, 3, 24, 3, 16, 3))
-	var row := UiKit.hbox(12)
-	wrap.add_child(row)
-	var info := UiKit.vbox(6)
-	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(info)
-	var head := UiKit.hbox(10)
-	info.add_child(head)
-	head.add_child(QKit.title(str(job.get("outputName", "")), 34, UiTokens.TEXT))
-	if str(job.get("status", "")) == "ready":
-		head.add_child(QKit.reddot(28))
-	info.add_child(UiKit.label(str(job.get("line", "")), UiTokens.FS_MICRO, UiTokens.TEXT_MUTED))
-	if str(job.get("status", "")) == "ready":
-		var claim := QKit.button("领取", "o", 72, 32)
-		claim.custom_minimum_size = Vector2(160, 72)
-		var job_id := str(job.get("id", ""))
-		claim.pressed.connect(func() -> void: action_requested.emit("alchemy_claim", {"jobId": job_id}))
-		row.add_child(claim)
-	return wrap
+	wrap.name = "AlchemyJob_%s" % (str(job.get("id", "")) if not job.is_empty() else str(index))
+	wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var local := _design_rect(rect)
+	wrap.position = local.position
+	wrap.size = local.size
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.55, 0.38, 0.22, 0.72)
+	style.border_color = UiTokens.Q_COCOA
+	style.set_border_width_all(3)
+	style.set_corner_radius_all(24)
+	style.content_margin_left = 12
+	style.content_margin_right = 12
+	style.content_margin_top = 16
+	style.content_margin_bottom = 16
+	wrap.add_theme_stylebox_override("panel", style)
+	var col := VBoxContainer.new()
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	wrap.add_child(col)
+	var title := Label.new()
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 26)
+	title.add_theme_color_override("font_color", Color(1, 0.97, 0.92))
+	var body := Label.new()
+	body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	body.add_theme_font_size_override("font_size", 22)
+	body.add_theme_color_override("font_color", Color(1, 0.97, 0.92, 0.85))
+	if locked:
+		title.text = "未解锁"
+		body.text = "升级炼丹房"
+	elif job.is_empty():
+		title.text = "空闲托盘"
+		body.text = "点选下方配方"
+	else:
+		title.text = str(job.get("outputName", "丹药"))
+		body.text = str(job.get("line", ""))
+		if str(job.get("status", "")) == "ready":
+			var dot := QKit.reddot(24)
+			wrap.add_child(dot)
+	col.add_child(title)
+	col.add_child(body)
+	_stage.add_child(wrap)
+	_hotspot("TrayTap_%d" % index, rect, func() -> void: _on_tray_tap(job, locked))
 
 
-func _recipe_row(recipe: Dictionary, queue_full: bool) -> Control:
-	var wrap := PanelContainer.new()
-	wrap.name = "Recipe_%s" % str(recipe.get("recipeSlug", ""))
-	wrap.add_theme_stylebox_override("panel", QSkin.custom(UiTokens.Q_CARD, UiTokens.Q_COCOA, 3, 24, 3, 16, 3))
-	var row := UiKit.hbox(12)
-	wrap.add_child(row)
-	var info := UiKit.vbox(6)
-	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(info)
-	var heading := str(recipe.get("title", ""))
-	if heading.is_empty():
-		var output_name := str(recipe.get("outputName", ""))
-		if output_name.is_empty():
-			output_name = CaveView.UNKNOWN_ITEM_NAME
-		heading = "%s ×%d" % [output_name, int(recipe.get("outputQty", 1))]
-	info.add_child(QKit.title(heading, 34, UiTokens.TEXT))
-	info.add_child(UiKit.label("%s · %d 秒" % [str(recipe.get("costLine", "")), int(recipe.get("craftSeconds", 0))], UiTokens.FS_MICRO, UiTokens.TEXT_MUTED))
-	var start := QKit.button("炼制", "o", 72, 32)
-	start.custom_minimum_size = Vector2(160, 72)
+func _on_tray_tap(job: Dictionary, locked: bool) -> void:
+	if locked:
+		action_requested.emit("toast", {"text": "升级炼丹房可解锁队列"})
+		return
+	if job.is_empty():
+		action_requested.emit("toast", {"text": "先选下方配方"})
+		return
+	if str(job.get("status", "")) == "ready":
+		if _fire_fx != null and _fire_fx.has_method("play_claim"):
+			_fire_fx.call("play_claim")
+		action_requested.emit("alchemy_claim", {"jobId": str(job.get("id", ""))})
+	else:
+		action_requested.emit("toast", {"text": str(job.get("line", "炼制中"))})
+
+
+func _render_recipe_cta(index: int, recipe: Dictionary, queue_full: bool) -> void:
+	if recipe.is_empty():
+		return
 	var can := bool(recipe.get("canCraft", false)) and not queue_full
-	start.disabled = not can
-	if queue_full:
-		start.tooltip_text = "炼丹队列已满"
-	elif not bool(recipe.get("canCraft", false)):
-		start.tooltip_text = "材料不足"
-	var slug := str(recipe.get("recipeSlug", ""))
-	start.pressed.connect(func() -> void: action_requested.emit("alchemy_start", {"recipeSlug": slug}))
-	row.add_child(start)
-	return wrap
+	var label := "开始炼制" if index == 0 and can else ("入队" if can else ("不足" if not bool(recipe.get("canCraft", false)) else "队列满"))
+	# 配方行说明
+	var row_y := 1260 + index * 185
+	_chip("%s · %s" % [str(recipe.get("title", "")), str(recipe.get("costLine", ""))], Rect2(48, row_y, 700, 80), "Recipe_%s" % str(recipe.get("recipeSlug", index)))
+	var cta := _hotspot("RecipeCta_%d" % index, HS_RECIPE_CTAS[index], func() -> void:
+		if not can:
+			action_requested.emit("toast", {"text": "材料不足" if not bool(recipe.get("canCraft", false)) else "炼丹队列已满"})
+			return
+		if _fire_fx != null and _fire_fx.has_method("set_alchemy_on"):
+			_fire_fx.call("set_alchemy_on", true)
+		action_requested.emit("alchemy_start", {"recipeSlug": str(recipe.get("recipeSlug", ""))})
+	, label, "stone")
+	cta.disabled = not can
+	cta.modulate = Color(1, 1, 1, 1)
+	var st := StyleBoxFlat.new()
+	st.bg_color = UiTokens.Q_ORANGE if can else UiTokens.Q_GREY
+	st.border_color = UiTokens.Q_COCOA
+	st.set_border_width_all(3)
+	st.set_corner_radius_all(16)
+	cta.add_theme_stylebox_override("normal", st)
+	cta.add_theme_stylebox_override("pressed", st)
+	cta.add_theme_stylebox_override("hover", st)
+	cta.add_theme_stylebox_override("disabled", st)
+	cta.add_theme_color_override("font_color", Color.WHITE)
+	cta.add_theme_font_size_override("font_size", 26)
+
+
+func _sync_alchemy_fire() -> void:
+	if _fire_fx == null or not _fire_fx.has_method("set_alchemy_on"):
+		return
+	var on := false
+	if _mode == MODE_ALCHEMY:
+		for job in _view.get("alchemy", []):
+			if typeof(job) == TYPE_DICTIONARY and str((job as Dictionary).get("status", "")) == "crafting":
+				on = true
+				break
+	_fire_fx.call("set_alchemy_on", on)
+	_fire_fx.visible = _mode == MODE_ALCHEMY
+	if _water_fx != null:
+		_water_fx.visible = _mode == MODE_GARDEN or _mode == MODE_OVERVIEW
+	if _array_fx != null:
+		_array_fx.visible = _mode == MODE_ENHANCE
+
+
+# ───────── L1 强化（场所壳，规则仍走行囊强化） ─────────
+
+func _render_enhance() -> void:
+	_bg("dongfu_enhance_l1")
+	_hotspot("BackButton", HS_BACK, _on_back, "←", "ghost")
+	_chip("强化阵", Rect2(400, 248, 280, 88), "CaveTitle")
+	if ArtLib.has_q("sprites/bd_array_formation.png"):
+		var arr := TextureRect.new()
+		arr.name = "ArrayLandmark"
+		arr.texture = ArtLib.q("sprites/bd_array_formation")
+		arr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		arr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		arr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var hr := _design_rect(Rect2(290, 560, 500, 500))
+		arr.position = hr.position
+		arr.size = hr.size
+		_stage.add_child(arr)
+	for i in range(HS_EQ_RING.size()):
+		_chip("槽", HS_EQ_RING[i], "EqRing_%d" % i)
+	_chip("选中装备", HS_ARRAY_HEART, "ArrayHeart")
+	_chip("消耗炼器精粹（同行囊）", Rect2(120, 1280, 840, 88), "EnhanceCost")
+	var btn := _hotspot("EnhanceBtn", HS_ENHANCE_BTN, _emit_enhance, "强化", "stone")
+	btn.modulate = Color(1, 1, 1, 1)
+	_style_rune(btn, true)
+	var btn2 := _hotspot("EnhanceMax", HS_ENHANCE_MAX, _emit_enhance, "一键强化", "stone")
+	btn2.modulate = Color(1, 1, 1, 1)
+	_style_rune(btn2, true)
+	if _array_fx != null:
+		_array_fx.position = _design_center(HS_ARRAY_HEART)
+		_array_fx.visible = true
+
+
+func _style_rune(btn: Button, enabled: bool) -> void:
+	var st := StyleBoxFlat.new()
+	st.bg_color = Color("ff9f43") if enabled else UiTokens.Q_GREY
+	st.border_color = UiTokens.Q_COCOA
+	st.set_border_width_all(4)
+	st.set_corner_radius_all(18)
+	btn.add_theme_stylebox_override("normal", st)
+	btn.add_theme_stylebox_override("pressed", st)
+	btn.add_theme_stylebox_override("hover", st)
+	btn.add_theme_color_override("font_color", Color.WHITE)
+	btn.add_theme_font_size_override("font_size", 32)
+
+
+func _emit_enhance() -> void:
+	if _array_fx != null and _array_fx.has_method("play_enhance_success"):
+		_array_fx.call("play_enhance_success", _design_center(HS_ARRAY_HEART))
+	enhance_entry_requested.emit()

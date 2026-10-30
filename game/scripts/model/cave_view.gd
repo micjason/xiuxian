@@ -130,6 +130,7 @@ static func build(state: Dictionary, content: Dictionary, now_unix: float = -1.0
 			"woodName": "灵木",
 			"timeScale": {"garden": 1.0, "alchemy": 1.0},
 			"upgrades": {},
+			"spiritStones": int(state.get("spiritStones", 0)),
 			"hint": "洞府配置尚未发布" if cfg.is_empty() else "暂无洞府数据",
 		}
 	var data := dongfu as Dictionary
@@ -169,6 +170,7 @@ static func build(state: Dictionary, content: Dictionary, now_unix: float = -1.0
 		"woodName": item_name(content, wood_slug) if not wood_slug.is_empty() else "灵木",
 		"timeScale": {"garden": garden_factor, "alchemy": alchemy_factor},
 		"upgrades": upgrades,
+		"spiritStones": int(state.get("spiritStones", 0)),
 		"hint": "",
 	}
 

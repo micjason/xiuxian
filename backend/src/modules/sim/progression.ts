@@ -441,7 +441,9 @@ function farmGearBeforeRetry(
   const want = intense ? 2 : 1;
   const names: string[] = [];
   const qualityPick = (n: number): string => {
-    if (intense && n % 5 === 0) return "purple";
+    // 压力越大越高品质：卡关多日后可刷到橙，逼近真实首领掉落
+    if (intense && n % 4 === 0) return "orange";
+    if (intense || n % 5 === 0) return "purple";
     if (n % 3 === 0) return "blue";
     return "green";
   };

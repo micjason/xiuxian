@@ -175,7 +175,14 @@ function stageLabelOf(world: ContentSnapshot, state: SimState): string {
   const next = nextChallengeStage(world, state);
   if (next) {
     const boss = next.bosses?.[0]?.name ?? next.bossName ?? next.displayName ?? next.slug;
-    return `${next.displayName ?? next.slug}/${boss}`;
+    let rec = 0;
+    try {
+      rec = stageRecommendedPower(world, next);
+    } catch {
+      rec = 0;
+    }
+    const recPart = rec > 0 ? ` · 推荐战力 ${rec}` : "";
+    return `${next.displayName ?? next.slug}/${boss}${recPart}`;
   }
   const cleared = state.stages.filter((s) => s.firstClearedAt).length;
   return cleared > 0 ? `已通 ${cleared} 关` : "开局";
@@ -491,6 +498,13 @@ function fightBoss(
   // 与线上一致：无手动大招（ultOf 恒 null），只带运转技能
   const battle = simulateBossFight(fighter, monsterSide, battleConfigOf(world), null, [], skills);
   const bossName = boss?.name ?? stage.bossName ?? stage.displayName ?? stage.slug;
+  let recPower = 0;
+  try {
+    recPower = stageRecommendedPower(world, stage);
+  } catch {
+    recPower = 0;
+  }
+  const recSuffix = recPower > 0 ? `，推荐战力 ${recPower}` : "";
   if (battle.win) {
     const first = !state.stages.some((s) => s.stageSlug === stage.slug && s.firstClearedAt);
     const existing = state.stages.find((s) => s.stageSlug === stage.slug);
@@ -499,13 +513,13 @@ function fightBoss(
     } else {
       state.stages.push({ stageSlug: stage.slug, firstClearedAt: new Date(0) });
     }
-    emit(timeline, state, "boss_win", `击败 ${bossName}（${stage.displayName ?? stage.slug}），耗时 ${battle.durationSeconds.toFixed(1)}s，战力 ${fighterStats.power}`);
+    emit(timeline, state, "boss_win", `击败 ${bossName}（${stage.displayName ?? stage.slug}），耗时 ${battle.durationSeconds.toFixed(1)}s，战力 ${fighterStats.power}${recSuffix}`);
     grantLoot(world, state, stage, timeline, first);
     state.failDays = 0;
     state.failBossSlug = null;
     return true;
   }
-  emit(timeline, state, "boss_lose", `挑战 ${bossName} 失败（${battle.reason}），战力 ${fighterStats.power}`);
+  emit(timeline, state, "boss_lose", `挑战 ${bossName} 失败（${battle.reason}），战力 ${fighterStats.power}${recSuffix}`);
   return false;
 }
 

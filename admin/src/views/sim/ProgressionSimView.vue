@@ -45,7 +45,7 @@
         <el-table :data="result.overview" size="small" :row-class-name="overviewRowClass">
           <el-table-column prop="day" label="游戏天" width="88" align="right" />
           <el-table-column prop="realmName" label="境界" min-width="120" />
-          <el-table-column prop="stageLabel" label="关卡 / Boss" min-width="180" show-overflow-tooltip />
+          <el-table-column prop="stageLabel" label="关卡 / Boss" min-width="260" show-overflow-tooltip />
           <el-table-column label="战力" width="110" align="right">
             <template #default="{ row }">{{ compactNumber(row.power) }}</template>
           </el-table-column>
@@ -65,7 +65,7 @@
           <div class="stuck-item">
             <span class="cap">卡在</span>
             <strong>{{ result.stuck.bossName }}</strong>
-            <span class="sub">第 {{ result.stuck.day }} 游戏天</span>
+            <span class="sub">推荐战力 {{ compactNumber(result.stuck.requiredPower) }} · 第 {{ result.stuck.day }} 游戏天</span>
           </div>
           <div class="stuck-item">
             <span class="cap">战力差距</span>

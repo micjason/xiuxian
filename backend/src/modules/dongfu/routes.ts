@@ -2,7 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { AppError } from "../../shared/errors.js";
 import type { Db } from "../operations/record.js";
 import { withIdempotency } from "../loop/actions.js";
-import { allocateServants, claimAlchemy, claimGarden, plantSeed, startAlchemy, upgradeFacility } from "./actions.js";
+import { allocateServants, buySeed, claimAlchemy, claimGarden, plantSeed, startAlchemy, upgradeFacility } from "./actions.js";
 
 function idempotencyKey(header: string | string[] | undefined): string {
   const key = Array.isArray(header) ? header[0] : header;
@@ -24,6 +24,18 @@ export async function registerDongfuRoutes(
     }
     return withIdempotency(deps.db, playerId, idempotencyKey(request.headers["idempotency-key"]), "dongfu-plant", deps.now(), (tx, world) =>
       plantSeed(tx, world, playerId, { slot: body.slot as number, seedSlug: body.seedSlug as string }, deps.now()),
+    );
+  });
+
+
+  app.post("/me/dongfu/garden/buy-seed", async (request) => {
+    const playerId = request.actor!.actorId;
+    const body = (request.body ?? {}) as { seedSlug?: unknown };
+    if (typeof body.seedSlug !== "string" || !body.seedSlug) {
+      throw new AppError("INVALID_INPUT", "请选择要兑换的种子");
+    }
+    return withIdempotency(deps.db, playerId, idempotencyKey(request.headers["idempotency-key"]), "dongfu-buy-seed", deps.now(), (tx, world) =>
+      buySeed(tx, world, playerId, { seedSlug: body.seedSlug as string }, deps.now()),
     );
   });
 

@@ -41,6 +41,11 @@ describe("dongfuConfigFromInput", () => {
     });
     expect(parsed.startingServants).toBe(4);
     expect(parsed.startingWood).toBe(32);
+    expect(parsed.startingSeeds).toEqual([
+      { itemSlug: "seed_lingcao", quantity: 8 },
+      { itemSlug: "seed_qingxin", quantity: 4 },
+    ]);
+    expect(parsed.seedOffers).toHaveLength(2);
     expect(parsed.gardenReducePercent).toBe(5);
     expect(parsed.minDurationPercent).toBe(20);
     expect(parsed.woodItemSlug).toBe("wood_lingmu");

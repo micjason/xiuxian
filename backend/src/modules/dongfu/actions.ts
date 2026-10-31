@@ -62,6 +62,8 @@ export type DongfuStateDto = {
   /** 相对原时长的系数，1 = 不加速。 */
   timeScale: { garden: number; alchemy: number };
   upgrades: { garden: DongfuUpgradeDto; alchemy: DongfuUpgradeDto };
+  /** 极简兑种表（来自配置；空则客户端只展示引导文案）。 */
+  seedOffers: { seedSlug: string; spiritStones: number; quantity: number }[];
 };
 
 type DongfuProgress = typeof playerDongfu.$inferSelect;
@@ -90,7 +92,7 @@ function recipeOutput(config: DongfuConfig, recipeSlug: string): Pick<DongfuReci
 
 async function ensureProgress(tx: Tx, config: DongfuConfig, playerId: string, now: Date): Promise<DongfuProgress> {
   const [existing] = await tx.select().from(playerDongfu).where(eq(playerDongfu.playerId, playerId)).limit(1);
-  if (existing?.woodGranted) return existing;
+  if (existing?.woodGranted && existing.seedsGranted) return existing;
   if (!existing) {
     await tx
       .insert(playerDongfu)
@@ -102,17 +104,30 @@ async function ensureProgress(tx: Tx, config: DongfuConfig, playerId: string, no
         gardenLevel: 1,
         alchemyLevel: 1,
         woodGranted: false,
+        seedsGranted: false,
       })
       .onConflictDoNothing();
   }
   const [row] = await tx.select().from(playerDongfu).where(eq(playerDongfu.playerId, playerId)).limit(1);
   if (!row) throw new AppError("NOT_FOUND");
-  if (row.woodGranted) return row;
-  if (config.startingWood > 0) {
-    await addStack(tx, playerId, config.woodItemSlug, config.startingWood, "dongfu_starter", now);
+  let next = row;
+  if (!next.woodGranted) {
+    if (config.startingWood > 0) {
+      await addStack(tx, playerId, config.woodItemSlug, config.startingWood, "dongfu_starter", now);
+    }
+    await tx.update(playerDongfu).set({ woodGranted: true }).where(eq(playerDongfu.playerId, playerId));
+    next = { ...next, woodGranted: true };
   }
-  await tx.update(playerDongfu).set({ woodGranted: true }).where(eq(playerDongfu.playerId, playerId));
-  return { ...row, woodGranted: true };
+  if (!next.seedsGranted) {
+    for (const pack of config.startingSeeds) {
+      if (pack.quantity > 0) {
+        await addStack(tx, playerId, pack.itemSlug, pack.quantity, "dongfu_starter_seed", now);
+      }
+    }
+    await tx.update(playerDongfu).set({ seedsGranted: true }).where(eq(playerDongfu.playerId, playerId));
+    next = { ...next, seedsGranted: true };
+  }
+  return next;
 }
 
 function scalesOf(config: DongfuConfig, progress: DongfuProgress) {
@@ -261,6 +276,7 @@ export async function readDongfuState(tx: Tx, world: World, playerId: string, no
       garden: { level: progress.gardenLevel, ...gardenOffer },
       alchemy: { level: progress.alchemyLevel, ...alchemyOffer },
     },
+    seedOffers: config.seedOffers.map((row) => ({ ...row })),
   };
 }
 
@@ -525,6 +541,39 @@ export async function upgradeFacility(
     .update(playerDongfu)
     .set(facility === "garden" ? { gardenLevel: level + 1 } : { alchemyLevel: level + 1 })
     .where(eq(playerDongfu.playerId, playerId));
+  return { dongfu: await readDongfuState(tx, world, playerId, now) };
+}
+
+
+/** 极简灵石兑种：扣灵石 → 发种子。不做商店浏览/限购。 */
+export async function buySeed(
+  tx: Tx,
+  world: World,
+  playerId: string,
+  input: { seedSlug: string },
+  now: Date,
+) {
+  const config = dongfuOf(world);
+  await ensureProgress(tx, config, playerId, now);
+  const offer = config.seedOffers.find((row) => row.seedSlug === input.seedSlug);
+  if (!offer) {
+    throw new AppError("INVALID_INPUT", "该种子暂不支持灵石兑换");
+  }
+  // 必须是药园配置里的种子，避免兑到无关物品。
+  seedOf(config, offer.seedSlug);
+  const [player] = await tx
+    .select({ spiritStones: playerStates.spiritStones })
+    .from(playerStates)
+    .where(eq(playerStates.playerId, playerId))
+    .limit(1);
+  if ((player?.spiritStones ?? 0) < offer.spiritStones) {
+    throw new AppError("MATERIAL_SHORT", "灵石不足");
+  }
+  await tx
+    .update(playerStates)
+    .set({ spiritStones: sql`${playerStates.spiritStones} - ${offer.spiritStones}` })
+    .where(eq(playerStates.playerId, playerId));
+  await addStack(tx, playerId, offer.seedSlug, offer.quantity, "dongfu_seed_exchange", now);
   return { dongfu: await readDongfuState(tx, world, playerId, now) };
 }
 

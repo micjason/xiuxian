@@ -20,7 +20,7 @@ import { registerPlayer } from "../auth/service.js";
 import { loadCurrentWorld } from "../content/snapshot.js";
 import { useItem } from "../loop/actions.js";
 import { DEFAULT_DONGFU } from "./config.js";
-import { allocateServants, claimAlchemy, claimGarden, plantSeed, readDongfuState, startAlchemy, upgradeFacility } from "./actions.js";
+import { allocateServants, buySeed, claimAlchemy, claimGarden, plantSeed, readDongfuState, startAlchemy, upgradeFacility } from "./actions.js";
 
 const DONGFU_ITEMS = [
   { slug: "seed_lingcao", displayName: "灵草种子", kind: "material", quality: "green", stackable: true },
@@ -112,13 +112,41 @@ async function giveStack(
 }
 
 describe("dongfu v1 garden + alchemy", () => {
+
+  it("grants startingSeeds on first dongfu read; buySeed spends spirit stones", async () => {
+    await withDb(async (db) => {
+      await seedWorld(db);
+      const now = new Date("2026-10-31T04:00:00.000Z");
+      const player = await registerPlayer(db, { username: "seedling", password: "correct-horse", now });
+      await db.update(playerStates).set({ spiritStones: 50 }).where(eq(playerStates.playerId, player.playerId));
+      const world = (await loadCurrentWorld(db))!;
+      const first = await withTransaction(db, (tx) => readDongfuState(tx, world, player.playerId, now));
+      expect(first.seedOffers).toHaveLength(2);
+      const seeds = await db.select().from(playerItems).where(eq(playerItems.playerId, player.playerId));
+      const bySlug = Object.fromEntries(seeds.filter((r) => r.isStack).map((r) => [r.itemSlug, r.quantity]));
+      expect(bySlug.seed_lingcao).toBe(8);
+      expect(bySlug.seed_qingxin).toBe(4);
+      // 第二次读不再重复发
+      await withTransaction(db, (tx) => readDongfuState(tx, world, player.playerId, now));
+      const again = await db.select().from(playerItems).where(eq(playerItems.playerId, player.playerId));
+      const bySlug2 = Object.fromEntries(again.filter((r) => r.isStack).map((r) => [r.itemSlug, r.quantity]));
+      expect(bySlug2.seed_lingcao).toBe(8);
+      const bought = await withTransaction(db, (tx) => buySeed(tx, world, player.playerId, { seedSlug: "seed_lingcao" }, now));
+      expect(bought.dongfu.seedOffers[0]?.seedSlug).toBe("seed_lingcao");
+      const [state] = await db.select().from(playerStates).where(eq(playerStates.playerId, player.playerId));
+      expect(state?.spiritStones).toBe(40);
+      const after = await db.select().from(playerItems).where(eq(playerItems.playerId, player.playerId));
+      const bySlug3 = Object.fromEntries(after.filter((r) => r.isStack).map((r) => [r.itemSlug, r.quantity]));
+      expect(bySlug3.seed_lingcao).toBe(9);
+    });
+  });
   it("plants a seed, matures offline, and claims herb into bag", async () => {
     await withDb(async (db) => {
       await seedWorld(db);
       const plantedAt = new Date("2026-10-29T04:00:00.000Z");
       const player = await registerPlayer(db, { username: "gardener", password: "correct-horse", now: plantedAt });
       await giveStack(db, player.playerId, "seed_lingcao", 2, plantedAt);
-      const world = await loadCurrentWorld(db);
+      const world = (await loadCurrentWorld(db))!;
       if (!world) throw new Error("no world");
 
       const planted = await withTransaction(db, (tx) =>
@@ -137,7 +165,8 @@ describe("dongfu v1 garden + alchemy", () => {
         .select()
         .from(playerItems)
         .where(and(eq(playerItems.playerId, player.playerId), eq(playerItems.itemSlug, "seed_lingcao")));
-      expect(seedsLeft[0]?.quantity).toBe(1);
+      // giveStack(2) + ensureProgress startingSeeds(8) - plant(1) = 9
+      expect(seedsLeft[0]?.quantity).toBe(9);
 
       const readyAt = new Date(plantedAt.getTime() + 60_000);
       const beforeClaim = await withTransaction(db, (tx) => readDongfuState(tx, world, player.playerId, readyAt));
@@ -166,7 +195,7 @@ describe("dongfu v1 garden + alchemy", () => {
       const now = new Date("2026-10-29T04:00:00.000Z");
       const player = await registerPlayer(db, { username: "busy", password: "correct-horse", now });
       await giveStack(db, player.playerId, "seed_lingcao", 3, now);
-      const world = await loadCurrentWorld(db);
+      const world = (await loadCurrentWorld(db))!;
       if (!world) throw new Error("no world");
       await withTransaction(db, (tx) => plantSeed(tx, world, player.playerId, { slot: 1, seedSlug: "seed_lingcao" }, now));
       await expect(
@@ -185,7 +214,7 @@ describe("dongfu v1 garden + alchemy", () => {
       const player = await registerPlayer(db, { username: "alchemist", password: "correct-horse", now });
       await giveStack(db, player.playerId, "herb_lingcao", 10, now);
       await giveStack(db, player.playerId, "herb_qingxin", 10, now);
-      const world = await loadCurrentWorld(db);
+      const world = (await loadCurrentWorld(db))!;
       if (!world) throw new Error("no world");
 
       const first = await withTransaction(db, (tx) =>
@@ -248,7 +277,7 @@ describe("dongfu v1 garden + alchemy", () => {
           acquiredAt: plantedAt,
         });
       }
-      const world = await loadCurrentWorld(db);
+      const world = (await loadCurrentWorld(db))!;
       if (!world) throw new Error("no world");
       await withTransaction(db, (tx) =>
         plantSeed(tx, world, player.playerId, { slot: 0, seedSlug: "seed_lingcao" }, plantedAt),
@@ -274,7 +303,7 @@ describe("dongfu v1 garden + alchemy", () => {
         .values({ playerId: player.playerId, itemSlug: "pill_atk_temp", isStack: true, quantity: 1, source: "test", acquiredAt: now })
         .returning();
       await db.update(playerStates).set({ cultivation: 50 }).where(eq(playerStates.playerId, player.playerId));
-      const world = await loadCurrentWorld(db);
+      const world = (await loadCurrentWorld(db))!;
       if (!world || !cultPill || !atkPill) throw new Error("no world");
 
       const used = await withTransaction(db, (tx) => useItem(tx, world, player.playerId, cultPill.id, now));
@@ -299,7 +328,7 @@ describe("dongfu servant allocation and facility upgrade", () => {
       const plantedAt = new Date("2026-10-29T08:00:00.000Z");
       const player = await registerPlayer(db, { username: "warden", password: "correct-horse", now: plantedAt });
       await giveStack(db, player.playerId, "seed_lingcao", 2, plantedAt);
-      const world = await loadCurrentWorld(db);
+      const world = (await loadCurrentWorld(db))!;
       if (!world) throw new Error("no world");
 
       const opened = await withTransaction(db, (tx) => readDongfuState(tx, world, player.playerId, plantedAt));
@@ -332,7 +361,7 @@ describe("dongfu servant allocation and facility upgrade", () => {
       const plantedAt = new Date("2026-10-29T08:10:00.000Z");
       const player = await registerPlayer(db, { username: "shift", password: "correct-horse", now: plantedAt });
       await giveStack(db, player.playerId, "seed_lingcao", 1, plantedAt);
-      const world = await loadCurrentWorld(db);
+      const world = (await loadCurrentWorld(db))!;
       if (!world) throw new Error("no world");
       await withTransaction(db, (tx) => plantSeed(tx, world, player.playerId, { slot: 0, seedSlug: "seed_lingcao" }, plantedAt));
       const midway = new Date(plantedAt.getTime() + 30_000);
@@ -350,7 +379,7 @@ describe("dongfu servant allocation and facility upgrade", () => {
       const now = new Date("2026-10-29T08:20:00.000Z");
       const player = await registerPlayer(db, { username: "builder", password: "correct-horse", now });
       await giveStack(db, player.playerId, "herb_lingcao", 8, now);
-      const world = await loadCurrentWorld(db);
+      const world = (await loadCurrentWorld(db))!;
       if (!world) throw new Error("no world");
 
       await expect(
@@ -384,7 +413,7 @@ describe("dongfu servant allocation and facility upgrade", () => {
       const now = new Date("2026-10-29T08:30:00.000Z");
       const player = await registerPlayer(db, { username: "furnace", password: "correct-horse", now });
       await giveStack(db, player.playerId, "herb_lingcao", 4, now);
-      const world = await loadCurrentWorld(db);
+      const world = (await loadCurrentWorld(db))!;
       if (!world) throw new Error("no world");
       const started = await withTransaction(db, (tx) =>
         startAlchemy(tx, world, player.playerId, { recipeSlug: "pill_cultivate" }, now),

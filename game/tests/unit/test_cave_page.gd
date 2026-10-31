@@ -1,10 +1,11 @@
 extends GutTest
-## 洞府 L0+L1 场所硬接：庭院三热点、强化进场所页再走行囊、药园子页可进。
+## 洞府 L0+L1 场所硬接：庭院三热点、强化进场所页后直接 enhance、药园子页可进。
 
 
 func test_enhance_hotspot_opens_place_then_emits() -> void:
 	var page := CavePage.new()
 	add_child_autofree(page)
+	# 穿戴一件可强化装备，阵心有选中后直接发 enhance
 	page.bind({
 		"dongfu": {
 			"plotCount": 4,
@@ -13,18 +14,47 @@ func test_enhance_hotspot_opens_place_then_emits() -> void:
 			"alchemy": [],
 			"claimable": {"plots": 0, "alchemy": 0},
 		},
-		"items": [],
+		"items": [{
+			"id": "w1",
+			"itemSlug": "sword_wood",
+			"equippedSlot": "weapon",
+			"isStack": false,
+			"quantity": 1,
+			"enhanceLevel": 0,
+			"breakLevel": 0,
+			"baseStats": {"atk": 10},
+			"quality": "green",
+		}],
 		"spiritStones": 10,
-	}, {"globals": {"dongfu": {"plotCount": 4, "alchemyQueueLength": 2, "seeds": [], "recipes": []}}, "items": []})
+	}, {
+		"globals": {
+			"dongfu": {"plotCount": 4, "alchemyQueueLength": 2, "seeds": [], "recipes": []},
+			"enhance": {
+				"qualities": {
+					"green": {"cap": 15, "statPerLevel": 200, "costBase": 10, "costGrowth": 10000},
+				},
+			},
+		},
+		"items": [{"slug": "sword_wood", "displayName": "木剑", "kind": "equipment", "quality": "green", "equipSlot": "weapon", "baseStats": {"atk": 10}}],
+	})
 	var enter := page.find_child("Enter_enhance", true, false) as BaseButton
 	assert_not_null(enter, "L0 有强化热点")
 	enter.pressed.emit()
 	assert_eq(page.mode(), "enhance", "强化进场所页")
+	assert_false(page.selected_enhance_id().is_empty(), "预选已穿戴可强化件")
 	watch_signals(page)
 	var rune := page.find_child("EnhanceBtn", true, false) as BaseButton
 	assert_not_null(rune, "场所页有强化符文石")
 	rune.pressed.emit()
-	assert_signal_emitted(page, "enhance_entry_requested")
+	assert_signal_emitted(page, "action_requested", "洞府内直接 enhance，不跳行囊")
+	var params = get_signal_parameters(page, "action_requested", 0)
+	assert_eq(params[0], "enhance")
+	assert_eq(str((params[1] as Dictionary).get("itemId", "")), page.selected_enhance_id())
+	var max_btn := page.find_child("EnhanceMax", true, false) as BaseButton
+	assert_not_null(max_btn)
+	max_btn.pressed.emit()
+	params = get_signal_parameters(page, "action_requested", 1)
+	assert_eq(params[0], "enhance_max")
 
 
 func test_garden_card_opens_subpage() -> void:
@@ -138,5 +168,50 @@ func test_enhance_ring_binds_worn_gear_and_selects_heart() -> void:
 	assert_eq(page.selected_enhance_id(), "h1", "点环切换阵心目标")
 	watch_signals(page)
 	var rune := page.find_child("EnhanceBtn", true, false) as BaseButton
+	assert_not_null(rune, "场所页有强化符文石")
 	rune.pressed.emit()
-	assert_signal_emitted(page, "enhance_entry_requested")
+	assert_signal_emitted(page, "action_requested", "洞府内直接 enhance，不跳行囊")
+	var params = get_signal_parameters(page, "action_requested", 0)
+	assert_eq(params[0], "enhance")
+	assert_eq(str((params[1] as Dictionary).get("itemId", "")), "h1")
+
+
+func test_seed_drawer_buy_when_empty() -> void:
+	var page := CavePage.new()
+	add_child_autofree(page)
+	var plots := []
+	for i in 4:
+		plots.append({"slot": i, "seedSlug": null, "herbSlug": null, "plantedAt": null, "matureAt": null, "status": "empty"})
+	page.bind({
+		"dongfu": {
+			"plotCount": 4,
+			"alchemyQueueLength": 2,
+			"plots": plots,
+			"alchemy": [],
+			"claimable": {"plots": 0, "alchemy": 0},
+			"seedOffers": [{"seedSlug": "seed_lingcao", "spiritStones": 10, "quantity": 1}],
+		},
+		"items": [],
+		"spiritStones": 50,
+	}, {
+		"globals": {"dongfu": {
+			"plotCount": 4,
+			"alchemyQueueLength": 2,
+			"seeds": [{"seedSlug": "seed_lingcao", "herbSlug": "herb_lingcao", "growSeconds": 60}],
+			"recipes": [],
+			"seedOffers": [{"seedSlug": "seed_lingcao", "spiritStones": 10, "quantity": 1}],
+		}},
+		"items": [{"slug": "seed_lingcao", "displayName": "灵草种子"}, {"slug": "herb_lingcao", "displayName": "灵草"}],
+	})
+	var enter := page.find_child("Enter_garden", true, false) as BaseButton
+	enter.pressed.emit()
+	assert_eq(page.mode(), "garden")
+	watch_signals(page)
+	var bag0 := page.find_child("SeedBag_0", true, false) as BaseButton
+	assert_not_null(bag0)
+	assert_false(bag0.disabled, "无种但可兑时应可点")
+	bag0.pressed.emit()
+	assert_signal_emitted(page, "action_requested")
+	var params = get_signal_parameters(page, "action_requested", 0)
+	assert_eq(params[0], "garden_buy_seed")
+	assert_eq(str((params[1] as Dictionary).get("seedSlug", "")), "seed_lingcao")

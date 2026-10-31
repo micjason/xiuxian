@@ -1,7 +1,8 @@
 class_name CavePage
 extends Control
 ## 洞府 L0+L1 场所硬接：庭院热点 + 药园/炼丹/强化场所页（非按钮墙）。
-## 数据来自 CaveView.build；写操作发 action_requested；强化复用 enhance_entry_requested。
+## 数据来自 CaveView.build；写操作发 action_requested。
+## 强化：已选装备直接 enhance / enhance_max（现有 API），成功留洞府；不动公式。
 ## 设计空间 1080×2340；热区见 q_design/DONGFU_L1_V3_HOTSPOTS.md。
 
 signal back_requested
@@ -368,6 +369,41 @@ func _status_capsule(card: Dictionary, rect: Rect2) -> void:
 		_stage.add_child(dot)
 
 
+
+func _facility_spot(facility_id: String, rect: Rect2, level: int) -> void:
+	## L0 热点中心景差：lv1 默认，level>=2 换 lv2。闪/红点仍由 capsule 管。
+	var spot_key := {
+		"garden": "garden",
+		"alchemy": "alchemy",
+		"enhance": "forge",
+	}.get(facility_id, facility_id)
+	var tier := "lv2" if level >= 2 else "lv1"
+	var path := "sprites/dongfu_spots/spot_%s_%s" % [spot_key, tier]
+	if not ArtLib.has_q(path + ".png"):
+		path = "sprites/dongfu_spots/spot_%s_lv1" % spot_key
+		if not ArtLib.has_q(path + ".png"):
+			return
+	var tex: Texture2D = ArtLib.q(path)
+	if tex == null:
+		return
+	var node := TextureRect.new()
+	node.name = "Spot_%s" % facility_id
+	node.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	node.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	node.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	var side := mini(rect.size.x, rect.size.y) * 0.55
+	var local := _design_rect(Rect2(
+		rect.position.x + (rect.size.x - side) * 0.5,
+		rect.position.y + (rect.size.y - side) * 0.35,
+		side,
+		side
+	))
+	node.position = local.position
+	node.size = local.size
+	node.texture = tex
+	_stage.add_child(node)
+
+
 # ───────── L0 庭院 ─────────
 
 func _render_overview() -> void:
@@ -380,10 +416,16 @@ func _render_overview() -> void:
 	for c in _view.get("cards", []):
 		if typeof(c) == TYPE_DICTIONARY:
 			cards[str((c as Dictionary).get("id", ""))] = c
+	var upgrades: Dictionary = _view.get("upgrades", {}) if typeof(_view.get("upgrades", {})) == TYPE_DICTIONARY else {}
+	var g_lv := int((upgrades.get("garden", {}) as Dictionary).get("level", 1)) if typeof(upgrades.get("garden", {})) == TYPE_DICTIONARY else 1
+	var a_lv := int((upgrades.get("alchemy", {}) as Dictionary).get("level", 1)) if typeof(upgrades.get("alchemy", {})) == TYPE_DICTIONARY else 1
+	_facility_spot("garden", HS_GARDEN, g_lv)
 	_hotspot("Enter_garden", HS_GARDEN, func() -> void: _enter_facility("garden"))
 	_status_capsule(cards.get("garden", {}), HS_GARDEN)
+	_facility_spot("alchemy", HS_ALCHEMY, a_lv)
 	_hotspot("Enter_alchemy", HS_ALCHEMY, func() -> void: _enter_facility("alchemy"))
 	_status_capsule(cards.get("alchemy", {}), HS_ALCHEMY)
+	_facility_spot("enhance", HS_ENHANCE, 1)
 	_hotspot("Enter_enhance", HS_ENHANCE, func() -> void: _enter_facility("enhance"))
 	_status_capsule(cards.get("enhance", {"subtitle": "可强化"}), HS_ENHANCE)
 	_render_alloc_bar()
@@ -398,7 +440,7 @@ func _render_resource_pills() -> void:
 	var used := int(alloc.get("garden", 0)) + int(alloc.get("alchemy", 0))
 	_resource_pill("StonePill", HS_STONE, "icons/res_stone", OfflineView.grouped(float(stones)))
 	_resource_pill("WoodPill", HS_WOOD, "icons/icon_lingmu", "%s %d" % [wood_name, wood])
-	_resource_pill("ServantPill", HS_SERVANT, "icons/icon_lingpu", "灵仆 %d/%d" % [used, total])
+	_resource_pill("ServantPill", HS_SERVANT, "icons/icon_kuilei", "傀儡 %d/%d" % [used, total])
 
 
 func _resource_pill(name: String, rect: Rect2, icon_path: String, text: String) -> void:
@@ -552,7 +594,7 @@ func _render_garden() -> void:
 	claim_all.disabled = claimable <= 0
 	var garden_pct := int(round(float((_view.get("timeScale", {}) as Dictionary).get("garden", 1.0)) * 100.0))
 	var alloc: Dictionary = _view.get("allocation", {}) if typeof(_view.get("allocation", {})) == TYPE_DICTIONARY else {}
-	_chip("灵仆 %d · 成熟 %d%%" % [int(alloc.get("garden", 0)), garden_pct], Rect2(320, 362, 300, 68), "GardenServantHint")
+	_chip("傀儡 %d · 成熟 %d%%" % [int(alloc.get("garden", 0)), garden_pct], Rect2(320, 362, 300, 68), "GardenServantHint")
 
 	var plots: Array = _view.get("plots", [])
 	for i in range(mini(4, maxi(plots.size(), HS_PLOTS.size()))):
@@ -648,10 +690,16 @@ func _render_seed_drawer() -> void:
 	style.set_corner_radius_all(0)
 	drawer.add_theme_stylebox_override("panel", style)
 	_stage.add_child(drawer)
+	var seed_hint := str(_view.get("seedHint", ""))
 	var hint := Label.new()
-	hint.text = "种子袋 · 先点空畦再选种" if _plant_slot < 0 else "为地块 %d 选种子" % (_plant_slot + 1)
+	if not seed_hint.is_empty():
+		hint.text = seed_hint
+	elif _plant_slot < 0:
+		hint.text = "种子袋 · 先点空畦再选种"
+	else:
+		hint.text = "为地块 %d 选种子" % (_plant_slot + 1)
 	hint.position = _design_to_local(Vector2(48, 1600))
-	hint.size = Vector2(900, 40)
+	hint.size = Vector2(984, 40)
 	hint.add_theme_font_size_override("font_size", 26)
 	hint.add_theme_color_override("font_color", Color(1, 0.97, 0.92, 0.95))
 	_stage.add_child(hint)
@@ -659,9 +707,18 @@ func _render_seed_drawer() -> void:
 		var rect: Rect2 = HS_SEEDS[i]
 		var seed: Dictionary = seeds[i] if i < seeds.size() and typeof(seeds[i]) == TYPE_DICTIONARY else {}
 		var have := int(seed.get("have", 0))
+		var can_buy := bool(seed.get("canBuy", false))
 		var label := str(seed.get("name", "空袋")) if not seed.is_empty() else "—"
-		var btn := _hotspot("SeedBag_%d" % i, rect, func() -> void: _on_seed_tap(seed), "%s\n×%d" % [label, have] if not seed.is_empty() else "—", "ghost")
-		btn.disabled = seed.is_empty() or have <= 0
+		var btn_text := "—"
+		if not seed.is_empty():
+			if have > 0:
+				btn_text = "%s\n×%d" % [label, have]
+			elif can_buy:
+				btn_text = "%s\n兑 %d石" % [label, int(seed.get("buyStones", 0))]
+			else:
+				btn_text = "%s\n×0" % label
+		var btn := _hotspot("SeedBag_%d" % i, rect, func() -> void: _on_seed_tap(seed), btn_text, "ghost")
+		btn.disabled = seed.is_empty() or (have <= 0 and not can_buy)
 		btn.modulate = Color(1, 1, 1, 1)
 		var bag_style := StyleBoxFlat.new()
 		bag_style.bg_color = Color(0.92, 0.82, 0.62, 0.92)
@@ -672,21 +729,26 @@ func _render_seed_drawer() -> void:
 		btn.add_theme_stylebox_override("pressed", bag_style)
 		btn.add_theme_stylebox_override("hover", bag_style)
 		btn.add_theme_stylebox_override("disabled", bag_style)
-		btn.add_theme_color_override("font_color", UiTokens.TEXT if have > 0 else UiTokens.TEXT_MUTED)
+		btn.add_theme_color_override("font_color", UiTokens.TEXT if have > 0 or can_buy else UiTokens.TEXT_MUTED)
 		btn.add_theme_font_size_override("font_size", 26)
 
 
 func _on_seed_tap(seed: Dictionary) -> void:
 	if seed.is_empty():
 		return
+	var have := int(seed.get("have", 0))
+	var can_buy := bool(seed.get("canBuy", false))
+	var slug := str(seed.get("seedSlug", ""))
+	if have <= 0:
+		if can_buy:
+			action_requested.emit("garden_buy_seed", {"seedSlug": slug})
+		else:
+			action_requested.emit("toast", {"text": "行囊里没有这颗种子"})
+		return
 	if _plant_slot < 0:
 		action_requested.emit("toast", {"text": "先点一块空畦"})
 		return
-	if int(seed.get("have", 0)) <= 0:
-		action_requested.emit("toast", {"text": "行囊里没有这颗种子"})
-		return
 	var slot := _plant_slot
-	var slug := str(seed.get("seedSlug", ""))
 	_plant_slot = -1
 	_play_water_at_slot(slot)
 	action_requested.emit("garden_plant", {"slot": slot, "seedSlug": slug})
@@ -895,10 +957,10 @@ func _render_enhance() -> void:
 		_ring_cell(i, slot_cfg, item)
 	_render_array_heart()
 	_render_enhance_cost()
-	var btn := _hotspot("EnhanceBtn", HS_ENHANCE_BTN, _emit_enhance, "强化", "stone")
+	var btn := _hotspot("EnhanceBtn", HS_ENHANCE_BTN, func() -> void: _emit_enhance(false), "强化", "stone")
 	btn.modulate = Color(1, 1, 1, 1)
 	_style_rune(btn, true)
-	var btn2 := _hotspot("EnhanceMax", HS_ENHANCE_MAX, _emit_enhance, "一键强化", "stone")
+	var btn2 := _hotspot("EnhanceMax", HS_ENHANCE_MAX, func() -> void: _emit_enhance(true), "一键强化", "stone")
 	btn2.modulate = Color(1, 1, 1, 1)
 	_style_rune(btn2, true)
 	if _array_fx != null:
@@ -1038,7 +1100,18 @@ func _style_rune(btn: Button, enabled: bool) -> void:
 	btn.add_theme_font_size_override("font_size", 32)
 
 
-func _emit_enhance() -> void:
+func _emit_enhance(to_max: bool = false) -> void:
+	if _enhance_selected_id.is_empty():
+		action_requested.emit("toast", {"text": "先点选环上已穿戴装备"})
+		return
+	var item := _bag.find(_enhance_selected_id) if _bag != null else {}
+	if item.is_empty():
+		action_requested.emit("toast", {"text": "装备不在行囊"})
+		return
+	if not BagModel.can_enhance(item):
+		action_requested.emit("toast", {"text": "该装备已达上限或需先突破"})
+		return
+	# 乐观播阵线成功闪；真正强化由 play_screen 调现有 enhance API，成功留洞府
 	_ensure_fx()
 	if _array_fx != null and _array_fx.has_method("play_enhance_success"):
 		var at := _design_center(HS_ARRAY_HEART)
@@ -1050,4 +1123,5 @@ func _emit_enhance() -> void:
 			_array_fx.call("play_enhance_success", at)
 		else:
 			_array_fx.call_deferred("play_enhance_success", at)
-	enhance_entry_requested.emit()
+	var kind := "enhance_max" if to_max else "enhance"
+	action_requested.emit(kind, {"itemId": _enhance_selected_id})

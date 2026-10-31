@@ -1,12 +1,12 @@
 class_name CaveView
 extends RefCounted
 ## 洞府 v1：把 /me/state.dongfu 与 content.globals.dongfu 转成总览 / 药园 / 炼丹界面数据。
-## 强化不在此建模——第三卡只由 CavePage 发 enhance_entry_requested。
+## 强化场所由 CavePage 直接调现有 enhance API（不跳行囊）；本视图只供总览卡文案。
 
 const FACILITIES := [
 	{"id": "garden", "name": "药园", "sprite": "bd_field", "blurb": "种植种子，成熟领取草药"},
 	{"id": "alchemy", "name": "炼丹", "sprite": "bd_alchemy", "blurb": "消耗草药炼制丹药"},
-	{"id": "enhance", "name": "强化", "sprite": "", "blurb": "前往行囊强化装备"},
+	{"id": "enhance", "name": "强化", "sprite": "", "blurb": "阵内强化已穿戴装备"},
 ]
 
 ## 内容缺 displayName 时的中文名。界面禁止回落成 slug。
@@ -124,6 +124,7 @@ static func build(state: Dictionary, content: Dictionary, now_unix: float = -1.0
 			"alchemy": [],
 			"recipes": [],
 			"seeds": [],
+			"seedHint": "",
 			"allocation": {"garden": 0, "alchemy": 0},
 			"servantTotal": 0,
 			"woodCount": 0,
@@ -146,6 +147,18 @@ static func build(state: Dictionary, content: Dictionary, now_unix: float = -1.0
 	var garden_factor := _factor(data, "garden")
 	var alchemy_factor := _factor(data, "alchemy")
 	var wood_slug := str(data.get("woodItemSlug", "wood_lingmu"))
+	var seed_rows := _seeds(seeds_cfg, state, content, data, garden_factor)
+	var seed_total := 0
+	for s in seed_rows:
+		seed_total += int((s as Dictionary).get("have", 0))
+	var seed_hint := ""
+	if seed_total <= 0:
+		var any_buy := false
+		for s in seed_rows:
+			if bool((s as Dictionary).get("canBuy", false)):
+				any_buy = true
+				break
+		seed_hint = "暂无种子：可历练掉落" + ("，或点种子袋用灵石兑换" if any_buy else "（首次进洞府会赠种）")
 	return {
 		"available": true,
 		"plotCount": int(data.get("plotCount", plots.size())),
@@ -158,7 +171,8 @@ static func build(state: Dictionary, content: Dictionary, now_unix: float = -1.0
 		"plots": plots,
 		"alchemy": alchemy,
 		"recipes": _recipes(recipes_cfg, state, content, alchemy_factor),
-		"seeds": _seeds(seeds_cfg, state, content, garden_factor),
+		"seeds": seed_rows,
+		"seedHint": seed_hint,
 		"allocation": {
 			"garden": int(allocation.get("garden", 0)),
 			"alchemy": int(allocation.get("alchemy", 0)),
@@ -283,14 +297,39 @@ static func _alchemy(rows: Array, content: Dictionary, now_unix: float) -> Array
 	return out
 
 
-static func _seeds(rows: Array, state: Dictionary, content: Dictionary, factor: float = 1.0) -> Array[Dictionary]:
+## 优先用 state.dongfu.seedOffers（运行时）；否则回落 content.globals.dongfu。
+static func _seed_offers(dongfu_state: Dictionary, content: Dictionary) -> Dictionary:
+	var offers: Dictionary = {}
+	var rows: Array = []
+	if typeof(dongfu_state.get("seedOffers", null)) == TYPE_ARRAY:
+		rows = dongfu_state.get("seedOffers", [])
+	else:
+		var cfg := config_of(content)
+		rows = cfg.get("seedOffers", []) if typeof(cfg.get("seedOffers", [])) == TYPE_ARRAY else []
+	for row in rows:
+		if typeof(row) != TYPE_DICTIONARY:
+			continue
+		var slug := str((row as Dictionary).get("seedSlug", ""))
+		if slug.is_empty():
+			continue
+		offers[slug] = {
+			"seedSlug": slug,
+			"spiritStones": int((row as Dictionary).get("spiritStones", 0)),
+			"quantity": int((row as Dictionary).get("quantity", 1)),
+		}
+	return offers
+
+
+static func _seeds(rows: Array, state: Dictionary, content: Dictionary, dongfu_state: Dictionary = {}, factor: float = 1.0) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
+	var offers := _seed_offers(dongfu_state, content)
 	for row in rows:
 		if typeof(row) != TYPE_DICTIONARY:
 			continue
 		var seed := row as Dictionary
 		var slug := str(seed.get("seedSlug", ""))
 		var have := bag_count(state, slug)
+		var offer: Dictionary = offers.get(slug, {}) if typeof(offers.get(slug, {})) == TYPE_DICTIONARY else {}
 		out.append({
 			"seedSlug": slug,
 			"herbSlug": str(seed.get("herbSlug", "")),
@@ -300,6 +339,9 @@ static func _seeds(rows: Array, state: Dictionary, content: Dictionary, factor: 
 			"herbName": item_name(content, str(seed.get("herbSlug", ""))),
 			"have": have,
 			"canPlant": have > 0,
+			"canBuy": not offer.is_empty() and int(offer.get("spiritStones", 0)) > 0,
+			"buyStones": int(offer.get("spiritStones", 0)),
+			"buyQty": int(offer.get("quantity", 1)),
 		})
 	return out
 

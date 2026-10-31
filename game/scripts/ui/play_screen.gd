@@ -697,7 +697,9 @@ func _update_dots() -> void:
 			fresh = true
 	_tab_bar.set_dot(PAGE_BAG, fresh or not EquipModel.best_upgrades(bag).is_empty())
 	_tab_bar.set_full(PAGE_BAG, bag.is_full())  # 第五批 §17.5：满包时红点换 badge_full
-	_tab_bar.set_dot(PAGE_CAVE, false)
+	var dongfu_view := CaveView.build(_state, _content)
+	var claimable: Dictionary = dongfu_view.get("claimable", {}) if typeof(dongfu_view.get("claimable", {})) == TYPE_DICTIONARY else {}
+	_tab_bar.set_dot(PAGE_CAVE, int(claimable.get("plots", 0)) + int(claimable.get("alchemy", 0)) > 0)
 
 
 func _item_ids() -> Array:
@@ -943,6 +945,10 @@ func _on_dongfu_action(kind: String, payload: Dictionary) -> void:
 			if payload.has("slot"):
 				body = {"slot": int(payload.get("slot", 0))}
 			ok_text = "草药已入行囊"
+		"garden_buy_seed":
+			path = "/api/v1/me/dongfu/garden/buy-seed"
+			body = {"seedSlug": str(payload.get("seedSlug", ""))}
+			ok_text = "兑换成功"
 		"alchemy_start":
 			path = "/api/v1/me/dongfu/alchemy/start"
 			body = {"recipeSlug": str(payload.get("recipeSlug", ""))}
@@ -955,11 +961,15 @@ func _on_dongfu_action(kind: String, payload: Dictionary) -> void:
 		"dongfu_allocate":
 			path = "/api/v1/me/dongfu/allocate"
 			body = {"garden": int(payload.get("garden", 0)), "alchemy": int(payload.get("alchemy", 0))}
-			ok_text = "灵仆已分配"
+			ok_text = "傀儡已分配"
 		"dongfu_upgrade":
 			path = "/api/v1/me/dongfu/upgrade"
 			body = {"facility": str(payload.get("facility", ""))}
 			ok_text = "升级成功"
+		"enhance", "enhance_max":
+			# 洞府强化阵：直接调现有 enhance API，成功留洞府（不跳行囊）
+			await _enhance(str(payload.get("itemId", "")), kind == "enhance_max")
+			return
 		_:
 			return
 	_busy = true
@@ -1111,8 +1121,8 @@ func salvage_dialog() -> SalvageDialog:
 	return _salvage
 
 
-## 洞府强化入口：切到背包并提示去点装备。优先用强化阵选中的环装，否则预选可强化的已穿戴件。
-## 真正的强化仍由详情里的按钮走 /api/v1/me/items/:id/enhance，这里不新做面板、不改公式。
+## 兼容旧入口：切到背包并提示去点装备（洞府 L1 已改为场所内直接 enhance）。
+## 真正的强化仍走 /api/v1/me/items/:id/enhance，不新做面板、不改公式。
 func open_enhance_entry() -> void:
 	if _page == PAGE_BATTLE and _battle_page.is_running():
 		_toast.say("战斗进行中，打完再离开", false)

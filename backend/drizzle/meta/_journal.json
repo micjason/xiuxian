@@ -323,6 +323,13 @@
       "when": 1800500000000,
       "tag": "0065_drop_realm_ult",
       "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1800600000000,
+      "tag": "0066_dongfu_starting_seeds",
+      "breakpoints": true
     }
   ]
 }

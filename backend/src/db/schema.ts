@@ -756,6 +756,8 @@ export const playerDongfu = pgTable("player_dongfu", {
   gardenLevel: integer("garden_level").notNull().default(1),
   alchemyLevel: integer("alchemy_level").notNull().default(1),
   woodGranted: boolean("wood_granted").notNull().default(false),
+  /** 首次进洞府是否已发 startingSeeds。 */
+  seedsGranted: boolean("seeds_granted").notNull().default(false),
 });
 
 /** 洞府炼丹队列：claimed_at 为空表示未领取（占队列）；领取后保留记录。 */

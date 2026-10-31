@@ -38,6 +38,12 @@ export type DongfuUpgradeTier = {
   bonus: number;
 };
 
+/** 首次进洞府赠种一行。 */
+export type DongfuStarterSeed = { itemSlug: string; quantity: number };
+
+/** 极简灵石兑种（非大商店）。 */
+export type DongfuSeedOffer = { seedSlug: string; spiritStones: number; quantity: number };
+
 export type DongfuConfig = {
   plotCount: number;
   alchemyQueueLength: number;
@@ -49,6 +55,10 @@ export type DongfuConfig = {
   startingWood: number;
   /** 玩家首次进入洞府时的灵仆总数。 */
   startingServants: number;
+  /** 首次进洞府赠种（与灵木同一次进度行发放；seedsGranted）。 */
+  startingSeeds: DongfuStarterSeed[];
+  /** 极简灵石兑种表；空 = 不开放兑换。 */
+  seedOffers: DongfuSeedOffer[];
   /** 每名灵仆缩短成熟时间的百分比。 */
   gardenReducePercent: number;
   /** 每名灵仆缩短炼制时间的百分比。 */
@@ -86,6 +96,14 @@ export const DEFAULT_DONGFU: DongfuConfig = {
   woodItemSlug: "wood_lingmu",
   startingWood: 32,
   startingServants: 4,
+  startingSeeds: [
+    { itemSlug: "seed_lingcao", quantity: 8 },
+    { itemSlug: "seed_qingxin", quantity: 4 },
+  ],
+  seedOffers: [
+    { seedSlug: "seed_lingcao", spiritStones: 10, quantity: 1 },
+    { seedSlug: "seed_qingxin", spiritStones: 20, quantity: 1 },
+  ],
   gardenReducePercent: 5,
   alchemyReducePercent: 5,
   minDurationPercent: 20,
@@ -270,6 +288,56 @@ function parseUpgradeTable(raw: unknown, label: string, fallback: DongfuUpgradeT
   return tiers;
 }
 
+
+function parseStarterSeed(raw: unknown, index: number): DongfuStarterSeed {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    throw new AppError("INVALID_INPUT", `初始种子第 ${index + 1} 行格式不正确`);
+  }
+  const row = raw as Record<string, unknown>;
+  return {
+    itemSlug: slugOf(row.itemSlug, `初始种子第 ${index + 1} 行物品`),
+    quantity: intInRange(row.quantity, `初始种子第 ${index + 1} 行数量`, 1, 9999),
+  };
+}
+
+function parseSeedOffer(raw: unknown, index: number): DongfuSeedOffer {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    throw new AppError("INVALID_INPUT", `兑种第 ${index + 1} 行格式不正确`);
+  }
+  const row = raw as Record<string, unknown>;
+  return {
+    seedSlug: slugOf(row.seedSlug, `兑种第 ${index + 1} 行种子`),
+    spiritStones: intInRange(row.spiritStones, `兑种第 ${index + 1} 行灵石`, 1, 1_000_000_000),
+    quantity: intInRange(row.quantity ?? 1, `兑种第 ${index + 1} 行数量`, 1, 9999),
+  };
+}
+
+function parseStarterSeeds(raw: unknown): DongfuStarterSeed[] {
+  if (raw === undefined || raw === null) {
+    return DEFAULT_DONGFU.startingSeeds.map((row) => ({ ...row }));
+  }
+  if (!Array.isArray(raw)) {
+    throw new AppError("INVALID_INPUT", "初始种子格式不正确");
+  }
+  if (raw.length > 20) {
+    throw new AppError("INVALID_INPUT", "初始种子最多 20 行");
+  }
+  return raw.map((row, index) => parseStarterSeed(row, index));
+}
+
+function parseSeedOffers(raw: unknown): DongfuSeedOffer[] {
+  if (raw === undefined || raw === null) {
+    return DEFAULT_DONGFU.seedOffers.map((row) => ({ ...row }));
+  }
+  if (!Array.isArray(raw)) {
+    throw new AppError("INVALID_INPUT", "兑种表格式不正确");
+  }
+  if (raw.length > 20) {
+    throw new AppError("INVALID_INPUT", "兑种表最多 20 行");
+  }
+  return raw.map((row, index) => parseSeedOffer(row, index));
+}
+
 /** 后台保存 / 发布校验用：严格解析整份洞府配置。缺分配字段时用出厂默认，兼容 0060 已发布配置。 */
 export function dongfuConfigFromInput(raw: unknown): DongfuConfig {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
@@ -320,6 +388,8 @@ export function dongfuConfigFromInput(raw: unknown): DongfuConfig {
     woodItemSlug,
     startingWood: intOr(input.startingWood, "初始灵木", 0, 9999, DEFAULT_DONGFU.startingWood),
     startingServants: intOr(input.startingServants, "初始灵仆", 0, 99, DEFAULT_DONGFU.startingServants),
+    startingSeeds: parseStarterSeeds(input.startingSeeds),
+    seedOffers: parseSeedOffers(input.seedOffers),
     gardenReducePercent: intOr(input.gardenReducePercent, "药园每仆缩短百分比", 0, 100, DEFAULT_DONGFU.gardenReducePercent),
     alchemyReducePercent: intOr(input.alchemyReducePercent, "炼丹每仆缩短百分比", 0, 100, DEFAULT_DONGFU.alchemyReducePercent),
     minDurationPercent: intOr(input.minDurationPercent, "最短时长百分比", 1, 100, DEFAULT_DONGFU.minDurationPercent),
@@ -375,5 +445,11 @@ export function dongfuReferencedItemSlugs(config: DongfuConfig): string[] {
     }
   }
   slugs.add(config.woodItemSlug);
+  for (const row of config.startingSeeds) {
+    slugs.add(row.itemSlug);
+  }
+  for (const row of config.seedOffers) {
+    slugs.add(row.seedSlug);
+  }
   return [...slugs];
 }

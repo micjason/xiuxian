@@ -167,7 +167,11 @@ func show_view(data: Dictionary, handler_map: Dictionary) -> void:
 			_body.add_child(_material_section())
 			if not (view.get("sources", []) as Array).is_empty():
 				_body.add_child(_source_section())
-			_single_button("确 定", "o", close_popup)
+			# kind=pill：走现有 use → POST /me/items/:id/use（服务器 useItem / applyPillUse）。材料仍只关弹窗。
+			if bool(view.get("usable", false)):
+				_single_button("使 用", "o", func() -> void: _fire("use", [view.id]))
+			else:
+				_single_button("确 定", "o", close_popup)
 	visible = true
 	move_to_front()
 	_layout()

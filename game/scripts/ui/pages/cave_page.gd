@@ -372,11 +372,12 @@ func _status_capsule(card: Dictionary, rect: Rect2) -> void:
 
 func _facility_spot(facility_id: String, rect: Rect2, level: int) -> void:
 	## L0 热点中心景差：lv1 默认，level>=2 换 lv2。闪/红点仍由 capsule 管。
-	var spot_key := {
+	var spot_labels := {
 		"garden": "garden",
 		"alchemy": "alchemy",
 		"enhance": "forge",
-	}.get(facility_id, facility_id)
+	}
+	var spot_key: String = str(spot_labels.get(facility_id, facility_id))
 	var tier := "lv2" if level >= 2 else "lv1"
 	var path := "sprites/dongfu_spots/spot_%s_%s" % [spot_key, tier]
 	if not ArtLib.has_q(path + ".png"):

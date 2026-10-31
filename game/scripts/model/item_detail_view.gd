@@ -78,6 +78,8 @@ static func build(item: Dictionary, worn: Dictionary, model: BagModel, content: 
 			view["info"] = "持有 %d" % int(item.get("qty", 1))
 			view["usage"] = usage_view(str(item.get("slug", "")), content, model)
 			view["sources"] = sources_of(content, [str(item.get("slug", ""))])
+			# 服务器 useItem 只认 kind=pill（consumable/elixir 历史别名一并当可服）。
+			view["usable"] = str(item.get("kind", "")) in ["pill", "consumable", "elixir"]
 	return view
 
 

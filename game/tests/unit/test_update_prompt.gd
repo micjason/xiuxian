@@ -61,3 +61,17 @@ func _click() -> InputEventMouseButton:
 	e.pressed = true
 	e.button_index = MOUSE_BUTTON_LEFT
 	return e
+
+
+func test_accepted_emits_when_update_pressed() -> void:
+	var prompt := UpdatePrompt.new(_popup, _service)
+	var hits := {"n": 0}
+	prompt.accepted.connect(func() -> void: hits.n += 1)
+	prompt.show_update(_info(false), "0.10.1")
+	await wait_frames(2)
+	for child in _popup.actions.get_children():
+		if child is Button and (child as Button).text == "更新":
+			(child as Button).pressed.emit()
+			break
+	await wait_frames(1)
+	assert_eq(hits.n, 1)

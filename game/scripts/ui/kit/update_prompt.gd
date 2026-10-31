@@ -4,6 +4,9 @@ extends RefCounted
 ## 更新：Android 上用 XiuxianUpdater 插件在应用里下载（显示进度）并拉起系统安装器；
 ##       插件不可用（桌面、老 ROM 出错）时改用系统浏览器打开安装包地址。
 
+## 用户点了「更新」：本次会话不再弹离线收益（报告未 ack，下次启动再弹）。
+signal accepted
+
 var popup: GamePopup
 var service: UpdateService
 var _info: Dictionary = {}
@@ -73,6 +76,7 @@ func show_update(info: Dictionary, current_version: String) -> void:
 
 
 func _on_update_pressed() -> void:
+	accepted.emit()
 	if _downloaded and not _use_browser:
 		service.install_downloaded_update()
 		return

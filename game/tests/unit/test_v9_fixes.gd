@@ -30,6 +30,18 @@ func _labels(root: Node, out: Array[String] = []) -> Array[String]:
 
 
 ## 离线弹窗：吸底「一键领取」（确认已读）+「双倍领取」（广告，没有：提示功能暂未开放）。
+func test_offline_popup_minimal_has_no_loot_scroll() -> void:
+	var scene := await _boot("ready")
+	var popup := scene.get("_offline_popup") as OfflinePopup
+	assert_true(popup.visible)
+	assert_null(popup.find_child("LootScroll", true, false), "极简：不要滚动条列表")
+	assert_null(popup.find_child("CategoryHead", true, false), "极简：不要分类折叠")
+	assert_not_null(popup.find_child("SummaryRow", true, false))
+	assert_not_null(popup.find_child("ItemCountChip", true, false))
+	assert_not_null(popup.find_child("StickyFooter", true, false))
+	assert_eq(popup.claim_text().replace(" ", ""), "一键领取")
+
+
 func test_offline_popup_has_claim_and_locked_double_and_hint_is_outside_the_frame() -> void:
 	var scene := await _boot("ready")
 	var popup := scene.get("_offline_popup") as OfflinePopup

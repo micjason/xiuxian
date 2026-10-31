@@ -1067,7 +1067,9 @@ func _item_action(item_id: String, action: String) -> void:
 			if used.has("cultivationGain"):
 				_toast.say("服下丹药，修为 +%s" % CultivationFormat.amount(float(used.get("cultivationGain", 0))))
 			elif used.has("buffStat"):
-				var buff_name := {"attack": "攻击", "defense": "防御", "hp": "气血", "maxHp": "气血", "speed": "速度"}.get(str(used.get("buffStat", "")), str(used.get("buffStat", "")))
+				var buff_stat := str(used.get("buffStat", ""))
+				var buff_labels := {"attack": "攻击", "defense": "防御", "hp": "气血", "maxHp": "气血", "speed": "速度"}
+				var buff_name: String = str(buff_labels.get(buff_stat, buff_stat))
 				_toast.say("服下丹药，%s临时提升已生效" % buff_name)
 			else:
 				_toast.say("使用成功")

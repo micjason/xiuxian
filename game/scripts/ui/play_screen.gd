@@ -100,6 +100,10 @@ var _manual_update_check := false
 ## 最近一次更新检查结果（设置弹窗版本号旁显示）："latest" / "new" / ""（还没查过或失败）。
 var _update_state := ""
 var _latest_version := ""
+## 更新门控（成鹏）：有更新 → 先弹更新、本次不弹离线收益；点「更新」→ 收益下次再弹；点「稍后」/关更新 → 再弹收益。
+var _update_gate_pending := false
+var _update_prompt_showing := false
+var _defer_offline_for_update := false
 var _account: Dictionary = {}
 
 
@@ -152,26 +156,37 @@ func _setup_update_check() -> void:
 		_update_service.name = "UpdateService"
 		add_child(_update_service)
 	_update_prompt = UpdatePrompt.new(_popup, _update_service)
+	_update_prompt.accepted.connect(_on_update_accepted)
 	_update_service.update_available.connect(func(info: Dictionary) -> void:
 		_manual_update_check = false
+		_update_gate_pending = false
 		_update_state = "new"
 		_latest_version = str(info.get("version", ""))
 		if _settings != null and _settings.visible:
 			_settings.show_new_version(str(info.get("version", "")))
 			_settings.close()  # 更新弹窗和设置同层，先收起设置
+		# 若离线已抢先弹出：先收起（未 ack），等用户取消更新后再弹；选更新则本会话不再弹。
+		if _offline_popup != null and _offline_popup.visible:
+			_offline_shown_id = ""
+			_offline_popup.visible = false
+		_update_prompt_showing = true
 		_update_prompt.show_update(info, _update_service.get_current_version()))
 	# 设置页「检查更新」：没有新版本 / 失败时给个提示（启动时的静默检查不提示）。
 	_update_service.no_update.connect(func(version: String) -> void:
 		_update_state = "latest"
+		_update_gate_pending = false
 		if _manual_update_check:
 			_manual_update_check = false
 			_settings.show_latest()
-			_toast.say("已是最新版本"))
+			_toast.say("已是最新版本")
+		_maybe_show_offline.call_deferred())
 	_update_service.failed.connect(func(message: String) -> void:
+		_update_gate_pending = false
 		if _manual_update_check:
 			_manual_update_check = false
 			_settings.set_checking(false)
-			_toast.say(message, false))
+			_toast.say(message, false)
+		_maybe_show_offline.call_deferred())
 	_check_update()
 
 
@@ -182,7 +197,14 @@ func _check_update() -> void:
 		return
 	if _popup.visible:
 		return
+	# 静默检查进行中：先挡住离线收益，等有结果再决定弹不弹。
+	_update_gate_pending = true
 	_update_service.check_for_update(true)
+
+
+## 用户点了「更新」：本会话不再弹离线收益（报告未 ack，下次启动再弹）。
+func _on_update_accepted() -> void:
+	_defer_offline_for_update = true
 
 
 ## 应用切到后台：停心跳（服务器会把这段算离线）；回到前台：马上补一次心跳再恢复定时。
@@ -354,7 +376,13 @@ func _build_shell() -> void:
 	add_child(_salvage)
 	_announcement = AnnouncementPrompt.new(_popup)
 	_announcement.acknowledged.connect(_on_notice_ack)
-	_popup.closed.connect(func() -> void: _maybe_show_notice.call_deferred())
+	_popup.closed.connect(func() -> void:
+		if _update_prompt_showing:
+			_update_prompt_showing = false
+			# 「稍后」/点遮罩关掉更新 → 再弹离线收益；点了「更新」则本会话不弹。
+			if not _defer_offline_for_update:
+				_maybe_show_offline.call_deferred()
+		_maybe_show_notice.call_deferred())
 	_apply_layout()
 
 
@@ -716,7 +744,12 @@ func _select_stage(slug: String) -> void:
 # ───────── 离线收益弹窗 ─────────
 
 ## state.offlineReport 有内容（服务器给了且没确认过）就弹窗，同一份只弹一次。
+## 更新门控：检查中 / 更新弹窗开着 / 用户已选更新 → 本次不弹。
 func _maybe_show_offline() -> void:
+	if _defer_offline_for_update or _update_gate_pending or _update_prompt_showing:
+		return
+	if _popup != null and _popup.visible:
+		return
 	var report: Variant = _state.get("offlineReport", null)
 	if typeof(report) != TYPE_DICTIONARY or (report as Dictionary).is_empty():
 		return

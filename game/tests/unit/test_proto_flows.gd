@@ -135,3 +135,22 @@ func test_four_tabs_and_heartbeat_interval_follow_server_window() -> void:
 	assert_eq(PlayScreen.heartbeat_seconds({"wave": {"onlineGapSeconds": 15}}), 12.0)
 	assert_eq(PlayScreen.heartbeat_seconds({}), PlayScreen.HEARTBEAT_DEFAULT)
 	assert_eq(PlayScreen.heartbeat_seconds({"wave": {"onlineGapSeconds": 2}}), 1.0)
+
+
+## 更新门控：更新弹窗开着 / 已选更新 → 不弹离线；关掉更新（未选更新）→ 再弹。
+func test_update_gate_defers_offline_until_dismissed() -> void:
+	var scene := await _boot("ready")
+	var popup := scene.get("_offline_popup") as OfflinePopup
+	assert_true(popup.visible)
+	popup.visible = false
+	scene.set("_offline_shown_id", "")
+	scene.set("_update_prompt_showing", true)
+	scene.call("_maybe_show_offline")
+	assert_false(popup.visible, "更新弹窗开着时不弹离线")
+	scene.set("_update_prompt_showing", false)
+	scene.set("_defer_offline_for_update", true)
+	scene.call("_maybe_show_offline")
+	assert_false(popup.visible, "选了更新后本会话不弹离线")
+	scene.set("_defer_offline_for_update", false)
+	scene.call("_maybe_show_offline")
+	assert_true(popup.visible, "取消更新门控后应再弹离线")

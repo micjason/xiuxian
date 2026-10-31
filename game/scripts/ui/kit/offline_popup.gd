@@ -1,18 +1,17 @@
 class_name OfflinePopup
 extends Control
-## 离线收益弹窗（Q 版设计稿 q_offline_popup）：绶带「离线收益」、宝箱舞台、离线时长 + 「计入 N 小时」、
-## 获得修为大数字（美术位图数字 digits_xiuwei）、基础 + 功法加成的算式、获得物品、「领取」「双倍领取」。
-## 修为在服务器早已入账：「领取」（以及右上角关闭、点空白处）只是告诉服务器“已读”
+## 离线收益弹窗（样式改版）：顶部摘要（时长 / 战力 / 件数）+ 中部可滚分类折叠列表 + 底部吸底「一键领取」。
+## 修为在服务器早已入账：「一键领取」（以及右上角关闭、点空白处）只是告诉服务器“已读”
 ## （POST /me/offline-reports/:id/ack）并关闭。「双倍领取」是看广告翻倍，还没有：点了提示「功能暂未开放」。
-## 动画（2026-10-20 动画交付，README 2a/2b/5）：弹窗 ui_popup 的 open / close；宝箱 chest_open（关着轻抖 → 开盖 → 金光、
-## 金币元宝灵石喷出 → 打开后循环发光）；「领取」用 ui_button_bounce（按下回弹），「双倍领取」同样的回弹。
-## 获得修为大数字在宝箱打开时从 0 滚到真实值（场景自带的示例数字 Number 不用，避免同一个数显示两遍）。
+## 掉落公式 / 入账 / 服务端 API 不动，只改客户端布局。
+## 动画：弹窗 ui_popup open/close；宝箱 chest_open；「一键领取」用 ui_button_bounce。
 
 signal acknowledged(report_id: String)
 
 const PANEL_WIDTH := 940.0
 ## 弹窗框在 1080 画布上的位置（设计稿 70,540,940,1270；状态栏 90 以下）。
 const FRAME := Rect2(70, 540, 940, 1270)
+const CLAIM_LABEL := "一键领取"
 
 var report_id := ""
 var _panel: PanelContainer
@@ -24,13 +23,14 @@ var _close: Button
 var _ribbon: Control
 var _view: Dictionary = {}
 var _inset_top := 90.0
-var _fx: Control  # ui_popup 外壳（遮罩 + 弹出动画）；没有动画交付时为 null
-var _host: Control  # 弹窗内容的父节点（_fx 的 Panel/Content，或自己）
-var _claim_fx: Control  # ui_button_bounce「领取」
+var _fx: Control
+var _host: Control
+var _claim_fx: Control
 var _chest_fx: Node2D
 var _total_label: Label
 var _close_gen := 0
 var _roll: Tween
+var _category_bodies: Dictionary = {}
 
 
 var _dim: ColorRect
@@ -56,7 +56,7 @@ func _init() -> void:
 		dim.set_anchors_preset(Control.PRESET_FULL_RECT)
 		add_child(dim)
 		dim.name = "Dimmer"
-	_dim = dim  # 有动画时节点名保持 Backdrop（ui_popup 的 open / close 轨道按这个名字找）
+	_dim = dim
 	dim.mouse_filter = Control.MOUSE_FILTER_STOP
 	dim.gui_input.connect(func(event: InputEvent) -> void:
 		if event is InputEventMouseButton and (event as InputEventMouseButton).pressed and _button != null and not _button.disabled:
@@ -66,7 +66,10 @@ func _init() -> void:
 	_panel.mouse_filter = Control.MOUSE_FILTER_STOP
 	_panel.add_theme_stylebox_override("panel", QKit.cut_box("popup_frame", 24, 70) if ArtLib.qui("popup_frame") != null else QSkin.custom(UiTokens.Q_CREAM, UiTokens.Q_COCOA, 6, 48, 12, 24, 70))
 	_host.add_child(_panel)
-	_body = UiKit.vbox(18)
+	_body = UiKit.vbox(14)
+	_body.name = "Body"
+	_body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_body.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_panel.add_child(_body)
 	_ribbon = QKit.ribbon("离线收益", 52, 340, true)
 	_ribbon.name = "Ribbon"
@@ -108,9 +111,9 @@ func _layout() -> void:
 	_close.size = Vector2(84, 89)
 	if _fx != null:
 		QFx.set_popup_pivot(_fx, Rect2(FRAME.position + Vector2(0, shift), FRAME.size))
-	var pill := _host.get_node("FootPill") as Control
-	pill.position = Vector2(340, 1844 + shift)
-	pill.custom_minimum_size = Vector2(400, 60)
+	var foot := _host.get_node("FootPill") as Control
+	foot.position = Vector2(340, 1844 + shift)
+	foot.custom_minimum_size = Vector2(400, 60)
 
 
 func current_view() -> Dictionary:
@@ -129,13 +132,13 @@ func close_button() -> Button:
 	return _close
 
 
-## view 来自 OfflineView.build。
 func show_report(view: Dictionary) -> void:
 	_view = view
 	report_id = str(view.get("id", ""))
+	_category_bodies.clear()
 	UiKit.clear(_body)
 	_body.add_child(_stage())
-	_body.add_child(_duration_row())
+	_body.add_child(_summary())
 	_body.add_child(_total_row())
 	var formula := UiKit.label(_formula_text(), UiTokens.FS_MICRO, UiTokens.TEXT_MUTED, HORIZONTAL_ALIGNMENT_CENTER)
 	formula.name = "Formula"
@@ -143,7 +146,7 @@ func show_report(view: Dictionary) -> void:
 	var cap := UiKit.label(str(view.get("cap_note", "")), UiTokens.FS_MICRO, UiTokens.Q_ORANGE_DARK if bool(view.get("hit_cap", false)) else UiTokens.TEXT_MUTED, HORIZONTAL_ALIGNMENT_CENTER)
 	cap.name = "CapNote"
 	_body.add_child(cap)
-	_body.add_child(_items())
+	_body.add_child(_loot_scroll())
 	_body.add_child(_buttons())
 	_close_gen += 1
 	visible = true
@@ -152,7 +155,6 @@ func show_report(view: Dictionary) -> void:
 	_play_chest()
 
 
-## 宝箱：关着轻抖 0.6s → 开盖（2.8s，第 1–2.2 秒数字从 0 滚到真实值）→ 打开后循环发光。
 func _play_chest() -> void:
 	if _roll != null:
 		_roll.kill()
@@ -196,30 +198,29 @@ func _formula_text() -> String:
 	return text
 
 
-## 宝箱舞台（设计稿 94,610,892,390：浅蓝底 + 放射光 + 宝箱）。
 func _stage() -> Control:
 	var stage := Panel.new()
 	stage.name = "ChestStage"
-	stage.custom_minimum_size = Vector2(0, 390)
+	stage.custom_minimum_size = Vector2(0, 200)
 	stage.clip_contents = true
 	stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	stage.add_theme_stylebox_override("panel", QSkin.custom(Color("d7f1fb"), Color(0, 0, 0, 0), 0, 30, 0, 0, 0))
 	_chest_fx = QFx.make(QFx.CHEST) as Node2D
 	if _chest_fx != null:
-		# 动画宝箱（README 5）：锚点 = 设计稿 (540, 827.5)，即舞台 (94,610) 内 (446, 217.5)；宝箱底边落在 y=997。
-		stage.clip_contents = false  # 金币、元宝喷出舞台
+		stage.clip_contents = false
 		var anchor := Control.new()
 		anchor.name = "ChestAnchor"
 		anchor.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		anchor.anchor_left = 0.5
 		anchor.anchor_right = 0.5
-		anchor.offset_top = 217.5
-		anchor.offset_bottom = 217.5
+		anchor.offset_top = 110.0
+		anchor.offset_bottom = 110.0
 		stage.add_child(anchor)
 		_chest_fx.name = "ChestFx"
+		_chest_fx.scale = Vector2(0.72, 0.72)
 		var sample := _chest_fx.get_node_or_null("Number") as CanvasItem
 		if sample != null:
-			sample.visible = false  # 示例数字不用：真实数字在下面的 TotalLabel
+			sample.visible = false
 		anchor.add_child(_chest_fx)
 		return stage
 	var burst := TextureRect.new()
@@ -227,8 +228,8 @@ func _stage() -> Control:
 	burst.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	burst.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	burst.set_anchors_preset(Control.PRESET_FULL_RECT)
-	burst.offset_top = -200
-	burst.offset_bottom = 200
+	burst.offset_top = -80
+	burst.offset_bottom = 80
 	burst.modulate.a = 0.8
 	burst.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	stage.add_child(burst)
@@ -238,16 +239,15 @@ func _stage() -> Control:
 	chest.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	chest.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	chest.set_anchors_preset(Control.PRESET_CENTER)
-	chest.offset_left = -180
-	chest.offset_right = 180
-	chest.offset_top = -160
-	chest.offset_bottom = 195
+	chest.offset_left = -120
+	chest.offset_right = 120
+	chest.offset_top = -100
+	chest.offset_bottom = 110
 	chest.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	stage.add_child(chest)
 	return stage
 
 
-## 没有动画场景时：离线弹窗用打开的宝箱（美术 chest_open）；没有就退回 Q 版宝箱 / 旧图标。
 static func _chest_texture() -> Texture2D:
 	for cut in ["sprites/chest_open", "sprites/chest_closed_hd", "sprites/chest_closed"]:
 		if ArtLib.has_q(cut + ".png"):
@@ -255,107 +255,198 @@ static func _chest_texture() -> Texture2D:
 	return ArtLib.icon("chest")
 
 
-func _duration_row() -> Control:
+func _summary() -> Control:
 	var plate := PanelContainer.new()
-	plate.name = "DurationRow"
-	plate.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	plate.custom_minimum_size = Vector2(700, 84)
-	plate.add_theme_stylebox_override("panel", QKit.cut_box("plate_label_cream_66", 26, 0) if ArtLib.qui("plate_label_cream_66") != null else QSkin.custom(UiTokens.Q_CREAM, UiTokens.Q_COCOA, 4, 33, 4, 26, 0))
-	var row := UiKit.hbox(12)
+	plate.name = "SummaryRow"
+	plate.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	plate.custom_minimum_size = Vector2(0, 88)
+	plate.add_theme_stylebox_override("panel", QKit.cut_box("plate_label_cream_66", 22, 0) if ArtLib.qui("plate_label_cream_66") != null else QSkin.custom(UiTokens.Q_CREAM, UiTokens.Q_COCOA, 4, 28, 4, 22, 0))
+	var row := UiKit.hbox(10)
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	plate.add_child(row)
-	row.add_child(QKit.cut_rect("icon_hourglass", Vector2(50, 64)))
-	row.add_child(QKit.title("离线时长", 34, UiTokens.TEXT))
-	var away := QKit.title(str(_view.get("away_text", "")), 42, UiTokens.TEXT)
+	row.add_child(QKit.cut_rect("icon_hourglass", Vector2(40, 52)))
+	var away := QKit.title(str(_view.get("away_text", "")), 34, UiTokens.TEXT)
 	away.name = "AwayLabel"
-	away.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(away)
-	var chip := QKit.tag(str(_view.get("counted_text", "")), "orange", 30, 14)
-	chip.name = "CountedChip"
-	row.add_child(chip)
+	var counted := QKit.tag(str(_view.get("counted_text", "")), "orange", 26, 12)
+	counted.name = "CountedChip"
+	row.add_child(counted)
+	if bool(_view.get("has_power", false)):
+		var power_chip := QKit.tag("战力 %s" % str(_view.get("power_text", "")), "blue", 26, 12)
+		power_chip.name = "PowerChip"
+		row.add_child(power_chip)
+	var count_chip := QKit.tag(str(_view.get("item_count_text", "0 件")), "mint", 26, 12)
+	count_chip.name = "ItemCountChip"
+	row.add_child(count_chip)
 	return plate
 
 
-## 获得修为：莲花 + 大数字（digits_xiuwei 位图字体）+「修为」。
 func _total_row() -> Control:
-	var row := UiKit.hbox(14)
+	var row := UiKit.hbox(10)
+	row.name = "TotalRow"
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_child(UiKit.icon("res_lotus", 120))
+	row.add_child(UiKit.icon("res_lotus", 84))
 	var total := Label.new()
 	total.name = "TotalLabel"
 	total.text = str(_view.get("total_text", "+0"))
 	var font := ArtLib.digits_font("xiuwei")
 	if font != null:
 		total.add_theme_font_override("font", font)
-		total.add_theme_font_size_override("font_size", 112)
-		total.add_theme_color_override("font_color", Color.WHITE)  # 位图字体会乘字色，保持原色
+		total.add_theme_font_size_override("font_size", 84)
+		total.add_theme_color_override("font_color", Color.WHITE)
 	else:
 		total.add_theme_font_override("font", ArtLib.title_font())
-		total.add_theme_font_size_override("font_size", 104)
+		total.add_theme_font_size_override("font_size", 72)
 		total.add_theme_color_override("font_outline_color", Color("2e8fd8"))
-		total.add_theme_constant_override("outline_size", 16)
+		total.add_theme_constant_override("outline_size", 12)
 	total.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	total.resized.connect(func() -> void: total.pivot_offset = total.size / 2.0)
 	_total_label = total
 	row.add_child(total)
-	row.add_child(QKit.title("修为", 40, UiTokens.Q_BLUE_DARK))
+	row.add_child(QKit.title("修为", 34, UiTokens.Q_BLUE_DARK))
 	return row
 
 
-## 战利品：offlineReport.loot 非空才列；bagFullSkipped 时补一行行囊已满提示（调子同 BagFullPrompt）。
-func _items() -> Control:
-	var box := QKit.inset(UiTokens.Q_CARD, 30, 22, 14)
-	box.panel.name = "ItemsBox"
-	box.panel.custom_minimum_size = Vector2(0, 200)
-	box.body.add_child(QKit.title("战利品", 32, UiTokens.TEXT_MUTED))
-	var rows: Array = _view.get("items", []) if typeof(_view.get("items", null)) == TYPE_ARRAY else []
-	var bag_note := str(_view.get("bag_full_note", ""))
-	if rows.is_empty() and bag_note.is_empty():
-		var none := UiKit.label("本次离线只累计修为，没有获得物品", UiTokens.FS_MICRO, UiTokens.TEXT_MUTED, HORIZONTAL_ALIGNMENT_CENTER)
-		none.name = "LootEmpty"
-		none.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		none.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		box.body.add_child(none)
-		return box.panel
+func _loot_scroll() -> Control:
+	var wrap := PanelContainer.new()
+	wrap.name = "ItemsBox"
+	wrap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	wrap.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	wrap.custom_minimum_size = Vector2(0, 220)
+	wrap.add_theme_stylebox_override("panel", QSkin.custom(UiTokens.Q_CARD, Color(0, 0, 0, 0), 0, 22, 12, 18, 12))
+	var col := UiKit.vbox(8)
+	wrap.add_child(col)
+	col.add_child(QKit.title("战利品", 30, UiTokens.TEXT_MUTED))
+	var scroll := ScrollContainer.new()
+	scroll.name = "LootScroll"
+	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.custom_minimum_size = Vector2(0, 180)
+	col.add_child(scroll)
 	var list := UiKit.vbox(8)
 	list.name = "LootList"
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	for entry in rows:
-		if typeof(entry) != TYPE_DICTIONARY:
-			continue
-		var row: Dictionary = entry
-		var rarity := Catalog.quality_index(str(row.get("quality", ""))) if not str(row.get("quality", "")).is_empty() else 0
-		var color := UiTokens.rarity_color(rarity).darkened(0.15) if not str(row.get("quality", "")).is_empty() else UiTokens.TEXT
-		var line := UiKit.label(str(row.get("text", row.get("name", ""))), UiTokens.FS_BODY, color, HORIZONTAL_ALIGNMENT_LEFT)
-		line.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		list.add_child(line)
-	box.body.add_child(list)
+	scroll.add_child(list)
+	var categories: Array = _view.get("categories", []) if typeof(_view.get("categories", null)) == TYPE_ARRAY else []
+	var rows: Array = _view.get("items", []) if typeof(_view.get("items", null)) == TYPE_ARRAY else []
+	var bag_note := str(_view.get("bag_full_note", ""))
+	if categories.is_empty() and rows.is_empty() and bag_note.is_empty():
+		var none := UiKit.label("本次离线只累计修为，没有获得物品", UiTokens.FS_MICRO, UiTokens.TEXT_MUTED, HORIZONTAL_ALIGNMENT_CENTER)
+		none.name = "LootEmpty"
+		none.custom_minimum_size = Vector2(0, 80)
+		none.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		list.add_child(none)
+	else:
+		for entry in categories:
+			if typeof(entry) != TYPE_DICTIONARY:
+				continue
+			list.add_child(_category_block(entry))
+		if categories.is_empty():
+			for entry in rows:
+				if typeof(entry) == TYPE_DICTIONARY:
+					list.add_child(_loot_line(entry))
 	if not bag_note.is_empty():
 		var warn := UiKit.label(bag_note, UiTokens.FS_MICRO, UiTokens.Q_ORANGE_DARK, HORIZONTAL_ALIGNMENT_CENTER)
 		warn.name = "BagFullNote"
-		box.body.add_child(warn)
-	return box.panel
+		list.add_child(warn)
+	return wrap
+
+
+func _category_block(entry: Dictionary) -> Control:
+	var title := str(entry.get("title", "其他"))
+	var count := int(entry.get("count", 0))
+	var items: Array = entry.get("items", []) if typeof(entry.get("items", null)) == TYPE_ARRAY else []
+	var box := UiKit.vbox(4)
+	box.name = "Category_%s" % title
+	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var head := Button.new()
+	head.name = "CategoryHead"
+	head.focus_mode = Control.FOCUS_NONE
+	head.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	head.text = "▼  %s（%d）" % [title, count]
+	head.add_theme_font_size_override("font_size", 30)
+	head.add_theme_color_override("font_color", UiTokens.TEXT)
+	head.custom_minimum_size = Vector2(0, 56)
+	head.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var flat := StyleBoxFlat.new()
+	flat.bg_color = Color("f3e6d2")
+	flat.corner_radius_top_left = 16
+	flat.corner_radius_top_right = 16
+	flat.corner_radius_bottom_left = 16
+	flat.corner_radius_bottom_right = 16
+	flat.content_margin_left = 18
+	flat.content_margin_right = 18
+	flat.content_margin_top = 8
+	flat.content_margin_bottom = 8
+	for key in ["normal", "hover", "pressed", "disabled", "focus"]:
+		head.add_theme_stylebox_override(key, flat if key != "focus" else StyleBoxEmpty.new())
+	var body := UiKit.vbox(4)
+	body.name = "CategoryBody"
+	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	for item in items:
+		if typeof(item) == TYPE_DICTIONARY:
+			body.add_child(_loot_line(item))
+	_category_bodies[title] = body
+	head.pressed.connect(func() -> void: _toggle_category(title, head))
+	box.add_child(head)
+	box.add_child(body)
+	return box
+
+
+func _toggle_category(title: String, head: Button) -> void:
+	if not _category_bodies.has(title):
+		return
+	var body: Control = _category_bodies[title]
+	body.visible = not body.visible
+	var count := 0
+	for child in body.get_children():
+		count += 1
+	head.text = ("%s  %s（%d）" % ["▼" if body.visible else "▶", title, count])
+
+
+func _loot_line(row: Dictionary) -> Control:
+	var rarity := Catalog.quality_index(str(row.get("quality", ""))) if not str(row.get("quality", "")).is_empty() else 0
+	var color := UiTokens.rarity_color(rarity).darkened(0.15) if not str(row.get("quality", "")).is_empty() else UiTokens.TEXT
+	var line := UiKit.label("　" + str(row.get("text", row.get("name", ""))), UiTokens.FS_BODY, color, HORIZONTAL_ALIGNMENT_LEFT)
+	line.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	line.custom_minimum_size = Vector2(0, 40)
+	return line
 
 
 func _buttons() -> Control:
-	var row := UiKit.hbox(60)
+	var foot := PanelContainer.new()
+	foot.name = "StickyFooter"
+	foot.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	foot.size_flags_vertical = Control.SIZE_SHRINK_END
+	var pad := StyleBoxFlat.new()
+	pad.bg_color = Color(0, 0, 0, 0)
+	pad.content_margin_top = 8
+	pad.content_margin_bottom = 4
+	foot.add_theme_stylebox_override("panel", pad)
+	var row := UiKit.hbox(40)
+	row.name = "ButtonRow"
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	foot.add_child(row)
 	_claim_fx = QFx.make(QFx.BUTTON_BOUNCE) as Control
 	if _claim_fx != null:
-		# 「领 取」= ui_button_bounce（400×130，README 2a）：手指按下 / 松开时场景自己播 press / release，这里只接 Hit 的 pressed。
 		_claim_fx.name = "ClaimFx"
 		_claim_fx.custom_minimum_size = Vector2(400, 130)
 		_claim_fx.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		_button = _claim_fx.get_node("Hit") as Button
+		var label := _claim_fx.get_node_or_null("Text") as Label
+		if label != null:
+			label.text = CLAIM_LABEL
 		row.add_child(_claim_fx)
 	else:
-		_button = QKit.button("领取", "o", 124, 52)
+		_button = QKit.button(CLAIM_LABEL, "o", 124, 48)
 		_button.custom_minimum_size.x = 400
 		row.add_child(_button)
 	_button.name = "ClaimButton"
 	_button.pressed.connect(_on_claim)
-	_double = QKit.button("双倍领取", "m", 124, 52)
+	_double = QKit.button("双倍领取", "m", 124, 48)
 	_double.name = "DoubleButton"
-	_double.custom_minimum_size.x = 400
+	_double.custom_minimum_size.x = 360
 	var video := QKit.cut_rect("icon_video", Vector2(64, 48))
 	video.position = Vector2(-10, -26)
 	_double.add_child(video)
@@ -367,7 +458,7 @@ func _buttons() -> Control:
 	LockedFeature.wire(_double, "offline_double")
 	QFx.bounce(_double)
 	row.add_child(_double)
-	return row
+	return foot
 
 
 func _on_claim() -> void:
@@ -377,14 +468,14 @@ func _on_claim() -> void:
 	acknowledged.emit(report_id)
 
 
-## 「领取」按钮上的字（动画按钮是「领 取」，没有动画时是按钮自己的字）。
 func claim_text() -> String:
 	if _claim_fx != null:
-		return (_claim_fx.get_node("Text") as Label).text
+		var label := _claim_fx.get_node_or_null("Text") as Label
+		if label != null:
+			return label.text
 	return _button.text if _button != null else ""
 
 
-## 服务器确认已读（或失败后放弃）后调用。有动画时先播 close（0.22s）再隐藏；期间不再接点击。
 func close_popup() -> void:
 	_view = {}
 	_close_gen += 1

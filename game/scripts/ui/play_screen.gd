@@ -724,7 +724,8 @@ func _maybe_show_offline() -> void:
 	if id.is_empty() or id == _offline_shown_id or _offline_popup.visible:
 		return
 	var bonus_bp := float((_state.get("cultivationRate", {}) as Dictionary).get("bonusBp", 0)) if typeof(_state.get("cultivationRate", null)) == TYPE_DICTIONARY else 0.0
-	var view := OfflineView.build(report, SkillView.running_name(_state, _content), bonus_bp / 100.0, _reward_name)
+	var power := float(_state.get("power", -1))
+	var view := OfflineView.build(report, SkillView.running_name(_state, _content), bonus_bp / 100.0, _reward_name, power)
 	if view.is_empty():
 		return
 	_offline_shown_id = id

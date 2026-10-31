@@ -80,6 +80,82 @@ describe("dongfuConfigFromInput", () => {
   });
 });
 
+
+  it("defaults missing discoverMode to starter and fills P1 trial/garden fields", () => {
+    const raw = {
+      plotCount: 4,
+      alchemyQueueLength: 2,
+      seeds: DEFAULT_DONGFU.seeds,
+      recipes: [
+        {
+          recipeSlug: "pill_cultivate",
+          outputItemSlug: "pill_cultivate",
+          outputQty: 1,
+          craftSeconds: 30,
+          costs: [{ itemSlug: "herb_lingcao", count: 2 }],
+        },
+      ],
+    };
+    const parsed = dongfuConfigFromInput(raw);
+    expect(parsed.recipes[0]?.discoverMode).toBe("starter");
+    expect(parsed.alchemyTrialSlotCount).toBe(3);
+    expect(parsed.alchemyTrialDailyLimit).toBe(20);
+    expect(parsed.alchemyHintKeys).toEqual(["clash", "missing_main", "ratio_off", "near"]);
+    expect(parsed.gardenAuraMax).toBe(5);
+    expect(parsed.gardenAgeToAncientSeconds).toBe(86400);
+    expect(parsed.gardenHastenItemSlug).toBeNull();
+    expect(parsed.auraSources).toEqual([]);
+  });
+
+  it("accepts hidden recipe + seed ancient + auraSources", () => {
+    const parsed = dongfuConfigFromInput({
+      ...DEFAULT_DONGFU,
+      seeds: [
+        {
+          seedSlug: "seed_lingcao",
+          herbSlug: "herb_lingcao",
+          growSeconds: 60,
+          ancientHerbSlug: "herb_lingcao_wannian",
+          ancientQty: 1,
+          ageToAncientSeconds: 3600,
+        },
+      ],
+      recipes: [
+        {
+          ...DEFAULT_DONGFU.recipes[0]!,
+          discoverMode: "hidden",
+          imperfectOutputItemSlug: "pill_cultivate_flawed",
+          usageTag: "cultivate",
+        },
+      ],
+      auraSources: [
+        {
+          sourceSlug: "item_lingqi_dew",
+          kind: "consumable_item",
+          itemSlug: "item_lingqi_dew",
+          auraAdd: 1,
+          lingshiCost: 0,
+        },
+      ],
+    });
+    expect(parsed.recipes[0]?.discoverMode).toBe("hidden");
+    expect(parsed.recipes[0]?.imperfectOutputItemSlug).toBe("pill_cultivate_flawed");
+    expect(parsed.seeds[0]?.ancientHerbSlug).toBe("herb_lingcao_wannian");
+    expect(parsed.auraSources).toHaveLength(1);
+    expect(dongfuReferencedItemSlugs(parsed)).toEqual(
+      expect.arrayContaining(["herb_lingcao_wannian", "pill_cultivate_flawed", "item_lingqi_dew"]),
+    );
+  });
+
+  it("rejects bad discoverMode", () => {
+    expect(() =>
+      dongfuConfigFromInput({
+        ...DEFAULT_DONGFU,
+        recipes: [{ ...DEFAULT_DONGFU.recipes[0]!, discoverMode: "locked" as "starter" }],
+      }),
+    ).toThrow(/discoverMode/);
+  });
+
 describe("requireDongfu", () => {
   it("maps missing / invalid to CONTENT_NOT_PUBLISHED", () => {
     expect(() => requireDongfu(null)).toThrow(/尚未发布/);

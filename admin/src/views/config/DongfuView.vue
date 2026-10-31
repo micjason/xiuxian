@@ -1,6 +1,6 @@
 <template>
   <div>
-    <PageHeader title="洞府" desc="药园地块、种子、炼丹配方，以及灵仆分配系数和设施升级。保存后立刻对玩家生效（开发阶段无草稿）。强化规则仍在「装备强化」页。">
+    <PageHeader title="洞府" desc="药园地块、种子、炼丹配方、试炼/灵气/万年配表，以及灵仆分配系数和设施升级。保存后立刻对玩家生效（开发阶段无草稿）。强化规则仍在「装备强化」页。本页只铺字段，试炼/催熟/灌灵 API 另 PR。">
       <template #actions><el-button :icon="Refresh" :loading="loading" @click="load">刷新</el-button></template>
     </PageHeader>
 
@@ -144,10 +144,119 @@
       </section>
 
       <section class="xx-card gap">
+        <h2>摸索丹方（试炼）</h2>
+        <el-form label-position="top" class="form grid2">
+          <el-form-item label="试炼材料槽数">
+            <el-input-number v-model="form.alchemyTrialSlotCount" :min="1" :max="10" :precision="0" controls-position="right" @change="touched = true" />
+            <p class="hint">P1 固定。建议 3。</p>
+          </el-form-item>
+          <el-form-item label="每日试炼次数">
+            <el-input-number v-model="form.alchemyTrialDailyLimit" :min="0" :max="9999" :precision="0" controls-position="right" @change="touched = true" />
+          </el-form-item>
+          <el-form-item label="超额试炼灵石">
+            <el-input-number v-model="form.alchemyTrialExtraCostLingshi" :min="0" :precision="0" controls-position="right" @change="touched = true" />
+            <p class="hint">0 = 禁止超额。</p>
+          </el-form-item>
+          <el-form-item label="每日超额上限">
+            <el-input-number v-model="form.alchemyTrialExtraMax" :min="0" :max="99" :precision="0" controls-position="right" @change="touched = true" />
+          </el-form-item>
+          <el-form-item label="失败丹道经验">
+            <el-input-number v-model="form.alchemyTrialFailXp" :min="0" :max="9999" :precision="0" controls-position="right" @change="touched = true" />
+          </el-form-item>
+          <el-form-item label="残次丹道经验">
+            <el-input-number v-model="form.alchemyTrialImperfectXp" :min="0" :max="9999" :precision="0" controls-position="right" @change="touched = true" />
+          </el-form-item>
+          <el-form-item label="完美丹道经验">
+            <el-input-number v-model="form.alchemyTrialPerfectXp" :min="0" :max="9999" :precision="0" controls-position="right" @change="touched = true" />
+          </el-form-item>
+          <el-form-item label="提示文案 keys（逗号分隔）">
+            <el-input v-model="hintKeysText" placeholder="clash,missing_main,ratio_off,near" @input="touched = true" />
+            <p class="hint">服务端只按匹配档位抽 key，不泄题。</p>
+          </el-form-item>
+        </el-form>
+      </section>
+
+      <section class="xx-card gap">
+        <h2>药园灵气 / 催熟 / 万年</h2>
+        <el-form label-position="top" class="form grid2">
+          <el-form-item label="地块灵气上限">
+            <el-input-number v-model="form.gardenAuraMax" :min="0" :max="99" :precision="0" controls-position="right" @change="touched = true" />
+          </el-form-item>
+          <el-form-item label="每点灵气成熟加速（万分比）">
+            <el-input-number v-model="form.gardenAuraMatureBpPerPoint" :min="0" :max="10000" :precision="0" controls-position="right" @change="touched = true" />
+            <p class="hint">剩余时间 ×(10000−bp)/10000。建议 500。</p>
+          </el-form-item>
+          <el-form-item label="每点灵气产量（万分比）">
+            <el-input-number v-model="form.gardenAuraYieldBpPerPoint" :min="0" :max="10000" :precision="0" controls-position="right" @change="touched = true" />
+            <p class="hint">P1 建议 0（先只加速）。</p>
+          </el-form-item>
+          <el-form-item label="催熟每小时灵石">
+            <el-input-number v-model="form.gardenHastenLingshiPerHourLeft" :min="0" :precision="0" controls-position="right" @change="touched = true" />
+          </el-form-item>
+          <el-form-item label="催熟灵露物品（可选）">
+            <el-select v-model="form.gardenHastenItemSlug" filterable allow-create clearable default-first-option placeholder="无则只扣灵石" class="full" @change="touched = true">
+              <el-option v-for="option in itemOptions" :key="option.value" :label="option.label" :value="option.value" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="陈年到万年（秒）">
+            <el-input-number v-model="form.gardenAgeToAncientSeconds" :min="1" :max="31536000" :precision="0" controls-position="right" @change="touched = true" />
+            <p class="hint">ready→ancient 全局默认；种子行可覆盖。建议 86400。</p>
+          </el-form-item>
+        </el-form>
+      </section>
+
+      <section class="xx-card gap">
+        <header class="head">
+          <div>
+            <h2>灵气来源</h2>
+            <p class="hint">P1 先做消耗品一行即可。kind=consumable_item 须填物品。</p>
+          </div>
+          <el-button type="primary" plain @click="addAuraSource">加一行</el-button>
+        </header>
+        <el-table :data="form.auraSources" size="default">
+          <el-table-column label="编号" min-width="140">
+            <template #default="{ row }">
+              <el-input v-model="row.sourceSlug" placeholder="item_lingqi_dew" @input="touched = true" />
+            </template>
+          </el-table-column>
+          <el-table-column label="类型" width="150">
+            <template #default="{ row }">
+              <el-select v-model="row.kind" @change="touched = true">
+                <el-option label="消耗品" value="consumable_item" />
+                <el-option label="设施等级" value="facility_level" />
+              </el-select>
+            </template>
+          </el-table-column>
+          <el-table-column label="物品" min-width="160">
+            <template #default="{ row }">
+              <el-select v-model="row.itemSlug" filterable allow-create clearable default-first-option placeholder="可选" class="full" @change="touched = true">
+                <el-option v-for="option in itemOptions" :key="option.value" :label="option.label" :value="option.value" />
+              </el-select>
+            </template>
+          </el-table-column>
+          <el-table-column label="灵气+" width="110">
+            <template #default="{ row }">
+              <el-input-number v-model="row.auraAdd" :min="1" :max="100" :precision="0" size="small" controls-position="right" @change="touched = true" />
+            </template>
+          </el-table-column>
+          <el-table-column label="灵石" width="110">
+            <template #default="{ row }">
+              <el-input-number v-model="row.lingshiCost" :min="0" :precision="0" size="small" controls-position="right" @change="touched = true" />
+            </template>
+          </el-table-column>
+          <el-table-column label="" width="70" align="right">
+            <template #default="{ $index }">
+              <el-button link type="danger" @click="removeAuraSource($index)">删</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </section>
+
+      <section class="xx-card gap">
         <header class="head">
           <div>
             <h2>种子表</h2>
-            <p class="hint">种子物品 → 成熟后产出的草药物品 → 成熟秒数。种子/草药须先在「物品」页建好。</p>
+            <p class="hint">种子物品 → 成熟后产出的草药物品 → 成熟秒数。万年草药选填；缺省则不可进入 ancient。种子/草药须先在「物品」页建好。</p>
           </div>
           <el-button type="primary" plain @click="addSeed">加一种子</el-button>
         </header>
@@ -166,9 +275,31 @@
               </el-select>
             </template>
           </el-table-column>
-          <el-table-column label="成熟秒数" width="140">
+          <el-table-column label="成熟秒数" width="120">
             <template #default="{ row }">
               <el-input-number v-model="row.growSeconds" :min="1" :max="604800" :precision="0" size="small" controls-position="right" @change="touched = true" />
+            </template>
+          </el-table-column>
+          <el-table-column label="万年草药" min-width="160">
+            <template #default="{ row }">
+              <el-select v-model="row.ancientHerbSlug" filterable allow-create clearable default-first-option placeholder="可选" class="full" @change="touched = true">
+                <el-option v-for="option in itemOptions" :key="option.value" :label="option.label" :value="option.value" />
+              </el-select>
+            </template>
+          </el-table-column>
+          <el-table-column label="万年数量" width="110">
+            <template #default="{ row }">
+              <el-input-number v-model="row.ancientQty" :min="1" :max="9999" :precision="0" size="small" controls-position="right" @change="touched = true" />
+            </template>
+          </el-table-column>
+          <el-table-column label="陈年秒数" width="120">
+            <template #default="{ row }">
+              <el-input-number v-model="row.ageToAncientSeconds" :min="1" :max="31536000" :precision="0" size="small" controls-position="right" @change="touched = true" />
+            </template>
+          </el-table-column>
+          <el-table-column label="种植灵气" width="100">
+            <template #default="{ row }">
+              <el-input-number v-model="row.auraGainOnPlant" :min="-100" :max="100" :precision="0" size="small" controls-position="right" @change="touched = true" />
             </template>
           </el-table-column>
           <el-table-column label="" width="70" align="right">
@@ -210,6 +341,30 @@
             </el-form-item>
             <el-form-item label="灵石消耗（可选）">
               <el-input-number v-model="recipe.spiritStones" :min="0" :precision="0" controls-position="right" @change="touched = true" />
+            </el-form-item>
+            <el-form-item label="发现模式">
+              <el-select v-model="recipe.discoverMode" @change="touched = true">
+                <el-option label="教学方 starter" value="starter" />
+                <el-option label="隐藏方 hidden" value="hidden" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="图鉴分组 usageTag">
+              <el-input v-model="recipe.usageTag" placeholder="cultivate / atk / def" @input="touched = true" />
+            </el-form-item>
+            <el-form-item label="残次产出（hidden 建议）">
+              <el-select v-model="recipe.imperfectOutputItemSlug" filterable allow-create clearable default-first-option placeholder="可选" class="full" @change="touched = true">
+                <el-option v-for="option in itemOptions" :key="option.value" :label="option.label" :value="option.value" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="残次效果万分比">
+              <el-input-number v-model="recipe.imperfectEffectBp" :min="1" :max="10000" :precision="0" controls-position="right" @change="touched = true" />
+              <p class="hint">无独立残次物时用，默认 4000。</p>
+            </el-form-item>
+            <el-form-item label="试炼最少槽">
+              <el-input-number v-model="recipe.trialMinSlots" :min="1" :max="10" :precision="0" controls-position="right" @change="touched = true" />
+            </el-form-item>
+            <el-form-item label="试炼最多槽">
+              <el-input-number v-model="recipe.trialMaxSlots" :min="1" :max="10" :precision="0" controls-position="right" @change="touched = true" />
             </el-form-item>
           </el-form>
 
@@ -278,8 +433,23 @@ type Effect = {
   buffBp?: number | null;
   durationSeconds?: number | null;
 };
-type Seed = { seedSlug: string; herbSlug: string; growSeconds: number | null };
+type Seed = {
+  seedSlug: string;
+  herbSlug: string;
+  growSeconds: number | null;
+  ancientHerbSlug: string;
+  ancientQty: number | null;
+  ageToAncientSeconds: number | null;
+  auraGainOnPlant: number | null;
+};
 type UpgradeTier = { toLevel: number; wood: number | null; spiritStones: number | null; bonus: number | null };
+type AuraSource = {
+  sourceSlug: string;
+  kind: "consumable_item" | "facility_level";
+  itemSlug: string;
+  auraAdd: number | null;
+  lingshiCost: number | null;
+};
 type Recipe = {
   recipeSlug: string;
   outputItemSlug: string;
@@ -288,6 +458,12 @@ type Recipe = {
   spiritStones: number | null;
   costs: Cost[];
   effect?: Effect | null;
+  discoverMode: "starter" | "hidden";
+  imperfectOutputItemSlug: string;
+  imperfectEffectBp: number | null;
+  trialMinSlots: number | null;
+  trialMaxSlots: number | null;
+  usageTag: string;
 };
 type Form = {
   plotCount: number | null;
@@ -302,6 +478,21 @@ type Form = {
   minDurationPercent: number | null;
   gardenUpgrades: UpgradeTier[];
   alchemyUpgrades: UpgradeTier[];
+  alchemyTrialSlotCount: number | null;
+  alchemyTrialDailyLimit: number | null;
+  alchemyTrialExtraCostLingshi: number | null;
+  alchemyTrialExtraMax: number | null;
+  alchemyTrialFailXp: number | null;
+  alchemyTrialImperfectXp: number | null;
+  alchemyTrialPerfectXp: number | null;
+  alchemyHintKeys: string[];
+  gardenAuraMax: number | null;
+  gardenAuraMatureBpPerPoint: number | null;
+  gardenAuraYieldBpPerPoint: number | null;
+  gardenHastenLingshiPerHourLeft: number | null;
+  gardenHastenItemSlug: string;
+  gardenAgeToAncientSeconds: number | null;
+  auraSources: AuraSource[];
   seeds: Seed[];
   recipes: Recipe[];
 };
@@ -311,7 +502,18 @@ type ItemRow = { id: string; displayName: string };
 const SLUG = /^[a-z][a-z0-9_]*$/;
 
 function emptySeed(): Seed {
-  return { seedSlug: "", herbSlug: "", growSeconds: 60 };
+  return {
+    seedSlug: "",
+    herbSlug: "",
+    growSeconds: 60,
+    ancientHerbSlug: "",
+    ancientQty: null,
+    ageToAncientSeconds: null,
+    auraGainOnPlant: 0,
+  };
+}
+function emptyAuraSource(): AuraSource {
+  return { sourceSlug: "", kind: "consumable_item", itemSlug: "", auraAdd: 1, lingshiCost: 0 };
 }
 function emptyRecipe(): Recipe {
   return {
@@ -322,6 +524,12 @@ function emptyRecipe(): Recipe {
     spiritStones: 0,
     costs: [{ itemSlug: "", count: 1 }],
     effect: null,
+    discoverMode: "starter",
+    imperfectOutputItemSlug: "",
+    imperfectEffectBp: null,
+    trialMinSlots: null,
+    trialMaxSlots: null,
+    usageTag: "",
   };
 }
 function defaultGardenUpgrades(): UpgradeTier[] {
@@ -360,6 +568,21 @@ function emptyForm(): Form {
     minDurationPercent: 20,
     gardenUpgrades: defaultGardenUpgrades(),
     alchemyUpgrades: defaultAlchemyUpgrades(),
+    alchemyTrialSlotCount: 3,
+    alchemyTrialDailyLimit: 20,
+    alchemyTrialExtraCostLingshi: 50,
+    alchemyTrialExtraMax: 2,
+    alchemyTrialFailXp: 1,
+    alchemyTrialImperfectXp: 3,
+    alchemyTrialPerfectXp: 10,
+    alchemyHintKeys: ["clash", "missing_main", "ratio_off", "near"],
+    gardenAuraMax: 5,
+    gardenAuraMatureBpPerPoint: 500,
+    gardenAuraYieldBpPerPoint: 0,
+    gardenHastenLingshiPerHourLeft: 20,
+    gardenHastenItemSlug: "",
+    gardenAgeToAncientSeconds: 86400,
+    auraSources: [],
     seeds: [emptySeed()],
     recipes: [emptyRecipe()],
   };
@@ -380,10 +603,37 @@ function normalize(raw: Partial<Form> | null | undefined): Form {
     minDurationPercent: raw.minDurationPercent ?? 20,
     gardenUpgrades: mapUpgrades(raw.gardenUpgrades, defaultGardenUpgrades()),
     alchemyUpgrades: mapUpgrades(raw.alchemyUpgrades, defaultAlchemyUpgrades()),
+    alchemyTrialSlotCount: raw.alchemyTrialSlotCount ?? 3,
+    alchemyTrialDailyLimit: raw.alchemyTrialDailyLimit ?? 20,
+    alchemyTrialExtraCostLingshi: raw.alchemyTrialExtraCostLingshi ?? 50,
+    alchemyTrialExtraMax: raw.alchemyTrialExtraMax ?? 2,
+    alchemyTrialFailXp: raw.alchemyTrialFailXp ?? 1,
+    alchemyTrialImperfectXp: raw.alchemyTrialImperfectXp ?? 3,
+    alchemyTrialPerfectXp: raw.alchemyTrialPerfectXp ?? 10,
+    alchemyHintKeys: Array.isArray(raw.alchemyHintKeys) && raw.alchemyHintKeys.length
+      ? raw.alchemyHintKeys.map(String)
+      : ["clash", "missing_main", "ratio_off", "near"],
+    gardenAuraMax: raw.gardenAuraMax ?? 5,
+    gardenAuraMatureBpPerPoint: raw.gardenAuraMatureBpPerPoint ?? 500,
+    gardenAuraYieldBpPerPoint: raw.gardenAuraYieldBpPerPoint ?? 0,
+    gardenHastenLingshiPerHourLeft: raw.gardenHastenLingshiPerHourLeft ?? 20,
+    gardenHastenItemSlug: raw.gardenHastenItemSlug || "",
+    gardenAgeToAncientSeconds: raw.gardenAgeToAncientSeconds ?? 86400,
+    auraSources: (raw.auraSources ?? []).map((row) => ({
+      sourceSlug: row.sourceSlug ?? "",
+      kind: row.kind === "facility_level" ? "facility_level" : "consumable_item",
+      itemSlug: row.itemSlug ?? "",
+      auraAdd: row.auraAdd ?? 1,
+      lingshiCost: row.lingshiCost ?? 0,
+    })),
     seeds: (raw.seeds?.length ? raw.seeds : [emptySeed()]).map((row) => ({
       seedSlug: row.seedSlug ?? "",
       herbSlug: row.herbSlug ?? "",
       growSeconds: row.growSeconds ?? null,
+      ancientHerbSlug: row.ancientHerbSlug ?? "",
+      ancientQty: row.ancientQty ?? null,
+      ageToAncientSeconds: row.ageToAncientSeconds ?? null,
+      auraGainOnPlant: row.auraGainOnPlant ?? 0,
     })),
     recipes: (raw.recipes?.length ? raw.recipes : [emptyRecipe()]).map((row) => ({
       recipeSlug: row.recipeSlug ?? "",
@@ -403,6 +653,12 @@ function normalize(raw: Partial<Form> | null | undefined): Form {
             durationSeconds: row.effect.durationSeconds ?? null,
           }
         : null,
+      discoverMode: row.discoverMode === "hidden" ? "hidden" : "starter",
+      imperfectOutputItemSlug: row.imperfectOutputItemSlug ?? "",
+      imperfectEffectBp: row.imperfectEffectBp ?? null,
+      trialMinSlots: row.trialMinSlots ?? null,
+      trialMaxSlots: row.trialMaxSlots ?? null,
+      usageTag: row.usageTag ?? "",
     })),
   };
 }
@@ -431,11 +687,42 @@ function payload(form: Form): Record<string, unknown> {
       spiritStones: row.spiritStones ?? 0,
       bonus: row.bonus ?? 1,
     })),
-    seeds: form.seeds.map((row) => ({
-      seedSlug: row.seedSlug.trim(),
-      herbSlug: row.herbSlug.trim(),
-      growSeconds: row.growSeconds,
-    })),
+    alchemyTrialSlotCount: form.alchemyTrialSlotCount,
+    alchemyTrialDailyLimit: form.alchemyTrialDailyLimit,
+    alchemyTrialExtraCostLingshi: form.alchemyTrialExtraCostLingshi,
+    alchemyTrialExtraMax: form.alchemyTrialExtraMax,
+    alchemyTrialFailXp: form.alchemyTrialFailXp,
+    alchemyTrialImperfectXp: form.alchemyTrialImperfectXp,
+    alchemyTrialPerfectXp: form.alchemyTrialPerfectXp,
+    alchemyHintKeys: form.alchemyHintKeys,
+    gardenAuraMax: form.gardenAuraMax,
+    gardenAuraMatureBpPerPoint: form.gardenAuraMatureBpPerPoint,
+    gardenAuraYieldBpPerPoint: form.gardenAuraYieldBpPerPoint,
+    gardenHastenLingshiPerHourLeft: form.gardenHastenLingshiPerHourLeft,
+    gardenHastenItemSlug: form.gardenHastenItemSlug.trim() || null,
+    gardenAgeToAncientSeconds: form.gardenAgeToAncientSeconds,
+    auraSources: form.auraSources.map((row) => {
+      const out: Record<string, unknown> = {
+        sourceSlug: row.sourceSlug.trim(),
+        kind: row.kind,
+        auraAdd: row.auraAdd,
+      };
+      if (row.itemSlug.trim()) out.itemSlug = row.itemSlug.trim();
+      if (row.lingshiCost != null) out.lingshiCost = row.lingshiCost;
+      return out;
+    }),
+    seeds: form.seeds.map((row) => {
+      const out: Record<string, unknown> = {
+        seedSlug: row.seedSlug.trim(),
+        herbSlug: row.herbSlug.trim(),
+        growSeconds: row.growSeconds,
+      };
+      if (row.ancientHerbSlug.trim()) out.ancientHerbSlug = row.ancientHerbSlug.trim();
+      if (row.ancientQty != null) out.ancientQty = row.ancientQty;
+      if (row.ageToAncientSeconds != null) out.ageToAncientSeconds = row.ageToAncientSeconds;
+      if (row.auraGainOnPlant != null && row.auraGainOnPlant !== 0) out.auraGainOnPlant = row.auraGainOnPlant;
+      return out;
+    }),
     recipes: form.recipes.map((row) => {
       const out: Record<string, unknown> = {
         recipeSlug: row.recipeSlug.trim(),
@@ -443,8 +730,14 @@ function payload(form: Form): Record<string, unknown> {
         outputQty: row.outputQty,
         craftSeconds: row.craftSeconds,
         spiritStones: row.spiritStones ?? 0,
+        discoverMode: row.discoverMode || "starter",
         costs: row.costs.map((cost) => ({ itemSlug: cost.itemSlug.trim(), count: cost.count })),
       };
+      if (row.usageTag.trim()) out.usageTag = row.usageTag.trim();
+      if (row.imperfectOutputItemSlug.trim()) out.imperfectOutputItemSlug = row.imperfectOutputItemSlug.trim();
+      if (row.imperfectEffectBp != null) out.imperfectEffectBp = row.imperfectEffectBp;
+      if (row.trialMinSlots != null) out.trialMinSlots = row.trialMinSlots;
+      if (row.trialMaxSlots != null) out.trialMaxSlots = row.trialMaxSlots;
       if (row.effect?.cultivationGain != null) {
         out.effect = { cultivationGain: row.effect.cultivationGain };
       } else if (row.effect?.buffStat) {
@@ -473,6 +766,35 @@ function clientProblems(form: Form): string[] {
   if (form.gardenReducePercent == null || form.gardenReducePercent < 0 || form.gardenReducePercent > 100) list.push("药园每仆缩短要在 0～100");
   if (form.alchemyReducePercent == null || form.alchemyReducePercent < 0 || form.alchemyReducePercent > 100) list.push("炼丹每仆缩短要在 0～100");
   if (form.minDurationPercent == null || form.minDurationPercent < 1 || form.minDurationPercent > 100) list.push("最短时长要在 1～100");
+  if (form.alchemyTrialSlotCount == null || form.alchemyTrialSlotCount < 1 || form.alchemyTrialSlotCount > 10) list.push("试炼槽数要在 1～10");
+  if (form.alchemyTrialDailyLimit == null || form.alchemyTrialDailyLimit < 0) list.push("每日试炼次数要 ≥ 0");
+  if (form.alchemyTrialExtraCostLingshi == null || form.alchemyTrialExtraCostLingshi < 0) list.push("超额试炼灵石要 ≥ 0");
+  if (form.alchemyTrialExtraMax == null || form.alchemyTrialExtraMax < 0) list.push("每日超额上限要 ≥ 0");
+  if (!form.alchemyHintKeys.length) list.push("至少一条提示文案 key");
+  form.alchemyHintKeys.forEach((key, index) => {
+    if (!SLUG.test(key)) list.push(`提示 key 第 ${index + 1} 项格式不对`);
+  });
+  if (form.gardenAuraMax == null || form.gardenAuraMax < 0) list.push("地块灵气上限要 ≥ 0");
+  if (form.gardenAuraMatureBpPerPoint == null || form.gardenAuraMatureBpPerPoint < 0 || form.gardenAuraMatureBpPerPoint > 10000) {
+    list.push("灵气成熟加速万分比要在 0～10000");
+  }
+  if (form.gardenAuraYieldBpPerPoint == null || form.gardenAuraYieldBpPerPoint < 0 || form.gardenAuraYieldBpPerPoint > 10000) {
+    list.push("灵气产量万分比要在 0～10000");
+  }
+  if (form.gardenHastenLingshiPerHourLeft == null || form.gardenHastenLingshiPerHourLeft < 0) list.push("催熟每小时灵石要 ≥ 0");
+  if (form.gardenHastenItemSlug && !SLUG.test(form.gardenHastenItemSlug)) list.push("催熟灵露物品编号格式不对");
+  if (form.gardenAgeToAncientSeconds == null || form.gardenAgeToAncientSeconds < 1) list.push("陈年到万年秒数要 ≥ 1");
+  const auraSeen = new Set<string>();
+  form.auraSources.forEach((row, index) => {
+    const label = `灵气来源第 ${index + 1} 行`;
+    if (!SLUG.test(row.sourceSlug)) list.push(`${label}：编号格式不对`);
+    else if (auraSeen.has(row.sourceSlug)) list.push(`灵气来源编号重复：${row.sourceSlug}`);
+    else auraSeen.add(row.sourceSlug);
+    if (row.kind === "consumable_item" && !SLUG.test(row.itemSlug)) list.push(`${label}：消耗品须填物品`);
+    if (row.itemSlug && !SLUG.test(row.itemSlug)) list.push(`${label}：物品编号格式不对`);
+    if (row.auraAdd == null || row.auraAdd < 1) list.push(`${label}：灵气增量要 ≥ 1`);
+    if (row.lingshiCost != null && row.lingshiCost < 0) list.push(`${label}：灵石要 ≥ 0`);
+  });
   const checkTiers = (rows: UpgradeTier[], label: string) => {
     rows.forEach((row, index) => {
       if (row.wood == null || row.wood < 0) list.push(`${label}第 ${index + 1} 档：灵木要 ≥ 0`);
@@ -490,6 +812,9 @@ function clientProblems(form: Form): string[] {
     else seedSeen.add(row.seedSlug);
     if (!SLUG.test(row.herbSlug)) list.push(`种子第 ${index + 1} 行：草药编号格式不对`);
     if (row.growSeconds == null || row.growSeconds < 1) list.push(`种子第 ${index + 1} 行：成熟秒数要 ≥ 1`);
+    if (row.ancientHerbSlug && !SLUG.test(row.ancientHerbSlug)) list.push(`种子第 ${index + 1} 行：万年草药编号格式不对`);
+    if (row.ancientHerbSlug && row.ancientQty != null && row.ancientQty < 1) list.push(`种子第 ${index + 1} 行：万年数量要 ≥ 1`);
+    if (row.ageToAncientSeconds != null && row.ageToAncientSeconds < 1) list.push(`种子第 ${index + 1} 行：陈年秒数要 ≥ 1`);
   });
   if (!form.recipes.length) list.push("至少一种配方");
   const recipeSeen = new Set<string>();
@@ -501,6 +826,15 @@ function clientProblems(form: Form): string[] {
     if (!SLUG.test(row.outputItemSlug)) list.push(`${label}：产出编号格式不对`);
     if (row.outputQty == null || row.outputQty < 1) list.push(`${label}：产出数量要 ≥ 1`);
     if (row.craftSeconds == null || row.craftSeconds < 1) list.push(`${label}：炼制秒数要 ≥ 1`);
+    if (row.discoverMode !== "starter" && row.discoverMode !== "hidden") list.push(`${label}：发现模式只能是 starter 或 hidden`);
+    if (row.usageTag && !SLUG.test(row.usageTag)) list.push(`${label}：usageTag 格式不对`);
+    if (row.imperfectOutputItemSlug && !SLUG.test(row.imperfectOutputItemSlug)) list.push(`${label}：残次产出编号格式不对`);
+    if (row.imperfectEffectBp != null && (row.imperfectEffectBp < 1 || row.imperfectEffectBp > 10000)) {
+      list.push(`${label}：残次效果万分比要在 1～10000`);
+    }
+    if (row.trialMinSlots != null && row.trialMaxSlots != null && row.trialMinSlots > row.trialMaxSlots) {
+      list.push(`${label}：试炼最少槽不能大于最多槽`);
+    }
     if (!row.costs.length) list.push(`${label}：至少一种材料`);
     row.costs.forEach((cost, cIndex) => {
       if (!SLUG.test(cost.itemSlug)) list.push(`${label}材料 ${cIndex + 1}：编号格式不对`);
@@ -567,6 +901,24 @@ function removeUpgrade(key: "gardenUpgrades" | "alchemyUpgrades", index: number)
   form.value[key].forEach((row, rowIndex) => {
     row.toLevel = rowIndex + 2;
   });
+  touched.value = true;
+}
+const hintKeysText = computed({
+  get: () => form.value.alchemyHintKeys.join(","),
+  set: (value: string) => {
+    form.value.alchemyHintKeys = value
+      .split(/[,，\s]+/)
+      .map((part) => part.trim())
+      .filter(Boolean);
+  },
+});
+
+function addAuraSource(): void {
+  form.value.auraSources.push(emptyAuraSource());
+  touched.value = true;
+}
+function removeAuraSource(index: number): void {
+  form.value.auraSources.splice(index, 1);
   touched.value = true;
 }
 function addSeed(): void {

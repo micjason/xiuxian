@@ -9,6 +9,13 @@ export type DongfuSeedConfig = {
   seedSlug: string;
   herbSlug: string;
   growSeconds: number;
+  /** 万年产出；缺省则该种子不可进入 ancient。 */
+  ancientHerbSlug?: string;
+  ancientQty?: number;
+  /** 单种覆盖全局 ready→ancient 秒数。 */
+  ageToAncientSeconds?: number;
+  /** 种下时地块灵气变化（一般 0）。 */
+  auraGainOnPlant?: number;
 };
 
 export type DongfuRecipeCost = { itemSlug: string; count: number };
@@ -20,6 +27,8 @@ export type DongfuPillEffect = {
   durationSeconds?: number;
 };
 
+export type DongfuDiscoverMode = "starter" | "hidden";
+
 export type DongfuRecipeConfig = {
   recipeSlug: string;
   outputItemSlug: string;
@@ -28,6 +37,24 @@ export type DongfuRecipeConfig = {
   spiritStones: number;
   costs: DongfuRecipeCost[];
   effect?: DongfuPillEffect;
+  /** 缺省 = starter（兼容旧行）。 */
+  discoverMode?: DongfuDiscoverMode;
+  imperfectOutputItemSlug?: string;
+  /** 无独立残次物时效果万分比，默认 4000。 */
+  imperfectEffectBp?: number;
+  trialMinSlots?: number;
+  trialMaxSlots?: number;
+  /** 图鉴分组，不进匹配。 */
+  usageTag?: string;
+};
+
+/** 灵气来源（P1 最小：消耗品 / 设施等级）。 */
+export type DongfuAuraSourceConfig = {
+  sourceSlug: string;
+  kind: "consumable_item" | "facility_level";
+  itemSlug?: string;
+  auraAdd: number;
+  lingshiCost?: number;
 };
 
 /** 升到 toLevel 的一档。bonus：药园加地块，炼丹加队列。 */
@@ -69,6 +96,29 @@ export type DongfuConfig = {
   maxAlchemyQueue: number;
   gardenUpgrades: DongfuUpgradeTier[];
   alchemyUpgrades: DongfuUpgradeTier[];
+  /** 试炼可选材料槽数（P1 固定；炉等级可另表覆盖）。 */
+  alchemyTrialSlotCount: number;
+  alchemyTrialDailyLimit: number;
+  /** 超额 1 次耗灵石；0=禁止超额。 */
+  alchemyTrialExtraCostLingshi: number;
+  alchemyTrialExtraMax: number;
+  alchemyTrialFailXp: number;
+  alchemyTrialImperfectXp: number;
+  alchemyTrialPerfectXp: number;
+  /** 失败/残次随机文案 key，客户端本地化。 */
+  alchemyHintKeys: string[];
+  gardenAuraMax: number;
+  /** 每点灵气：成熟剩余时间 ×(10000−bp)/10000。 */
+  gardenAuraMatureBpPerPoint: number;
+  /** P1 建议 0（先只加速）。 */
+  gardenAuraYieldBpPerPoint: number;
+  /** 催熟：按剩余整小时向上取整 × 单价；最少 1 小时价。 */
+  gardenHastenLingshiPerHourLeft: number;
+  /** 可选灵露；有则优先扣道具再灵石。 */
+  gardenHastenItemSlug: string | null;
+  /** ready→ancient 全局秒数；种子行可覆盖。 */
+  gardenAgeToAncientSeconds: number;
+  auraSources: DongfuAuraSourceConfig[];
 };
 
 /**
@@ -111,6 +161,21 @@ export const DEFAULT_DONGFU: DongfuConfig = {
   maxAlchemyQueue: 4,
   gardenUpgrades: DEFAULT_GARDEN_UPGRADES,
   alchemyUpgrades: DEFAULT_ALCHEMY_UPGRADES,
+  alchemyTrialSlotCount: 3,
+  alchemyTrialDailyLimit: 20,
+  alchemyTrialExtraCostLingshi: 50,
+  alchemyTrialExtraMax: 2,
+  alchemyTrialFailXp: 1,
+  alchemyTrialImperfectXp: 3,
+  alchemyTrialPerfectXp: 10,
+  alchemyHintKeys: ["clash", "missing_main", "ratio_off", "near"],
+  gardenAuraMax: 5,
+  gardenAuraMatureBpPerPoint: 500,
+  gardenAuraYieldBpPerPoint: 0,
+  gardenHastenLingshiPerHourLeft: 20,
+  gardenHastenItemSlug: null,
+  gardenAgeToAncientSeconds: 86400,
+  auraSources: [],
   seeds: [
     { seedSlug: "seed_lingcao", herbSlug: "herb_lingcao", growSeconds: 60 },
     { seedSlug: "seed_qingxin", herbSlug: "herb_qingxin", growSeconds: 120 },
@@ -122,6 +187,8 @@ export const DEFAULT_DONGFU: DongfuConfig = {
       outputQty: 1,
       craftSeconds: 30,
       spiritStones: 0,
+      discoverMode: "starter",
+      usageTag: "cultivate",
       costs: [{ itemSlug: "herb_lingcao", count: 2 }],
       effect: { cultivationGain: 100 },
     },
@@ -131,6 +198,8 @@ export const DEFAULT_DONGFU: DongfuConfig = {
       outputQty: 1,
       craftSeconds: 45,
       spiritStones: 0,
+      discoverMode: "starter",
+      usageTag: "atk",
       costs: [
         { itemSlug: "herb_lingcao", count: 1 },
         { itemSlug: "herb_qingxin", count: 1 },
@@ -143,6 +212,8 @@ export const DEFAULT_DONGFU: DongfuConfig = {
       outputQty: 1,
       craftSeconds: 45,
       spiritStones: 0,
+      discoverMode: "starter",
+      usageTag: "def",
       costs: [{ itemSlug: "herb_qingxin", count: 2 }],
       effect: { buffStat: "defense", buffBp: 1000, durationSeconds: 300 },
     },
@@ -197,16 +268,34 @@ function parseEffect(raw: unknown, label: string): DongfuPillEffect | undefined 
   return out;
 }
 
+function optionalSlug(value: unknown, label: string): string | undefined {
+  if (value === undefined || value === null || value === "") return undefined;
+  return slugOf(value, label);
+}
+
 function parseSeed(raw: unknown, index: number): DongfuSeedConfig {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
     throw new AppError("INVALID_INPUT", `种子第 ${index + 1} 行格式不正确`);
   }
   const row = raw as Record<string, unknown>;
-  return {
-    seedSlug: slugOf(row.seedSlug, `种子第 ${index + 1} 行种子`),
-    herbSlug: slugOf(row.herbSlug, `种子第 ${index + 1} 行草药`),
-    growSeconds: intInRange(row.growSeconds, `种子第 ${index + 1} 行成熟秒数`, 1, 604_800),
+  const label = `种子第 ${index + 1} 行`;
+  const seed: DongfuSeedConfig = {
+    seedSlug: slugOf(row.seedSlug, `${label}种子`),
+    herbSlug: slugOf(row.herbSlug, `${label}草药`),
+    growSeconds: intInRange(row.growSeconds, `${label}成熟秒数`, 1, 604_800),
   };
+  const ancientHerbSlug = optionalSlug(row.ancientHerbSlug, `${label}万年草药`);
+  if (ancientHerbSlug) seed.ancientHerbSlug = ancientHerbSlug;
+  if (row.ancientQty !== undefined && row.ancientQty !== null && row.ancientQty !== "") {
+    seed.ancientQty = intInRange(row.ancientQty, `${label}万年数量`, 1, 9999);
+  }
+  if (row.ageToAncientSeconds !== undefined && row.ageToAncientSeconds !== null && row.ageToAncientSeconds !== "") {
+    seed.ageToAncientSeconds = intInRange(row.ageToAncientSeconds, `${label}陈年到万年秒数`, 1, 31_536_000);
+  }
+  if (row.auraGainOnPlant !== undefined && row.auraGainOnPlant !== null && row.auraGainOnPlant !== "") {
+    seed.auraGainOnPlant = intInRange(row.auraGainOnPlant, `${label}种植灵气变化`, -100, 100);
+  }
+  return seed;
 }
 
 function parseCost(raw: unknown, recipeLabel: string, index: number): DongfuRecipeCost {
@@ -245,7 +334,111 @@ function parseRecipe(raw: unknown, index: number): DongfuRecipeConfig {
   if (effect) {
     recipe.effect = effect;
   }
+  // 旧数据缺省 discoverMode = starter
+  if (row.discoverMode === undefined || row.discoverMode === null || row.discoverMode === "") {
+    recipe.discoverMode = "starter";
+  } else if (row.discoverMode === "starter" || row.discoverMode === "hidden") {
+    recipe.discoverMode = row.discoverMode;
+  } else {
+    throw new AppError("INVALID_INPUT", `${label}discoverMode 只能是 starter 或 hidden`);
+  }
+  const imperfect = optionalSlug(row.imperfectOutputItemSlug, `${label}残次产出`);
+  if (imperfect) recipe.imperfectOutputItemSlug = imperfect;
+  if (row.imperfectEffectBp !== undefined && row.imperfectEffectBp !== null && row.imperfectEffectBp !== "") {
+    recipe.imperfectEffectBp = intInRange(row.imperfectEffectBp, `${label}残次效果万分比`, 1, 10_000);
+  } else if (recipe.discoverMode === "hidden" && !imperfect) {
+    recipe.imperfectEffectBp = 4000;
+  }
+  if (row.trialMinSlots !== undefined && row.trialMinSlots !== null && row.trialMinSlots !== "") {
+    recipe.trialMinSlots = intInRange(row.trialMinSlots, `${label}试炼最少槽`, 1, 10);
+  }
+  if (row.trialMaxSlots !== undefined && row.trialMaxSlots !== null && row.trialMaxSlots !== "") {
+    recipe.trialMaxSlots = intInRange(row.trialMaxSlots, `${label}试炼最多槽`, 1, 10);
+  }
+  if (
+    recipe.trialMinSlots !== undefined &&
+    recipe.trialMaxSlots !== undefined &&
+    recipe.trialMinSlots > recipe.trialMaxSlots
+  ) {
+    throw new AppError("INVALID_INPUT", `${label}试炼最少槽不能大于最多槽`);
+  }
+  if (row.usageTag !== undefined && row.usageTag !== null && row.usageTag !== "") {
+    if (typeof row.usageTag !== "string" || !SLUG.test(row.usageTag)) {
+      throw new AppError("INVALID_INPUT", `${label}usageTag 格式不正确`);
+    }
+    recipe.usageTag = row.usageTag;
+  }
   return recipe;
+}
+
+function parseAuraSource(raw: unknown, index: number): DongfuAuraSourceConfig {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    throw new AppError("INVALID_INPUT", `灵气来源第 ${index + 1} 行格式不正确`);
+  }
+  const row = raw as Record<string, unknown>;
+  const label = `灵气来源第 ${index + 1} 行`;
+  if (row.kind !== "consumable_item" && row.kind !== "facility_level") {
+    throw new AppError("INVALID_INPUT", `${label}kind 只能是 consumable_item 或 facility_level`);
+  }
+  const source: DongfuAuraSourceConfig = {
+    sourceSlug: slugOf(row.sourceSlug, `${label}编号`),
+    kind: row.kind,
+    auraAdd: intInRange(row.auraAdd, `${label}灵气增量`, 1, 100),
+  };
+  if (row.kind === "consumable_item") {
+    source.itemSlug = slugOf(row.itemSlug, `${label}物品`);
+  } else if (row.itemSlug !== undefined && row.itemSlug !== null && row.itemSlug !== "") {
+    source.itemSlug = slugOf(row.itemSlug, `${label}物品`);
+  }
+  if (row.lingshiCost !== undefined && row.lingshiCost !== null && row.lingshiCost !== "") {
+    source.lingshiCost = intInRange(row.lingshiCost, `${label}灵石`, 0, 1_000_000_000);
+  }
+  return source;
+}
+
+function parseHintKeys(raw: unknown): string[] {
+  if (raw === undefined || raw === null) {
+    return [...DEFAULT_DONGFU.alchemyHintKeys];
+  }
+  if (!Array.isArray(raw) || raw.length === 0) {
+    throw new AppError("INVALID_INPUT", "alchemyHintKeys 至少一项");
+  }
+  if (raw.length > 32) {
+    throw new AppError("INVALID_INPUT", "alchemyHintKeys 最多 32 项");
+  }
+  const keys: string[] = [];
+  const seen = new Set<string>();
+  for (let index = 0; index < raw.length; index += 1) {
+    const key = raw[index];
+    if (typeof key !== "string" || !SLUG.test(key)) {
+      throw new AppError("INVALID_INPUT", `alchemyHintKeys 第 ${index + 1} 项格式不正确`);
+    }
+    if (seen.has(key)) {
+      throw new AppError("INVALID_INPUT", `alchemyHintKeys 重复：${key}`);
+    }
+    seen.add(key);
+    keys.push(key);
+  }
+  return keys;
+}
+
+function parseAuraSources(raw: unknown): DongfuAuraSourceConfig[] {
+  if (raw === undefined || raw === null) return [];
+  if (!Array.isArray(raw)) {
+    throw new AppError("INVALID_INPUT", "auraSources 格式不正确");
+  }
+  if (raw.length > 64) {
+    throw new AppError("INVALID_INPUT", "auraSources 最多 64 行");
+  }
+  const rows = raw.map(parseAuraSource);
+  const seen = new Set<string>();
+  for (const row of rows) {
+    if (seen.has(row.sourceSlug)) {
+      throw new AppError("INVALID_INPUT", `灵气来源编号重复：${row.sourceSlug}`);
+    }
+    seen.add(row.sourceSlug);
+  }
+  return rows;
 }
 
 function parseUpgrade(raw: unknown, label: string, index: number): DongfuUpgradeTier {
@@ -380,6 +573,10 @@ export function dongfuConfigFromInput(raw: unknown): DongfuConfig {
     input.woodItemSlug === undefined || input.woodItemSlug === null || input.woodItemSlug === ""
       ? DEFAULT_DONGFU.woodItemSlug
       : slugOf(input.woodItemSlug, "灵木物品");
+  const gardenHastenItemSlug =
+    input.gardenHastenItemSlug === undefined || input.gardenHastenItemSlug === null || input.gardenHastenItemSlug === ""
+      ? null
+      : slugOf(input.gardenHastenItemSlug, "催熟灵露物品");
   return {
     plotCount,
     alchemyQueueLength,
@@ -397,6 +594,81 @@ export function dongfuConfigFromInput(raw: unknown): DongfuConfig {
     maxAlchemyQueue,
     gardenUpgrades: parseUpgradeTable(input.gardenUpgrades, "药园升级", DEFAULT_GARDEN_UPGRADES),
     alchemyUpgrades: parseUpgradeTable(input.alchemyUpgrades, "炼丹升级", DEFAULT_ALCHEMY_UPGRADES),
+    alchemyTrialSlotCount: intOr(
+      input.alchemyTrialSlotCount,
+      "试炼材料槽数",
+      1,
+      10,
+      DEFAULT_DONGFU.alchemyTrialSlotCount,
+    ),
+    alchemyTrialDailyLimit: intOr(
+      input.alchemyTrialDailyLimit,
+      "每日试炼次数",
+      0,
+      9999,
+      DEFAULT_DONGFU.alchemyTrialDailyLimit,
+    ),
+    alchemyTrialExtraCostLingshi: intOr(
+      input.alchemyTrialExtraCostLingshi,
+      "超额试炼灵石",
+      0,
+      1_000_000_000,
+      DEFAULT_DONGFU.alchemyTrialExtraCostLingshi,
+    ),
+    alchemyTrialExtraMax: intOr(
+      input.alchemyTrialExtraMax,
+      "每日超额次数上限",
+      0,
+      99,
+      DEFAULT_DONGFU.alchemyTrialExtraMax,
+    ),
+    alchemyTrialFailXp: intOr(input.alchemyTrialFailXp, "试炼失败丹道经验", 0, 9999, DEFAULT_DONGFU.alchemyTrialFailXp),
+    alchemyTrialImperfectXp: intOr(
+      input.alchemyTrialImperfectXp,
+      "试炼残次丹道经验",
+      0,
+      9999,
+      DEFAULT_DONGFU.alchemyTrialImperfectXp,
+    ),
+    alchemyTrialPerfectXp: intOr(
+      input.alchemyTrialPerfectXp,
+      "试炼完美丹道经验",
+      0,
+      9999,
+      DEFAULT_DONGFU.alchemyTrialPerfectXp,
+    ),
+    alchemyHintKeys: parseHintKeys(input.alchemyHintKeys),
+    gardenAuraMax: intOr(input.gardenAuraMax, "地块灵气上限", 0, 99, DEFAULT_DONGFU.gardenAuraMax),
+    gardenAuraMatureBpPerPoint: intOr(
+      input.gardenAuraMatureBpPerPoint,
+      "每点灵气成熟加速万分比",
+      0,
+      10_000,
+      DEFAULT_DONGFU.gardenAuraMatureBpPerPoint,
+    ),
+    gardenAuraYieldBpPerPoint: intOr(
+      input.gardenAuraYieldBpPerPoint,
+      "每点灵气产量万分比",
+      0,
+      10_000,
+      DEFAULT_DONGFU.gardenAuraYieldBpPerPoint,
+    ),
+    gardenHastenLingshiPerHourLeft: intOr(
+      input.gardenHastenLingshiPerHourLeft,
+      "催熟每小时灵石",
+      0,
+      1_000_000_000,
+      DEFAULT_DONGFU.gardenHastenLingshiPerHourLeft,
+    ),
+    gardenHastenItemSlug,
+    gardenAgeToAncientSeconds: intOr(
+      input.gardenAgeToAncientSeconds,
+      "陈年到万年秒数",
+      1,
+      31_536_000,
+      DEFAULT_DONGFU.gardenAgeToAncientSeconds,
+    ),
+    auraSources: parseAuraSources(input.auraSources),
   };
 }
 
@@ -437,9 +709,11 @@ export function dongfuReferencedItemSlugs(config: DongfuConfig): string[] {
   for (const seed of config.seeds) {
     slugs.add(seed.seedSlug);
     slugs.add(seed.herbSlug);
+    if (seed.ancientHerbSlug) slugs.add(seed.ancientHerbSlug);
   }
   for (const recipe of config.recipes) {
     slugs.add(recipe.outputItemSlug);
+    if (recipe.imperfectOutputItemSlug) slugs.add(recipe.imperfectOutputItemSlug);
     for (const cost of recipe.costs) {
       slugs.add(cost.itemSlug);
     }
@@ -450,6 +724,10 @@ export function dongfuReferencedItemSlugs(config: DongfuConfig): string[] {
   }
   for (const row of config.seedOffers) {
     slugs.add(row.seedSlug);
+  }
+  if (config.gardenHastenItemSlug) slugs.add(config.gardenHastenItemSlug);
+  for (const source of config.auraSources) {
+    if (source.itemSlug) slugs.add(source.itemSlug);
   }
   return [...slugs];
 }

@@ -1019,11 +1019,21 @@ func _item_action(item_id: String, action: String) -> void:
 		_toast.say(PlayerApi.error_message(result), false)
 		return
 	if action == "use":
-		var learned: Dictionary = result.get("learned", {})
-		if learned.has("convertedCultivation"):
-			_toast.say("技能已圆满，转为修为 %s" % CultivationFormat.amount(float(learned.get("convertedCultivation", 0))))
+		var used: Dictionary = result.get("used", {})
+		if not used.is_empty():
+			if used.has("cultivationGain"):
+				_toast.say("服下丹药，修为 +%s" % CultivationFormat.amount(float(used.get("cultivationGain", 0))))
+			elif used.has("buffStat"):
+				var buff_name := {"attack": "攻击", "defense": "防御", "hp": "气血", "maxHp": "气血", "speed": "速度"}.get(str(used.get("buffStat", "")), str(used.get("buffStat", "")))
+				_toast.say("服下丹药，%s临时提升已生效" % buff_name)
+			else:
+				_toast.say("使用成功")
 		else:
-			_toast.say("学会了，现在是 %s 层" % str(learned.get("level", "")))
+			var learned: Dictionary = result.get("learned", {})
+			if learned.has("convertedCultivation"):
+				_toast.say("技能已圆满，转为修为 %s" % CultivationFormat.amount(float(learned.get("convertedCultivation", 0))))
+			else:
+				_toast.say("学会了，现在是 %s 层" % str(learned.get("level", "")))
 	_apply_action_state(result)
 
 

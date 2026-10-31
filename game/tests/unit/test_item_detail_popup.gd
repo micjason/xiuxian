@@ -151,6 +151,22 @@ func test_material_popup_shows_count_description_and_ok() -> void:
 	assert_false(popup.visible)
 
 
+func test_pill_popup_shows_use_button() -> void:
+	var scene := await _boot()
+	var bag := scene.get("_bag_page") as BagPage
+	var pill := _pick(bag, func(it: Dictionary) -> bool: return str(it.kind) == "pill")
+	assert_false(pill.is_empty(), "mock 行囊有丹药")
+	var popup := await _open(scene, pill)
+	assert_eq(str(popup.view.type), "material")
+	assert_true(bool(popup.view.usable), "丹药 usable")
+	assert_not_null(popup.button_named("使 用"))
+	assert_null(popup.button_named("确 定"), "丹药不显示确定")
+	var used: Array = []
+	popup.show_view(popup.view, {"use": func(id: String) -> void: used.append(id)})
+	popup.button_named("使 用").pressed.emit()
+	assert_eq(used, [str(pill.id)], "「使 用」走 use 回调")
+
+
 func test_skill_book_popup_shows_description_and_use() -> void:
 	var scene := await _boot()
 	await _add_book(scene, "青元诀")

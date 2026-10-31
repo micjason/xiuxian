@@ -84,8 +84,8 @@ static func content() -> Dictionary:
 	for row in [["herb", "凝露草", "material", "white"], ["ore", "玄铁矿", "material", "green"], ["stone", "灵石", "material", "white"], ["wood", "养魂木", "material", "blue"],
 			["enh_stone_low", "突破石·下品", "material", "green"], ["enh_stone_mid", "突破石·中品", "material", "blue"], ["enh_stone_high", "突破石·上品", "material", "purple"]]:
 		items.append({"slug": row[0], "displayName": row[1], "kind": row[2], "quality": row[3], "stackable": true, "description": "炼制与锻造用的材料。", "enabled": true})
-	for row in [["pill_qi", "聚气丹", "consumable", "white"], ["pill_back", "回灵丹", "consumable", "green"], ["pill_break", "突破丹", "consumable", "purple"]]:
-		items.append({"slug": row[0], "displayName": row[1], "kind": row[2], "quality": row[3], "stackable": true, "description": "服用后见效。", "enabled": true})
+	for row in [["pill_qi", "聚气丹", "pill", "white", 120], ["pill_back", "回灵丹", "pill", "green", 80], ["pill_break", "突破丹", "pill", "purple", 200]]:
+		items.append({"slug": row[0], "displayName": row[1], "kind": row[2], "quality": row[3], "stackable": true, "description": "服用后见效。", "enabled": true, "effect": {"cultivationGain": row[4]}})
 	items.append({"slug": "book1", "displayName": "吐纳心法残页", "kind": "skill_book", "quality": "blue", "skillSlug": "heart1", "enabled": true})
 	var enhance := ENHANCE_RULES.duplicate(true)
 	enhance["essence"] = ESSENCE_RULES.duplicate(true)
@@ -255,8 +255,25 @@ static func handle(path: String, body: Dictionary, state: Dictionary, content: D
 				row["breakLevel"] = int(node.level)
 				result["broken"] = {"itemId": id, "level": int(node.level), "materials": node.materials}
 			"use":
-				items.erase(row)
-				result["learned"] = {"level": 1}
+				var kind := str(def.get("kind", ""))
+				if kind in ["pill", "consumable", "elixir"]:
+					var qty := int(row.get("quantity", 1))
+					if bool(row.get("isStack", false)) and qty > 1:
+						row["quantity"] = qty - 1
+					else:
+						items.erase(row)
+					var effect: Dictionary = def.get("effect", {}) if typeof(def.get("effect", null)) == TYPE_DICTIONARY else {}
+					if effect.has("cultivationGain"):
+						var gain := float(effect.get("cultivationGain", 0))
+						state["cultivation"] = float(state.get("cultivation", 0)) + gain
+						result["used"] = {"itemSlug": str(row.get("itemSlug", "")), "cultivationGain": gain}
+					elif effect.has("buffStat"):
+						result["used"] = {"itemSlug": str(row.get("itemSlug", "")), "buffStat": str(effect.get("buffStat", "")), "buffBp": int(effect.get("buffBp", 0)), "durationSeconds": int(effect.get("durationSeconds", 0))}
+					else:
+						result["used"] = {"itemSlug": str(row.get("itemSlug", ""))}
+				else:
+					items.erase(row)
+					result["learned"] = {"level": 1}
 	elif parts.size() >= 3 and parts[0] == "stages" and parts[2] == "challenge":
 		result["battle"] = _fake_battle(state)
 		result["drops"] = [{"itemSlug": "herb"}] if bool(result.battle.win) else []

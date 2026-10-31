@@ -83,6 +83,8 @@ static func show_item(popup: GamePopup, item: Dictionary, worn: Dictionary, hand
 			popup.body.add_child(UiKit.wrap_label("这件比身上的更强，建议先穿戴再处理旧的。", UiTokens.FS_MICRO, UiTokens.WARNING))
 	elif str(item.get("kind", "")) == "skill_book":
 		grid.add_child(_action("使用（学习技能）", MainTheme.VAR_PRIMARY, popup, handlers, "use", id))
+	elif str(item.get("kind", "")) in ["pill", "consumable", "elixir"]:
+		grid.add_child(_action("使用", MainTheme.VAR_PRIMARY, popup, handlers, "use", id))
 	popup.open_popup("物品详情")
 
 

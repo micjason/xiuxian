@@ -741,6 +741,10 @@ export const playerDongfuPlots = pgTable(
     seedSlug: text("seed_slug"),
     plantedAt: timestamp("planted_at", { withTimezone: true }),
     matureAt: timestamp("mature_at", { withTimezone: true }),
+    /** P1 灵气：0～globals.dongfu.gardenAuraMax。 */
+    aura: integer("aura").notNull().default(0),
+    /** ready 达龄写入；now>=ancient_at ⇒ 可领万年。 */
+    ancientAt: timestamp("ancient_at", { withTimezone: true }),
   },
   (table) => [primaryKey({ columns: [table.playerId, table.slot] })],
 );
@@ -758,6 +762,12 @@ export const playerDongfu = pgTable("player_dongfu", {
   woodGranted: boolean("wood_granted").notNull().default(false),
   /** 首次进洞府是否已发 startingSeeds。 */
   seedsGranted: boolean("seeds_granted").notNull().default(false),
+  /** 已悟丹方 slug 列表；starter 可登录时合并。 */
+  discoveredRecipeSlugs: jsonb("discovered_recipe_slugs").$type<string[]>().notNull().default([]),
+  /** 日界试炼计数：{ dayKey, count, extraBought }。 */
+  trialUsedOnDay: jsonb("trial_used_on_day").$type<{ dayKey: string; count: number; extraBought: number } | null>(),
+  /** 丹道经验；P1 先落库，头衔 P2 再读。 */
+  alchemyXp: integer("alchemy_xp").notNull().default(0),
 });
 
 /** 洞府炼丹队列：claimed_at 为空表示未领取（占队列）；领取后保留记录。 */

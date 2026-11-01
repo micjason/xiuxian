@@ -124,20 +124,20 @@ describe("dongfu v1 garden + alchemy", () => {
       expect(first.seedOffers).toHaveLength(2);
       const seeds = await db.select().from(playerItems).where(eq(playerItems.playerId, player.playerId));
       const bySlug = Object.fromEntries(seeds.filter((r) => r.isStack).map((r) => [r.itemSlug, r.quantity]));
-      expect(bySlug.seed_lingcao).toBe(8);
-      expect(bySlug.seed_qingxin).toBe(4);
+      expect(bySlug.seed_lingcao).toBe(120);
+      expect(bySlug.seed_qingxin).toBe(60);
       // 第二次读不再重复发
       await withTransaction(db, (tx) => readDongfuState(tx, world, player.playerId, now));
       const again = await db.select().from(playerItems).where(eq(playerItems.playerId, player.playerId));
       const bySlug2 = Object.fromEntries(again.filter((r) => r.isStack).map((r) => [r.itemSlug, r.quantity]));
-      expect(bySlug2.seed_lingcao).toBe(8);
+      expect(bySlug2.seed_lingcao).toBe(120);
       const bought = await withTransaction(db, (tx) => buySeed(tx, world, player.playerId, { seedSlug: "seed_lingcao" }, now));
       expect(bought.dongfu.seedOffers[0]?.seedSlug).toBe("seed_lingcao");
       const [state] = await db.select().from(playerStates).where(eq(playerStates.playerId, player.playerId));
-      expect(state?.spiritStones).toBe(40);
+      expect(state?.spiritStones).toBe(49);
       const after = await db.select().from(playerItems).where(eq(playerItems.playerId, player.playerId));
       const bySlug3 = Object.fromEntries(after.filter((r) => r.isStack).map((r) => [r.itemSlug, r.quantity]));
-      expect(bySlug3.seed_lingcao).toBe(9);
+      expect(bySlug3.seed_lingcao).toBe(125);
     });
   });
   it("plants a seed, matures offline, and claims herb into bag", async () => {
@@ -165,10 +165,10 @@ describe("dongfu v1 garden + alchemy", () => {
         .select()
         .from(playerItems)
         .where(and(eq(playerItems.playerId, player.playerId), eq(playerItems.itemSlug, "seed_lingcao")));
-      // giveStack(2) + ensureProgress startingSeeds(8) - plant(1) = 9
-      expect(seedsLeft[0]?.quantity).toBe(9);
+      // giveStack(2) + ensureProgress startingSeeds(120) - plant(1) = 121
+      expect(seedsLeft[0]?.quantity).toBe(121);
 
-      const readyAt = new Date(plantedAt.getTime() + 60_000);
+      const readyAt = new Date(plantedAt.getTime() + 5_000);
       const beforeClaim = await withTransaction(db, (tx) => readDongfuState(tx, world, player.playerId, readyAt));
       expect(beforeClaim.plots[0]?.status).toBe("ready");
       expect(beforeClaim.claimable.plots).toBe(1);
@@ -282,7 +282,7 @@ describe("dongfu v1 garden + alchemy", () => {
       await withTransaction(db, (tx) =>
         plantSeed(tx, world, player.playerId, { slot: 0, seedSlug: "seed_lingcao" }, plantedAt),
       );
-      const readyAt = new Date(plantedAt.getTime() + 60_000);
+      const readyAt = new Date(plantedAt.getTime() + 5_000);
       await expect(
         withTransaction(db, (tx) => claimGarden(tx, world, player.playerId, {}, readyAt)),
       ).rejects.toMatchObject({ code: "BAG_FULL", message: "行囊已满，请先分解或使用" });
@@ -322,7 +322,20 @@ describe("dongfu v1 garden + alchemy", () => {
 });
 
 describe("dongfu servant allocation and facility upgrade", () => {
-  const freeServants = { ...DEFAULT_DONGFU, servantAssignLingshi: 0 };
+  /** 分配/缩时断言沿用旧节奏秒数，避免被 playable DEFAULT 的 5s/4s 冲掉。 */
+  const freeServants = {
+    ...DEFAULT_DONGFU,
+    servantAssignLingshi: 0,
+    startingServants: 4,
+    startingWood: 32,
+    seeds: [
+      { seedSlug: "seed_lingcao", herbSlug: "herb_lingcao", growSeconds: 60 },
+      { seedSlug: "seed_qingxin", herbSlug: "herb_qingxin", growSeconds: 120 },
+    ],
+    recipes: DEFAULT_DONGFU.recipes.map((r) =>
+      r.recipeSlug === "pill_cultivate" ? { ...r, craftSeconds: 30 } : r,
+    ),
+  };
   it("grants starter servants and wood, then shortens grow time when servants are assigned", async () => {
     await withDb(async (db) => {
       await seedWorld(db, freeServants);
@@ -376,7 +389,7 @@ describe("dongfu servant allocation and facility upgrade", () => {
 
   it("spends spirit wood to add a garden plot and an alchemy queue", async () => {
     await withDb(async (db) => {
-      await seedWorld(db, { ...DEFAULT_DONGFU, startingWood: 0, servantAssignLingshi: 0 });
+      await seedWorld(db, { ...freeServants, startingWood: 0 });
       const now = new Date("2026-10-29T08:20:00.000Z");
       const player = await registerPlayer(db, { username: "builder", password: "correct-horse", now });
       await giveStack(db, player.playerId, "herb_lingcao", 8, now);

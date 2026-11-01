@@ -121,15 +121,15 @@ describe("dongfu array daily complete", () => {
           now,
         ),
       );
-      expect(result.arrayXpGained).toBe(10);
-      expect(result.gained).toEqual([{ itemSlug: "array_shard", qty: 2 }]);
+      expect(result.arrayXpGained).toBe(20);
+      expect(result.gained).toEqual([{ itemSlug: "array_shard", qty: 5 }]);
       expect(result.dongfu.arrayDaily.clearedToday).toBe(true);
-      expect(result.dongfu.arrayDaily.arrayXp).toBe(10);
+      expect(result.dongfu.arrayDaily.arrayXp).toBe(20);
       expect(result.dongfu.arrayDaily.puzzle).toBeUndefined();
 
       const bags = await db.select().from(playerItems).where(eq(playerItems.playerId, player.playerId));
       const shard = bags.find((row) => row.itemSlug === "array_shard");
-      expect(shard?.quantity).toBe(2);
+      expect(shard?.quantity).toBe(5);
     });
   });
 

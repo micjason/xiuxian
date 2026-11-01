@@ -23,6 +23,7 @@ const DESIGN := Vector2(1080, 2340)
 const HS_GARDEN := Rect2(40, 820, 420, 480)
 const HS_ALCHEMY := Rect2(520, 620, 500, 540)
 const HS_ENHANCE := Rect2(280, 1220, 500, 420)
+const HS_ARRAY := Rect2(800, 1220, 240, 420)  # L0 第四卡「阵法」日游入口
 const HS_STONE := Rect2(40, 118, 300, 88)
 const HS_WOOD := Rect2(370, 118, 300, 88)
 const HS_SERVANT := Rect2(700, 118, 340, 88)

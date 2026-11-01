@@ -768,6 +768,12 @@ export const playerDongfu = pgTable("player_dongfu", {
   trialUsedOnDay: jsonb("trial_used_on_day").$type<{ dayKey: string; count: number; extraBought: number } | null>(),
   /** 丹道经验；P1 先落库，头衔 P2 再读。 */
   alchemyXp: integer("alchemy_xp").notNull().default(0),
+  /** 阵法日游累计经验。 */
+  arrayXp: integer("array_xp").notNull().default(0),
+  /** 最近一次接引成功日 YYYY-MM-DD Asia/Shanghai。 */
+  lastClearDay: text("last_clear_day"),
+  /** 最近一次通关关卡，审计用。 */
+  lastPuzzleId: text("last_puzzle_id"),
 });
 
 /** 洞府炼丹队列：claimed_at 为空表示未领取（占队列）；领取后保留记录。 */

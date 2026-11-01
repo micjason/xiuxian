@@ -7,6 +7,7 @@ const FACILITIES := [
 	{"id": "garden", "name": "药园", "sprite": "bd_field", "blurb": "种植种子，成熟领取草药"},
 	{"id": "alchemy", "name": "炼丹", "sprite": "bd_alchemy", "blurb": "消耗草药炼制丹药"},
 	{"id": "enhance", "name": "强化", "sprite": "", "blurb": "阵内强化已穿戴装备"},
+	{"id": "array", "name": "阵法", "sprite": "bd_array_formation", "blurb": "灵脉接引，日清一局"},
 ]
 
 ## 内容缺 displayName 时的中文名。界面禁止回落成 slug。
@@ -19,6 +20,7 @@ const ITEM_DISPLAY_FALLBACK := {
 	"pill_atk_temp": "攻击临时丹",
 	"pill_def_temp": "防御临时丹",
 	"wood_lingmu": "灵木",
+	"array_shard": "阵纹残片",
 }
 const UNKNOWN_ITEM_NAME := "未知物品"
 
@@ -119,7 +121,7 @@ static func build(state: Dictionary, content: Dictionary, now_unix: float = -1.0
 			"plotCount": 0,
 			"alchemyQueueLength": 0,
 			"claimable": {"plots": 0, "alchemy": 0},
-			"cards": _cards(false, {"plots": 0, "alchemy": 0}, [], [], {}),
+			"cards": _cards(false, {"plots": 0, "alchemy": 0}, [], [], {}, {}),
 			"plots": [],
 			"alchemy": [],
 			"recipes": [],
@@ -135,6 +137,7 @@ static func build(state: Dictionary, content: Dictionary, now_unix: float = -1.0
 			"timeScale": {"garden": 1.0, "alchemy": 1.0},
 			"upgrades": {},
 			"spiritStones": int(state.get("spiritStones", 0)),
+			"arrayDaily": {"enabled": false, "clearedToday": false, "dayKey": "", "arrayXp": 0, "puzzle": {}},
 			"hint": "洞府配置尚未发布" if cfg.is_empty() else "暂无洞府数据",
 		}
 	var data := dongfu as Dictionary
@@ -171,7 +174,7 @@ static func build(state: Dictionary, content: Dictionary, now_unix: float = -1.0
 			"plots": int(claimable.get("plots", 0)),
 			"alchemy": int(claimable.get("alchemy", 0)),
 		},
-		"cards": _cards(true, claimable, plots, alchemy, upgrades),
+		"cards": _cards(true, claimable, plots, alchemy, upgrades, data.get("arrayDaily", {})),
 		"plots": plots,
 		"alchemy": alchemy,
 		"recipes": _recipes_from_state(recipes_state, recipes_cfg, state, content, alchemy_factor),
@@ -192,11 +195,12 @@ static func build(state: Dictionary, content: Dictionary, now_unix: float = -1.0
 		"timeScale": {"garden": garden_factor, "alchemy": alchemy_factor},
 		"upgrades": upgrades,
 		"spiritStones": int(state.get("spiritStones", 0)),
+		"arrayDaily": _array_daily(data.get("arrayDaily", {})),
 		"hint": "",
 	}
 
 
-static func _cards(available: bool, claimable: Dictionary, plots: Array, alchemy: Array, upgrades: Dictionary) -> Array[Dictionary]:
+static func _cards(available: bool, claimable: Dictionary, plots: Array, alchemy: Array, upgrades: Dictionary, array_daily: Variant = {}) -> Array[Dictionary]:
 	var growing := 0
 	for plot in plots:
 		if str((plot as Dictionary).get("status", "")) == "growing":
@@ -231,6 +235,32 @@ static func _cards(available: bool, claimable: Dictionary, plots: Array, alchemy
 				subtitle = ("可领取 %d" % ready) if ready > 0 else (("炼制中 %d" % progress) if progress > 0 else "空闲可炼丹")
 				if can_upgrade:
 					subtitle = "%s · 可升级" % subtitle
+		elif id == "array":
+			var ad: Dictionary = array_daily if typeof(array_daily) == TYPE_DICTIONARY else {}
+			var enabled := bool(ad.get("enabled", false))
+			var cleared := bool(ad.get("clearedToday", false))
+			var xp := int(ad.get("arrayXp", 0))
+			if not enabled:
+				subtitle = "阵法结界未开"
+			elif cleared:
+				subtitle = "今日已接引 · 阵法经验 %d" % xp
+			else:
+				subtitle = "灵脉待接引"
+			ready = 1 if enabled and not cleared else 0
+			out.append({
+				"id": id,
+				"name": str(spec.name),
+				"sprite": str(spec.sprite),
+				"blurb": str(spec.blurb),
+				"subtitle": subtitle,
+				"claimable": ready,
+				"can_upgrade": false,
+				"in_progress": 0,
+				"available": available and enabled,
+				"cleared_today": cleared,
+				"array_xp": xp,
+			})
+			continue
 		out.append({
 			"id": id,
 			"name": str(spec.name),
@@ -445,3 +475,17 @@ static func _cost_line(costs: Array[Dictionary], spirit_stones: int) -> String:
 	if spirit_stones > 0:
 		parts.append("灵石 ×%d" % spirit_stones)
 	return "、".join(parts)
+
+static func _array_daily(raw: Variant) -> Dictionary:
+	if typeof(raw) != TYPE_DICTIONARY:
+		return {"enabled": false, "clearedToday": false, "dayKey": "", "arrayXp": 0, "puzzle": {}}
+	var ad := raw as Dictionary
+	var puzzle: Variant = ad.get("puzzle", {})
+	return {
+		"enabled": bool(ad.get("enabled", false)),
+		"clearedToday": bool(ad.get("clearedToday", false)),
+		"dayKey": str(ad.get("dayKey", "")),
+		"arrayXp": int(ad.get("arrayXp", 0)),
+		"puzzle": puzzle if typeof(puzzle) == TYPE_DICTIONARY else {},
+	}
+

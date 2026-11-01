@@ -2,7 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { AppError } from "../../shared/errors.js";
 import type { Db } from "../operations/record.js";
 import { withIdempotency } from "../loop/actions.js";
-import { allocateServants, buySeed, claimAlchemy, claimGarden, plantSeed, startAlchemy, trialAlchemy, upgradeFacility } from "./actions.js";
+import { allocateServants, buySeed, claimAlchemy, claimGarden, completeArrayDaily, plantSeed, startAlchemy, trialAlchemy, upgradeFacility } from "./actions.js";
 
 function idempotencyKey(header: string | string[] | undefined): string {
   const key = Array.isArray(header) ? header[0] : header;
@@ -115,6 +115,33 @@ export async function registerDongfuRoutes(
     }
     return withIdempotency(deps.db, playerId, idempotencyKey(request.headers["idempotency-key"]), "dongfu-alchemy-claim", deps.now(), (tx, world) =>
       claimAlchemy(tx, world, playerId, { jobId: body.jobId as string | undefined }, deps.now()),
+    );
+  });
+
+  app.post("/me/dongfu/array/complete", async (request) => {
+    const playerId = request.actor!.actorId;
+    const body = (request.body ?? {}) as { puzzleId?: unknown; dayKey?: unknown; rots?: unknown };
+    if (typeof body.puzzleId !== "string" || !body.puzzleId) {
+      throw new AppError("INVALID_INPUT", "请选择阵图");
+    }
+    return withIdempotency(
+      deps.db,
+      playerId,
+      idempotencyKey(request.headers["idempotency-key"]),
+      "dongfu-array-complete",
+      deps.now(),
+      (tx, world) =>
+        completeArrayDaily(
+          tx,
+          world,
+          playerId,
+          {
+            puzzleId: body.puzzleId as string,
+            dayKey: typeof body.dayKey === "string" ? body.dayKey : undefined,
+            rots: body.rots,
+          },
+          deps.now(),
+        ),
     );
   });
 }

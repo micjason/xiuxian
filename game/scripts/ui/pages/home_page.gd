@@ -1,7 +1,7 @@
 class_name HomePage
 extends VBoxContainer
 ## 修炼页（Q 版设计稿 q_cultivate）：莲台场景上打坐的主角（背景图自带莲台）、右侧圆形入口
-## 「历练」（副标 = 正在刷的关卡）/「功法」/「炼丹」（暂未开放）、左下宝箱「+收益」（暂未开放）；
+## 「历练」（副标 = 正在刷的关卡）/「功法」/「炼丹」（暂未开放）、左下宝箱「+收益」；
 ## 下半薄荷底板上：当前一波的关卡卡（进度 3 段、最近一次击杀、最近掉落）和挂机修炼条。
 ## 「突破」在底栏正中的大圆钮（外壳处理），这里不再放突破按钮。
 ## 只负责显示和发信号。波次进度由服务器每次心跳给出，两次心跳之间按本地经过的秒数推进（只影响显示）。
@@ -10,6 +10,8 @@ extends VBoxContainer
 signal breakthrough_requested
 signal adventure_requested
 signal page_requested(page: String)
+## 有未领取的离线收益报告时，点左下宝箱再打开离线弹窗（点空白关掉后的再领入口）。
+signal offline_requested
 
 const FEED_SECONDS := 9.0
 const FEED_MAX := 3
@@ -24,6 +26,10 @@ var _adventure_dot: Control
 var _skill: Button
 var _alchemy: Button
 var _chest: Button
+var _chest_dot: Control
+var _chest_bubble: PanelContainer
+var _chest_bubble_label: Label
+var _offline_pending := false
 var _wave_title: Label
 var _wave_text: Label
 var _wave_bar: QBar
@@ -141,7 +147,8 @@ func _place_side(root: Control, y: float) -> void:
 	_hero.add_child(root)
 
 
-## 左下宝箱 + 「+收益」气泡（挂机宝箱玩法还没有：展示，点了提示暂未开放）。
+## 左下宝箱 + 「+收益」气泡。
+## 有未 ack 的离线收益 → 红点 + 「待领取」，点开再弹离线窗；否则仍是「功能暂未开放」占位。
 func _build_chest() -> void:
 	_sprite("sprites/fx_chest_glow", Rect2(28, 1150, 220, 90), _hero, 0.9)
 	_chest = Button.new()
@@ -159,12 +166,40 @@ func _build_chest() -> void:
 	art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	art.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_chest.add_child(art)
-	LockedFeature.wire(_chest, "idle_chest")
+	_chest_dot = QKit.reddot(38)
+	_chest_dot.name = "OfflineDot"
+	_chest_dot.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	_chest_dot.offset_left = -48
+	_chest_dot.offset_right = -10
+	_chest_dot.offset_top = 8
+	_chest_dot.offset_bottom = 46
+	_chest_dot.visible = false
+	_chest.add_child(_chest_dot)
+	_chest.pressed.connect(_on_chest_pressed)
 	_hero.add_child(_chest)
-	var bubble := QKit.tag("+收益", "orange", 32, 20)
-	bubble.name = "ChestBubble"
-	bubble.position = Vector2(150, 986) - ORIGIN
-	_hero.add_child(bubble)
+	_chest_bubble = QKit.tag("+收益", "orange", 32, 20)
+	_chest_bubble.name = "ChestBubble"
+	_chest_bubble.position = Vector2(150, 986) - ORIGIN
+	_chest_bubble_label = _chest_bubble.get_child(0) as Label
+	_hero.add_child(_chest_bubble)
+
+
+func _on_chest_pressed() -> void:
+	if _offline_pending:
+		offline_requested.emit()
+	else:
+		LockedFeature.notify(_chest, "idle_chest")
+
+
+## 外壳在有/无 pending offlineReport 时调用：控制宝箱红点与气泡文案。
+func set_offline_pending(pending: bool) -> void:
+	_offline_pending = pending
+	if _chest_dot != null:
+		_chest_dot.visible = pending
+	if _chest_bubble_label != null:
+		_chest_bubble_label.text = "待领取" if pending else "+收益"
+	if _chest != null:
+		_chest.tooltip_text = "领取离线收益" if pending else "功能暂未开放"
 
 
 func _build_wave_card() -> void:
@@ -288,6 +323,8 @@ func bind(state: Dictionary, content: Dictionary, _next_realm_name: String) -> v
 	var view := BreakthroughView.build(state)
 	# 历练入口的红点：突破被首领卡住（修为够了、首领没打）时提醒去历练。
 	_adventure_dot.visible = bool(view.has_next) and bool(view.cultivation_ok) and not bool(view.boss_ok)
+	var report: Variant = state.get("offlineReport", null)
+	set_offline_pending(typeof(report) == TYPE_DICTIONARY and not (report as Dictionary).is_empty())
 	_shown_ratio = -1.0
 	_refresh_wave_bar()
 	_render_idle(state, content)

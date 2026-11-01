@@ -35,22 +35,3 @@ export function compactNumber(value: number | null | undefined): string {
   if (abs >= 10_000) return `${(value / 10_000).toFixed(2)} 万`;
   return Number.isInteger(value) ? String(value) : value.toFixed(2);
 }
-
-export function toCsv(rows: Record<string, unknown>[], columns: { key: string; label: string }[]): string {
-  const cell = (value: unknown): string => {
-    const text = value === null || value === undefined ? "" : typeof value === "object" ? JSON.stringify(value) : String(value);
-    return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
-  };
-  const head = columns.map((column) => cell(column.label)).join(",");
-  const body = rows.map((row) => columns.map((column) => cell(row[column.key])).join(","));
-  return `\uFEFF${[head, ...body].join("\n")}`;
-}
-
-export function downloadText(filename: string, text: string): void {
-  const url = URL.createObjectURL(new Blob([text], { type: "text/csv;charset=utf-8" }));
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  link.click();
-  URL.revokeObjectURL(url);
-}

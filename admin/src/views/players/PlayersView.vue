@@ -14,7 +14,6 @@
       <el-checkbox v-model="onlyBroken">只看战力算不出的</el-checkbox>
       <span class="count">共 {{ rows.length }} 名玩家<template v-if="filtered.length !== rows.length">，筛选出 {{ filtered.length }} 名</template></span>
       <span class="spacer" />
-      <el-button :disabled="filtered.length === 0" @click="exportCsv(filtered)">导出 CSV</el-button>
     </div>
 
     <DataState :loading="loading" :error="error" :has-data="rows.length > 0" empty-text="还没有玩家注册" @retry="reload">
@@ -115,7 +114,7 @@ import DataState from "../../components/DataState.vue";
 import GrantDrawer from "../../components/GrantDrawer.vue";
 import PageHeader from "../../components/PageHeader.vue";
 import { confirmDanger } from "../../composables/confirm";
-import { compactNumber, downloadText, formatTime, relativeTime, toCsv } from "../../composables/format";
+import { compactNumber, formatTime, relativeTime } from "../../composables/format";
 
 /** 属性合计里会混入浮点误差（119.06000000000002），只在显示时收成两位。 */
 function num(value: number): number {
@@ -253,19 +252,6 @@ async function clearPlayer(row: PlayerRow): Promise<void> {
   }
 }
 
-function exportCsv(list: PlayerRow[]): void {
-  const target = selection.value.length > 0 ? selection.value : list;
-  downloadText(
-    "玩家.csv",
-    toCsv(target as unknown as Record<string, unknown>[], [
-      { key: "username", label: "账号" },
-      { key: "realmName", label: "境界" },
-      { key: "cultivation", label: "修为" },
-      { key: "power", label: "战力" },
-      { key: "lastSettledAt", label: "上次结算" },
-    ]),
-  );
-}
 
 useRefetchOnActivate(reload);
 onMounted(reload);

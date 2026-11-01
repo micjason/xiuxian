@@ -21,7 +21,6 @@
       :remove-fn="remove"
       :drawer-size="560"
       :options-map="{ iconKey: iconOptions }"
-      export-name="物品"
       @reload="reload"
     />
   </div>

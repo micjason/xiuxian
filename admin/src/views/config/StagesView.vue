@@ -23,7 +23,6 @@
       :drawer-size="drawerSize"
       :drawer-subtitle="subtitleOf"
       :title-of="titleOf"
-      export-name="关卡"
       span-key="chapterName"
       @reload="reload"
     >

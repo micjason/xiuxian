@@ -12,7 +12,6 @@
       :columns="columns"
       :save-fn="save"
       :refresh-draft="false"
-      export-name="弹窗"
       @reload="reload"
     />
   </div>

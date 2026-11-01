@@ -16,14 +16,12 @@
       <span class="count">共 {{ rows.length }} 条<template v-if="filtering">，筛选出 {{ filtered.length }} 条</template></span>
       <span class="spacer" />
       <slot name="toolbar" />
-      <el-button :disabled="filtered.length === 0" @click="exportCsv(filtered)">导出 CSV</el-button>
       <el-button v-if="creatable" type="primary" @click="openCreate">新建{{ entityName }}</el-button>
     </div>
 
     <transition name="fade">
       <div v-if="selection.length > 0" class="bulk-bar" role="status">
         <span>已选 <strong>{{ selection.length }}</strong> 项</span>
-        <el-button size="small" @click="exportCsv(selection)">导出所选</el-button>
         <slot name="bulk" :selection="selection" />
         <el-button v-if="deletable" size="small" type="danger" plain @click="bulkRemove">批量删除</el-button>
         <el-button size="small" link @click="table?.clearSelection()">取消选择</el-button>
@@ -133,7 +131,6 @@ import { useRoute, useRouter } from "vue-router";
 import { confirmAction, confirmDanger } from "../composables/confirm";
 import { useCrumbTail } from "../composables/crumbs";
 import { refreshDraftStatus } from "../composables/draftStatus";
-import { downloadText, toCsv } from "../composables/format";
 import type { FieldOption, FormValues, Schema } from "../schema/types";
 import { validateSchema } from "../schema/validate";
 import DataState from "./DataState.vue";
@@ -180,7 +177,6 @@ const props = withDefaults(
     savedMessage?: string;
     /** 保存后是否刷新配置体检状态 */
     refreshDraft?: boolean;
-    exportName?: string;
     /** 抽屉标题后的灰色副标题，例如「炼气 · 第 1 关 · 无首领」 */
     drawerSubtitle?: (form: Row) => string;
     /** 抽屉标题，例如「编辑关卡：黑风岭·一」（不传按 entityName + 名称） */
@@ -188,7 +184,7 @@ const props = withDefaults(
     /** 按这一列分组：相邻同值的行合并成一格（例如关卡按章节）。只合并这一列，排序后不相邻就不合并。 */
     spanKey?: string;
   }>(),
-  { drawerSize: 800, pageSize: 20, savedMessage: "已保存，已生效", refreshDraft: true, exportName: "export" },
+  { drawerSize: 800, pageSize: 20, savedMessage: "已保存，已生效", refreshDraft: true },
 );
 const emit = defineEmits<{ reload: [] }>();
 
@@ -460,10 +456,6 @@ async function bulkRemove(): Promise<void> {
   }
 }
 
-function exportCsv(list: Row[]): void {
-  const columns = cols.value.map((column) => ({ key: column.key, label: column.label }));
-  downloadText(`${props.exportName}.csv`, toCsv(list, columns));
-}
 
 // 从全局搜索、体检待办、配置概览「编辑」跳转过来：?open=<id> 直接打开编辑抽屉。
 // 页面被 <keep-alive> 缓存，别的页签的 ?open= 也会触发这里，所以只认自己这一页的路径。

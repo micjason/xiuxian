@@ -1,10 +1,6 @@
 /**
  * 0069 阵法日游：array_shard + arrayDaily 配表 + player_dongfu 列。
-<<<<<<< HEAD
  * when 必须晚于 0068 trial（1800800000000）；本 PR 用 1800900000000。
-=======
- * when 必须晚于 0068 trial 槽位（1800800000000）；本 PR 用 1800900000000（0069）。
->>>>>>> c3776941 (fix(db): renumber array daily migration 0068→0069)
  */
 import { readFileSync } from "node:fs";
 import { eq, sql } from "drizzle-orm";
@@ -41,21 +37,13 @@ const BASE_DONGFU = {
 };
 
 describe("migration 0069 (dongfu array daily)", () => {
-<<<<<<< HEAD
   it("is journaled as 0069 after 0068 trial with when > 0068", () => {
-=======
-  it("is journaled as 0069 with when after 0068 slot", () => {
->>>>>>> c3776941 (fix(db): renumber array daily migration 0068→0069)
     const journal = JSON.parse(readFileSync(new URL("../../drizzle/meta/_journal.json", import.meta.url), "utf8")) as {
       entries: { tag: string; when: number; idx: number }[];
     };
     const row = journal.entries.find((entry) => entry.tag === "0069_dongfu_array_daily");
-<<<<<<< HEAD
     const prev = journal.entries.find((entry) => entry.tag === "0068_dongfu_trial_kuilei")
       ?? journal.entries.find((entry) => entry.tag === "0067_p1_dongfu_config_fields");
-=======
-    const prev = journal.entries.find((entry) => entry.tag === "0067_p1_dongfu_config_fields");
->>>>>>> c3776941 (fix(db): renumber array daily migration 0068→0069)
     expect(row).toBeTruthy();
     expect(prev).toBeTruthy();
     expect(row!.when).toBeGreaterThan(1800800000000);

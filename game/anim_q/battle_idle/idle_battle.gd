@@ -7,7 +7,8 @@ extends Node2D
 ##   击杀 → 最后一刀(剩余血量) → 怪物闪白溶解成灵气 → 灵气飞向主角 +「+N 修为」→ 掉落物弹出飞进背包 → 下一只刷出。
 ## 伤害数字：每只怪显示的所有数字加起来 = 这只怪的配置气血（最后一刀补齐余数）。
 ## 不显示暴击、不用大号数字（大号样式留给首领战大招）。
-## 飞剑、数字、掉落都在场景里预先建好。命中时额外实例化一套 skill_fx，播完自己释放，不平移主角。
+## 飞剑、数字、掉落都在场景里预先建好。命中时额外实例化一套 skill_fx，播完自己释放。
+## 主角出手：蓄势挤压 → 前送 + 命中顿帧（B1 手感），禁止纯平移滑步。
 
 signal hit_landed(damage: int)      ## 一刀命中（数字已飘出）
 signal monster_died                 ## 怪物溶解完毕
@@ -78,6 +79,9 @@ var _hit_t := 9.0
 var _hero_hit_t := 9.0
 var _hero_kick := 0.0
 var _hero_flash := 0.0
+var _hero_base_scale := Vector2.ONE
+var _hero_squash := 0.0   ## >0 压扁（命中），<0 拉长（蓄势）
+var _hitstop := 0.0       ## 命中顿帧剩余秒
 
 var _nums: Array[Node2D] = []
 var _num_labels: Array[Label] = []
@@ -191,10 +195,12 @@ func bind_hero(node: CanvasItem) -> void:
 		var c := node as Control
 		_hero_base_pos = c.position
 		_hero_base_rot = c.rotation
+		_hero_base_scale = c.scale
 		c.pivot_offset = Vector2(c.size.x * 0.5, c.size.y)
 	elif node is Node2D:
 		_hero_base_pos = (node as Node2D).position
 		_hero_base_rot = (node as Node2D).rotation
+		_hero_base_scale = (node as Node2D).scale
 
 
 ## 本次击杀要弹出的掉落物图标（只传真实掉落，例如 lastSettle.drops 对应的物品图标）；下一只怪死亡时弹出。
@@ -223,6 +229,11 @@ func sync(hp_ratio: float, kills: int) -> void:
 
 func _process(delta: float) -> void:
 	if not is_visible_in_tree():
+		return
+	# 顿帧：冻结飞剑/飘字等战场表现，仍刷新主角挤压回弹
+	if _hitstop > 0.0:
+		_hitstop = maxf(0.0, _hitstop - delta)
+		_update_hero(delta)
 		return
 	_t += delta
 	_cool -= delta
@@ -263,6 +274,7 @@ func _launch(dmg: int, final: bool) -> void:
 	_sword_trail.emitting = true
 	_cool = hit_interval
 	_hero_kick = 1.0
+	_hero_squash = -0.10  # 蓄势拉长，随后前送
 
 
 func _impact_point() -> Vector2:
@@ -309,6 +321,8 @@ func _on_sword_impact() -> void:
 	_show_number(_sw_dmg, _impact_point() + Vector2(randf_range(30, 90), -30))
 	hit_landed.emit(_sw_dmg)
 	_play_auto_skill_fx()
+	_hitstop = 2.0 / 60.0  # 约 2 帧顿帧
+	_hero_squash = 0.14    # 命中压扁
 	_swings += 1
 	if final:
 		_kill_pending = false
@@ -525,26 +539,40 @@ func _update_drops(delta: float) -> void:
 			_drop_t[i] = -1.0
 
 
-# ---------------------------------------------------------------- 主角：出手前倾 / 受击闪白
+# ---------------------------------------------------------------- 主角：蓄势挤压 → 前送 / 命中压扁 / 受击闪白（B1，非纯平移）
 func _update_hero(delta: float) -> void:
 	_hero_kick = move_toward(_hero_kick, 0.0, delta / 0.3)
 	_hero_flash = move_toward(_hero_flash, 0.0, delta / 0.25)
+	_hero_squash = move_toward(_hero_squash, 0.0, delta * 2.8)
 	if hero == null:
 		return
 	var k := sin(_hero_kick * PI) if _hero_kick > 0.0 else 0.0
-	var off := Vector2(10.0 * k, 0)
-	var rot := 0.06 * k
+	# 前半段略抬起再落下，配合挤压，避免整人水平滑步
+	var off := Vector2(8.0 * k, -5.0 * k)
+	var rot := 0.05 * k
+	var sq := _hero_squash
+	# 蓄势（负）：竖向拉长；命中（正）：横向压扁。钳制在规范 0.96～1.04 附近略放宽到 ±0.14
+	var sx := 1.0 + clampf(sq, -0.14, 0.14)
+	var sy := 1.0 - clampf(sq, -0.14, 0.14)
+	if k > 0.0:
+		sx *= 1.0 + 0.04 * k
+		sy *= 1.0 - 0.03 * k
 	if _hero_hit.visible:
 		var q := _hero_hit_t / 0.25
 		off += Vector2(-12.0 * sin(PI * minf(q, 1.0)), 0)
 		rot -= 0.05 * sin(PI * minf(q, 1.0))
+		sx *= 1.0 + 0.04 * sin(PI * minf(q, 1.0))
+		sy *= 1.0 - 0.05 * sin(PI * minf(q, 1.0))
 	var f := 1.0 + _hero_flash * 0.45
+	var sc := Vector2(_hero_base_scale.x * sx, _hero_base_scale.y * sy)
 	if hero is Control:
 		(hero as Control).position = _hero_base_pos + off
 		(hero as Control).rotation = _hero_base_rot + rot
+		(hero as Control).scale = sc
 	elif hero is Node2D:
 		(hero as Node2D).position = _hero_base_pos + off
 		(hero as Node2D).rotation = _hero_base_rot + rot
+		(hero as Node2D).scale = sc
 	hero.modulate = Color(f, f * 0.96, f * 0.96, 1.0)
 
 

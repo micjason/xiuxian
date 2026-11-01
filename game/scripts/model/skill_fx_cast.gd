@@ -43,7 +43,7 @@ static func resolve(event: Dictionary, skills: Array = [], running: Array = []) 
 	return _pack({"fxType": "slash"}, kind)
 
 
-## 历练自动出手：有运转中的攻击技能就播它的特效，否则普攻斩。
+## 历练自动出手：优先运转攻法的 fxType；没有攻法则用带表现类型的运转技能；再没有才普攻斩。
 static func resolve_auto(skills: Array = [], running: Array = []) -> Dictionary:
 	var skill := pick_combat_skill(skills, running, false)
 	if skill.is_empty():
@@ -51,14 +51,16 @@ static func resolve_auto(skills: Array = [], running: Array = []) -> Dictionary:
 	return _pack(skill, "hit")
 
 
-## for_ult 时，没有攻击技能就退回任意一门正在运转的技能。普攻挑选只认 role=attack。
+## 优先运转中的攻法（role=attack）。没有攻法时：首领自动技能退回任意运转技能；
+## 历练命中则退回带 fxType 的运转技能（再退任意运转），避免永远只播 slash，让火/雷等表现真进战斗。
 static func pick_combat_skill(skills: Array, running: Array, for_ult: bool) -> Dictionary:
 	var by_slug := {}
 	for row in skills:
 		if typeof(row) == TYPE_DICTIONARY:
 			var def: Dictionary = row
 			by_slug[str(def.get("slug", ""))] = def
-	var fallback: Dictionary = {}
+	var any_running: Dictionary = {}
+	var fx_running: Dictionary = {}
 	for row in running:
 		if typeof(row) != TYPE_DICTIONARY:
 			continue
@@ -71,9 +73,16 @@ static func pick_combat_skill(skills: Array, running: Array, for_ult: bool) -> D
 			continue
 		if str(def.get("role", "")) == "attack":
 			return def
-		if for_ult and fallback.is_empty():
-			fallback = def
-	return fallback if for_ult else {}
+		if any_running.is_empty():
+			any_running = def
+		var fx_name := str(def.get("fxType", def.get("fx_type", ""))).strip_edges()
+		if fx_running.is_empty() and not fx_name.is_empty():
+			fx_running = def
+	if for_ult:
+		return any_running
+	if not fx_running.is_empty():
+		return fx_running
+	return {}
 
 
 static func _explicit(event: Dictionary, skills: Array) -> Dictionary:

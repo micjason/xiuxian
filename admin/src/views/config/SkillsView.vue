@@ -21,7 +21,6 @@
           :new-row="newSkill"
           :save-fn="saveSkill"
           :remove-fn="removeSkill"
-          export-name="技能"
           @reload="reload"
         >
           <template #cell-categoryId="{ row }">
@@ -52,7 +51,6 @@
           :remove-fn="removeCategory"
           :delete-hint="categoryHint"
           :drawer-size="520"
-          export-name="技能分类"
           @reload="reload"
         />
       </el-tab-pane>

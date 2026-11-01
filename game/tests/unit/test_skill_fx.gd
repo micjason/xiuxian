@@ -100,6 +100,35 @@ func test_auto_cast_plays_each_real_kind_on_its_anchor() -> void:
 	assert_false(str(blocked.text).contains("大招"))
 
 
+func test_resolve_auto_uses_running_fx_when_no_attack_role() -> void:
+	# 没有攻法运转时，仍应用带 fxType 的心法/身法，避免历练永远 slash。
+	var heart := [{"slug": "skill_qingyuan", "fxType": "wind", "role": "heart", "enabled": true, "castMode": "auto"}]
+	var running := [{"skillSlug": "skill_qingyuan", "runningSlot": "heart"}]
+	var cast: Dictionary = SkillFxCast.resolve_auto(heart, running)
+	assert_eq(str(cast.get("playable", "")), "wind")
+	var empty: Dictionary = SkillFxCast.resolve_auto(heart, [])
+	assert_eq(str(empty.get("playable", "")), "slash")
+	var attack := [{"slug": "skill_chiyan", "fxType": "fire", "role": "attack", "enabled": true}, {"slug": "skill_qingyuan", "fxType": "wind", "role": "heart", "enabled": true}]
+	var both := [{"skillSlug": "skill_qingyuan", "runningSlot": "heart"}, {"skillSlug": "skill_chiyan", "runningSlot": "run_1"}]
+	var prefer: Dictionary = SkillFxCast.resolve_auto(attack, both)
+	assert_eq(str(prefer.get("playable", "")), "fire", "攻法优先于心法")
+
+
+func test_idle_impact_sets_b1_squash_and_hitstop() -> void:
+	var idle := (load("res://anim_q/battle_idle/idle_battle.tscn") as PackedScene).instantiate() as Node2D
+	add_child_autofree(idle)
+	await get_tree().process_frame
+	idle.set_process(false)
+	idle.set("_sw_dmg", 3)
+	idle.set("_sw_final", false)
+	idle.call("_on_sword_impact")
+	assert_gt(float(idle.get("_hitstop")), 0.0, "命中后顿帧")
+	assert_gt(float(idle.get("_hero_squash")), 0.0, "命中后压扁")
+	var src := FileAccess.get_file_as_string("res://anim_q/battle_idle/idle_battle.gd")
+	assert_true(src.contains("_hero_squash"), "挂机主角有挤压")
+	assert_true(src.contains("_hitstop"), "挂机有顿帧")
+
+
 func test_boss_and_idle_auto_cast_play_the_bound_skill_fx() -> void:
 	var boss := (load("res://anim_q/battle_boss/boss_battle.tscn") as PackedScene).instantiate() as Node2D
 	add_child_autofree(boss)

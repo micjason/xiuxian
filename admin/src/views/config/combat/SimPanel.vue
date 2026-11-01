@@ -22,7 +22,6 @@
       :remove-fn="remove"
       :drawer-size="700"
       :refresh-draft="false"
-      export-name="试炼人偶"
       @reload="reload"
     >
       <template #toolbar>

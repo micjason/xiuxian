@@ -20,7 +20,6 @@
       <el-button type="primary" :loading="loading" @click="load">查询</el-button>
       <el-button @click="reset">重置</el-button>
       <span class="spacer" />
-      <el-button :disabled="shown.length === 0" @click="exportCsv">导出 CSV</el-button>
     </div>
     <DataState :loading="loading" :error="error" :has-data="shown.length > 0" empty-text="这个时间段没有符合条件的记录" @retry="load">
       <el-table :data="paged" row-key="key" size="default" class="grid">
@@ -50,7 +49,7 @@ import { useRoute, useRouter } from "vue-router";
 import { api } from "../../api";
 import DataState from "../../components/DataState.vue";
 import PageHeader from "../../components/PageHeader.vue";
-import { downloadText, formatTime, toCsv } from "../../composables/format";
+import { formatTime } from "../../composables/format";
 import { actionText } from "../../composables/lookups";
 import GrantLog from "./GrantLog.vue";
 
@@ -115,19 +114,6 @@ function viewPlayer(username: string): void {
   void router.push({ path: "/players", query: { open: username } });
 }
 
-function exportCsv(): void {
-  downloadText(
-    "操作日志.csv",
-    toCsv(shown.value.map((row) => ({ ...row, actionText: actionText(row.action), summaryText: JSON.stringify(row.summary) })) as unknown as Record<string, unknown>[], [
-      { key: "at", label: "时间" },
-      { key: "actorName", label: "谁" },
-      { key: "actionText", label: "动作" },
-      { key: "result", label: "结果" },
-      { key: "reason", label: "原因" },
-      { key: "summaryText", label: "前后变化" },
-    ]),
-  );
-}
 
 watch(
   () => route.query.tab,

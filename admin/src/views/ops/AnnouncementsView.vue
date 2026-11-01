@@ -16,7 +16,6 @@
       :save-fn="save"
       :refresh-draft="false"
       saved-message="已保存，玩家下次登录可见"
-      export-name="公告"
       @reload="reload"
     />
   </div>

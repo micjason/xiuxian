@@ -9,9 +9,9 @@ describe("dongfuConfigFromInput", () => {
     expect(parsed.arrayDaily.enabled).toBe(true);
     expect(parsed.arrayDaily.puzzles.map((p) => p.puzzleId)).toEqual(["vein_01", "vein_02", "vein_03"]);
     expect(parsed.seeds).toHaveLength(2);
-    expect(parsed.recipes).toHaveLength(7);
-    expect(parsed.servantAssignLingshi).toBe(5);
-    expect(parsed.recipes.filter((r) => r.discoverMode === "hidden")).toHaveLength(4);
+    expect(parsed.recipes).toHaveLength(13);
+    expect(parsed.servantAssignLingshi).toBe(0);
+    expect(parsed.recipes.filter((r) => r.discoverMode === "hidden")).toHaveLength(10);
     expect(dongfuReferencedItemSlugs(parsed)).toEqual(
       expect.arrayContaining(["seed_lingcao", "herb_lingcao", "pill_cultivate", "herb_qingxin", "array_shard"]),
     );
@@ -43,11 +43,11 @@ describe("dongfuConfigFromInput", () => {
       seeds: DEFAULT_DONGFU.seeds,
       recipes: DEFAULT_DONGFU.recipes,
     });
-    expect(parsed.startingServants).toBe(4);
-    expect(parsed.startingWood).toBe(32);
+    expect(parsed.startingServants).toBe(8);
+    expect(parsed.startingWood).toBe(200);
     expect(parsed.startingSeeds).toEqual([
-      { itemSlug: "seed_lingcao", quantity: 8 },
-      { itemSlug: "seed_qingxin", quantity: 4 },
+      { itemSlug: "seed_lingcao", quantity: 120 },
+      { itemSlug: "seed_qingxin", quantity: 60 },
     ]);
     expect(parsed.seedOffers).toHaveLength(2);
     expect(parsed.gardenReducePercent).toBe(5);
@@ -103,7 +103,7 @@ describe("dongfuConfigFromInput", () => {
     const parsed = dongfuConfigFromInput(raw);
     expect(parsed.recipes[0]?.discoverMode).toBe("starter");
     expect(parsed.alchemyTrialSlotCount).toBe(3);
-    expect(parsed.alchemyTrialDailyLimit).toBe(20);
+    expect(parsed.alchemyTrialDailyLimit).toBe(99);
     expect(parsed.alchemyHintKeys).toEqual(["clash", "missing_main", "ratio_off", "near"]);
     expect(parsed.gardenAuraMax).toBe(5);
     expect(parsed.gardenAgeToAncientSeconds).toBe(86400);

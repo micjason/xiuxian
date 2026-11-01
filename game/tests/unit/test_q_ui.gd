@@ -101,7 +101,7 @@ func test_locked_buttons_all_say_feature_not_open() -> void:
 	assert_eq(toast.text(), LockedFeature.TEXT)
 	var expected := {
 		"_top_bar": ["mail", "currency_gourd"],
-		"_home_page": ["alchemy", "idle_chest"],
+		"_home_page": ["alchemy"],  # 宝箱：有 pending 离线收益时当再领入口，不再常驻 LockedFeature
 		"_skill_page": ["skill_upgrade"],
 		# 洞府 v1 已换成药园/炼丹/强化入口，不再挂 LockedFeature
 		"_bag_page": ["bag_sell"],
@@ -132,6 +132,26 @@ func test_offline_claim_still_acknowledges_but_double_only_toasts() -> void:
 	assert_signal_emitted(popup, "acknowledged")
 	await wait_seconds(0.35)  # 关闭动画 0.22s 后隐藏
 	assert_false(popup.visible, "领取后关掉弹窗")
+
+
+## 点空白关掉 = dismiss 不 ack；修炼页宝箱可再开；一键领取才清报告。
+func test_offline_dismiss_keeps_report_and_chest_reopens() -> void:
+	var scene := await _boot("ready")
+	var popup := scene.get("_offline_popup") as OfflinePopup
+	var home := scene.get("_home_page") as HomePage
+	assert_true(popup.visible)
+	var report_id := str((scene.get("_state") as Dictionary).offlineReport.id)
+	popup.close_button().pressed.emit()  # 右上角关闭 = dismiss，不 ack
+	await wait_seconds(0.35)
+	assert_false(popup.visible, "点关闭收起")
+	assert_not_null((scene.get("_state") as Dictionary).get("offlineReport"), "未 ack：报告仍在")
+	var dot := home.find_child("OfflineDot", true, false) as Control
+	assert_not_null(dot)
+	assert_true(dot.visible, "宝箱红点")
+	home.chest_button().pressed.emit()
+	await get_tree().process_frame
+	assert_true(popup.visible, "宝箱再开离线弹窗")
+	assert_eq(popup.report_id, report_id)
 
 
 func test_offline_popup_shows_opened_chest() -> void:

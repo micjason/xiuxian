@@ -2,12 +2,14 @@ class_name OfflinePopup
 extends Control
 ## 离线收益弹窗（极简）：摘要（时长 / 修为 / 件数）+ 吸底「一键领取」。
 ## 不要滚动条、不要装备/战利品明细列表。修为在服务器早已入账：
-## 「一键领取」（以及右上角关闭、点空白处）只是告诉服务器“已读”
-## （POST /me/offline-reports/:id/ack）并关闭。「双倍领取」是看广告翻倍，还没有：点了提示「功能暂未开放」。
+## 「一键领取」才 ack（POST /me/offline-reports/:id/ack）。
+## 右上角关闭 / 点空白处 = 仅收起，不 ack；报告仍在，修炼页宝箱可再开。
+## 「双倍领取」是看广告翻倍，还没有：点了提示「功能暂未开放」。
 ## 掉落公式 / 入账 / 服务端 API 不动，只改客户端布局。
 ## 动画：弹窗 ui_popup open/close；宝箱 chest_open；「一键领取」用 ui_button_bounce。
 
 signal acknowledged(report_id: String)
+signal dismissed(report_id: String)
 
 const PANEL_WIDTH := 940.0
 ## 极简内容：宝箱 + 摘要 + 修为数字 + 吸底按钮，框体比样式改版矮一截。
@@ -58,8 +60,8 @@ func _init() -> void:
 	_dim = dim
 	dim.mouse_filter = Control.MOUSE_FILTER_STOP
 	dim.gui_input.connect(func(event: InputEvent) -> void:
-		if event is InputEventMouseButton and (event as InputEventMouseButton).pressed and _button != null and not _button.disabled:
-			_on_claim())
+		if event is InputEventMouseButton and (event as InputEventMouseButton).pressed:
+			_on_dismiss())
 	_panel = PanelContainer.new()
 	_panel.name = "PopupFrame"
 	_panel.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -86,9 +88,9 @@ func _init() -> void:
 			_close.add_theme_stylebox_override(key, StyleBoxEmpty.new())
 	if close_tex == null:
 		_close.text = "✕"
-	_close.pressed.connect(_on_claim)
+	_close.pressed.connect(_on_dismiss)
 	_host.add_child(_close)
-	var pill := QKit.tag("点击空白处关闭", "dark", 32, 30)
+	var pill := QKit.tag("点击空白关闭 · 宝箱可再开", "dark", 28, 24)
 	pill.name = "FootPill"
 	_foot = pill.get_child(0) as Label
 	_foot.name = "FootHint"
@@ -334,6 +336,15 @@ func _buttons() -> Control:
 	QFx.bounce(_double)
 	row.add_child(_double)
 	return foot
+
+
+func _on_dismiss() -> void:
+	if not visible:
+		return
+	# 收起不 ack：一键领取才确认已读；点空白 / 右上角关掉后可从修炼页宝箱再开。
+	if _button != null and _button.disabled:
+		return
+	dismissed.emit(report_id)
 
 
 func _on_claim() -> void:

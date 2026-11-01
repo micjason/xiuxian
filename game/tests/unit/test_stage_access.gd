@@ -288,3 +288,24 @@ func test_boss_preview_texture_uses_the_unified_boss_sprites() -> void:
 	assert_not_null(card.find_child("BadgeChief", true, false))
 	assert_not_null(card.find_child("BossPlate", true, false))
 	card.free()
+
+
+## 成鹏⑤ / ADVENTURE_BOSS_ROW_CLIP：三态固定行高 + shell.clip_contents，防内容撑破框。
+func test_stage_card_fixed_height_and_clips() -> void:
+	var scene := await _boot("ready")
+	scene.call("_show_page", "adventure")
+	await get_tree().process_frame
+	var page := scene.get("_stage_page") as StagePage
+	var list := page.find_child("StageCards", true, false) as Node
+	assert_not_null(list)
+	var heights := {}
+	for child in list.get_children():
+		if not str(child.name).begins_with("Stage_"):
+			continue
+		var shell := child as Control
+		assert_true(shell.clip_contents, "%s 必须 clip_contents" % shell.name)
+		heights[shell.name] = shell.custom_minimum_size.y
+	assert_gt(heights.size(), 0, "至少有一张关卡卡")
+	for name in heights:
+		var h: float = heights[name]
+		assert_true(is_equal_approx(h, 220.0) or is_equal_approx(h, 236.0) or is_equal_approx(h, 300.0), "%s 行高应为 220/236/300，实为 %s" % [name, h])

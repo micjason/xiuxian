@@ -257,6 +257,7 @@ func _build_shell() -> void:
 	_home_page.breakthrough_requested.connect(_open_breakthrough)
 	_home_page.adventure_requested.connect(func() -> void: _show_page(PAGE_ADVENTURE))
 	_home_page.page_requested.connect(_show_page)
+	_home_page.offline_requested.connect(_reopen_offline)
 	_stage_page = StagePage.new()
 	_stage_page.stage_selected.connect(_select_stage)
 	_stage_page.challenge_requested.connect(_open_battle)
@@ -352,6 +353,7 @@ func _build_shell() -> void:
 	_bag_page.detail_popup = _item_popup
 	_offline_popup = OfflinePopup.new()
 	_offline_popup.acknowledged.connect(_on_offline_ack)
+	_offline_popup.dismissed.connect(_on_offline_dismissed)
 	_offline_popup.z_index = Z_POPUP
 	add_child(_offline_popup)
 	_success_popup = BreakthroughSuccess.new()
@@ -745,8 +747,9 @@ func _select_stage(slug: String) -> void:
 
 # ───────── 离线收益弹窗 ─────────
 
-## state.offlineReport 有内容（服务器给了且没确认过）就弹窗，同一份只弹一次。
-## 更新门控：检查中 / 更新弹窗开着 / 用户已选更新 → 本次不弹。
+## state.offlineReport 有内容（服务器给了且没确认过）就弹窗，同一份自动只弹一次。
+## 更新门控：检查中 / 更新弹窗开着 / 用户已选更新 → 本次不弹（两窗禁止叠）。
+## 点空白关掉后 _offline_shown_id 仍记着 → 不自动再弹；修炼页宝箱可 _reopen_offline。
 func _maybe_show_offline() -> void:
 	if _defer_offline_for_update or _update_gate_pending or _update_prompt_showing:
 		return
@@ -758,6 +761,11 @@ func _maybe_show_offline() -> void:
 	var id := str((report as Dictionary).get("id", ""))
 	if id.is_empty() or id == _offline_shown_id or _offline_popup.visible:
 		return
+	_show_offline_report(report as Dictionary)
+
+
+func _show_offline_report(report: Dictionary) -> void:
+	var id := str(report.get("id", ""))
 	var bonus_bp := float((_state.get("cultivationRate", {}) as Dictionary).get("bonusBp", 0)) if typeof(_state.get("cultivationRate", null)) == TYPE_DICTIONARY else 0.0
 	var power := float(_state.get("power", -1))
 	var view := OfflineView.build(report, SkillView.running_name(_state, _content), bonus_bp / 100.0, _reward_name, power)
@@ -765,9 +773,40 @@ func _maybe_show_offline() -> void:
 		return
 	_offline_shown_id = id
 	_offline_popup.show_report(view)
+	_home_page.set_offline_pending(true)
 
 
-## 点「领取」（或关闭 / 点空白处）：告诉服务器已读（修为早已入账），成功才关；失败留着可再点。
+## 点空白 / 右上角：只收起，不 ack；报告留着，宝箱红点可再开。
+func _on_offline_dismissed(_report_id: String) -> void:
+	if _offline_popup.visible:
+		_offline_popup.close_popup()
+	_home_page.set_offline_pending(_has_pending_offline())
+	_maybe_show_notice.call_deferred()
+
+
+## 修炼页宝箱：把未 ack 的离线收益再弹出来（更新门控期间不抢）。
+func _reopen_offline() -> void:
+	if _defer_offline_for_update or _update_gate_pending or _update_prompt_showing:
+		_toast.say("请先处理版本更新", false)
+		return
+	if _popup != null and _popup.visible:
+		return
+	if _offline_popup.visible:
+		return
+	var report: Variant = _state.get("offlineReport", null)
+	if typeof(report) != TYPE_DICTIONARY or (report as Dictionary).is_empty():
+		_home_page.set_offline_pending(false)
+		return
+	_offline_shown_id = ""  # 允许同一份再开
+	_show_offline_report(report as Dictionary)
+
+
+func _has_pending_offline() -> bool:
+	var report: Variant = _state.get("offlineReport", null)
+	return typeof(report) == TYPE_DICTIONARY and not (report as Dictionary).is_empty()
+
+
+## 点「一键领取」：告诉服务器已读（修为早已入账），成功才关；失败留着可再点。
 func _on_offline_ack(report_id: String) -> void:
 	var result := await _post("/api/v1/me/offline-reports/%s/ack" % report_id.uri_encode())
 	if int(result.get("code", 0)) != 200:
@@ -778,6 +817,7 @@ func _on_offline_ack(report_id: String) -> void:
 	_maybe_show_notice.call_deferred()
 	if _state.get("offlineReport", null) != null and str((_state.get("offlineReport", {}) as Dictionary).get("id", "")) == report_id:
 		_state["offlineReport"] = null
+	_home_page.set_offline_pending(false)
 
 
 # ───────── 后台公告 ─────────

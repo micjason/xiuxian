@@ -795,9 +795,9 @@ func _daily_total_bar() -> Control:
 	return bar.panel
 
 
-## 竖排关卡卡（第四批统一首领样式，SPEC_Q §17.10，替换 §14.5 的精英 / 章末两套）：小怪头像（挂机）▶ 首领头像
-## （boss_* + ring_chief_204 + badge_chief + plate_chief + 光圈）+ 关卡名、首领名（白字红描边）、推荐战力、
-## 解锁条件（✓/✗）、按钮（挑战 / 再战 / 未解锁）。可挑战 / 选中的卡金底，未解锁灰底；选中的卡展开首通 / 重复奖励。
+## 竖排关卡卡（第四批统一首领样式，SPEC_Q §17.10 + ADVENTURE_BOSS_ROW_CLIP）：
+## 固定行高三态 220/300/236 + shell.clip_contents；关卡名/首领名/条件 ellipsis；奖励≤3 格。
+## 皇冠/aura 允许越上沿 ≤24px（头像在 clip 壳内靠顶 padding 承接）。
 func _stage_card(card_data: Dictionary, power: int) -> Control:
 	var slug := str(card_data.slug)
 	var chosen := slug == selected
@@ -809,11 +809,15 @@ func _stage_card(card_data: Dictionary, power: int) -> Control:
 	var shell := Button.new()
 	shell.name = "Stage_%s" % slug
 	shell.focus_mode = Control.FOCUS_NONE
+	shell.clip_contents = true
 	var box: StyleBox = QKit.cut_box(cut, 22, 18) if ArtLib.qui(cut) != null else QSkin.custom(Color("ffe9b8") if chosen else UiTokens.Q_CARD, UiTokens.Q_COCOA, 4, 28, 6, 22, 18)
 	for state in ["normal", "hover", "pressed", "disabled"]:
 		shell.add_theme_stylebox_override(state, box)
 	shell.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
 	shell.pressed.connect(func() -> void: stage_selected.emit(slug))
+	# 规范固定行高：已通关 220 / 可挑战·选中（含奖励）300 / 未解锁 236。
+	var height := 236.0 if not playable else (220.0 if bool(card_data.cleared) and not chosen else 300.0)
+	shell.custom_minimum_size = Vector2(0, height)
 	var margin := MarginContainer.new()
 	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -822,13 +826,15 @@ func _stage_card(card_data: Dictionary, power: int) -> Control:
 	for side in ["top", "bottom"]:
 		margin.add_theme_constant_override("margin_" + side, 18)
 	shell.add_child(margin)
-	var outer := UiKit.vbox(10)
+	var outer := UiKit.vbox(8)
 	outer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	outer.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	margin.add_child(outer)
 	var row := UiKit.hbox(12)
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	outer.add_child(row)
-	# 头像：小怪（挂机）▶ 首领
+	# 头像：小怪（挂机）▶ 首领；可挑战/选中用 178，其余 150。
 	var mon := QKit.portrait(str(card_data.monster_name), 96, UiTokens.Q_MINT, not playable, str(card_data.monster_art))
 	mon.name = "MonsterPortrait"
 	if idle_here:
@@ -838,27 +844,34 @@ func _stage_card(card_data: Dictionary, power: int) -> Control:
 		mon.add_child(tag)
 	row.add_child(mon)
 	row.add_child(QKit.title("▶", 30, UiTokens.Q_ORANGE_DARK))
-	var boss := boss_portrait(str(card_data.boss_art), str(card_data.boss_name), 178 if current else 150, not playable, str(_chapter_fx.get(slug, "default")))
+	var boss_d := 178 if (current or chosen) else 150
+	var boss := boss_portrait(str(card_data.boss_art), str(card_data.boss_name), boss_d, not playable, str(_chapter_fx.get(slug, "default")))
 	if bool(card_data.cleared):
 		var ok := QKit.check(true, 44)
 		ok.name = "ClearedCheck"
 		ok.position = Vector2(0, 0)
 		boss.add_child(ok)
 	row.add_child(boss)
-	# 文字列
+	# 文字列（安全区 ≈420–460）：必须框内；长文案 ellipsis。
 	var info := UiKit.vbox(4)
+	info.name = "InfoSafe"
 	info.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	info.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	info.clip_contents = true
 	row.add_child(info)
 	var head := UiKit.hbox(8)
 	head.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	info.add_child(head)
 	var title_colour := UiTokens.Q_ORANGE_DARK if current else (Color("4a3a33") if playable else UiTokens.TEXT_MUTED)
 	var title := QKit.title(str(card_data.name), 40, title_colour)
-	title.clip_text = true
+	title.name = "StageName"
+	_ellipsis(title)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(title)
-	if idle_here and playable:
+	# 「挂机中」chip 与关卡名同行；可挑战/选中头像更大、文字列更窄 → 一律藏，
+	# 挂机态已在小怪头像角标「挂机」体现（规范：放不下则藏 chip）。
+	if idle_here and playable and not (current or chosen) and str(card_data.name).length() <= 6:
 		var idle_chip := QKit.tag("挂机中 ···", "mint", 22, 10)
 		idle_chip.name = "IdleChip"
 		head.add_child(idle_chip)
@@ -867,38 +880,47 @@ func _stage_card(card_data: Dictionary, power: int) -> Control:
 	info.add_child(name_row)
 	var boss_name := QKit.outlined(str(card_data.boss_name), 34, UiTokens.Q_WHITE if playable else Color("efe4d6"), Color("c02e2a") if playable else Color("9a8b7e"), 7)
 	boss_name.name = "BossName"
-	boss_name.clip_text = true
+	_ellipsis(boss_name)
 	boss_name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	name_row.add_child(boss_name)
-	# 第四批：次数是全局的，卡片上不再显示「今日 n/总」（只在列表顶上 DailyTotalBar 显示一次）
 	var recommended := int(card_data.recommended)
 	if recommended > 0:
 		var status := power_status(power, recommended)
 		var colour := UiTokens.Q_MINT_DARK if str(status.level) == "ok" else (UiTokens.Q_ORANGE_DARK if str(status.level) == "warn" else UiTokens.Q_RED)
 		var line := UiKit.label("推荐战力 %d %s" % [recommended, str(status.symbol)], 28, colour if playable and not bool(card_data.cleared) else UiTokens.TEXT_MUTED)
 		line.name = "PowerLine"
+		_ellipsis(line)
 		info.add_child(line)
 	if not playable:
+		var shown := 0
 		for need in card_data.needs_lines:
+			if shown >= 2:
+				break
 			var need_row := UiKit.hbox(6)
 			need_row.name = "Need"
 			need_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			need_row.add_child(QKit.check(bool(need.ok), 32))
-			need_row.add_child(UiKit.label(str(need.text), 26, UiTokens.Q_MINT_DARK if bool(need.ok) else UiTokens.Q_RED))
+			var need_label := UiKit.label(str(need.text), 26, UiTokens.Q_MINT_DARK if bool(need.ok) else UiTokens.Q_RED)
+			need_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			_ellipsis(need_label)
+			need_row.add_child(need_label)
 			info.add_child(need_row)
-	# 右列：状态 + 次数 + 按钮
+			shown += 1
+	# 右列：状态 + 按钮（固定宽，不让文字列挤进来）
 	var side := UiKit.vbox(6)
 	side.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	side.alignment = BoxContainer.ALIGNMENT_CENTER
+	side.custom_minimum_size = Vector2(200, 0)
 	row.add_child(side)
 	if bool(card_data.cleared):
 		var done := QKit.tag("已击败 ✓", "mint", 24, 10)
 		done.name = "ClearedChip"
 		done.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		side.add_child(done)
-	var button := QKit.button(str(action.text), str(action.kind), 100, 38)
+	var button := QKit.button(str(action.text), str(action.kind), 100 if playable else 86, 38)
 	button.name = "Challenge_%s" % slug
-	button.custom_minimum_size.x = 200
+	button.custom_minimum_size = Vector2(200 if playable else 186, 100 if playable else 86)
+	button.clip_text = true
 	button.disabled = busy or not bool(action.enabled)
 	button.tooltip_text = "挑战首领「%s」" % str(card_data.boss_name)
 	button.pressed.connect(func() -> void: challenge_requested.emit(slug))
@@ -909,16 +931,16 @@ func _stage_card(card_data: Dictionary, power: int) -> Control:
 	if not str(action.sub).is_empty():
 		var sub := UiKit.label(str(action.sub), 24, UiTokens.TEXT_MUTED, HORIZONTAL_ALIGNMENT_CENTER)
 		sub.name = "ButtonSub"
+		_ellipsis(sub)
 		side.add_child(sub)
 	if chosen and playable:
 		info.add_child(_reward_row(card_data))
-	var height := 250.0 if not playable else 240.0
-	if current:
-		height += 30.0
-	if chosen and playable:
-		height += 70.0
-	shell.custom_minimum_size = Vector2(0, height)
 	return shell
+
+
+static func _ellipsis(label: Label) -> void:
+	label.clip_text = true
+	label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 
 
 ## 选中卡展开的奖励行（设计稿 q_adventure_stages：文字列里一行「首通奖励」+ 小格子，数量写在格子角上，不写名字，名字在悬停提示里）。
@@ -935,8 +957,11 @@ func _reward_row(card_data: Dictionary) -> Control:
 	slots.name = "DropSlots"
 	slots.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(slots)
+	var left := 3  # 规范：奖励格最多 3 个
 	if first:
 		for reward in card_data.first_clear:
+			if left <= 0:
+				break
 			if typeof(reward) != TYPE_DICTIONARY:
 				continue
 			var data := reward as Dictionary
@@ -944,31 +969,39 @@ func _reward_row(card_data: Dictionary) -> Control:
 			match kind:
 				"cultivation":
 					_reward_slot(slots, _q_icon("icons/tab_cultivate"), 3, CultivationFormat.amount(float(data.get("amount", 0))), "修为 +%s" % CultivationFormat.amount(float(data.get("amount", 0))), "FirstClearCultivation")
+					left -= 1
 				"spiritStones":
 					_reward_slot(slots, _q_icon("icons/res_stone"), 1, str(int(data.get("amount", 0))), "灵石 +%d" % int(data.get("amount", 0)), "FirstClearStones")
+					left -= 1
 				"gear":
 					var count := int(data.get("count", 1))
 					_reward_slot(slots, _gear_icon("weapon"), 2, "×%d" % count if count > 1 else "", "随机装备 ×%d" % count)
+					left -= 1
 				_:
 					var slug := str(data.get("itemSlug", ""))
 					var view := QKit.reward_view(_content, slug)
 					var qty := int(data.get("quantity", 1))
 					_reward_slot(slots, view.texture, int(view.rarity), "×%d" % qty if qty > 1 else "", str(view.name))
+					left -= 1
 	else:
 		var repeat: Variant = card_data.repeat
 		var rules: Dictionary = card_data.rules
 		if not bool(rules.get("repeatRewards", true)):
 			slots.add_child(UiKit.label("再战没有奖励", 26, UiTokens.TEXT_MUTED))
 		elif typeof(repeat) == TYPE_DICTIONARY:
-			if bool((repeat as Dictionary).get("gear", false)):
+			if bool((repeat as Dictionary).get("gear", false)) and left > 0:
 				var pct: Dictionary = rules.get("gearQualityPct", {}) if typeof(rules.get("gearQualityPct", null)) == TYPE_DICTIONARY else {}
 				var orange := int(pct.get("orange", 0))
 				_reward_slot(slots, _gear_icon("helmet"), 4 if orange > 0 else 2, ("橙%d%%" % orange) if orange > 0 else "", "首领装备")
+				left -= 1
 			for extra in (repeat as Dictionary).get("extras", []):
+				if left <= 0:
+					break
 				if typeof(extra) == TYPE_DICTIONARY:
 					var item := str((extra as Dictionary).get("itemSlug", ""))
 					var view := QKit.reward_view(_content, item)
 					_reward_slot(slots, view.texture, int(view.rarity), "%d%%" % int(round(float((extra as Dictionary).get("chanceBp", 0)) / 100.0)), str(view.name))
+					left -= 1
 	if slots.get_child_count() == 0:
 		slots.add_child(UiKit.label("没有奖励", 26, UiTokens.TEXT_MUTED))
 	return row

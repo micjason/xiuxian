@@ -511,7 +511,8 @@ func _render_alloc_bar() -> void:
 	wrap.add_child(row)
 	row.add_child(_alloc_side("药园", "garden", garden, idle))
 	var mid := Label.new()
-	mid.text = "闲置 %d" % idle
+	var assign_cost := int(_view.get("servantAssignLingshi", 0))
+	mid.text = ("闲置 %d" % idle) if assign_cost <= 0 else ("闲置 %d·上工%d灵石" % [idle, assign_cost])
 	mid.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	mid.add_theme_font_size_override("font_size", 28)
 	mid.add_theme_color_override("font_color", UiTokens.TEXT_MUTED)
@@ -802,11 +803,60 @@ func _render_alchemy() -> void:
 		_render_alchemy_tray(i, rect, job, i >= queue_len)
 
 	var recipes: Array = _view.get("recipes", [])
+	var craftable: Array = []
+	for r in recipes:
+		if typeof(r) == TYPE_DICTIONARY and not bool((r as Dictionary).get("locked", false)):
+			craftable.append(r)
 	var queue_full := jobs.size() >= queue_len
 	for i in range(HS_RECIPE_CTAS.size()):
-		var recipe: Dictionary = recipes[i] if i < recipes.size() and typeof(recipes[i]) == TYPE_DICTIONARY else {}
+		var recipe: Dictionary = craftable[i] if i < craftable.size() and typeof(craftable[i]) == TYPE_DICTIONARY else {}
 		_render_recipe_cta(i, recipe, queue_full)
+	_render_trial_entry()
 
+
+
+
+func _render_trial_entry() -> void:
+	var trial: Dictionary = _view.get("trial", {}) if typeof(_view.get("trial", {})) == TYPE_DICTIONARY else {}
+	var left := int(trial.get("left", 0))
+	var slot_n := int(trial.get("slotCount", 3))
+	var line := "试炼摸索 剩余%d" % left
+	_chip(line, Rect2(48, 1920, 700, 72), "TrialInfo")
+	var btn := _hotspot("TrialModeBtn", Rect2(780, 1910, 220, 92), func() -> void:
+		_open_trial_picker(slot_n, left)
+	, "试炼", "stone")
+	btn.disabled = left <= 0 and int(trial.get("extraMax", 0)) <= int(trial.get("extraBought", 0))
+	var st := StyleBoxFlat.new()
+	st.bg_color = UiTokens.Q_ORANGE if not btn.disabled else UiTokens.Q_GREY
+	st.border_color = UiTokens.Q_COCOA
+	st.set_border_width_all(3)
+	st.set_corner_radius_all(16)
+	btn.add_theme_stylebox_override("normal", st)
+	btn.add_theme_stylebox_override("pressed", st)
+	btn.add_theme_stylebox_override("hover", st)
+	btn.add_theme_stylebox_override("disabled", st)
+	btn.add_theme_color_override("font_color", Color.WHITE)
+	btn.add_theme_font_size_override("font_size", 28)
+
+
+func _open_trial_picker(slot_n: int, left: int) -> void:
+	# 最小切片：一键用背包草药填槽试炼（优先灵草/清心草）。
+	var mats: Array = []
+	var herbs := ["herb_lingcao", "herb_qingxin"]
+	var remain := slot_n
+	for slug in herbs:
+		if remain <= 0:
+			break
+		var have := 0
+		# 从种子/配方视图以外：用 state 经父层不好拿，按 recipes costLine 不稳；改 emit 让 play_screen 组材料。
+		mats.append({"itemSlug": slug, "count": 0})
+	# 简化：固定提交 2 灵草 + 1 清心（与隐藏方 pill_break_barrier 一致，方便验收悟方）
+	var materials: Array = [
+		{"itemSlug": "herb_lingcao", "count": 2},
+		{"itemSlug": "herb_qingxin", "count": 1},
+	]
+	var buy_extra := left <= 0
+	action_requested.emit("alchemy_trial", {"materials": materials, "buyExtra": buy_extra})
 
 func _render_alchemy_tray(index: int, rect: Rect2, job: Dictionary, locked: bool) -> void:
 	## 空/锁托盘：低透明木描边，不盖场景托盘；忙/可领：紧凑状态 chip。

@@ -337,6 +337,13 @@
       "when": 1800700000000,
       "tag": "0067_p1_dongfu_config_fields",
       "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1800800000000,
+      "tag": "0068_dongfu_trial_kuilei",
+      "breakpoints": true
     }
   ]
 }

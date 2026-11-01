@@ -16,6 +16,7 @@ import type { ContentSnapshot } from "../content/validate.js";
 import { applyActiveBuff } from "../loop/active-buffs.js";
 import { addStack, stackCount, takeStack } from "../loop/bag.js";
 import { readGameRules } from "../content/rules.js";
+import { rewardDayKey } from "../progress/day.js";
 import { recipeOf, requireDongfu, seedOf, type DongfuConfig, type DongfuRecipeConfig, type DongfuUpgradeTier } from "./config.js";
 import { durationFactor, effectiveDurationMs, facilitySize, rescaleReadyAt, upgradeOffer } from "./pace.js";
 
@@ -47,6 +48,19 @@ export type DongfuUpgradeDto = {
   next: DongfuUpgradeTier | null;
 };
 
+export type DongfuRecipeClientDto = {
+  recipeSlug: string;
+  outputItemSlug?: string;
+  outputQty?: number;
+  craftSeconds?: number;
+  spiritStones?: number;
+  costs?: { itemSlug: string; count: number }[];
+  effect?: DongfuRecipeConfig["effect"];
+  discoverMode: "starter" | "hidden";
+  locked?: boolean;
+  usageTag?: string;
+};
+
 export type DongfuStateDto = {
   plotCount: number;
   alchemyQueueLength: number;
@@ -64,6 +78,21 @@ export type DongfuStateDto = {
   upgrades: { garden: DongfuUpgradeDto; alchemy: DongfuUpgradeDto };
   /** 极简兑种表（来自配置；空则客户端只展示引导文案）。 */
   seedOffers: { seedSlug: string; spiritStones: number; quantity: number }[];
+  /** 客户端可见丹方：starter 全量；hidden 未悟只回 locked 摘要。 */
+  recipes: DongfuRecipeClientDto[];
+  discoveredRecipeSlugs: string[];
+  alchemyXp: number;
+  trial: {
+    slotCount: number;
+    dailyLimit: number;
+    usedToday: number;
+    extraBought: number;
+    extraMax: number;
+    extraCostLingshi: number;
+    left: number;
+    dayKey: string;
+  };
+  servantAssignLingshi: number;
 };
 
 type DongfuProgress = typeof playerDongfu.$inferSelect;
@@ -189,6 +218,90 @@ async function rescaleInProgress(tx: Tx, config: DongfuConfig, playerId: string,
   }
 }
 
+
+function discoveredSet(progress: DongfuProgress, config: DongfuConfig): Set<string> {
+  const set = new Set<string>(Array.isArray(progress.discoveredRecipeSlugs) ? progress.discoveredRecipeSlugs : []);
+  for (const recipe of config.recipes) {
+    if ((recipe.discoverMode ?? "starter") === "starter") set.add(recipe.recipeSlug);
+  }
+  return set;
+}
+
+function shanghaiDayKey(now: Date): string {
+  return rewardDayKey(now, 0);
+}
+
+function trialUsage(progress: DongfuProgress, dayKey: string): { dayKey: string; count: number; extraBought: number } {
+  const raw = progress.trialUsedOnDay;
+  if (raw && raw.dayKey === dayKey) {
+    return { dayKey, count: Math.max(0, Math.floor(raw.count || 0)), extraBought: Math.max(0, Math.floor(raw.extraBought || 0)) };
+  }
+  return { dayKey, count: 0, extraBought: 0 };
+}
+
+function materialMultiset(rows: { itemSlug: string; count: number }[]): Map<string, number> {
+  const map = new Map<string, number>();
+  for (const row of rows) {
+    const slug = row.itemSlug;
+    const count = Math.max(0, Math.floor(row.count));
+    if (!slug || count <= 0) continue;
+    map.set(slug, (map.get(slug) ?? 0) + count);
+  }
+  return map;
+}
+
+function multisetEqual(a: Map<string, number>, b: Map<string, number>): boolean {
+  if (a.size !== b.size) return false;
+  for (const [k, v] of a) {
+    if ((b.get(k) ?? 0) !== v) return false;
+  }
+  return true;
+}
+
+function correctCount(chosen: Map<string, number>, required: Map<string, number>): number {
+  let n = 0;
+  for (const [slug, need] of required) {
+    n += Math.min(need, chosen.get(slug) ?? 0);
+  }
+  return n;
+}
+
+function recipesForClient(config: DongfuConfig, discovered: Set<string>): DongfuRecipeClientDto[] {
+  const out: DongfuRecipeClientDto[] = [];
+  for (const recipe of config.recipes) {
+    const mode = recipe.discoverMode ?? "starter";
+    if (mode === "hidden" && !discovered.has(recipe.recipeSlug)) {
+      out.push({
+        recipeSlug: recipe.recipeSlug,
+        discoverMode: "hidden",
+        locked: true,
+        usageTag: recipe.usageTag,
+      });
+      continue;
+    }
+    out.push({
+      recipeSlug: recipe.recipeSlug,
+      outputItemSlug: recipe.outputItemSlug,
+      outputQty: recipe.outputQty,
+      craftSeconds: recipe.craftSeconds,
+      spiritStones: recipe.spiritStones,
+      costs: recipe.costs.map((c) => ({ ...c })),
+      effect: recipe.effect,
+      discoverMode: mode,
+      usageTag: recipe.usageTag,
+    });
+  }
+  return out;
+}
+
+function pickHint(config: DongfuConfig, tier: "fail" | "imperfect", now: Date): string {
+  const keys: string[] = config.alchemyHintKeys.length > 0 ? [...config.alchemyHintKeys] : ["clash"];
+  const pool: string[] =
+    tier === "imperfect" ? [...keys.filter((k) => k === "near"), ...keys] : keys.filter((k) => k !== "near");
+  const list = pool.length > 0 ? pool : keys;
+  return list[now.getUTCSeconds() % list.length]!;
+}
+
 /** 组装 state.dongfu。首次会写入灵仆行并发放初始灵木；之后按 now 只读结算状态。 */
 export async function readDongfuState(tx: Tx, world: World, playerId: string, now: Date): Promise<DongfuStateDto> {
   const config = dongfuOf(world);
@@ -256,6 +369,11 @@ export async function readDongfuState(tx: Tx, world: World, playerId: string, no
     woodHave: woodCount,
     spiritStones,
   });
+  const discovered = discoveredSet(progress, config);
+  const dayKey = shanghaiDayKey(now);
+  const usage = trialUsage(progress, dayKey);
+  const trialCap = config.alchemyTrialDailyLimit + usage.extraBought;
+  const trialLeft = Math.max(0, trialCap - usage.count);
   return {
     plotCount: sizes.plotCount,
     alchemyQueueLength: sizes.alchemyQueueLength,
@@ -277,6 +395,20 @@ export async function readDongfuState(tx: Tx, world: World, playerId: string, no
       alchemy: { level: progress.alchemyLevel, ...alchemyOffer },
     },
     seedOffers: config.seedOffers.map((row) => ({ ...row })),
+    recipes: recipesForClient(config, discovered),
+    discoveredRecipeSlugs: [...discovered],
+    alchemyXp: progress.alchemyXp ?? 0,
+    trial: {
+      slotCount: config.alchemyTrialSlotCount,
+      dailyLimit: config.alchemyTrialDailyLimit,
+      usedToday: usage.count,
+      extraBought: usage.extraBought,
+      extraMax: config.alchemyTrialExtraMax,
+      extraCostLingshi: config.alchemyTrialExtraCostLingshi,
+      left: trialLeft,
+      dayKey,
+    },
+    servantAssignLingshi: config.servantAssignLingshi,
   };
 }
 
@@ -399,6 +531,10 @@ export async function startAlchemy(
   const config = dongfuOf(world);
   const progress = await ensureProgress(tx, config, playerId, now);
   const recipe = recipeOf(config, input.recipeSlug);
+  const known = discoveredSet(progress, config);
+  if (!known.has(recipe.recipeSlug)) {
+    throw new AppError("FORBIDDEN", "尚未悟得该丹方");
+  }
   const queueLength = sizesOf(config, progress).alchemyQueueLength;
   const open = await tx
     .select({ id: playerDongfuAlchemy.id })
@@ -487,10 +623,25 @@ export async function allocateServants(
   const config = dongfuOf(world);
   const progress = await ensureProgress(tx, config, playerId, now);
   if (!Number.isInteger(input.garden) || !Number.isInteger(input.alchemy) || input.garden < 0 || input.alchemy < 0) {
-    throw new AppError("INVALID_INPUT", "灵仆数量不正确");
+    throw new AppError("INVALID_INPUT", "傀儡数量不正确");
   }
   if (input.garden + input.alchemy > progress.servantTotal) {
-    throw new AppError("INVALID_INPUT", "灵仆不够分配");
+    throw new AppError("INVALID_INPUT", "傀儡不够分配");
+  }
+  const prevAssigned = progress.gardenAllocation + progress.alchemyAllocation;
+  const nextAssigned = input.garden + input.alchemy;
+  const added = Math.max(0, nextAssigned - prevAssigned);
+  const cost = added * Math.max(0, Math.floor(config.servantAssignLingshi));
+  if (cost > 0) {
+    const [state] = await tx.select().from(playerStates).where(eq(playerStates.playerId, playerId)).limit(1);
+    if (!state) throw new AppError("NOT_FOUND");
+    if (state.spiritStones < cost) {
+      throw new AppError("MATERIAL_SHORT", `上工需灵石 ×${cost}`);
+    }
+    await tx
+      .update(playerStates)
+      .set({ spiritStones: sql`${playerStates.spiritStones} - ${cost}` })
+      .where(eq(playerStates.playerId, playerId));
   }
   const next = { ...progress, gardenAllocation: input.garden, alchemyAllocation: input.alchemy };
   await tx
@@ -498,7 +649,7 @@ export async function allocateServants(
     .set({ gardenAllocation: input.garden, alchemyAllocation: input.alchemy })
     .where(eq(playerDongfu.playerId, playerId));
   await rescaleInProgress(tx, config, playerId, next, now);
-  return { dongfu: await readDongfuState(tx, world, playerId, now) };
+  return { dongfu: await readDongfuState(tx, world, playerId, now), spentLingshi: cost };
 }
 
 export async function upgradeFacility(
@@ -622,6 +773,124 @@ export async function applyPillUse(
   }
 
   throw new AppError("INVALID_INPUT", "这颗丹药没有可用效果");
+}
+
+
+export async function trialAlchemy(
+  tx: Tx,
+  world: World,
+  playerId: string,
+  input: { materials: { itemSlug: string; count: number }[]; buyExtra?: boolean },
+  now: Date,
+) {
+  const config = dongfuOf(world);
+  const progress = await ensureProgress(tx, config, playerId, now);
+  const materials = Array.isArray(input.materials) ? input.materials : [];
+  const slotCount = config.alchemyTrialSlotCount;
+  const chosen = materialMultiset(materials);
+  const chosenTotal = [...chosen.values()].reduce((a, b) => a + b, 0);
+  if (chosenTotal <= 0 || chosenTotal > slotCount) {
+    throw new AppError("INVALID_INPUT", `试炼材料合计须为 1～${slotCount}`);
+  }
+
+  const dayKey = shanghaiDayKey(now);
+  let usage = trialUsage(progress, dayKey);
+  let spiritSpent = 0;
+  const [state] = await tx.select().from(playerStates).where(eq(playerStates.playerId, playerId)).limit(1);
+  if (!state) throw new AppError("NOT_FOUND");
+
+  const softCap = config.alchemyTrialDailyLimit + usage.extraBought;
+  if (usage.count >= softCap) {
+    if (!input.buyExtra) {
+      throw new AppError("INVALID_INPUT", "今日试炼次数已用尽");
+    }
+    if (config.alchemyTrialExtraCostLingshi <= 0 || usage.extraBought >= config.alchemyTrialExtraMax) {
+      throw new AppError("INVALID_INPUT", "今日不可再买超额试炼");
+    }
+    if (state.spiritStones < config.alchemyTrialExtraCostLingshi) {
+      throw new AppError("MATERIAL_SHORT", "灵石不足");
+    }
+    spiritSpent += config.alchemyTrialExtraCostLingshi;
+    usage = { ...usage, extraBought: usage.extraBought + 1 };
+  }
+
+  const items = await loadBagItems(tx, playerId);
+  for (const [slug, count] of chosen) {
+    if (stackCount(items, slug) < count) {
+      throw new AppError("MATERIAL_SHORT", `材料不足：${slug}`);
+    }
+  }
+  for (const [slug, count] of chosen) {
+    await takeStack(tx, items, slug, count);
+  }
+  if (spiritSpent > 0) {
+    await tx
+      .update(playerStates)
+      .set({ spiritStones: sql`${playerStates.spiritStones} - ${spiritSpent}` })
+      .where(eq(playerStates.playerId, playerId));
+  }
+
+  const discovered = discoveredSet(progress, config);
+  const hidden = config.recipes.filter((r) => (r.discoverMode ?? "starter") === "hidden");
+  let best: { recipe: DongfuRecipeConfig; correct: number; perfect: boolean } | null = null;
+  for (const recipe of hidden) {
+    const need = materialMultiset(recipe.costs);
+    const correct = correctCount(chosen, need);
+    const perfect = multisetEqual(chosen, need);
+    if (!best || correct > best.correct || (correct === best.correct && perfect && !best.perfect)) {
+      best = { recipe, correct, perfect };
+    }
+  }
+
+  let tier: "fail" | "imperfect" | "perfect" = "fail";
+  let xp = config.alchemyTrialFailXp;
+  let hintKey: string | undefined = pickHint(config, "fail", now);
+  let unlockedRecipeSlug: string | undefined;
+  const rewards: { itemSlug: string; quantity: number }[] = [];
+
+  if (best && best.perfect) {
+    tier = "perfect";
+    xp = config.alchemyTrialPerfectXp;
+    hintKey = undefined;
+    const outSlug = best.recipe.outputItemSlug;
+    const outQty = best.recipe.outputQty;
+    await assertCanAcceptStacks(tx, world, playerId, [outSlug]);
+    await addStack(tx, playerId, outSlug, outQty, "dongfu_alchemy_trial", now);
+    rewards.push({ itemSlug: outSlug, quantity: outQty });
+    if (!discovered.has(best.recipe.recipeSlug)) {
+      unlockedRecipeSlug = best.recipe.recipeSlug;
+      discovered.add(best.recipe.recipeSlug);
+    }
+  } else if (best && best.correct > 0) {
+    tier = "imperfect";
+    xp = config.alchemyTrialImperfectXp;
+    hintKey = pickHint(config, "imperfect", now);
+    const outSlug = best.recipe.imperfectOutputItemSlug || best.recipe.outputItemSlug;
+    await assertCanAcceptStacks(tx, world, playerId, [outSlug]);
+    await addStack(tx, playerId, outSlug, 1, "dongfu_alchemy_trial", now);
+    rewards.push({ itemSlug: outSlug, quantity: 1 });
+  }
+
+  usage = { ...usage, count: usage.count + 1 };
+  await tx
+    .update(playerDongfu)
+    .set({
+      alchemyXp: (progress.alchemyXp ?? 0) + xp,
+      trialUsedOnDay: usage,
+      discoveredRecipeSlugs: [...discovered],
+    })
+    .where(eq(playerDongfu.playerId, playerId));
+
+  const trialCap = config.alchemyTrialDailyLimit + usage.extraBought;
+  return {
+    tier,
+    hintKey,
+    unlockedRecipeSlug,
+    rewards,
+    alchemyXpDelta: xp,
+    trialLeft: Math.max(0, trialCap - usage.count),
+    dongfu: await readDongfuState(tx, world, playerId, now),
+  };
 }
 
 /** 供 loop stateDto 挂载；配置缺失时抛错（不回退默认）。 */

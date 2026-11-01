@@ -24,7 +24,6 @@ import {
   pickPuzzleForDay,
   puzzleById,
   puzzlePayload,
-  shanghaiDayKey,
 } from "./array-daily.js";
 import { durationFactor, effectiveDurationMs, facilitySize, rescaleReadyAt, upgradeOffer } from "./pace.js";
 

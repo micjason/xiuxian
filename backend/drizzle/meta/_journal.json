@@ -339,8 +339,9 @@
       "breakpoints": true
     },
     {
-      "idx": 58,
+      "idx": 59,
       "version": "7",
+<<<<<<< HEAD
       "when": 1800800000000,
       "tag": "0068_dongfu_trial_kuilei",
       "breakpoints": true
@@ -348,6 +349,8 @@
     {
       "idx": 59,
       "version": "7",
+=======
+>>>>>>> c3776941 (fix(db): renumber array daily migration 0068→0069)
       "when": 1800900000000,
       "tag": "0069_dongfu_array_daily",
       "breakpoints": true

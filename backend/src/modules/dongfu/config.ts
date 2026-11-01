@@ -119,6 +119,8 @@ export type DongfuConfig = {
   /** ready→ancient 全局秒数；种子行可覆盖。 */
   gardenAgeToAncientSeconds: number;
   auraSources: DongfuAuraSourceConfig[];
+  /** 每多派 1 名上工傀儡时一次性扣灵石（减员不退）。 */
+  servantAssignLingshi: number;
 };
 
 /**
@@ -176,6 +178,7 @@ export const DEFAULT_DONGFU: DongfuConfig = {
   gardenHastenItemSlug: null,
   gardenAgeToAncientSeconds: 86400,
   auraSources: [],
+  servantAssignLingshi: 5,
   seeds: [
     { seedSlug: "seed_lingcao", herbSlug: "herb_lingcao", growSeconds: 60 },
     { seedSlug: "seed_qingxin", herbSlug: "herb_qingxin", growSeconds: 120 },
@@ -216,6 +219,71 @@ export const DEFAULT_DONGFU: DongfuConfig = {
       usageTag: "def",
       costs: [{ itemSlug: "herb_qingxin", count: 2 }],
       effect: { buffStat: "defense", buffBp: 1000, durationSeconds: 300 },
+    },
+    {
+      recipeSlug: "pill_break_barrier",
+      outputItemSlug: "pill_cultivate",
+      imperfectOutputItemSlug: "pill_cultivate",
+      imperfectEffectBp: 4000,
+      outputQty: 1,
+      craftSeconds: 60,
+      spiritStones: 0,
+      discoverMode: "hidden",
+      usageTag: "breakthrough",
+      costs: [
+        { itemSlug: "herb_lingcao", count: 2 },
+        { itemSlug: "herb_qingxin", count: 1 },
+      ],
+      effect: { cultivationGain: 500 },
+    },
+    {
+      recipeSlug: "pill_atk_secret",
+      outputItemSlug: "pill_atk_temp",
+      imperfectOutputItemSlug: "pill_atk_temp",
+      imperfectEffectBp: 4000,
+      outputQty: 1,
+      craftSeconds: 60,
+      spiritStones: 0,
+      discoverMode: "hidden",
+      usageTag: "atk",
+      costs: [
+        { itemSlug: "herb_lingcao", count: 3 },
+        { itemSlug: "herb_qingxin", count: 1 },
+      ],
+      effect: { buffStat: "attack", buffBp: 1500, durationSeconds: 300 },
+    },
+    {
+      recipeSlug: "pill_def_secret",
+      outputItemSlug: "pill_def_temp",
+      imperfectOutputItemSlug: "pill_def_temp",
+      imperfectEffectBp: 4000,
+      outputQty: 1,
+      craftSeconds: 60,
+      spiritStones: 0,
+      discoverMode: "hidden",
+      usageTag: "def",
+      costs: [
+        { itemSlug: "herb_lingcao", count: 1 },
+        { itemSlug: "herb_qingxin", count: 3 },
+      ],
+      effect: { buffStat: "defense", buffBp: 1500, durationSeconds: 300 },
+    },
+    {
+      recipeSlug: "pill_mix_focus",
+      outputItemSlug: "pill_cultivate",
+      imperfectOutputItemSlug: "pill_cultivate",
+      imperfectEffectBp: 4000,
+      outputQty: 1,
+      craftSeconds: 45,
+      spiritStones: 0,
+      discoverMode: "hidden",
+      usageTag: "cultivate",
+      costs: [
+        { itemSlug: "herb_qingxin", count: 1 },
+        { itemSlug: "herb_lingcao", count: 1 },
+        { itemSlug: "herb_qingxin", count: 1 },
+      ],
+      effect: { cultivationGain: 200 },
     },
   ],
 };
@@ -669,6 +737,7 @@ export function dongfuConfigFromInput(raw: unknown): DongfuConfig {
       DEFAULT_DONGFU.gardenAgeToAncientSeconds,
     ),
     auraSources: parseAuraSources(input.auraSources),
+    servantAssignLingshi: intOr(input.servantAssignLingshi, "傀儡上工灵石", 0, 1_000_000_000, DEFAULT_DONGFU.servantAssignLingshi),
   };
 }
 

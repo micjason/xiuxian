@@ -986,6 +986,13 @@ func _on_dongfu_action(kind: String, payload: Dictionary) -> void:
 			path = "/api/v1/me/dongfu/alchemy/start"
 			body = {"recipeSlug": str(payload.get("recipeSlug", ""))}
 			ok_text = "开始炼丹"
+		"alchemy_trial":
+			path = "/api/v1/me/dongfu/alchemy/trial"
+			body = {
+				"materials": payload.get("materials", []),
+				"buyExtra": bool(payload.get("buyExtra", false)),
+			}
+			ok_text = "试炼完成"
 		"alchemy_claim":
 			path = "/api/v1/me/dongfu/alchemy/claim"
 			if payload.has("jobId") and not str(payload.get("jobId", "")).is_empty():
@@ -1011,6 +1018,20 @@ func _on_dongfu_action(kind: String, payload: Dictionary) -> void:
 	if int(result.get("code", 0)) != 200:
 		_toast.say(PlayerApi.error_message(result), false)
 		return
+	if kind == "alchemy_trial":
+		var data: Variant = result.get("data", {})
+		var payload_out: Dictionary = data if typeof(data) == TYPE_DICTIONARY else {}
+		# 兼容 data 包一层或直接回业务字段
+		if not payload_out.has("tier") and typeof(result.get("tier", null)) != TYPE_NIL:
+			payload_out = result
+		var tier := str(payload_out.get("tier", ""))
+		var unlocked := str(payload_out.get("unlockedRecipeSlug", ""))
+		if tier == "perfect":
+			ok_text = "悟得丹方！" if unlocked.is_empty() else "悟得丹方：%s" % unlocked
+		elif tier == "imperfect":
+			ok_text = "炼出残次丹"
+		elif tier == "fail":
+			ok_text = "试炼失败"
 	_toast.say(ok_text)
 	# 接口只回 dongfu（+gained），背包变化需再拉 /me/state
 	await _refresh_state()

@@ -20,7 +20,7 @@ import { registerPlayer } from "../auth/service.js";
 import { loadCurrentWorld } from "../content/snapshot.js";
 import { useItem } from "../loop/actions.js";
 import { DEFAULT_DONGFU } from "./config.js";
-import { allocateServants, buySeed, claimAlchemy, claimGarden, plantSeed, readDongfuState, startAlchemy, upgradeFacility } from "./actions.js";
+import { allocateServants, buySeed, claimAlchemy, claimGarden, plantSeed, readDongfuState, startAlchemy, trialAlchemy, upgradeFacility } from "./actions.js";
 
 const DONGFU_ITEMS = [
   { slug: "seed_lingcao", displayName: "灵草种子", kind: "material", quality: "green", stackable: true },
@@ -322,9 +322,10 @@ describe("dongfu v1 garden + alchemy", () => {
 });
 
 describe("dongfu servant allocation and facility upgrade", () => {
+  const freeServants = { ...DEFAULT_DONGFU, servantAssignLingshi: 0 };
   it("grants starter servants and wood, then shortens grow time when servants are assigned", async () => {
     await withDb(async (db) => {
-      await seedWorld(db);
+      await seedWorld(db, freeServants);
       const plantedAt = new Date("2026-10-29T08:00:00.000Z");
       const player = await registerPlayer(db, { username: "warden", password: "correct-horse", now: plantedAt });
       await giveStack(db, player.playerId, "seed_lingcao", 2, plantedAt);
@@ -357,7 +358,7 @@ describe("dongfu servant allocation and facility upgrade", () => {
 
   it("rescales the remaining grow time when allocation changes", async () => {
     await withDb(async (db) => {
-      await seedWorld(db);
+      await seedWorld(db, freeServants);
       const plantedAt = new Date("2026-10-29T08:10:00.000Z");
       const player = await registerPlayer(db, { username: "shift", password: "correct-horse", now: plantedAt });
       await giveStack(db, player.playerId, "seed_lingcao", 1, plantedAt);
@@ -375,7 +376,7 @@ describe("dongfu servant allocation and facility upgrade", () => {
 
   it("spends spirit wood to add a garden plot and an alchemy queue", async () => {
     await withDb(async (db) => {
-      await seedWorld(db, { ...DEFAULT_DONGFU, startingWood: 0 });
+      await seedWorld(db, { ...DEFAULT_DONGFU, startingWood: 0, servantAssignLingshi: 0 });
       const now = new Date("2026-10-29T08:20:00.000Z");
       const player = await registerPlayer(db, { username: "builder", password: "correct-horse", now });
       await giveStack(db, player.playerId, "herb_lingcao", 8, now);
@@ -409,7 +410,7 @@ describe("dongfu servant allocation and facility upgrade", () => {
 
   it("shortens an in-progress alchemy job when servants move to the furnace", async () => {
     await withDb(async (db) => {
-      await seedWorld(db);
+      await seedWorld(db, freeServants);
       const now = new Date("2026-10-29T08:30:00.000Z");
       const player = await registerPlayer(db, { username: "furnace", password: "correct-horse", now });
       await giveStack(db, player.playerId, "herb_lingcao", 4, now);
@@ -426,6 +427,91 @@ describe("dongfu servant allocation and facility upgrade", () => {
       // 已过 10/30，剩余 2/3；新总时长 24s，剩余 16s。
       expect(shifted.dongfu.alchemy[0]?.readyAt).toBe(new Date(later.getTime() + 16_000).toISOString());
       expect(shifted.dongfu.timeScale.alchemy).toBe(0.8);
+    });
+  });
+});
+
+
+describe("dongfu alchemy trial + puppet lingshi", () => {
+  it("filters hidden recipes until perfect trial unlocks one-click craft", async () => {
+    await withDb(async (db) => {
+      await seedWorld(db);
+      const now = new Date("2026-11-01T01:00:00.000Z");
+      const player = await registerPlayer(db, { username: "alchemist", password: "correct-horse", now });
+      await giveStack(db, player.playerId, "herb_lingcao", 10, now);
+      await giveStack(db, player.playerId, "herb_qingxin", 10, now);
+      await db.update(playerStates).set({ spiritStones: 200 }).where(eq(playerStates.playerId, player.playerId));
+      const world = (await loadCurrentWorld(db))!;
+      if (!world) throw new Error("no world");
+
+      const opened = await withTransaction(db, (tx) => readDongfuState(tx, world, player.playerId, now));
+      const locked = opened.recipes.filter((r) => r.locked);
+      expect(locked.length).toBeGreaterThan(0);
+      await expect(
+        withTransaction(db, (tx) => startAlchemy(tx, world, player.playerId, { recipeSlug: "pill_break_barrier" }, now)),
+      ).rejects.toMatchObject({ code: "FORBIDDEN" });
+
+      // 赠种已在 read 时发放；种子不进任何丹方 costs → fail
+      const fail = await withTransaction(db, (tx) =>
+        trialAlchemy(tx, world, player.playerId, { materials: [{ itemSlug: "seed_lingcao", count: 1 }] }, now),
+      );
+      expect(fail.tier).toBe("fail");
+      expect(fail.unlockedRecipeSlug).toBeUndefined();
+
+      const perfect = await withTransaction(db, (tx) =>
+        trialAlchemy(
+          tx,
+          world,
+          player.playerId,
+          {
+            materials: [
+              { itemSlug: "herb_lingcao", count: 2 },
+              { itemSlug: "herb_qingxin", count: 1 },
+            ],
+          },
+          now,
+        ),
+      );
+      expect(perfect.tier).toBe("perfect");
+      expect(perfect.unlockedRecipeSlug).toBe("pill_break_barrier");
+      expect(perfect.dongfu.discoveredRecipeSlugs).toContain("pill_break_barrier");
+      const crafted = await withTransaction(db, (tx) =>
+        startAlchemy(tx, world, player.playerId, { recipeSlug: "pill_break_barrier" }, now),
+      );
+      expect(crafted.dongfu.alchemy.some((j) => j.recipeSlug === "pill_break_barrier")).toBe(true);
+    });
+  });
+
+  it("charges lingshi when assigning more puppets", async () => {
+    await withDb(async (db) => {
+      await seedWorld(db, { ...DEFAULT_DONGFU, servantAssignLingshi: 5 });
+      const now = new Date("2026-11-01T02:00:00.000Z");
+      const player = await registerPlayer(db, { username: "puppeteer", password: "correct-horse", now });
+      await db.update(playerStates).set({ spiritStones: 12 }).where(eq(playerStates.playerId, player.playerId));
+      const world = (await loadCurrentWorld(db))!;
+      if (!world) throw new Error("no world");
+      await withTransaction(db, (tx) => readDongfuState(tx, world, player.playerId, now));
+
+      await expect(
+        withTransaction(db, (tx) => allocateServants(tx, world, player.playerId, { garden: 3, alchemy: 0 }, now)),
+      ).rejects.toMatchObject({ code: "MATERIAL_SHORT" });
+
+      await db.update(playerStates).set({ spiritStones: 20 }).where(eq(playerStates.playerId, player.playerId));
+      const first = await withTransaction(db, (tx) =>
+        allocateServants(tx, world, player.playerId, { garden: 2, alchemy: 0 }, now),
+      );
+      expect(first.spentLingshi).toBe(10);
+      const [after] = await db.select().from(playerStates).where(eq(playerStates.playerId, player.playerId));
+      expect(after?.spiritStones).toBe(10);
+
+      const shift = await withTransaction(db, (tx) =>
+        allocateServants(tx, world, player.playerId, { garden: 1, alchemy: 1 }, now),
+      );
+      expect(shift.spentLingshi).toBe(0);
+      const more = await withTransaction(db, (tx) =>
+        allocateServants(tx, world, player.playerId, { garden: 2, alchemy: 1 }, now),
+      );
+      expect(more.spentLingshi).toBe(5);
     });
   });
 });

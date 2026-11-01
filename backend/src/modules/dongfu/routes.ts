@@ -2,7 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { AppError } from "../../shared/errors.js";
 import type { Db } from "../operations/record.js";
 import { withIdempotency } from "../loop/actions.js";
-import { allocateServants, buySeed, claimAlchemy, claimGarden, plantSeed, startAlchemy, upgradeFacility } from "./actions.js";
+import { allocateServants, buySeed, claimAlchemy, claimGarden, plantSeed, startAlchemy, trialAlchemy, upgradeFacility } from "./actions.js";
 
 function idempotencyKey(header: string | string[] | undefined): string {
   const key = Array.isArray(header) ? header[0] : header;
@@ -47,6 +47,30 @@ export async function registerDongfuRoutes(
     }
     return withIdempotency(deps.db, playerId, idempotencyKey(request.headers["idempotency-key"]), "dongfu-garden-claim", deps.now(), (tx, world) =>
       claimGarden(tx, world, playerId, { slot: body.slot as number | undefined }, deps.now()),
+    );
+  });
+
+
+  app.post("/me/dongfu/alchemy/trial", async (request) => {
+    const playerId = request.actor!.actorId;
+    const body = (request.body ?? {}) as { materials?: unknown; buyExtra?: unknown };
+    if (!Array.isArray(body.materials)) {
+      throw new AppError("INVALID_INPUT", "请选择试炼材料");
+    }
+    const materials: { itemSlug: string; count: number }[] = [];
+    for (const row of body.materials) {
+      if (!row || typeof row !== "object") {
+        throw new AppError("INVALID_INPUT", "试炼材料格式不正确");
+      }
+      const itemSlug = (row as { itemSlug?: unknown }).itemSlug;
+      const count = (row as { count?: unknown }).count;
+      if (typeof itemSlug !== "string" || !itemSlug || !Number.isInteger(count) || (count as number) <= 0) {
+        throw new AppError("INVALID_INPUT", "试炼材料格式不正确");
+      }
+      materials.push({ itemSlug, count: count as number });
+    }
+    return withIdempotency(deps.db, playerId, idempotencyKey(request.headers["idempotency-key"]), "dongfu-alchemy-trial", deps.now(), (tx, world) =>
+      trialAlchemy(tx, world, playerId, { materials, buyExtra: body.buyExtra === true }, deps.now()),
     );
   });
 

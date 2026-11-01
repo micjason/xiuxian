@@ -127,6 +127,9 @@ static func build(state: Dictionary, content: Dictionary, now_unix: float = -1.0
 			"seedHint": "",
 			"allocation": {"garden": 0, "alchemy": 0},
 			"servantTotal": 0,
+			"servantAssignLingshi": 0,
+			"trial": {},
+			"alchemyXp": 0,
 			"woodCount": 0,
 			"woodName": "灵木",
 			"timeScale": {"garden": 1.0, "alchemy": 1.0},
@@ -142,6 +145,7 @@ static func build(state: Dictionary, content: Dictionary, now_unix: float = -1.0
 	var alchemy := _alchemy(alchemy_raw, content, now_unix)
 	var seeds_cfg: Array = cfg.get("seeds", []) if typeof(cfg.get("seeds", [])) == TYPE_ARRAY else []
 	var recipes_cfg: Array = cfg.get("recipes", []) if typeof(cfg.get("recipes", [])) == TYPE_ARRAY else []
+	var recipes_state: Array = data.get("recipes", []) if typeof(data.get("recipes", [])) == TYPE_ARRAY else []
 	var allocation: Dictionary = data.get("allocation", {}) if typeof(data.get("allocation", {})) == TYPE_DICTIONARY else {}
 	var upgrades: Dictionary = data.get("upgrades", {}) if typeof(data.get("upgrades", {})) == TYPE_DICTIONARY else {}
 	var garden_factor := _factor(data, "garden")
@@ -170,7 +174,7 @@ static func build(state: Dictionary, content: Dictionary, now_unix: float = -1.0
 		"cards": _cards(true, claimable, plots, alchemy, upgrades),
 		"plots": plots,
 		"alchemy": alchemy,
-		"recipes": _recipes(recipes_cfg, state, content, alchemy_factor),
+		"recipes": _recipes_from_state(recipes_state, recipes_cfg, state, content, alchemy_factor),
 		"seeds": seed_rows,
 		"seedHint": seed_hint,
 		"allocation": {
@@ -178,6 +182,9 @@ static func build(state: Dictionary, content: Dictionary, now_unix: float = -1.0
 			"alchemy": int(allocation.get("alchemy", 0)),
 		},
 		"servantTotal": int(data.get("servantTotal", 0)),
+		"servantAssignLingshi": int(data.get("servantAssignLingshi", cfg.get("servantAssignLingshi", 0))),
+		"trial": data.get("trial", {}) if typeof(data.get("trial", {})) == TYPE_DICTIONARY else {},
+		"alchemyXp": int(data.get("alchemyXp", 0)),
 		"gardenLevel": int(data.get("gardenLevel", 1)),
 		"alchemyLevel": int(data.get("alchemyLevel", 1)),
 		"woodCount": int(data.get("woodCount", bag_count(state, wood_slug))),
@@ -345,6 +352,49 @@ static func _seeds(rows: Array, state: Dictionary, content: Dictionary, dongfu_s
 		})
 	return out
 
+
+
+
+static func _recipes_from_state(state_rows: Array, cfg_rows: Array, state: Dictionary, content: Dictionary, factor: float = 1.0) -> Array[Dictionary]:
+	if state_rows.is_empty():
+		return _recipes(cfg_rows, state, content, factor)
+	var out: Array[Dictionary] = []
+	for row in state_rows:
+		if typeof(row) != TYPE_DICTIONARY:
+			continue
+		var recipe := row as Dictionary
+		if bool(recipe.get("locked", false)):
+			out.append({
+				"recipeSlug": str(recipe.get("recipeSlug", "")),
+				"title": "未悟丹方",
+				"locked": true,
+				"discoverMode": "hidden",
+				"canCraft": false,
+				"costLine": "试炼悟得后可一键炼",
+				"costs": [],
+				"spiritStones": 0,
+				"craftSeconds": 0,
+				"outputName": "",
+				"outputQty": 0,
+			})
+			continue
+		# Reuse cost/canCraft logic via a one-element cfg-shaped row.
+		var shaped := {
+			"recipeSlug": str(recipe.get("recipeSlug", "")),
+			"outputItemSlug": str(recipe.get("outputItemSlug", "")),
+			"outputQty": int(recipe.get("outputQty", 1)),
+			"craftSeconds": int(recipe.get("craftSeconds", 0)),
+			"spiritStones": int(recipe.get("spiritStones", 0)),
+			"costs": recipe.get("costs", []),
+		}
+		var built := _recipes([shaped], state, content, factor)
+		if built.is_empty():
+			continue
+		var item: Dictionary = built[0]
+		item["locked"] = false
+		item["discoverMode"] = str(recipe.get("discoverMode", "starter"))
+		out.append(item)
+	return out
 
 static func _recipes(rows: Array, state: Dictionary, content: Dictionary, factor: float = 1.0) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []

@@ -6,12 +6,14 @@ describe("dongfuConfigFromInput", () => {
     const parsed = dongfuConfigFromInput(DEFAULT_DONGFU);
     expect(parsed.plotCount).toBe(4);
     expect(parsed.alchemyQueueLength).toBe(2);
+    expect(parsed.arrayDaily.enabled).toBe(true);
+    expect(parsed.arrayDaily.puzzles.map((p) => p.puzzleId)).toEqual(["vein_01", "vein_02", "vein_03"]);
     expect(parsed.seeds).toHaveLength(2);
     expect(parsed.recipes).toHaveLength(7);
     expect(parsed.servantAssignLingshi).toBe(5);
     expect(parsed.recipes.filter((r) => r.discoverMode === "hidden")).toHaveLength(4);
     expect(dongfuReferencedItemSlugs(parsed)).toEqual(
-      expect.arrayContaining(["seed_lingcao", "herb_lingcao", "pill_cultivate", "herb_qingxin"]),
+      expect.arrayContaining(["seed_lingcao", "herb_lingcao", "pill_cultivate", "herb_qingxin", "array_shard"]),
     );
   });
 

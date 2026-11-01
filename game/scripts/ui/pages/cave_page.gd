@@ -13,6 +13,7 @@ const MODE_OVERVIEW := "overview"
 const MODE_GARDEN := "garden"
 const MODE_ALCHEMY := "alchemy"
 const MODE_ENHANCE := "enhance"
+const MODE_ARRAY := "array"
 
 ## 页面区相对画布原点：洞府页顶栏为紧凑态（无修为条），约 y=160；左 24 为 PAGE_MARGIN。
 const ORIGIN := Vector2(24, 160)
@@ -81,6 +82,9 @@ var _title_label: Label
 ## 强化场所：已穿戴装备环 + 阵心选中（同行囊 BagModel / EquipModel，不另做强化系统）。
 var _bag: BagModel
 var _enhance_selected_id := ""
+## 阵法日游：本地朝向与旋转次数（未提交前不打服务器）。
+var _array_rots: Dictionary = {}
+var _array_spin_count := 0
 
 
 func _init() -> void:
@@ -120,9 +124,15 @@ func bind(state: Dictionary, content: Dictionary) -> void:
 	_view = CaveView.build(state, content)
 	_bag = BagModel.from_state(state, content)
 	_ensure_enhance_selection()
+	if _mode == MODE_ARRAY:
+		var ad: Dictionary = _view.get("arrayDaily", {}) if typeof(_view.get("arrayDaily", {})) == TYPE_DICTIONARY else {}
+		if bool(ad.get("clearedToday", false)) or not bool(ad.get("enabled", false)) or typeof(ad.get("puzzle", null)) != TYPE_DICTIONARY:
+			_mode = MODE_OVERVIEW
+			_array_rots.clear()
+			_array_spin_count = 0
 	# 首次 bind / 入树后再加载 FX，与改前进入洞府后的表现一致
 	_ensure_fx()
-	var sig := hash([_view, _mode, _plant_slot, _enhance_selected_id, _bag_sig()])
+	var sig := hash([_view, _mode, _plant_slot, _enhance_selected_id, _bag_sig(), _array_rots, _array_spin_count])
 	if sig == _bind_sig:
 		_sync_alchemy_fire()
 		return
@@ -232,7 +242,7 @@ func _on_back() -> void:
 
 
 func _render() -> void:
-	_bind_sig = hash([_view, _mode, _plant_slot, _enhance_selected_id, _bag_sig()])
+	_bind_sig = hash([_view, _mode, _plant_slot, _enhance_selected_id, _bag_sig(), _array_rots, _array_spin_count])
 	_clear_stage()
 	_ensure_fx()
 	match _mode:
@@ -242,6 +252,8 @@ func _render() -> void:
 			_render_alchemy()
 		MODE_ENHANCE:
 			_render_enhance()
+		MODE_ARRAY:
+			_render_array()
 		_:
 			_render_overview()
 	_sync_alchemy_fire()
@@ -429,6 +441,7 @@ func _render_overview() -> void:
 	_facility_spot("enhance", HS_ENHANCE, 1)
 	_hotspot("Enter_enhance", HS_ENHANCE, func() -> void: _enter_facility("enhance"))
 	_status_capsule(cards.get("enhance", {"subtitle": "可强化"}), HS_ENHANCE)
+	_render_array_entry(cards.get("array", {}))
 	_render_alloc_bar()
 
 
@@ -576,6 +589,8 @@ func _enter_facility(id: String) -> void:
 			_mode = MODE_ENHANCE
 			_ensure_enhance_selection()
 			_render()
+		"array":
+			_enter_array()
 		_:
 			pass
 
@@ -1176,3 +1191,125 @@ func _emit_enhance(to_max: bool = false) -> void:
 			_array_fx.call_deferred("play_enhance_success", at)
 	var kind := "enhance_max" if to_max else "enhance"
 	action_requested.emit(kind, {"itemId": _enhance_selected_id})
+
+
+func _render_array_entry(card: Dictionary) -> void:
+	var ad: Dictionary = _view.get("arrayDaily", {}) if typeof(_view.get("arrayDaily", {})) == TYPE_DICTIONARY else {}
+	var enabled := bool(ad.get("enabled", false)) if not card.is_empty() else bool(ad.get("enabled", false))
+	if card.is_empty():
+		card = {"subtitle": "灵脉接引" if enabled else "阵法结界未开", "claimable": 1 if enabled and not bool(ad.get("clearedToday", false)) else 0}
+	# 入口按钮 + 美术（有 formation / bd_array_formation 则用）
+	var tex: Texture2D = null
+	if ArtLib.has_q("sprites/bd_array_formation.png"):
+		tex = ArtLib.q("sprites/bd_array_formation")
+	elif ResourceLoader.exists("res://assets/art/ui/formation.png"):
+		tex = load("res://assets/art/ui/formation.png") as Texture2D
+	if tex != null:
+		var node := TextureRect.new()
+		node.name = "Spot_array"
+		node.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		node.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		node.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		var local := _design_rect(Rect2(HS_ARRAY.position.x + 40, HS_ARRAY.position.y + 10, HS_ARRAY.size.x - 80, HS_ARRAY.size.y - 70))
+		node.position = local.position
+		node.size = local.size
+		node.texture = tex
+		_stage.add_child(node)
+	var btn := _hotspot("Enter_array", HS_ARRAY, func() -> void: _enter_facility("array"), "阵法", "o")
+	if not enabled:
+		btn.disabled = true
+	_status_capsule(card, HS_ARRAY)
+
+
+func _enter_array() -> void:
+	var ad: Dictionary = _view.get("arrayDaily", {}) if typeof(_view.get("arrayDaily", {})) == TYPE_DICTIONARY else {}
+	if not bool(ad.get("enabled", false)):
+		action_requested.emit("toast", {"text": "阵法结界未开"})
+		return
+	if bool(ad.get("clearedToday", false)):
+		action_requested.emit("toast", {"text": "今日已接引 · 阵法经验 %d" % int(ad.get("arrayXp", 0))})
+		return
+	_array_rots.clear()
+	_array_spin_count = 0
+	var puzzle: Dictionary = ad.get("puzzle", {}) if typeof(ad.get("puzzle", {})) == TYPE_DICTIONARY else {}
+	for tile in puzzle.get("tiles", []):
+		if typeof(tile) != TYPE_DICTIONARY:
+			continue
+		var t := tile as Dictionary
+		_array_rots["%d,%d" % [int(t.get("r", 0)), int(t.get("c", 0))]] = int(t.get("rot", 0))
+	_mode = MODE_ARRAY
+	_render()
+
+
+func _render_array() -> void:
+	_bg("dongfu_l0")
+	_hotspot("BackButton", HS_BACK, _on_back, "←", "ghost")
+	_chip("灵脉接引 · 灵泉→阵眼", Rect2(140, 250, 700, 88), "ArrayTitle")
+	_chip("点格顺时针旋 90° · 已旋 %d 次" % _array_spin_count, Rect2(140, 350, 800, 64), "ArrayHint")
+	var ad: Dictionary = _view.get("arrayDaily", {}) if typeof(_view.get("arrayDaily", {})) == TYPE_DICTIONARY else {}
+	var puzzle: Dictionary = ad.get("puzzle", {}) if typeof(ad.get("puzzle", {})) == TYPE_DICTIONARY else {}
+	var source: Dictionary = puzzle.get("source", {}) if typeof(puzzle.get("source", {})) == TYPE_DICTIONARY else {}
+	var sink: Dictionary = puzzle.get("sink", {}) if typeof(puzzle.get("sink", {})) == TYPE_DICTIONARY else {}
+	var grid_origin := Vector2(180, 520)
+	var cell := 220
+	for r in 3:
+		for c in 3:
+			var rect := Rect2(grid_origin.x + c * cell, grid_origin.y + r * cell, cell - 16, cell - 16)
+			var key := "%d,%d" % [r, c]
+			var label := ""
+			var locked := false
+			if int(source.get("r", -1)) == r and int(source.get("c", -1)) == c:
+				label = "泉\n%s" % str(source.get("open", ""))
+				locked = true
+			elif int(sink.get("r", -1)) == r and int(sink.get("c", -1)) == c:
+				label = "眼\n%s" % str(sink.get("open", ""))
+				locked = true
+			else:
+				var shape := _array_tile_shape(puzzle, r, c)
+				var rot := int(_array_rots.get(key, 0))
+				label = "%s·%d" % [shape, rot]
+			var rr := r
+			var cc := c
+			if locked:
+				_chip(label, rect, "ArrayCell_%d_%d" % [r, c])
+			else:
+				_hotspot("ArrayCell_%d_%d" % [r, c], rect, func() -> void: _rotate_array_cell(rr, cc), label, "o")
+	var settle := _hotspot("ArraySettle", Rect2(240, 1260, 600, 120), _submit_array, "收阵", "o")
+	settle.disabled = puzzle.is_empty()
+
+
+func _array_tile_shape(puzzle: Dictionary, r: int, c: int) -> String:
+	for tile in puzzle.get("tiles", []):
+		if typeof(tile) != TYPE_DICTIONARY:
+			continue
+		var t := tile as Dictionary
+		if int(t.get("r", -1)) == r and int(t.get("c", -1)) == c:
+			return str(t.get("shape", "?"))
+	return "?"
+
+
+func _rotate_array_cell(r: int, c: int) -> void:
+	var key := "%d,%d" % [r, c]
+	if not _array_rots.has(key):
+		return
+	_array_rots[key] = (int(_array_rots[key]) + 1) % 4
+	_array_spin_count += 1
+	_render()
+
+
+func _submit_array() -> void:
+	var ad: Dictionary = _view.get("arrayDaily", {}) if typeof(_view.get("arrayDaily", {})) == TYPE_DICTIONARY else {}
+	var puzzle: Dictionary = ad.get("puzzle", {}) if typeof(ad.get("puzzle", {})) == TYPE_DICTIONARY else {}
+	if puzzle.is_empty():
+		action_requested.emit("toast", {"text": "阵图有变，请重新打开洞府"})
+		return
+	var rots: Array = []
+	for key in _array_rots.keys():
+		var parts := str(key).split(",")
+		rots.append({"r": int(parts[0]), "c": int(parts[1]), "rot": int(_array_rots[key])})
+	action_requested.emit("dongfu_array_complete", {
+		"puzzleId": str(puzzle.get("puzzleId", "")),
+		"dayKey": str(ad.get("dayKey", "")),
+		"rots": rots,
+	})
+

@@ -71,6 +71,30 @@ export type DongfuStarterSeed = { itemSlug: string; quantity: number };
 /** 极简灵石兑种（非大商店）。 */
 export type DongfuSeedOffer = { seedSlug: string; spiritStones: number; quantity: number };
 
+
+export type DongfuArrayDir = "N" | "E" | "S" | "W";
+
+export type DongfuArrayEndpoint = { r: number; c: number; open: DongfuArrayDir };
+
+export type DongfuArrayTile = { r: number; c: number; shape: "I" | "L"; rot: number };
+
+export type DongfuArrayPuzzle = {
+  puzzleId: string;
+  source: DongfuArrayEndpoint;
+  sink: DongfuArrayEndpoint;
+  tiles: DongfuArrayTile[];
+};
+
+/** 阵法每日小游戏（灵脉接引）。 */
+export type DongfuArrayDailyConfig = {
+  enabled: boolean;
+  gridSize: number;
+  rewardXp: number;
+  rewardShardItemSlug: string;
+  rewardShardQty: number;
+  puzzles: DongfuArrayPuzzle[];
+};
+
 export type DongfuConfig = {
   plotCount: number;
   alchemyQueueLength: number;
@@ -121,6 +145,8 @@ export type DongfuConfig = {
   auraSources: DongfuAuraSourceConfig[];
   /** 每多派 1 名上工傀儡时一次性扣灵石（减员不退）。 */
   servantAssignLingshi: number;
+  /** 阵法每日小游戏。 */
+  arrayDaily: DongfuArrayDailyConfig;
 };
 
 /**
@@ -140,6 +166,59 @@ export const DEFAULT_ALCHEMY_UPGRADES: DongfuUpgradeTier[] = [
 
 const SLUG = /^[a-z][a-z0-9_]*$/;
 const BUFF_STATS = new Set(["attack", "defense"]);
+
+
+export const DEFAULT_ARRAY_DAILY: DongfuArrayDailyConfig = {
+  enabled: true,
+  gridSize: 3,
+  rewardXp: 10,
+  rewardShardItemSlug: "array_shard",
+  rewardShardQty: 2,
+  puzzles: [
+    {
+      puzzleId: "vein_01",
+      source: { r: 0, c: 0, open: "E" },
+      sink: { r: 2, c: 2, open: "W" },
+      tiles: [
+        { r: 0, c: 1, shape: "I", rot: 0 },
+        { r: 0, c: 2, shape: "L", rot: 1 },
+        { r: 1, c: 0, shape: "L", rot: 0 },
+        { r: 1, c: 1, shape: "I", rot: 1 },
+        { r: 1, c: 2, shape: "L", rot: 2 },
+        { r: 2, c: 0, shape: "L", rot: 3 },
+        { r: 2, c: 1, shape: "I", rot: 0 },
+      ],
+    },
+    {
+      puzzleId: "vein_02",
+      source: { r: 0, c: 2, open: "S" },
+      sink: { r: 2, c: 0, open: "E" },
+      tiles: [
+        { r: 0, c: 0, shape: "I", rot: 1 },
+        { r: 0, c: 1, shape: "L", rot: 0 },
+        { r: 1, c: 0, shape: "L", rot: 3 },
+        { r: 1, c: 1, shape: "L", rot: 3 },
+        { r: 1, c: 2, shape: "I", rot: 1 },
+        { r: 2, c: 1, shape: "I", rot: 3 },
+        { r: 2, c: 2, shape: "L", rot: 2 },
+      ],
+    },
+    {
+      puzzleId: "vein_03",
+      source: { r: 1, c: 0, open: "E" },
+      sink: { r: 1, c: 2, open: "W" },
+      tiles: [
+        { r: 0, c: 0, shape: "L", rot: 2 },
+        { r: 0, c: 1, shape: "I", rot: 3 },
+        { r: 0, c: 2, shape: "L", rot: 1 },
+        { r: 1, c: 1, shape: "I", rot: 0 },
+        { r: 2, c: 0, shape: "I", rot: 1 },
+        { r: 2, c: 1, shape: "L", rot: 2 },
+        { r: 2, c: 2, shape: "L", rot: 2 },
+      ],
+    },
+  ],
+};
 
 /** 出厂默认（迁移 / 测试 / 后台重置用）。 */
 export const DEFAULT_DONGFU: DongfuConfig = {
@@ -179,6 +258,7 @@ export const DEFAULT_DONGFU: DongfuConfig = {
   gardenAgeToAncientSeconds: 86400,
   auraSources: [],
   servantAssignLingshi: 5,
+  arrayDaily: DEFAULT_ARRAY_DAILY,
   seeds: [
     { seedSlug: "seed_lingcao", herbSlug: "herb_lingcao", growSeconds: 60 },
     { seedSlug: "seed_qingxin", herbSlug: "herb_qingxin", growSeconds: 120 },
@@ -509,6 +589,124 @@ function parseAuraSources(raw: unknown): DongfuAuraSourceConfig[] {
   return rows;
 }
 
+function parseArrayDir(value: unknown, label: string): DongfuArrayDir {
+  if (value !== "N" && value !== "E" && value !== "S" && value !== "W") {
+    throw new AppError("INVALID_INPUT", `${label}朝向须为 N/E/S/W`);
+  }
+  return value;
+}
+
+function parseArrayEndpoint(raw: unknown, label: string, gridSize: number): DongfuArrayEndpoint {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    throw new AppError("INVALID_INPUT", `${label}格式不正确`);
+  }
+  const row = raw as Record<string, unknown>;
+  const r = intInRange(row.r, `${label}行`, 0, gridSize - 1);
+  const c = intInRange(row.c, `${label}列`, 0, gridSize - 1);
+  return { r, c, open: parseArrayDir(row.open, label) };
+}
+
+function parseArrayTile(raw: unknown, index: number, gridSize: number): DongfuArrayTile {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    throw new AppError("INVALID_INPUT", `阵法管路第 ${index + 1} 格格式不正确`);
+  }
+  const row = raw as Record<string, unknown>;
+  const label = `阵法管路第 ${index + 1} 格`;
+  const shape = row.shape;
+  if (shape !== "I" && shape !== "L") {
+    throw new AppError("INVALID_INPUT", `${label}形状须为 I 或 L`);
+  }
+  return {
+    r: intInRange(row.r, `${label}行`, 0, gridSize - 1),
+    c: intInRange(row.c, `${label}列`, 0, gridSize - 1),
+    shape,
+    rot: intInRange(row.rot, `${label}朝向`, 0, 3),
+  };
+}
+
+function parseArrayPuzzle(raw: unknown, index: number, gridSize: number): DongfuArrayPuzzle {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    throw new AppError("INVALID_INPUT", `阵法关卡第 ${index + 1} 行格式不正确`);
+  }
+  const row = raw as Record<string, unknown>;
+  const label = `阵法关卡第 ${index + 1} 行`;
+  if (!Array.isArray(row.tiles) || row.tiles.length === 0) {
+    throw new AppError("INVALID_INPUT", `${label}至少要有一格管路`);
+  }
+  if (row.tiles.length > gridSize * gridSize - 2) {
+    throw new AppError("INVALID_INPUT", `${label}管路过多`);
+  }
+  const source = parseArrayEndpoint(row.source, `${label}泉眼`, gridSize);
+  const sink = parseArrayEndpoint(row.sink, `${label}阵眼`, gridSize);
+  if (source.r === sink.r && source.c === sink.c) {
+    throw new AppError("INVALID_INPUT", `${label}泉眼与阵眼不能重合`);
+  }
+  const tiles = row.tiles.map((tile, tileIndex) => parseArrayTile(tile, tileIndex, gridSize));
+  const occupied = new Set<string>([`${source.r},${source.c}`, `${sink.r},${sink.c}`]);
+  for (const tile of tiles) {
+    const key = `${tile.r},${tile.c}`;
+    if (occupied.has(key)) {
+      throw new AppError("INVALID_INPUT", `${label}格子占用冲突`);
+    }
+    occupied.add(key);
+  }
+  return {
+    puzzleId: slugOf(row.puzzleId, `${label}关卡`),
+    source,
+    sink,
+    tiles,
+  };
+}
+
+function parseArrayDaily(raw: unknown): DongfuArrayDailyConfig {
+  if (raw === undefined || raw === null) {
+    return {
+      ...DEFAULT_ARRAY_DAILY,
+      puzzles: DEFAULT_ARRAY_DAILY.puzzles.map((puzzle) => ({
+        ...puzzle,
+        source: { ...puzzle.source },
+        sink: { ...puzzle.sink },
+        tiles: puzzle.tiles.map((tile) => ({ ...tile })),
+      })),
+    };
+  }
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    throw new AppError("INVALID_INPUT", "阵法日游配置格式不正确");
+  }
+  const row = raw as Record<string, unknown>;
+  const gridSize = intOr(row.gridSize, "阵法盘面边长", 3, 3, DEFAULT_ARRAY_DAILY.gridSize);
+  if (gridSize !== 3) {
+    throw new AppError("INVALID_INPUT", "本切片阵法盘面固定 3×3");
+  }
+  const puzzlesRaw = row.puzzles === undefined || row.puzzles === null ? DEFAULT_ARRAY_DAILY.puzzles : row.puzzles;
+  if (!Array.isArray(puzzlesRaw) || puzzlesRaw.length < 1) {
+    throw new AppError("INVALID_INPUT", "阵法日游至少配置 1 关");
+  }
+  if (puzzlesRaw.length > 32) {
+    throw new AppError("INVALID_INPUT", "阵法日游最多 32 关");
+  }
+  const puzzles = puzzlesRaw.map((puzzle, index) => parseArrayPuzzle(puzzle, index, gridSize));
+  const seen = new Set<string>();
+  for (const puzzle of puzzles) {
+    if (seen.has(puzzle.puzzleId)) {
+      throw new AppError("INVALID_INPUT", `阵法关卡编号重复：${puzzle.puzzleId}`);
+    }
+    seen.add(puzzle.puzzleId);
+  }
+  return {
+    enabled: row.enabled === undefined || row.enabled === null ? true : Boolean(row.enabled),
+    gridSize,
+    rewardXp: intOr(row.rewardXp, "阵法经验奖励", 0, 999_999, DEFAULT_ARRAY_DAILY.rewardXp),
+    rewardShardItemSlug:
+      row.rewardShardItemSlug === undefined || row.rewardShardItemSlug === null || row.rewardShardItemSlug === ""
+        ? DEFAULT_ARRAY_DAILY.rewardShardItemSlug
+        : slugOf(row.rewardShardItemSlug, "阵纹残片物品"),
+    rewardShardQty: intOr(row.rewardShardQty, "阵纹残片数量", 0, 9999, DEFAULT_ARRAY_DAILY.rewardShardQty),
+    puzzles,
+  };
+}
+
+
 function parseUpgrade(raw: unknown, label: string, index: number): DongfuUpgradeTier {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
     throw new AppError("INVALID_INPUT", `${label}第 ${index + 1} 档格式不正确`);
@@ -738,6 +936,7 @@ export function dongfuConfigFromInput(raw: unknown): DongfuConfig {
     ),
     auraSources: parseAuraSources(input.auraSources),
     servantAssignLingshi: intOr(input.servantAssignLingshi, "傀儡上工灵石", 0, 1_000_000_000, DEFAULT_DONGFU.servantAssignLingshi),
+    arrayDaily: parseArrayDaily(input.arrayDaily),
   };
 }
 
@@ -798,5 +997,6 @@ export function dongfuReferencedItemSlugs(config: DongfuConfig): string[] {
   for (const source of config.auraSources) {
     if (source.itemSlug) slugs.add(source.itemSlug);
   }
+  if (config.arrayDaily.rewardShardItemSlug) slugs.add(config.arrayDaily.rewardShardItemSlug);
   return [...slugs];
 }

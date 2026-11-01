@@ -344,6 +344,13 @@
       "when": 1800800000000,
       "tag": "0068_dongfu_trial_kuilei",
       "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1800900000000,
+      "tag": "0069_dongfu_array_daily",
+      "breakpoints": true
     }
   ]
 }

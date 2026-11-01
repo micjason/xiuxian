@@ -18,6 +18,14 @@ import { addStack, stackCount, takeStack } from "../loop/bag.js";
 import { readGameRules } from "../content/rules.js";
 import { rewardDayKey } from "../progress/day.js";
 import { recipeOf, requireDongfu, seedOf, type DongfuConfig, type DongfuRecipeConfig, type DongfuUpgradeTier } from "./config.js";
+import {
+  isSourceSinkConnected,
+  normalizeRots,
+  pickPuzzleForDay,
+  puzzleById,
+  puzzlePayload,
+  shanghaiDayKey,
+} from "./array-daily.js";
 import { durationFactor, effectiveDurationMs, facilitySize, rescaleReadyAt, upgradeOffer } from "./pace.js";
 
 type World = ContentSnapshot & { version: number };
@@ -93,6 +101,20 @@ export type DongfuStateDto = {
     dayKey: string;
   };
   servantAssignLingshi: number;
+  /** 阵法每日小游戏。 */
+  arrayDaily: {
+    enabled: boolean;
+    clearedToday: boolean;
+    dayKey: string;
+    arrayXp: number;
+    puzzle?: {
+      puzzleId: string;
+      gridSize: number;
+      source: { r: number; c: number; open: string };
+      sink: { r: number; c: number; open: string };
+      tiles: { r: number; c: number; shape: string; rot: number }[];
+    };
+  };
 };
 
 type DongfuProgress = typeof playerDongfu.$inferSelect;
@@ -409,7 +431,25 @@ export async function readDongfuState(tx: Tx, world: World, playerId: string, no
       dayKey,
     },
     servantAssignLingshi: config.servantAssignLingshi,
+    arrayDaily: buildArrayDailyDto(config, progress, now),
   };
+}
+
+function buildArrayDailyDto(config: DongfuConfig, progress: DongfuProgress, now: Date) {
+  const dayKey = shanghaiDayKey(now);
+  const cfg = config.arrayDaily;
+  const clearedToday = progress.lastClearDay === dayKey;
+  const base = {
+    enabled: cfg.enabled,
+    clearedToday,
+    dayKey,
+    arrayXp: progress.arrayXp ?? 0,
+  };
+  if (!cfg.enabled || clearedToday) {
+    return base;
+  }
+  const puzzle = pickPuzzleForDay(cfg.puzzles, dayKey);
+  return { ...base, puzzle: puzzlePayload(puzzle, cfg.gridSize) };
 }
 
 async function loadBagItems(tx: Tx, playerId: string) {
@@ -895,3 +935,60 @@ export async function trialAlchemy(
 
 /** 供 loop stateDto 挂载；配置缺失时抛错（不回退默认）。 */
 export { requireDongfu };
+
+/** 阵法日游收阵：服务器日界结算；连通则发奖，否则 NOT_CONNECTED / ALREADY_CLEARED。 */
+export async function completeArrayDaily(
+  tx: Tx,
+  world: World,
+  playerId: string,
+  input: { puzzleId: string; dayKey?: string; rots: unknown },
+  now: Date,
+) {
+  const config = dongfuOf(world);
+  const arrayCfg = config.arrayDaily;
+  if (!arrayCfg.enabled) {
+    throw new AppError("DISABLED", "阵法结界未开");
+  }
+  const dayKey = shanghaiDayKey(now);
+  if (input.dayKey !== undefined && input.dayKey !== null && input.dayKey !== "" && input.dayKey !== dayKey) {
+    throw new AppError("INVALID_INPUT", "日界已切换，请重新打开洞府");
+  }
+  const progress = await ensureProgress(tx, config, playerId, now);
+  if (progress.lastClearDay === dayKey) {
+    throw new AppError("ALREADY_CLEARED", "今日灵脉已接引");
+  }
+  if (typeof input.puzzleId !== "string" || !input.puzzleId) {
+    throw new AppError("INVALID_INPUT", "请选择阵图");
+  }
+  const expected = pickPuzzleForDay(arrayCfg.puzzles, dayKey);
+  if (input.puzzleId !== expected.puzzleId) {
+    // 允许提交当日关；未知 id 走 PUZZLE_UNKNOWN；错日关也当阵图有变
+    puzzleById(arrayCfg, input.puzzleId);
+    throw new AppError("PUZZLE_UNKNOWN", "阵图有变，请重新打开洞府");
+  }
+  const puzzle = expected;
+  const rots = normalizeRots(puzzle, input.rots);
+  if (!isSourceSinkConnected(puzzle, rots, arrayCfg.gridSize)) {
+    throw new AppError("NOT_CONNECTED", "灵脉未通，再试试");
+  }
+  const gained: { itemSlug: string; qty: number }[] = [];
+  if (arrayCfg.rewardShardQty > 0) {
+    await assertCanAcceptStacks(tx, world, playerId, [arrayCfg.rewardShardItemSlug]);
+    await addStack(tx, playerId, arrayCfg.rewardShardItemSlug, arrayCfg.rewardShardQty, "dongfu_array_daily", now);
+    gained.push({ itemSlug: arrayCfg.rewardShardItemSlug, qty: arrayCfg.rewardShardQty });
+  }
+  const arrayXpGained = arrayCfg.rewardXp;
+  await tx
+    .update(playerDongfu)
+    .set({
+      lastClearDay: dayKey,
+      lastPuzzleId: puzzle.puzzleId,
+      arrayXp: (progress.arrayXp ?? 0) + arrayXpGained,
+    })
+    .where(eq(playerDongfu.playerId, playerId));
+  return {
+    dongfu: await readDongfuState(tx, world, playerId, now),
+    gained,
+    arrayXpGained,
+  };
+}

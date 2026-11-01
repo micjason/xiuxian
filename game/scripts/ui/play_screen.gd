@@ -1006,6 +1006,14 @@ func _on_dongfu_action(kind: String, payload: Dictionary) -> void:
 			path = "/api/v1/me/dongfu/upgrade"
 			body = {"facility": str(payload.get("facility", ""))}
 			ok_text = "升级成功"
+		"dongfu_array_complete":
+			path = "/api/v1/me/dongfu/array/complete"
+			body = {
+				"puzzleId": str(payload.get("puzzleId", "")),
+				"dayKey": str(payload.get("dayKey", "")),
+				"rots": payload.get("rots", []),
+			}
+			ok_text = "灵脉已接引"
 		"enhance", "enhance_max":
 			# 洞府强化阵：直接调现有 enhance API，成功留洞府（不跳行囊）
 			await _enhance(str(payload.get("itemId", "")), kind == "enhance_max")

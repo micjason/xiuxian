@@ -41,7 +41,7 @@ static func build(state: Dictionary, next_realm_name: String = "") -> Dictionary
 	elif not cultivation_ok:
 		hint = "修为还差 %s" % CultivationFormat.amount(cost - cultivation)
 	elif not boss_ok:
-		hint = "先击败首领「%s」" % str(gate.get("bossName", gate.get("name", "")))
+		hint = ""  # 突破条件区已写「击败首领」，钮下不再重复
 	return {
 		"has_next": next_slug != "",
 		"next_name": out_name,

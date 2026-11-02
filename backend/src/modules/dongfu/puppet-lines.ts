@@ -163,9 +163,6 @@ export function buildPuppetDto(
   config: DongfuPuppetConfig,
   servantTotal: number,
 ): PuppetDto {
-  const meatEmpty = state.lines.meat.stored <= 1e-6 && state.lines.meat.workers <= 0
-    ? false
-    : state.lines.meat.stored <= 1e-6;
   // 肉空判定：库存≈0 且有吃肉线在干活
   const eating =
     state.lines.wood.workers + state.lines.herb.workers + state.lines.stone.workers > 0;

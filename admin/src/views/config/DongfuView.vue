@@ -845,7 +845,6 @@ function payload(form: Form): Record<string, unknown> {
     }),
     gardenSeedReturnChance: form.gardenSeedReturnChance,
     alchemyRepeatSeconds: form.alchemyRepeatSeconds,
-    startingServants: form.puppetStartCount ?? form.startingServants,
     puppet: {
       ...(form.puppet || {}),
       startCount: form.puppetStartCount,

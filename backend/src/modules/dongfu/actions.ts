@@ -1157,7 +1157,7 @@ export async function upgradePuppetLine(
     throw new AppError("INVALID_INPUT", "未知产线");
   }
   const config = dongfuOf(world);
-  let progress = await ensureProgress(tx, config, playerId, now);
+  const progress = await ensureProgress(tx, config, playerId, now);
   const pack = await loadAndSettlePuppet(tx, config, progress, playerId, now);
   const state = pack.puppetState;
   const cost = upgradeCostOf(config.puppet, line, state.lines[line].level);
@@ -1227,7 +1227,7 @@ export async function withdrawPuppetStore(
   if (!bagSlug) {
     throw new AppError("INVALID_INPUT", "该产线不可收取到行囊");
   }
-  let progress = await ensureProgress(tx, config, playerId, now);
+  const progress = await ensureProgress(tx, config, playerId, now);
   const pack = await loadAndSettlePuppet(tx, config, progress, playerId, now);
   const state = pack.puppetState;
   const have = Math.floor(state.lines[line].stored);

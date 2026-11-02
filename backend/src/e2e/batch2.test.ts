@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { and, eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { buildApp } from "../app.js";
-import { contentGearSets, contentGlobals, contentItems, contentRealms, contentStages, equipmentGrants, playerItems, players, playerSkills } from "../db/schema.js";
+import { playerStates, contentGearSets, contentGlobals, contentItems, contentRealms, contentStages, equipmentGrants, playerItems, players, playerSkills } from "../db/schema.js";
 import { createAdmin } from "../modules/auth/service.js";
 import { applyPrototypeV12 } from "../modules/content/prototype-v12.js";
 import { listGear, syncGear } from "../modules/content/gear.js";
@@ -26,6 +26,7 @@ async function boot(db: TestDb, opts: { chance?: number } = {}) {
   const registered = await app.inject({ method: "POST", url: "/api/v1/auth/register", payload: { username: "b2_player", password: "correct-horse" } });
   const headers = { authorization: `Bearer ${registered.json().token as string}` };
   const [player] = await db.select().from(players).where(eq(players.usernameLower, "b2_player"));
+  await db.update(playerStates).set({ autoDecomposeQualities: [], autoDecompose: false }).where(eq(playerStates.playerId, player!.id));
   const call = async (method: "GET" | "POST" | "PUT" | "DELETE", url: string, payload?: unknown, as = admin) => {
     const extra = as !== admin && method === "POST" ? { "idempotency-key": randomUUID() } : {};
     const res = await app.inject({ method, url: `/api/v1${url}`, headers: { ...as, ...extra }, ...(payload === undefined ? {} : { payload: payload as any }) });

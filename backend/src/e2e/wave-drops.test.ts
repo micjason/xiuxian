@@ -35,6 +35,8 @@ async function boot(db: TestDb, name: string) {
   const registered = await app.inject({ method: "POST", url: "/api/v1/auth/register", payload: { username: name, password: "correct-horse" } });
   const headers = { authorization: `Bearer ${registered.json().token as string}` };
   const [player] = await db.select().from(players).where(eq(players.usernameLower, name));
+  // 本文件测「进包 / 满包跳过」；关掉默勾的白绿蓝自动拆。
+  await db.update(playerStates).set({ autoDecomposeQualities: [], autoDecompose: false }).where(eq(playerStates.playerId, player!.id));
   const jump = async (seconds: number) => {
     clock = new Date(start.getTime() + seconds * 1000);
     return (await app.inject({ method: "GET", url: "/api/v1/me/state", headers })).json();

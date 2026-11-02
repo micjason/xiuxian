@@ -15,9 +15,9 @@ signal closed
 signal auto_decompose_changed(qualities: Array)
 
 const FRAME_SIZE := Vector2(960, 1620)  # 加「挂机自动分解」品质勾选块
-const QUALITY_KEYS := ["white", "green", "blue", "purple", "orange"]
-const QUALITY_WORDS := ["白", "绿", "蓝", "紫", "橙"]
-const DEFAULT_AUTO_QUALITIES := ["white", "green", "blue"]
+const QUALITY_KEYS: Array[String] = ["white", "green", "blue", "purple", "orange"]
+const QUALITY_WORDS: Array[String] = ["白", "绿", "蓝", "紫", "橙"]
+const DEFAULT_AUTO_QUALITIES: Array[String] = ["white", "green", "blue"]
 const FRAME_X := 60.0
 const LOCKED_TEXT := LockedFeature.TEXT
 ## 未开放入口：[名字, 图标, 列, 行, 宽]（稿上两行 3 列，最后一个跨 2 列）。
@@ -47,7 +47,7 @@ var _server_value: Label
 var _music: Button
 var _sfx: Button
 var _auto_chips: Array[Button] = []
-var _auto_qualities: Array = DEFAULT_AUTO_QUALITIES.duplicate()
+var _auto_qualities: Array[String] = DEFAULT_AUTO_QUALITIES.duplicate()
 var _version: Label
 var _update_state: Label
 var _check: Button
@@ -361,7 +361,7 @@ func _paint_auto_chip(chip: Button, on: bool) -> void:
 
 
 func _apply_auto_qualities(raw: Variant) -> void:
-	var next: Array = []
+	var next: Array[String] = []
 	if typeof(raw) == TYPE_ARRAY:
 		for item in raw:
 			var key := str(item)
@@ -378,14 +378,14 @@ func _apply_auto_qualities(raw: Variant) -> void:
 
 
 func _toggle_auto_quality(key: String, on: bool) -> void:
-	var next: Array = _auto_qualities.duplicate()
+	var next: Array[String] = _auto_qualities.duplicate()
 	if on:
 		if key not in next:
 			next.append(key)
 	else:
 		next.erase(key)
 	# 保持白→橙顺序
-	var ordered: Array = []
+	var ordered: Array[String] = []
 	for q in QUALITY_KEYS:
 		if q in next:
 			ordered.append(q)

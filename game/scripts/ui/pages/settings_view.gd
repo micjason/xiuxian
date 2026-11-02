@@ -2,7 +2,7 @@ class_name SettingsView
 extends Control
 ## 设置弹窗（设计稿 q_design/q_settings_popup + q_settings_states，SPEC_Q §17.4）：点左上角头像打开，居中盖在当前页上。
 ## 账号信息（头像、名字、境界、账号打码、服务器）/ 声音（音乐、音效开关，本机保存，LocalSettings）/
-## 更多（5 个未开放入口：灰色可点，提示「功能暂未开放」，弹窗不关）/ 版本号 + 检查更新 / 退出登录（二次确认）。
+## 挂机自动分解（按品质勾选，存服务器）/ 更多（未开放入口）/ 版本号 + 检查更新 / 退出登录（二次确认）。
 ## 坐标按 1080×2340 设计稿 v2、相对弹窗框左上角（稿上 60,459）；弹窗整体在可用高度里垂直居中。
 ## 只管界面，动作发信号给外壳（play_screen）。
 
@@ -11,8 +11,13 @@ signal check_update_requested
 signal locked_pressed(feature: String)
 signal credits_requested
 signal closed
+## 玩家勾选/取消挂机自动分解品质后发出（qualities 为白绿蓝紫橙的 key 数组）。
+signal auto_decompose_changed(qualities: Array)
 
-const FRAME_SIZE := Vector2(960, 1422)  # v2：版本块加高放「致谢与版本」入口（SPEC_Q 17.4 / 17.11）
+const FRAME_SIZE := Vector2(960, 1620)  # 加「挂机自动分解」品质勾选块
+const QUALITY_KEYS := ["white", "green", "blue", "purple", "orange"]
+const QUALITY_WORDS := ["白", "绿", "蓝", "紫", "橙"]
+const DEFAULT_AUTO_QUALITIES := ["white", "green", "blue"]
 const FRAME_X := 60.0
 const LOCKED_TEXT := LockedFeature.TEXT
 ## 未开放入口：[名字, 图标, 列, 行, 宽]（稿上两行 3 列，最后一个跨 2 列）。
@@ -41,6 +46,8 @@ var _account_value: Label
 var _server_value: Label
 var _music: Button
 var _sfx: Button
+var _auto_chips: Array[Button] = []
+var _auto_qualities: Array = DEFAULT_AUTO_QUALITIES.duplicate()
 var _version: Label
 var _update_state: Label
 var _check: Button
@@ -70,6 +77,7 @@ func _init() -> void:
 	add_child(_frame)
 	_build_account()
 	_build_sound()
+	_build_auto_decompose()
 	_build_more()
 	_build_version()
 	_build_logout()
@@ -128,6 +136,7 @@ func open(info: Dictionary) -> void:
 	_server_value.text = _text(info.get("server", ""), "—")
 	(_music as QToggleSwitch).set_on(LocalSettings.music_on())
 	(_sfx as QToggleSwitch).set_on(LocalSettings.sfx_on())
+	_apply_auto_qualities(info.get("autoDecomposeQualities", DEFAULT_AUTO_QUALITIES))
 	_version.text = version_text(info)
 	set_checking(false)
 	match str(info.get("updateState", "")):
@@ -310,8 +319,87 @@ func _sound_strip(well: Control, node_name: String, text: String, icon: String, 
 	return toggle
 
 
+func _build_auto_decompose() -> void:
+	var well := _well(Rect2(26, 576, 908, 200), "SettingsAutoDecompose")
+	_at(well, UiKit.label("挂机自动分解", 32, LABEL_GREY), Vector2(28, 14))
+	var tip := UiKit.label("勾上的品质，掉落时直接拆成炼器精粹，不占背包", 24, Color("b8a799"))
+	_at(well, tip, Vector2(28, 52), Vector2(852, 36))
+	_auto_chips.clear()
+	for i in QUALITY_KEYS.size():
+		var chip := _auto_chip(i)
+		_auto_chips.append(chip)
+		_at(well, chip, Vector2(28 + i * 172, 100), Vector2(160, 72))
+
+
+func _auto_chip(index: int) -> Button:
+	var key := QUALITY_KEYS[index]
+	var chip := Button.new()
+	chip.name = "AutoQuality_%s" % key
+	chip.focus_mode = Control.FOCUS_NONE
+	chip.toggle_mode = true
+	chip.text = QUALITY_WORDS[index]
+	chip.add_theme_font_size_override("font_size", 34)
+	chip.toggled.connect(func(on: bool) -> void: _toggle_auto_quality(key, on))
+	_paint_auto_chip(chip, false)
+	return chip
+
+
+func _paint_auto_chip(chip: Button, on: bool) -> void:
+	var key := str(chip.name).replace("AutoQuality_", "")
+	var cut := ("qchip_on_" + key) if on else "qchip_off_72"
+	var has := ArtLib.qui(cut) != null
+	for style_key in ["normal", "hover", "pressed", "disabled", "focus"]:
+		if has and style_key != "focus":
+			chip.add_theme_stylebox_override(style_key, ArtLib.q_nine(cut))
+		elif style_key == "focus":
+			chip.add_theme_stylebox_override(style_key, StyleBoxEmpty.new())
+		else:
+			chip.add_theme_stylebox_override(style_key, QSkin.custom(UiTokens.Q_CREAM if not on else Color("ffe7c2"), UiTokens.Q_COCOA, 3, 36, 4, 0, 0))
+	chip.add_theme_color_override("font_color", UiTokens.TEXT if on else LABEL_GREY)
+	chip.add_theme_color_override("font_pressed_color", UiTokens.TEXT if on else LABEL_GREY)
+	chip.add_theme_color_override("font_hover_color", UiTokens.TEXT if on else LABEL_GREY)
+
+
+func _apply_auto_qualities(raw: Variant) -> void:
+	var next: Array = []
+	if typeof(raw) == TYPE_ARRAY:
+		for item in raw:
+			var key := str(item)
+			if key in QUALITY_KEYS and key not in next:
+				next.append(key)
+	else:
+		next = DEFAULT_AUTO_QUALITIES.duplicate()
+	_auto_qualities = next
+	for i in _auto_chips.size():
+		var key := QUALITY_KEYS[i]
+		var on := key in _auto_qualities
+		_auto_chips[i].set_pressed_no_signal(on)
+		_paint_auto_chip(_auto_chips[i], on)
+
+
+func _toggle_auto_quality(key: String, on: bool) -> void:
+	var next: Array = _auto_qualities.duplicate()
+	if on:
+		if key not in next:
+			next.append(key)
+	else:
+		next.erase(key)
+	# 保持白→橙顺序
+	var ordered: Array = []
+	for q in QUALITY_KEYS:
+		if q in next:
+			ordered.append(q)
+	_auto_qualities = ordered
+	for i in _auto_chips.size():
+		var k := QUALITY_KEYS[i]
+		var chip_on := k in _auto_qualities
+		_auto_chips[i].set_pressed_no_signal(chip_on)
+		_paint_auto_chip(_auto_chips[i], chip_on)
+	auto_decompose_changed.emit(_auto_qualities)
+
+
 func _build_more() -> void:
-	var well := _well(Rect2(26, 576, 908, 392), "SettingsMore")
+	var well := _well(Rect2(26, 798, 908, 392), "SettingsMore")
 	_at(well, UiKit.label("更多", 32, LABEL_GREY), Vector2(28, 14))
 	var soon := UiKit.label("敬请期待", 26, Color("b8a799"), HORIZONTAL_ALIGNMENT_RIGHT)
 	_at(well, soon, Vector2(580, 18), Vector2(300, 40))
@@ -343,7 +431,7 @@ func _tile(text: String, icon: String, width: int) -> Button:
 
 
 func _build_version() -> void:
-	var well := _well(Rect2(26, 990, 908, 232), "SettingsVersion")
+	var well := _well(Rect2(26, 1212, 908, 232), "SettingsVersion")
 	_at(well, UiKit.label("版本号", 28, LABEL_GREY), Vector2(28, 12))
 	_version = QKit.title("", 38, UiTokens.TEXT)
 	_version.name = "SettingsVersionText"
@@ -381,7 +469,7 @@ func _build_credits_row(well: Control) -> void:
 func _build_logout() -> void:
 	var button := QKit.button("", "r", 124, 50)
 	button.name = "LogoutButton"
-	_at(_frame, button, Vector2(40, 1252), Vector2(880, button.custom_minimum_size.y))
+	_at(_frame, button, Vector2(40, 1474), Vector2(880, button.custom_minimum_size.y))
 	var row := UiKit.hbox(14)
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE

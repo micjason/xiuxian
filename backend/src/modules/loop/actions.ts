@@ -21,6 +21,7 @@ import { AppError } from "../../shared/errors.js";
 import type { Db } from "../operations/record.js";
 import { readGameRules } from "../content/rules.js";
 import { bagUsedSlots, decomposeRows, grantItem, stackCount, takeStack } from "./bag.js";
+import { DEFAULT_AUTO_DECOMPOSE_QUALITIES, normalizeAutoDecomposeQualities } from "./auto-decompose.js";
 import { migratePlayerEnhanceExp } from "./essence-migration.js";
 import { applySetBonus, setBonusOf } from "../content/set-bonus.js";
 import { maxSkillSlots, nextSkillSlotRule, openSkillSlots } from "../content/skill-slots.js";
@@ -587,6 +588,10 @@ async function stateDto(tx: Tx, world: World, playerId: string, settled: Awaited
     cultivationRate: { bonusBp: settled.stats.bonusBp, gainPerTick: realm.gainPerTick },
     breakthrough: { rateBp, cost: realm.breakthroughCost, nextSlug: realm.nextRealmSlug, requiredStage: gateOf(world, realm, settled.pieces.stages), preview: breakthroughPreview(world, next, settled) },
     challengeCooldownSeconds: readGameRules(world).challengeCooldownSeconds,
+    /** 是否勾了至少一档自动分解（老字段；细项看 autoDecomposeQualities）。 */
+    autoDecompose: normalizeAutoDecomposeQualities(settled.state.autoDecomposeQualities).length > 0,
+    /** 挂机掉落自动拆成炼器精粹的品质（白/绿/蓝/紫/橙）；默认白绿蓝。 */
+    autoDecomposeQualities: normalizeAutoDecomposeQualities(settled.state.autoDecomposeQualities),
     /** 旧的强化经验（第五批起迁移成精粹后恒为 0，留着给老客户端）。 */
     enhanceExp: settled.state.enhanceExp,
     /** 炼器精粹：物品编号 + 拥有数量（也在 items 里作为堆叠材料出现）。 */
@@ -1545,10 +1550,31 @@ export async function breakthroughItem(tx: Tx, world: World, playerId: string, i
   return { state: await stateDto(tx, world, playerId, after), broken: { itemId: item.id, level: node.level, materials: node.materials } };
 }
 
-/** 第五批起不再有「满包自动分解」：老客户端还会调这个接口，只记下开关、不再起任何作用。 */
-export async function setAutoDecompose(tx: Tx, world: World, playerId: string, enabled: boolean, now: Date) {
+/**
+ * 挂机自动分解设置。
+ * - qualities：玩家勾选的品质列表（空数组 = 全不勾）。
+ * - enabled：老客户端布尔开关；true → 默认白绿蓝，false → 全不勾。
+ */
+export async function setAutoDecompose(
+  tx: Tx,
+  world: World,
+  playerId: string,
+  input: { enabled?: boolean; qualities?: unknown },
+  now: Date,
+) {
   await settleLocked(tx, playerId, world, now);
-  await tx.update(playerStates).set({ autoDecompose: enabled }).where(eq(playerStates.playerId, playerId));
+  let qualities: string[];
+  if (input.qualities !== undefined) {
+    qualities = normalizeAutoDecomposeQualities(input.qualities);
+  } else if (typeof input.enabled === "boolean") {
+    qualities = input.enabled ? [...DEFAULT_AUTO_DECOMPOSE_QUALITIES] : [];
+  } else {
+    throw new AppError("INVALID_INPUT", "请勾选要自动分解的品质");
+  }
+  await tx
+    .update(playerStates)
+    .set({ autoDecompose: qualities.length > 0, autoDecomposeQualities: qualities })
+    .where(eq(playerStates.playerId, playerId));
   const after = await settleLocked(tx, playerId, world, now);
   return { state: await stateDto(tx, world, playerId, after) };
 }

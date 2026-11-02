@@ -165,7 +165,7 @@ describe("monster kill drops (5% per kill, regional quality weights, equal 6-slo
       expect((await bag()).every((row) => row.enhanceLevel === 1)).toBe(true);
       await db.delete(playerItems);
       await fill("gear_major1_weapon_white", 20);
-      await db.update(playerStates).set({ autoDecompose: false }).where(eq(playerStates.playerId, playerId));
+      await db.update(playerStates).set({ autoDecompose: false, autoDecomposeQualities: [] }).where(eq(playerStates.playerId, playerId));
       control.quality = 0; // 白：开关关闭时也不能分解
       const off = await state(30);
       expect(off.lastSettle.bagFull).toBe(true);

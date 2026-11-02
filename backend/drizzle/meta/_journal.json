@@ -372,6 +372,13 @@
       "when": 1801200000000,
       "tag": "0072_dongfu_puppet_forge",
       "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1801300000000,
+      "tag": "0073_auto_decompose_qualities",
+      "breakpoints": true
     }
   ]
 }

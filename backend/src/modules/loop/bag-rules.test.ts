@@ -34,7 +34,10 @@ async function seed(db: TestDb) {
     gear("purple_a", "purple", "shoes"),
     { slug: "stone", displayName: "突破石", kind: "material", quality: "green", stackable: true },
   ]);
+  await db.insert(contentItems).values({ slug: "refine_essence", displayName: "炼器精粹", kind: "material", quality: "orange", stackable: true });
   const player = await registerPlayer(db, { username: "bagger", password: "correct-horse", now });
+  // 容量用例先关掉自动分解，避免白绿蓝默勾把断言搅乱；自动分解另有 describe。
+  await db.update(playerStates).set({ autoDecomposeQualities: [], autoDecompose: false }).where(eq(playerStates.playerId, player.playerId));
   const world = await loadCurrentWorld(db);
   if (!world) throw new Error("no world");
   return { player, world };
@@ -183,9 +186,71 @@ describe("challenge with a full bag", () => {
       expect(first.battle.win).toBe(true);
       await db.delete(playerItems).where(eq(playerItems.itemSlug, "purple_a"));
       await fill(db, player.playerId, [{ itemSlug: "white_a" }]);
-      await db.update(playerStates).set({ autoDecompose: false }).where(eq(playerStates.playerId, player.playerId));
+      await db.update(playerStates).set({ autoDecompose: false, autoDecomposeQualities: [] }).where(eq(playerStates.playerId, player.playerId));
       const second = await withTransaction(db, (tx) => challengeStage(tx, world, player.playerId, "s1", now, () => 0));
       expect(second.battle.win).toBe(true);
+    });
+  });
+});
+
+describe("挂机自动分解（按品质勾选）", () => {
+  it("defaults to white/green/blue on new players", async () => {
+    await withDb(async (db) => {
+      await seed(db);
+      const player = await registerPlayer(db, { username: "autodecomp", password: "correct-horse", now });
+      const [state] = await db.select().from(playerStates).where(eq(playerStates.playerId, player.playerId));
+      expect(state?.autoDecomposeQualities).toEqual(["white", "green", "blue"]);
+      expect(state?.autoDecompose).toBe(true);
+    });
+  });
+
+  it("stage/boss drops of checked qualities become essence and never enter the bag (even when full)", async () => {
+    await withDb(async (db) => {
+      const { player, world } = await seed(db);
+      await db
+        .update(playerStates)
+        .set({ autoDecomposeQualities: ["white", "green", "blue"], autoDecompose: true })
+        .where(eq(playerStates.playerId, player.playerId));
+      await fill(db, player.playerId, [{ itemSlug: "purple_a" }, { itemSlug: "purple_a" }, { itemSlug: "purple_a" }]);
+      const white = await withTransaction(db, (tx) => grantItem(tx, world, player.playerId, "white_a", 1, "wave:s1", now, options()));
+      expect(white.decomposed).toBe(1);
+      expect(white.added).toBe(0);
+      expect(white.dropped).toBe(0);
+      expect(white.enhanceExp).toBeGreaterThan(0);
+      const green = await withTransaction(db, (tx) => grantItem(tx, world, player.playerId, "green_a", 1, "drop:s1", now, options({ overflow: true })));
+      expect(green.decomposed).toBe(1);
+      expect((await bagOf(db, player.playerId)).filter((slug) => slug !== "refine_essence")).toEqual(["purple_a", "purple_a", "purple_a"]);
+      const essence = await db.select().from(playerItems).where(eq(playerItems.itemSlug, "refine_essence"));
+      expect(essence).toHaveLength(1);
+      expect(essence[0]!.quantity).toBe(white.enhanceExp + green.enhanceExp);
+    });
+  });
+
+  it("unchecked qualities still go into the bag, or skip when full", async () => {
+    await withDb(async (db) => {
+      const { player, world } = await seed(db);
+      await db
+        .update(playerStates)
+        .set({ autoDecomposeQualities: ["white", "green", "blue"], autoDecompose: true })
+        .where(eq(playerStates.playerId, player.playerId));
+      const purple = await withTransaction(db, (tx) => grantItem(tx, world, player.playerId, "purple_a", 1, "wave:s1", now, options()));
+      expect(purple).toMatchObject({ added: 1, decomposed: 0, dropped: 0 });
+      await fill(db, player.playerId, [{ itemSlug: "purple_a" }, { itemSlug: "purple_a" }]);
+      const full = await withTransaction(db, (tx) => grantItem(tx, world, player.playerId, "purple_a", 1, "wave:s1", now, options()));
+      expect(full).toMatchObject({ added: 0, dropped: 1, reason: "BAG_FULL", decomposed: 0 });
+    });
+  });
+
+  it("admin/mail/event/starter never auto-decompose even if quality is checked", async () => {
+    await withDb(async (db) => {
+      const { player, world } = await seed(db);
+      await db
+        .update(playerStates)
+        .set({ autoDecomposeQualities: ["white", "green", "blue"], autoDecompose: true })
+        .where(eq(playerStates.playerId, player.playerId));
+      const result = await withTransaction(db, (tx) => grantItem(tx, world, player.playerId, "white_a", 1, "starter", now, options({ overflow: true })));
+      expect(result).toMatchObject({ added: 1, decomposed: 0 });
+      expect(await bagOf(db, player.playerId)).toEqual(["white_a"]);
     });
   });
 });

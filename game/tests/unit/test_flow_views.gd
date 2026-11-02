@@ -40,9 +40,9 @@ func test_feedback_lists_kills_cultivation_and_drops() -> void:
 	assert_string_contains(str(lines[0].text), "×2")
 	assert_string_contains(str(lines[0].text), "+8")
 	assert_string_contains(str(lines[1].text), "名-gear_a")
-	assert_string_contains(str(lines[2].text), "自动分解 +12")
+	assert_string_contains(str(lines[2].text), "炼器精粹 +12")
 	assert_eq(lines[3].kind, "warn")
-	assert_string_contains(str(lines[4].text), "腾出格子")
+	assert_string_contains(str(lines[4].text), "自动分解了")
 
 
 func test_feedback_is_empty_when_offline_or_nothing_happened() -> void:

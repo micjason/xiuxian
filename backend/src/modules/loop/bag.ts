@@ -2,19 +2,20 @@ import { and, eq, inArray } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import type { Tx } from "../../db/tx.js";
 import { grantEquipment, type GrantSource } from "../player/grant.js";
-import { playerItems } from "../../db/schema.js";
+import { playerItems, playerStates } from "../../db/schema.js";
 import { essenceRules, essenceYield, readEnhanceRules, resolveRealmYieldMajor } from "../content/enhance.js";
 import { tuningOf } from "../content/tuning.js";
 import type { ContentSnapshot } from "../content/validate.js";
 import { AppError } from "../../shared/errors.js";
+import { isAutoDecomposeGrantSource, normalizeAutoDecomposeQualities, qualitiesInclude } from "./auto-decompose.js";
 
 type World = ContentSnapshot & { version: number };
 
 /**
- * 行囊（第五批，SPEC_Q §17.2 / 17.5）：
- * - 不再自动分解。行囊满时，配置概览「行囊满时不发装备的来源」（默认 关卡掉落 / 首领首通 / 首领重复）里的装备直接不发
- *   （grantEquipment 返回 skipped: "bag_full"），离线 / 挂机同样；客户端在挂机页显示「行囊已满」提示条，点开自选分解。
- * - 分解由玩家在分解界面勾选（decomposeItems），得到「炼器精粹」（可堆叠材料），用来强化。
+ * 行囊（SPEC_Q §17.2 / 17.5 + 挂机自动分解）：
+ * - 玩家设置里勾选的品质：挂机 / 关卡 / 首领掉落时立刻拆成炼器精粹，不进包（腾格子给紫橙等）。
+ * - 未勾选的品质：行囊满时，配置概览「行囊满时不发装备的来源」里的装备直接不发（skipped: bag_full）。
+ * - 手动分解仍走 decomposeItems（分解弹窗）。
  */
 
 export type GrantOptions = {
@@ -42,9 +43,11 @@ export type GrantResult = {
   added: number;
   /** 行囊满没发的件数。 */
   dropped: number;
-  /** 以下三项是老版本「满包自动分解」留下的字段，已不再发生，恒为 0 / 空（老客户端还会读）。 */
+  /** 按玩家勾选品质自动拆掉的件数（不进包）。 */
   decomposed: number;
+  /** 自动拆到的炼器精粹总数（字段名沿用老客户端的 enhanceExp）。 */
   enhanceExp: number;
+  /** 每件自动拆：itemSlug + 得到的精粹（写在 enhanceExp 里给老客户端读）。 */
   freed: { itemSlug: string; enhanceExp: number }[];
   reason?: "BAG_FULL";
 };
@@ -175,6 +178,30 @@ export async function grantItem(
   }
   const grant = options.grant ?? grantSourceOf(source, Boolean(options.overflow));
   const skipSources = tuningOf(world.globals.tuning).bagFullSkipSources;
+  const autoQualities = isAutoDecomposeGrantSource(grant.source) ? await loadAutoDecomposeQualities(tx, playerId) : [];
+  const shouldAuto = isAutoDecomposeGrantSource(grant.source) && qualitiesInclude(autoQualities, definition.quality);
+  if (shouldAuto) {
+    let essencePer = 0;
+    try {
+      const rules = readEnhanceRules(world);
+      const slug = essenceRules(rules).itemSlug;
+      if (!world.items.some((item) => item.slug === slug)) {
+        throw new Error("missing essence item");
+      }
+      const realm = world.realms.find((row) => row.sortOrder === definition.requiredRealmOrder);
+      const major = resolveRealmYieldMajor(realm);
+      essencePer = essenceYield(rules, definition.quality, definition.slot, 0, major);
+      for (let index = 0; index < quantity; index += 1) {
+        await addStack(tx, playerId, slug, essencePer, "auto_decompose", now);
+        result.decomposed += 1;
+        result.enhanceExp += essencePer;
+        result.freed.push({ itemSlug, enhanceExp: essencePer });
+      }
+      return result;
+    } catch {
+      // 精粹规则没配好：退回正常进包，别把掉落吞了。
+    }
+  }
   for (let index = 0; index < quantity; index += 1) {
     const created = await grantEquipment(tx, {
       playerId,
@@ -193,4 +220,13 @@ export async function grantItem(
     result.added += 1;
   }
   return result;
+}
+
+async function loadAutoDecomposeQualities(tx: Tx, playerId: string): Promise<string[]> {
+  const [row] = await tx
+    .select({ autoDecomposeQualities: playerStates.autoDecomposeQualities })
+    .from(playerStates)
+    .where(eq(playerStates.playerId, playerId))
+    .limit(1);
+  return normalizeAutoDecomposeQualities(row?.autoDecomposeQualities);
 }

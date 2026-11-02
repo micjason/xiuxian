@@ -34,9 +34,9 @@ static func build(result: Dictionary, boss_name: String, name_of: Callable) -> D
 		if bool(row.get("dropped", false)):
 			text += "（背包已满，没有掉落）"
 		elif bool(row.get("decomposed", false)):
-			text += "（背包已满，自动分解 +%d 强化经验）" % int(row.get("enhanceExp", 0))
+			text += "（已按设置自动分解，炼器精粹 +%d）" % int(row.get("enhanceExp", 0))
 		elif not (row.get("freed", []) as Array).is_empty():
-			text += "（自动分解了 %d 件白/绿装备腾格）" % (row.get("freed", []) as Array).size()
+			text += "（自动分解了 %d 件）" % (row.get("freed", []) as Array).size()
 		loot.append({"text": text, "quality": str(row.get("quality", ""))})
 	var reward: Dictionary = result.get("reward", {}) if typeof(result.get("reward", null)) == TYPE_DICTIONARY else {}
 	var first_clear := bool(reward.get("firstClear", false))

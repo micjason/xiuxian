@@ -57,10 +57,10 @@ static func feedback(last: Dictionary, name_of: Callable) -> Array[Dictionary]:
 			continue
 		var text := "掉落：%s" % item_name
 		if bool(row.get("decomposed", false)):
-			text += "（背包已满，自动分解 +%d 强化经验）" % int(row.get("enhanceExp", 0))
+			text += "（已按设置自动分解，炼器精粹 +%d）" % int(row.get("enhanceExp", 0))
 		var freed: Array = row.get("freed", [])
 		if not freed.is_empty():
-			text += "（分解了 %d 件白/绿装备腾出格子）" % freed.size()
+			text += "（自动分解了 %d 件，腾出格子）" % freed.size()
 		lines.append({"kind": "drop", "quality": str(row.get("quality", "")), "text": text, "slug": str(row.get("itemSlug", "")), "name": item_name, "quantity": int(row.get("quantity", 1))})
 	return lines
 

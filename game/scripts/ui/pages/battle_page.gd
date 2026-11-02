@@ -289,8 +289,15 @@ func _build_arena() -> void:
 	_result_panel.visible = false
 	_result_panel.add_theme_stylebox_override("panel", ArtLib.nine("panel_popup"))
 	_result_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	var result_scroll := ScrollContainer.new()
+	result_scroll.name = "ResultScroll"
+	result_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	result_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	result_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_result_panel.add_child(result_scroll)
 	_result_body = UiKit.vbox(UiTokens.SP_1)
-	_result_panel.add_child(_result_body)
+	_result_body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	result_scroll.add_child(_result_body)
 
 
 func _place_hero(node: Control) -> void:
@@ -628,6 +635,7 @@ func _advance(seconds: float) -> void:
 	_refresh_time()
 	if fight.finished:
 		phase = Phase.SUBMITTING
+		_refresh_time()
 		_append_feed("end", "战斗结束，正在结算……")
 		_fx.play_result(fight.win, fight.reason)
 		submit_requested.emit(stage_slug)
@@ -862,6 +870,8 @@ func show_submit_error(message: String) -> void:
 ## 服务器结算返回后显示结果：完整战报换成服务器的版本，再弹出结算面板。
 func show_result(result: Dictionary, name_of: Callable) -> void:
 	phase = Phase.RESULT
+	# 结算出来就冻结倒计时显示，避免「挑战失败」后背后还在走表（FINDINGS #7 / 超屏 B）
+	_refresh_time()
 	var battle: Dictionary = result.get("battle", {}) if typeof(result.get("battle", null)) == TYPE_DICTIONARY else {}
 	var lines := BattleReportBuilder.build(battle, _boss_name, BagModel.shown(fight.player_max_hp) if fight != null else 0, BagModel.shown(fight.boss_max_hp) if fight != null else 0, _ult_name)
 	BattleReportBuilder.render(_report, lines)

@@ -454,6 +454,7 @@ func _on_logged_in() -> void:
 
 ## 点左上角头像：打开设置面板（账号、声音、版本、退出登录）。
 func open_settings() -> void:
+	_close_other_modals("settings")
 	_settings.open(settings_info())
 	if not _mock and not PlayerApi.token().is_empty():
 		_load_account()
@@ -765,6 +766,7 @@ func _maybe_show_offline() -> void:
 
 
 func _show_offline_report(report: Dictionary) -> void:
+	_close_other_modals("offline")
 	var id := str(report.get("id", ""))
 	var bonus_bp := float((_state.get("cultivationRate", {}) as Dictionary).get("bonusBp", 0)) if typeof(_state.get("cultivationRate", null)) == TYPE_DICTIONARY else 0.0
 	var power := float(_state.get("power", -1))
@@ -914,10 +916,12 @@ func _on_center_pressed() -> void:
 
 
 func _open_breakthrough() -> void:
+	_close_other_modals("breakthrough")
 	if not _break_open:
 		_page_before_break = _page
 	_break_open = true
 	_break_gen += 1
+	_breakthrough_page.hide_success_banner()
 	_break_layer.visible = true
 	_breakthrough_page.visible = true
 	_breakthrough_page.pop_in()
@@ -965,7 +969,14 @@ func _on_breakthrough() -> void:
 			await get_tree().create_timer(left).timeout
 		await _breakthrough_page.play_success()
 		_busy = false
-		_breakthrough_page.finish_fx()
+		# 成功结算单独一层：藏突破确认窗，丢掉「已变成下一层」的 pending bind，避免标题「突破·三层」压住「一层→二层」
+		_breakthrough_page.clear_pending_bind()
+		_breakthrough_page.finish_fx(false)
+		_breakthrough_page.hide_success_banner()
+		_break_open = false
+		_break_layer.visible = false
+		_breakthrough_page.visible = false
+		_close_other_modals("success")
 		_success_popup.show_success(BreakthroughView.success_summary(before, _state), unlocks)
 	else:
 		_busy = false
@@ -1228,6 +1239,7 @@ func _decompose_many(ids: Array) -> Dictionary:
 func open_salvage() -> void:
 	if _salvage == null:
 		return
+	_close_other_modals("salvage")
 	_salvage.open(BagModel.from_state(_state, _content, _flags.seen if _flags != null else {}))
 
 

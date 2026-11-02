@@ -31,3 +31,27 @@ static func duration_hours(seconds: int) -> String:
 	if minutes >= 1.0:
 		return "%d 分钟" % int(roundf(minutes))
 	return "%d 秒" % seconds
+
+
+## 修为条 / 突破条件共用：分子不直接甩溢出大数，分母永远是本层 cost。
+## 未满：current / cost；已满：已满(+溢出) / cost；无下一境界：只显示 current。
+static func progress_pair(cultivation: float, cost: float, has_next: bool) -> Dictionary:
+	## 用 OfflineView.grouped：和顶栏、突破页现有千分位一致；溢出改写「已满(+N)」避免分子炸条。
+	if not has_next:
+		return {"text": OfflineView.grouped(cultivation), "ratio": 1.0, "full": true, "overflow": 0.0}
+	var need := maxf(cost, 1.0)
+	var full := cultivation + 0.0001 >= cost
+	var overflow := maxf(cultivation - cost, 0.0) if full else 0.0
+	var shown := ""
+	if full and overflow >= 0.5:
+		shown = "已满(+%s) / %s" % [OfflineView.grouped(overflow), OfflineView.grouped(cost)]
+	elif full:
+		shown = "%s / %s" % [OfflineView.grouped(cost), OfflineView.grouped(cost)]
+	else:
+		shown = "%s / %s" % [OfflineView.grouped(cultivation), OfflineView.grouped(cost)]
+	return {
+		"text": shown,
+		"ratio": clampf(cultivation / need, 0.0, 1.0),
+		"full": full,
+		"overflow": overflow,
+	}

@@ -192,15 +192,30 @@ func play_success() -> void:
 	await ap.animation_finished
 
 
-## 结束特效：回到 idle，补上播动画期间收到的新状态。
-func finish_fx() -> void:
+## 结束特效：回到 idle；默认补上播动画期间的新状态。成功结算弹窗期间传 apply_pending=false，避免标题跳到「下一层」和成功文案打架。
+func finish_fx(apply_pending: bool = true) -> void:
 	_fx_running = false
+	hide_success_banner()
 	if _break_fx != null:
 		QFx.play(_break_fx, "idle")
-	if not _pending_bind.is_empty():
+	if apply_pending and not _pending_bind.is_empty():
 		var args := _pending_bind
 		_pending_bind = []
 		bind(args[0], args[1], args[2], args[3])
+
+
+## 清掉未应用的 bind（突破成功弹窗盖住时用，避免底层已切到「下一层」）。
+func clear_pending_bind() -> void:
+	_pending_bind = []
+
+
+## 「突破成功」缎带只在 success 动画里露一次；idle / 再次打开确认态必须藏住。
+func hide_success_banner() -> void:
+	if _break_fx == null:
+		return
+	var title := _break_fx.get_node_or_null("Front/Title") as CanvasItem
+	if title != null:
+		title.visible = false
 
 
 ## 「突破成功」横幅（场景 Front/Title/Box）在画布上的矩形（按缩放 1 算，测试 / 截图核对用）。
@@ -232,6 +247,7 @@ func bind(state: Dictionary, _content: Dictionary, next_realm_name: String, _aft
 	if _fx_running:
 		_pending_bind = [state, _content, next_realm_name, _after_next_name]
 		return
+	hide_success_banner()
 	_view = BreakthroughView.build(state, next_realm_name)
 	# v14：心跳每次都 bind，内容没变就不重建（原来每次重建约 120ms，滚动时每隔十几秒卡一下）。
 	var sig := hash([_view, str(state.get("realmName", "")), next_realm_name, str((state.get("appearance", {}) as Dictionary).get("quality", "") if typeof(state.get("appearance", null)) == TYPE_DICTIONARY else "")])
@@ -343,6 +359,7 @@ func _make_break_fx() -> Node2D:
 	var title := fx.get_node_or_null("Front/Title") as Node2D
 	if title != null:
 		title.position = Vector2(0, TITLE_Y)
+		title.visible = false  # 确认态不挂「突破成功」；success 动画会自己打开
 	# 横幅挪到主角脚下后会和主角重叠：主角部件自带 z_index（最高 20），前景层要比它高才盖得住
 	var front := fx.get_node_or_null("Front") as CanvasItem
 	if front != null:
@@ -441,7 +458,8 @@ func _conditions() -> Control:
 	if not bool(_view.has_next):
 		box.body.add_child(UiKit.label("当前已是最高境界", UiTokens.FS_MICRO, UiTokens.TEXT_MUTED))
 		return box.panel
-	box.body.add_child(_condition_row("res_lotus", "修为已满" if bool(_view.cultivation_ok) else "修为", "%s / %s" % [OfflineView.grouped(float(_view.cultivation)), OfflineView.grouped(float(_view.cost))], bool(_view.cultivation_ok)))
+	var cult_line := CultivationFormat.progress_pair(float(_view.cultivation), float(_view.cost), true)
+	box.body.add_child(_condition_row("res_lotus", "修为已满" if bool(_view.cultivation_ok) else "修为", str(cult_line.text), bool(_view.cultivation_ok)))
 	if bool(_view.has_gate):
 		box.body.add_child(_condition_row("tab_adventure", "击败 %s" % str(_view.gate_boss), str(_view.gate_stage_name), bool(_view.boss_ok)))
 	return box.panel

@@ -774,9 +774,32 @@ export const playerDongfu = pgTable("player_dongfu", {
   lastClearDay: text("last_clear_day"),
   /** 最近一次通关关卡，审计用。 */
   lastPuzzleId: text("last_puzzle_id"),
+  /** 傀儡产线仓内状态（JSON：settledAt + lines）。 */
+  puppetState: jsonb("puppet_state"),
+  /** 器道经验。 */
+  forgeXp: integer("forge_xp").notNull().default(0),
 });
 
 /** 洞府炼丹队列：claimed_at 为空表示未领取（占队列）；领取后保留记录。 */
+
+/** 洞府炼器队列：claimed_at 空表示进行中/待领。 */
+export const playerDongfuForge = pgTable(
+  "player_dongfu_forge",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    playerId: uuid("player_id")
+      .notNull()
+      .references(() => players.id, { onDelete: "cascade" }),
+    blueprintSlug: text("blueprint_slug").notNull(),
+    startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
+    readyAt: timestamp("ready_at", { withTimezone: true }).notNull(),
+    claimedAt: timestamp("claimed_at", { withTimezone: true }),
+    rolledQuality: text("rolled_quality"),
+    outputItemSlug: text("output_item_slug"),
+  },
+  (table) => [index("player_dongfu_forge_player_idx").on(table.playerId)],
+);
+
 export const playerDongfuAlchemy = pgTable(
   "player_dongfu_alchemy",
   {

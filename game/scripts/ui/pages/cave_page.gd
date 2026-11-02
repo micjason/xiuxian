@@ -1,19 +1,20 @@
 class_name CavePage
 extends Control
-## 洞府 L0+L1 场所硬接：庭院热点 + 药园/炼丹/强化场所页（非按钮墙）。
-## 数据来自 CaveView.build；写操作发 action_requested。
-## 强化：已选装备直接 enhance / enhance_max（现有 API），成功留洞府；不动公式。
-## 设计空间 1080×2340；热区见 q_design/DONGFU_L1_V3_HOTSPOTS.md。
+## 洞府大改：总览四入口（傀儡/药园/炼丹/炼器）；无阵法、无洞府强化入口。
+## 药园/炼丹/炼器本页下方点选种子或材料，不弹背包。
+## 数据来自 CaveView.build；写操作发 action_requested。服务器权威结算。
 
 signal back_requested
 signal enhance_entry_requested
 signal action_requested(kind: String, payload: Dictionary)
 
 const MODE_OVERVIEW := "overview"
+const MODE_PUPPET := "puppet"
 const MODE_GARDEN := "garden"
 const MODE_ALCHEMY := "alchemy"
-const MODE_ENHANCE := "enhance"
-const MODE_ARRAY := "array"
+const MODE_FORGE := "forge"
+const MODE_ENHANCE := "enhance"  # 保留代码路径但不从总览进入
+const MODE_ARRAY := "array"  # 本期不做入口
 
 ## 页面区相对画布原点：洞府页顶栏为紧凑态（无修为条），约 y=160；左 24 为 PAGE_MARGIN。
 const ORIGIN := Vector2(24, 160)
@@ -23,15 +24,24 @@ const SAFE_TOP := 250.0
 const SAFE_BOTTOM := 2124.0
 const OVERLAY_DIM := Color(0.05, 0.03, 0.02, 0.62)
 
-# L0 热区 (x,y,w,h) 画布坐标
-const HS_GARDEN := Rect2(40, 820, 420, 480)
-const HS_ALCHEMY := Rect2(520, 620, 500, 540)
-const HS_ENHANCE := Rect2(280, 1220, 500, 420)
-const HS_ARRAY := Rect2(800, 1220, 240, 420)  # L0 第四卡「阵法」日游入口
+# L0 热区：四入口大按钮（竖屏可读）
+const HS_PUPPET := Rect2(48, 520, 984, 200)
+const HS_GARDEN := Rect2(48, 760, 984, 200)
+const HS_ALCHEMY := Rect2(48, 1000, 984, 200)
+const HS_FORGE := Rect2(48, 1240, 984, 200)
+const HS_ENHANCE := Rect2(48, 2200, 10, 10)  # 隐藏
+const HS_ARRAY := Rect2(48, 2210, 10, 10)  # 隐藏
 const HS_STONE := Rect2(40, 118, 300, 88)
 const HS_WOOD := Rect2(370, 118, 300, 88)
 const HS_SERVANT := Rect2(700, 118, 340, 88)
 const HS_ALLOC := Rect2(36, 1836, 1008, 120)
+const HS_HIRE := Rect2(700, 360, 340, 88)
+const HS_MAT_BAR := [
+	Rect2(48, 1680, 230, 160),
+	Rect2(298, 1680, 230, 160),
+	Rect2(548, 1680, 230, 160),
+	Rect2(798, 1680, 230, 160),
+]
 
 # L1 共用 / 药园（v3：畦下移贴垄 / 种子抽屉顶 y=1580）
 const HS_BACK := Rect2(30, 250, 96, 96)
@@ -90,6 +100,10 @@ var _enhance_selected_id := ""
 ## 阵法日游：本地朝向与旋转次数（未提交前不打服务器）。
 var _array_rots: Dictionary = {}
 var _array_spin_count := 0
+var _alchemy_slots: Array = []  # [{itemSlug,count}]
+var _alchemy_last_recipe := ""
+var _forge_blueprint := ""
+var _forge_picked: Array = []  # material slugs tapped into craft zone
 
 
 func _init() -> void:
@@ -137,7 +151,7 @@ func bind(state: Dictionary, content: Dictionary) -> void:
 			_array_spin_count = 0
 	# 首次 bind / 入树后再加载 FX，与改前进入洞府后的表现一致
 	_ensure_fx()
-	var sig := hash([_view, _mode, _plant_slot, _enhance_selected_id, _bag_sig(), _array_rots, _array_spin_count])
+	var sig := hash([_view, _mode, _plant_slot, _enhance_selected_id, _bag_sig(), _array_rots, _array_spin_count, _alchemy_slots, _forge_blueprint, _forge_picked])
 	if sig == _bind_sig:
 		_sync_alchemy_fire()
 		return
@@ -247,14 +261,18 @@ func _on_back() -> void:
 
 
 func _render() -> void:
-	_bind_sig = hash([_view, _mode, _plant_slot, _enhance_selected_id, _bag_sig(), _array_rots, _array_spin_count])
+	_bind_sig = hash([_view, _mode, _plant_slot, _enhance_selected_id, _bag_sig(), _array_rots, _array_spin_count, _alchemy_slots, _forge_blueprint, _forge_picked])
 	_clear_stage()
 	_ensure_fx()
 	match _mode:
+		MODE_PUPPET:
+			_render_puppet()
 		MODE_GARDEN:
 			_render_garden()
 		MODE_ALCHEMY:
 			_render_alchemy()
+		MODE_FORGE:
+			_render_forge()
 		MODE_ENHANCE:
 			_render_enhance()
 		MODE_ARRAY:
@@ -476,39 +494,40 @@ func _array_shape_caption(shape: String, rot: int) -> String:
 func _render_overview() -> void:
 	_bg("dongfu_l0")
 	_render_resource_pills()
-	if not bool(_view.get("available", false)):
-		_chip(str(_view.get("hint", "洞府配置尚未发布")), Rect2(120, 900, 840, 120), "UnavailableHint")
-		return
+	_chip("洞府 · 四入口", Rect2(48, 280, 600, 72), "HubTitle")
+	_chip("本期无阵法 · 强化请走行囊", Rect2(48, 360, 700, 56), "HubNote")
 	var cards: Dictionary = {}
-	for c in _view.get("cards", []):
-		if typeof(c) == TYPE_DICTIONARY:
-			cards[str((c as Dictionary).get("id", ""))] = c
-	var upgrades: Dictionary = _view.get("upgrades", {}) if typeof(_view.get("upgrades", {})) == TYPE_DICTIONARY else {}
-	var g_lv := int((upgrades.get("garden", {}) as Dictionary).get("level", 1)) if typeof(upgrades.get("garden", {})) == TYPE_DICTIONARY else 1
-	var a_lv := int((upgrades.get("alchemy", {}) as Dictionary).get("level", 1)) if typeof(upgrades.get("alchemy", {})) == TYPE_DICTIONARY else 1
-	_facility_spot("garden", HS_GARDEN, g_lv)
-	_hotspot("Enter_garden", HS_GARDEN, func() -> void: _enter_facility("garden"))
-	_status_capsule(cards.get("garden", {}), HS_GARDEN)
-	_facility_spot("alchemy", HS_ALCHEMY, a_lv)
-	_hotspot("Enter_alchemy", HS_ALCHEMY, func() -> void: _enter_facility("alchemy"))
-	_status_capsule(cards.get("alchemy", {}), HS_ALCHEMY)
-	_facility_spot("enhance", HS_ENHANCE, 1)
-	_hotspot("Enter_enhance", HS_ENHANCE, func() -> void: _enter_facility("enhance"))
-	_status_capsule(cards.get("enhance", {"subtitle": "可强化"}), HS_ENHANCE)
-	_render_array_entry(cards.get("array", {}))
-	_render_alloc_bar()
+	for row in _view.get("cards", []):
+		if typeof(row) == TYPE_DICTIONARY:
+			cards[str((row as Dictionary).get("id", ""))] = row
+	_hub_entry("puppet", HS_PUPPET, cards.get("puppet", {"name": "傀儡产线", "subtitle": "肉底座派工"}))
+	_hub_entry("garden", HS_GARDEN, cards.get("garden", {"name": "药园", "subtitle": "点种收菜"}))
+	_hub_entry("alchemy", HS_ALCHEMY, cards.get("alchemy", {"name": "炼丹", "subtitle": "摸索复炼"}))
+	_hub_entry("forge", HS_FORGE, cards.get("forge", {"name": "炼器", "subtitle": "图纸造装"}))
 
 
-func _render_resource_pills() -> void:
+func _hub_entry(id: String, rect: Rect2, card: Dictionary) -> void:
+	var title := str(card.get("name", id))
+	var sub := str(card.get("subtitle", card.get("blurb", "")))
+	var claim := int(card.get("claimable", 0))
+	var label := "%s\n%s" % [title, sub]
+	if claim > 0:
+		label = "%s · 可领%d\n%s" % [title, claim, sub]
+	var btn := _hotspot("Enter_%s" % id, rect, func() -> void: _enter_facility(id), label, "o")
+	btn.disabled = not bool(_view.get("available", false)) and id != "forge"
+
+
+func _render_resource_pillsfunc _render_resource_pills() -> void:
 	var stones := int(_view.get("spiritStones", 0))
 	var wood := int(_view.get("woodCount", 0))
 	var wood_name := str(_view.get("woodName", "灵木"))
-	var alloc: Dictionary = _view.get("allocation", {}) if typeof(_view.get("allocation", {})) == TYPE_DICTIONARY else {}
-	var total := int(_view.get("servantTotal", 0))
-	var used := int(alloc.get("garden", 0)) + int(alloc.get("alchemy", 0))
+	var puppet: Dictionary = _view.get("puppet", {}) if typeof(_view.get("puppet", {})) == TYPE_DICTIONARY else {}
+	var total := int(puppet.get("total", _view.get("servantTotal", 0)))
+	var idle := int(puppet.get("idle", 0))
+	var used := maxi(0, total - idle)
 	_resource_pill("StonePill", HS_STONE, "icons/res_stone", OfflineView.grouped(float(stones)))
 	_resource_pill("WoodPill", HS_WOOD, "icons/icon_lingmu", "%s %d" % [wood_name, wood])
-	_resource_pill("ServantPill", HS_SERVANT, "icons/icon_kuilei", "傀儡 %d/%d" % [used, total])
+	_resource_pill("ServantPill", HS_SERVANT, "icons/icon_kuilei", "傀儡 %d/%d ·闲%d" % [used, total, idle])
 
 
 func _resource_pill(name: String, rect: Rect2, icon_path: String, text: String) -> void:
@@ -625,26 +644,31 @@ func _shift_allocation(key: String, delta: int) -> void:
 
 
 func _enter_facility(id: String) -> void:
+	if id in ["puppet", "garden", "alchemy", "forge"] and not bool(_view.get("available", false)):
+		action_requested.emit("toast", {"text": str(_view.get("hint", "洞府尚未开放"))})
+		return
 	match id:
+		"puppet":
+			_mode = MODE_PUPPET
+			_render()
 		"garden":
-			if not bool(_view.get("available", false)):
-				action_requested.emit("toast", {"text": str(_view.get("hint", "洞府尚未开放"))})
-				return
 			_plant_slot = -1
 			_mode = MODE_GARDEN
 			_render()
 		"alchemy":
-			if not bool(_view.get("available", false)):
-				action_requested.emit("toast", {"text": str(_view.get("hint", "洞府尚未开放"))})
-				return
+			if _alchemy_slots.is_empty():
+				_alchemy_slots = [{}, {}, {}]
 			_mode = MODE_ALCHEMY
 			_render()
-		"enhance":
-			_mode = MODE_ENHANCE
-			_ensure_enhance_selection()
+		"forge":
+			_forge_blueprint = ""
+			_forge_picked.clear()
+			_mode = MODE_FORGE
 			_render()
+		"enhance":
+			action_requested.emit("toast", {"text": "强化请走行囊装备界面"})
 		"array":
-			_enter_array()
+			action_requested.emit("toast", {"text": "阵法本期不做"})
 		_:
 			pass
 
@@ -663,9 +687,7 @@ func _render_garden() -> void:
 	var claimable := int((_view.get("claimable", {}) as Dictionary).get("plots", 0))
 	var claim_all := _hotspot("GardenClaimAll", HS_CLAIM_ALL, func() -> void: action_requested.emit("garden_claim", {}), "一键领取", "o")
 	claim_all.disabled = claimable <= 0
-	var garden_pct := int(round(float((_view.get("timeScale", {}) as Dictionary).get("garden", 1.0)) * 100.0))
-	var alloc: Dictionary = _view.get("allocation", {}) if typeof(_view.get("allocation", {})) == TYPE_DICTIONARY else {}
-	_chip("傀儡 %d · 成熟 %d%%" % [int(alloc.get("garden", 0)), garden_pct], Rect2(320, 362, 300, 68), "GardenServantHint")
+	_chip("与傀儡产线独立", Rect2(320, 362, 300, 68), "GardenIndepHint")
 
 	var plots: Array = _view.get("plots", [])
 	for i in range(mini(4, maxi(plots.size(), HS_PLOTS.size()))):
@@ -673,11 +695,9 @@ func _render_garden() -> void:
 		var plot: Dictionary = plots[i] if i < plots.size() and typeof(plots[i]) == TYPE_DICTIONARY else {"slot": i, "status": "empty", "line": "空畦 · 点击种植", "title": "地块 %d" % (i + 1)}
 		_render_plot_ridge(plot, rect)
 
-	# A/B：种子抽屉只在点空畦后弹出，不与其它弹层叠；高度卡在底栏上。
-	if _plant_slot >= 0:
-		_render_seed_drawer()
-	else:
-		_chip("点空畦后再选种", Rect2(240, 1980, 600, 72), "SeedIdleHint")
+	# 成鹏确认：本页下方列可用种子，点击种入选中空地/首个空地；不弹背包。
+	_chip("下方点种子种入空地" if _plant_slot < 0 else "已选地块 %d · 点种子种植" % (_plant_slot + 1), Rect2(48, 1580, 984, 64), "SeedBarHint")
+	_render_seed_bar_inline()
 
 
 func _render_plot_ridge(plot: Dictionary, rect: Rect2) -> void:
@@ -833,10 +853,12 @@ func _on_seed_tap(seed: Dictionary) -> void:
 		else:
 			action_requested.emit("toast", {"text": "行囊里没有这颗种子"})
 		return
-	if _plant_slot < 0:
-		action_requested.emit("toast", {"text": "先点一块空畦"})
-		return
 	var slot := _plant_slot
+	if slot < 0:
+		slot = _first_empty_plot()
+	if slot < 0:
+		action_requested.emit("toast", {"text": "没有空地，请先领取或升级加地"})
+		return
 	_plant_slot = -1
 	_play_water_at_slot(slot)
 	action_requested.emit("garden_plant", {"slot": slot, "seedSlug": slug})
@@ -894,56 +916,52 @@ func _render_alchemy() -> void:
 		if typeof(r) == TYPE_DICTIONARY and not bool((r as Dictionary).get("locked", false)):
 			craftable.append(r)
 	var queue_full := jobs.size() >= queue_len
-	for i in range(HS_RECIPE_CTAS.size()):
+	for i in range(mini(2, HS_RECIPE_CTAS.size())):
 		var recipe: Dictionary = craftable[i] if i < craftable.size() and typeof(craftable[i]) == TYPE_DICTIONARY else {}
 		_render_recipe_cta(i, recipe, queue_full)
-	_render_trial_entry()
+	_render_alchemy_slots_and_bar()
 
 
 
 
-func _render_trial_entry() -> void:
+func _render_alchemy_slots_and_bar() -> void:
+	## 三槽 + 试炼/复炼/清空；下方本页材料条点入槽，不弹背包。
+	if _alchemy_slots.size() < 3:
+		_alchemy_slots = [{}, {}, {}]
 	var trial: Dictionary = _view.get("trial", {}) if typeof(_view.get("trial", {})) == TYPE_DICTIONARY else {}
 	var left := int(trial.get("left", 0))
-	var slot_n := int(trial.get("slotCount", 3))
-	var line := "试炼摸索 剩余%d" % left
-	var trial_y := minf(1920.0, SAFE_BOTTOM - 120.0)
-	_chip(line, Rect2(48, trial_y, 700, 72), "TrialInfo")
-	var btn := _hotspot("TrialModeBtn", Rect2(780, trial_y - 10.0, 220, 92), func() -> void:
-		_open_trial_picker(slot_n, left)
-	, "试炼", "stone")
-	btn.disabled = left <= 0 and int(trial.get("extraMax", 0)) <= int(trial.get("extraBought", 0))
-	var st := StyleBoxFlat.new()
-	st.bg_color = UiTokens.Q_ORANGE if not btn.disabled else UiTokens.Q_GREY
-	st.border_color = UiTokens.Q_COCOA
-	st.set_border_width_all(3)
-	st.set_corner_radius_all(16)
-	btn.add_theme_stylebox_override("normal", st)
-	btn.add_theme_stylebox_override("pressed", st)
-	btn.add_theme_stylebox_override("hover", st)
-	btn.add_theme_stylebox_override("disabled", st)
-	btn.add_theme_color_override("font_color", Color.WHITE)
-	btn.add_theme_font_size_override("font_size", 28)
+	_chip("材料槽（点下方放入）· 试炼剩%d" % left, Rect2(48, 1360, 700, 56), "SlotHint")
+	var slot_rects := [Rect2(48, 1430, 300, 100), Rect2(390, 1430, 300, 100), Rect2(732, 1430, 300, 100)]
+	for i in range(3):
+		var cell: Dictionary = _alchemy_slots[i] if typeof(_alchemy_slots[i]) == TYPE_DICTIONARY else {}
+		var slug := str(cell.get("itemSlug", ""))
+		var label := "空槽"
+		if not slug.is_empty():
+			label = "%s×%d" % [slug, int(cell.get("count", 1))]
+			# 尽量用中文名
+			for mat in _view.get("alchemyMaterials", []):
+				if typeof(mat) == TYPE_DICTIONARY and str((mat as Dictionary).get("itemSlug", "")) == slug:
+					label = "%s×%d" % [str((mat as Dictionary).get("name", slug)), int(cell.get("count", 1))]
+					break
+		_hotspot("AlchemySlot_%d" % i, slot_rects[i], func() -> void: pass, label, "ghost")
+	_hotspot("AlchemyTrial", Rect2(48, 1550, 300, 88), func() -> void: _alchemy_trial_emit(), "试炼", "o")
+	_hotspot("AlchemyRepeat", Rect2(390, 1550, 300, 88), func() -> void: _alchemy_repeat_emit(), "一键复炼", "o")
+	_hotspot("AlchemyClear", Rect2(732, 1550, 300, 88), func() -> void: _alchemy_clear_slots(), "清空槽", "ghost")
+	_chip("当前能用材料", Rect2(48, 1650, 500, 48), "MatBarTitle")
+	var mats: Array = _view.get("alchemyMaterials", [])
+	for i in range(HS_MAT_BAR.size()):
+		var rect: Rect2 = HS_MAT_BAR[i]
+		rect.position.y = 1710
+		var mat: Dictionary = mats[i] if i < mats.size() and typeof(mats[i]) == TYPE_DICTIONARY else {}
+		var label := "—"
+		if not mat.is_empty():
+			label = "%s\n×%d" % [str(mat.get("name", "")), int(mat.get("have", 0))]
+		var btn := _hotspot("AlchemyMat_%d" % i, rect, func() -> void: _alchemy_put_material(mat), label, "ghost")
+		btn.disabled = mat.is_empty() or int(mat.get("have", 0)) <= 0
 
 
-func _open_trial_picker(slot_n: int, left: int) -> void:
-	# 最小切片：一键用背包草药填槽试炼（优先灵草/清心草）。
-	var mats: Array = []
-	var herbs := ["herb_lingcao", "herb_qingxin"]
-	var remain := slot_n
-	for slug in herbs:
-		if remain <= 0:
-			break
-		var have := 0
-		# 从种子/配方视图以外：用 state 经父层不好拿，按 recipes costLine 不稳；改 emit 让 play_screen 组材料。
-		mats.append({"itemSlug": slug, "count": 0})
-	# 简化：固定提交 2 灵草 + 1 清心（与隐藏方 pill_break_barrier 一致，方便验收悟方）
-	var materials: Array = [
-		{"itemSlug": "herb_lingcao", "count": 2},
-		{"itemSlug": "herb_qingxin", "count": 1},
-	]
-	var buy_extra := left <= 0
-	action_requested.emit("alchemy_trial", {"materials": materials, "buyExtra": buy_extra})
+func _open_trial_picker(_slot_n: int, _left: int) -> void:
+	_alchemy_trial_emit()
 
 func _render_alchemy_tray(index: int, rect: Rect2, job: Dictionary, locked: bool) -> void:
 	## 空/锁托盘：低透明木描边，不盖场景托盘；忙/可领：紧凑状态 chip。
@@ -1031,7 +1049,8 @@ func _render_recipe_cta(index: int, recipe: Dictionary, queue_full: bool) -> voi
 				_fire_fx.call("set_alchemy_on", true)
 			else:
 				_fire_fx.call_deferred("set_alchemy_on", true)
-		action_requested.emit("alchemy_start", {"recipeSlug": str(recipe.get("recipeSlug", ""))})
+		_alchemy_last_recipe = str(recipe.get("recipeSlug", ""))
+		action_requested.emit("alchemy_start", {"recipeSlug": _alchemy_last_recipe})
 	, label, "stone")
 	cta.disabled = not can
 	cta.modulate = Color(1, 1, 1, 1)
@@ -1428,3 +1447,188 @@ func _submit_array() -> void:
 		"dayKey": str(ad.get("dayKey", "")),
 		"rots": rots,
 	})
+
+
+# ───────── 傀儡产线 ─────────
+
+func _render_puppet() -> void:
+	_bg("dongfu_l0")
+	_hotspot("BackButton", HS_BACK, _on_back, "←", "ghost")
+	_chip("傀儡产线", Rect2(140, 250, 420, 88), "CaveTitle")
+	var puppet: Dictionary = _view.get("puppet", {}) if typeof(_view.get("puppet", {})) == TYPE_DICTIONARY else {}
+	var idle := int(puppet.get("idle", 0))
+	var total := int(puppet.get("total", 0))
+	_chip("闲置 %d / 共 %d" % [idle, total], Rect2(140, 360, 420, 64), "PuppetIdle")
+	var hire := _hotspot("HirePuppet", HS_HIRE, func() -> void: action_requested.emit("puppet_hire", {}), "招人", "o")
+	hire.disabled = not bool(puppet.get("canHire", false))
+	if bool(puppet.get("meatStarved", false)):
+		_chip("肉空：木草石已停产", Rect2(48, 450, 984, 64), "MeatStarveBanner")
+	var lines: Array = puppet.get("lines", []) if typeof(puppet.get("lines", [])) == TYPE_ARRAY else []
+	var names := {"meat": "养肉", "wood": "伐木", "herb": "割草", "stone": "采石"}
+	var y := 540.0
+	for i in range(mini(4, lines.size())):
+		var row: Dictionary = lines[i] if typeof(lines[i]) == TYPE_DICTIONARY else {}
+		var id := str(row.get("id", ""))
+		var title := str(names.get(id, id))
+		var stored := float(row.get("stored", 0))
+		var cap := float(row.get("storageCap", 0))
+		var workers := int(row.get("workers", 0))
+		var net := float(row.get("netPerHour", 0))
+		var stop := str(row.get("stoppedReason", ""))
+		var stop_txt := ""
+		if stop == "meat_empty":
+			stop_txt = " ·肉空停"
+		elif stop == "storage_full":
+			stop_txt = " ·仓满"
+		var info := "%s Lv%d  仓%.0f/%.0f  净产%+.1f/时%s  仆%d" % [title, int(row.get("level", 1)), stored, cap, net, stop_txt, workers]
+		_chip(info, Rect2(48, y, 700, 72), "LineInfo_%s" % id)
+		var minus := _hotspot("PuppetMinus_%s" % id, Rect2(760, y, 100, 72), func() -> void: _puppet_shift(id, -1), "−", "ghost")
+		minus.disabled = workers <= 0
+		var plus := _hotspot("PuppetPlus_%s" % id, Rect2(880, y, 100, 72), func() -> void: _puppet_shift(id, 1), "+", "o")
+		plus.disabled = idle <= 0
+		y += 88.0
+		var up := _hotspot("PuppetUp_%s" % id, Rect2(48, y, 300, 72), func() -> void: action_requested.emit("puppet_upgrade", {"line": id}), "升级扩仓", "o")
+		up.disabled = not bool(row.get("canUpgrade", false))
+		var wd := _hotspot("PuppetWd_%s" % id, Rect2(380, y, 300, 72), func() -> void: action_requested.emit("puppet_withdraw", {"line": id}), "收取入囊", "ghost")
+		wd.disabled = stored < 1.0
+		y += 96.0
+
+
+func _puppet_shift(line_id: String, delta: int) -> void:
+	var puppet: Dictionary = _view.get("puppet", {}) if typeof(_view.get("puppet", {})) == TYPE_DICTIONARY else {}
+	var lines: Array = puppet.get("lines", []) if typeof(puppet.get("lines", [])) == TYPE_ARRAY else []
+	var payload := {"meat": 0, "wood": 0, "herb": 0, "stone": 0}
+	for row in lines:
+		if typeof(row) != TYPE_DICTIONARY:
+			continue
+		var id := str((row as Dictionary).get("id", ""))
+		var w := int((row as Dictionary).get("workers", 0))
+		if id == line_id:
+			w = maxi(0, w + delta)
+		if payload.has(id):
+			payload[id] = w
+	action_requested.emit("puppet_assign", payload)
+
+
+# ───────── 炼器 ─────────
+
+func _render_forge() -> void:
+	_bg("dongfu_enhance_l1")
+	_hotspot("BackButton", HS_BACK, _on_back, "←", "ghost")
+	_chip("炼器 · 图纸造装", Rect2(140, 250, 560, 88), "CaveTitle")
+	_chip("强化请走行囊；此处只造装", Rect2(140, 350, 700, 56), "ForgeNote")
+	var forge: Dictionary = _view.get("forge", {}) if typeof(_view.get("forge", {})) == TYPE_DICTIONARY else {}
+	var jobs: Array = forge.get("jobs", []) if typeof(forge.get("jobs", [])) == TYPE_ARRAY else []
+	if jobs.size() > 0:
+		var job: Dictionary = jobs[0] if typeof(jobs[0]) == TYPE_DICTIONARY else {}
+		var st := str(job.get("status", ""))
+		_chip(str(job.get("line", st)), Rect2(48, 430, 700, 72), "ForgeJob")
+		if st == "ready":
+			_hotspot("ForgeClaim", Rect2(780, 430, 250, 72), func() -> void: action_requested.emit("forge_claim", {"jobId": str(job.get("id", ""))}), "领取", "o")
+	else:
+		_chip("炉空闲 · 选图纸后开炼", Rect2(48, 430, 700, 72), "ForgeIdle")
+	var bps: Array = forge.get("blueprints", []) if typeof(forge.get("blueprints", [])) == TYPE_ARRAY else []
+	var y := 530.0
+	for i in range(mini(3, bps.size())):
+		var bp: Dictionary = bps[i] if typeof(bps[i]) == TYPE_DICTIONARY else {}
+		var slug := str(bp.get("blueprintSlug", ""))
+		var selected := _forge_blueprint == slug
+		var label := "%s%s\\n%s" % [str(bp.get("displayName", slug)), " ·已选" if selected else "", str(bp.get("costLine", ""))]
+		var btn := _hotspot("ForgeBp_%d" % i, Rect2(48, y, 700, 120), func() -> void: _select_forge_bp(slug), label, "o" if selected else "ghost")
+		btn.disabled = false
+		var start := _hotspot("ForgeStart_%d" % i, Rect2(780, y + 20, 250, 80), func() -> void: _start_forge(slug), "开炼", "o")
+		start.disabled = not bool(bp.get("canCraft", false)) or jobs.size() > 0
+		y += 140.0
+	_chip("下方材料仅展示库存 · 开炼扣行囊", Rect2(48, 1580, 984, 56), "ForgeMatHint")
+	var mats: Array = _view.get("forgeMaterials", [])
+	for i in range(HS_MAT_BAR.size()):
+		var rect: Rect2 = HS_MAT_BAR[i]
+		var mat: Dictionary = mats[i] if i < mats.size() and typeof(mats[i]) == TYPE_DICTIONARY else {}
+		var label := "—"
+		if not mat.is_empty():
+			label = "%s\\n×%d" % [str(mat.get("name", "")), int(mat.get("have", 0))]
+		var b := _hotspot("ForgeMat_%d" % i, rect, func() -> void: _tap_forge_mat(mat), label, "ghost")
+		b.disabled = mat.is_empty() or int(mat.get("have", 0)) <= 0
+
+
+func _select_forge_bp(slug: String) -> void:
+	_forge_blueprint = slug
+	_render()
+
+
+func _start_forge(slug: String) -> void:
+	if slug.is_empty():
+		slug = _forge_blueprint
+	if slug.is_empty():
+		action_requested.emit("toast", {"text": "请先选图纸"})
+		return
+	action_requested.emit("forge_start", {"blueprintSlug": slug})
+
+
+func _tap_forge_mat(mat: Dictionary) -> void:
+	if mat.is_empty():
+		return
+	# 本页点选：提示已对照图纸成本；真正扣除在开炼。
+	action_requested.emit("toast", {"text": "材料 %s ×%d（开炼时按图纸扣除）" % [str(mat.get("name", "")), int(mat.get("have", 0))]})
+
+
+func _alchemy_put_material(mat: Dictionary) -> void:
+	if mat.is_empty() or int(mat.get("have", 0)) <= 0:
+		action_requested.emit("toast", {"text": "材料不足"})
+		return
+	if _alchemy_slots.size() < 3:
+		_alchemy_slots = [{}, {}, {}]
+	var slug := str(mat.get("itemSlug", ""))
+	for i in range(_alchemy_slots.size()):
+		var cell: Variant = _alchemy_slots[i]
+		if typeof(cell) != TYPE_DICTIONARY or str((cell as Dictionary).get("itemSlug", "")).is_empty():
+			_alchemy_slots[i] = {"itemSlug": slug, "count": 1}
+			_render()
+			return
+		if str((cell as Dictionary).get("itemSlug", "")) == slug:
+			(cell as Dictionary)["count"] = int((cell as Dictionary).get("count", 1)) + 1
+			_alchemy_slots[i] = cell
+			_render()
+			return
+	action_requested.emit("toast", {"text": "三槽已满，先清空或试炼"})
+
+
+func _alchemy_clear_slots() -> void:
+	_alchemy_slots = [{}, {}, {}]
+	_render()
+
+
+func _alchemy_trial_emit() -> void:
+	var materials: Array = []
+	for cell in _alchemy_slots:
+		if typeof(cell) != TYPE_DICTIONARY:
+			continue
+		var slug := str((cell as Dictionary).get("itemSlug", ""))
+		var count := int((cell as Dictionary).get("count", 0))
+		if slug.is_empty() or count <= 0:
+			continue
+		materials.append({"itemSlug": slug, "count": count})
+	if materials.is_empty():
+		action_requested.emit("toast", {"text": "点下方材料放入三槽后再试炼"})
+		return
+	action_requested.emit("alchemy_trial", {"materials": materials, "buyExtra": false})
+
+
+func _alchemy_repeat_emit() -> void:
+	var recipes: Array = _view.get("recipes", [])
+	var target := _alchemy_last_recipe
+	if target.is_empty():
+		for row in recipes:
+			if typeof(row) != TYPE_DICTIONARY:
+				continue
+			var r := row as Dictionary
+			if bool(r.get("locked", false)):
+				continue
+			if bool(r.get("canStart", true)):
+				target = str(r.get("recipeSlug", ""))
+				break
+	if target.is_empty():
+		action_requested.emit("toast", {"text": "没有可复炼的已知丹方"})
+		return
+	action_requested.emit("alchemy_start", {"recipeSlug": target})
+

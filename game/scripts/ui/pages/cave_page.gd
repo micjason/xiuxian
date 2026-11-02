@@ -2,6 +2,7 @@ class_name CavePage
 extends Control
 ## 洞府大改：总览四入口（傀儡/药园/炼丹/炼器）；无阵法、无洞府强化入口。
 ## 药园/炼丹/炼器本页下方点选种子或材料，不弹背包。
+## 灰盒验证期：纯色底板，无精画背景/地标/水火特效。
 ## 数据来自 CaveView.build；写操作发 action_requested。服务器权威结算。
 
 signal back_requested
@@ -192,17 +193,15 @@ func _ensure_enhance_selection() -> void:
 
 
 func _ensure_fx() -> void:
-	# _init → _render 时尚未进树：跳过，避免启动期加载 3 个 FX 场景
-	if not is_inside_tree():
-		return
+	## 灰盒验证期：不加载水火/阵法特效场景，只保留空宿主。
 	if _fx_host == null or not is_instance_valid(_fx_host):
 		_fx_host = Node2D.new()
 		_fx_host.name = "CaveFxHost"
-		_stage.add_child(_fx_host)
-	_water_fx = _attach_fx(_water_fx, FX_WATER, "GardenWaterFx", Vector2.ZERO)
-	_fire_fx = _attach_fx(_fire_fx, FX_FIRE, "AlchemyFireFx", _design_center(HS_FURNACE))
-	_array_fx = _attach_fx(_array_fx, FX_ARRAY, "EnhanceArrayFx", _design_center(HS_ARRAY_HEART))
-	# enhance_array_fx 自带 autoplay_idle；勿在 @onready 未就绪时强播
+		if _stage != null:
+			_stage.add_child(_fx_host)
+	_water_fx = null
+	_fire_fx = null
+	_array_fx = null
 
 
 func _attach_fx(existing: Node2D, path: String, node_name: String, at: Vector2) -> Node2D:
@@ -283,17 +282,12 @@ func _render() -> void:
 	_fx_host.move_to_front()
 
 
-func _bg(name: String) -> void:
-	var tex: Texture2D = ArtLib.bg(name)
-	if tex == null:
-		return
-	var node := TextureRect.new()
+func _bg(_name: String = "") -> void:
+	## 灰盒验证期：不挂庭院精画底图，改纯色底板，只留控件。
+	var node := ColorRect.new()
 	node.name = "SceneBg"
-	node.texture = tex
-	node.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	node.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	node.color = Color(0.90, 0.86, 0.78, 1.0)
 	node.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# 铺满设计画布相对页面区：从画布 (0,0) 起，盖住顶栏下至底栏上的可视区
 	node.position = _design_to_local(Vector2(0, 0))
 	node.size = DESIGN
 	_stage.add_child(node)
@@ -405,40 +399,9 @@ func _status_capsule(card: Dictionary, rect: Rect2) -> void:
 
 
 
-func _facility_spot(facility_id: String, rect: Rect2, level: int) -> void:
-	## L0 热点中心景差：lv1 默认，level>=2 换 lv2。闪/红点仍由 capsule 管。
-	var spot_labels := {
-		"garden": "garden",
-		"alchemy": "alchemy",
-		"enhance": "forge",
-	}
-	var spot_key: String = str(spot_labels.get(facility_id, facility_id))
-	var tier := "lv2" if level >= 2 else "lv1"
-	var path := "sprites/dongfu_spots/spot_%s_%s" % [spot_key, tier]
-	if not ArtLib.has_q(path + ".png"):
-		path = "sprites/dongfu_spots/spot_%s_lv1" % spot_key
-		if not ArtLib.has_q(path + ".png"):
-			return
-	var tex: Texture2D = ArtLib.q(path)
-	if tex == null:
-		return
-	var node := TextureRect.new()
-	node.name = "Spot_%s" % facility_id
-	node.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	node.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	node.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	var side := mini(rect.size.x, rect.size.y) * 0.55
-	var local := _design_rect(Rect2(
-		rect.position.x + (rect.size.x - side) * 0.5,
-		rect.position.y + (rect.size.y - side) * 0.35,
-		side,
-		side
-	))
-	node.position = local.position
-	node.size = local.size
-	node.texture = tex
-	_stage.add_child(node)
-
+func _facility_spot(_facility_id: String, _rect: Rect2, _level: int) -> void:
+	## 灰盒验证期：不挂 spot 地标贴图。
+	return
 
 
 func _dim_mask(name: String = "CaveDim") -> void:
@@ -906,18 +869,7 @@ func _render_alchemy() -> void:
 	var up := _hotspot("Upgrade_alchemy", HS_UPGRADE, func() -> void: action_requested.emit("dongfu_upgrade", {"facility": "alchemy"}), "升级", "o")
 	up.disabled = not bool(a_up.get("canUpgrade", false))
 
-	# 丹炉地标（展示）
-	if ArtLib.has_q("sprites/bd_alchemy_landmark.png"):
-		var furnace := TextureRect.new()
-		furnace.name = "FurnaceLandmark"
-		furnace.texture = ArtLib.q("sprites/bd_alchemy_landmark")
-		furnace.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		furnace.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		furnace.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var fr := _design_rect(HS_FURNACE)
-		furnace.position = fr.position
-		furnace.size = fr.size
-		_stage.add_child(furnace)
+	# 灰盒验证期：不挂炼丹炉地标
 
 	var jobs: Array = _view.get("alchemy", [])
 	var queue_len := int(_view.get("alchemyQueueLength", 2))
@@ -1110,17 +1062,7 @@ func _render_enhance() -> void:
 	_bg("dongfu_enhance_l1")
 	_hotspot("BackButton", HS_BACK, _on_back, "←", "ghost")
 	_chip("强化阵", Rect2(400, 248, 280, 88), "CaveTitle")
-	if ArtLib.has_q("sprites/bd_array_formation.png"):
-		var arr := TextureRect.new()
-		arr.name = "ArrayLandmark"
-		arr.texture = ArtLib.q("sprites/bd_array_formation")
-		arr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		arr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		arr.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var hr := _design_rect(Rect2(290, 560, 500, 500))
-		arr.position = hr.position
-		arr.size = hr.size
-		_stage.add_child(arr)
+	# 灰盒验证期：不挂阵法地标
 	var worn := EquipModel.slots_of(_bag) if _bag != null else {}
 	var core := SlotConfig.core()
 	for i in range(mini(HS_EQ_RING.size(), core.size())):
@@ -1549,7 +1491,7 @@ func _render_forge() -> void:
 		var bp: Dictionary = bps[i] if typeof(bps[i]) == TYPE_DICTIONARY else {}
 		var slug := str(bp.get("blueprintSlug", ""))
 		var selected := _forge_blueprint == slug
-		var label := "%s%s\\n%s" % [str(bp.get("displayName", slug)), " ·已选" if selected else "", str(bp.get("costLine", ""))]
+		var label := "%s%s\n%s" % [str(bp.get("displayName", slug)), " ·已选" if selected else "", str(bp.get("costLine", ""))]
 		var btn := _hotspot("ForgeBp_%d" % i, Rect2(48, y, 700, 120), func() -> void: _select_forge_bp(slug), label, "o" if selected else "ghost")
 		btn.disabled = false
 		var start := _hotspot("ForgeStart_%d" % i, Rect2(780, y + 20, 250, 80), func() -> void: _start_forge(slug), "开炼", "o")
@@ -1562,7 +1504,7 @@ func _render_forge() -> void:
 		var mat: Dictionary = mats[i] if i < mats.size() and typeof(mats[i]) == TYPE_DICTIONARY else {}
 		var label := "—"
 		if not mat.is_empty():
-			label = "%s\\n×%d" % [str(mat.get("name", "")), int(mat.get("have", 0))]
+			label = "%s\n×%d" % [str(mat.get("name", "")), int(mat.get("have", 0))]
 		var b := _hotspot("ForgeMat_%d" % i, rect, func() -> void: _tap_forge_mat(mat), label, "ghost")
 		b.disabled = mat.is_empty() or int(mat.get("have", 0)) <= 0
 

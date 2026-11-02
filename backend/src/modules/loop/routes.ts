@@ -118,12 +118,12 @@ export async function registerLoopRoutes(
 
   app.post("/me/auto-decompose", async (request) => {
     const playerId = request.actor!.actorId;
-    const body = request.body as { enabled?: boolean };
-    if (typeof body.enabled !== "boolean") {
-      throw new AppError("INVALID_INPUT", "请选择是否自动分解");
+    const body = (request.body ?? {}) as { enabled?: boolean; qualities?: unknown };
+    if (body.qualities === undefined && typeof body.enabled !== "boolean") {
+      throw new AppError("INVALID_INPUT", "请勾选要自动分解的品质");
     }
     return withIdempotency(deps.db, playerId, idempotencyKey(request.headers["idempotency-key"]), "auto-decompose", deps.now(), (tx, world) =>
-      setAutoDecompose(tx, world, playerId, body.enabled === true, deps.now()),
+      setAutoDecompose(tx, world, playerId, body, deps.now()),
     );
   });
 

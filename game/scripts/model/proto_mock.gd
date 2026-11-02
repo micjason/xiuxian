@@ -110,7 +110,8 @@ static func state(scene: String = "") -> Dictionary:
 			for entry in [["gear_major1_weapon_white", 0], ["gear_major1_clothes_white", 0], ["gear_major1_clothes_blue", 2], ["gear_major1_helmet_purple", 3], ["gear_major1_gloves_white", 0], ["gear_major1_gloves_blue", 0], ["gear_major1_shoes_orange", 5], ["gear_major1_accessory_white", 0], ["gear_major1_accessory_purple", 0]]:
 				items.append(_row(str(entry[0]), null, int(entry[1])))
 	out["items"] = items
-	out.erase("autoDecompose")
+	out["autoDecompose"] = true
+	out["autoDecomposeQualities"] = ["white", "green", "blue"]
 	out["enhanceExp"] = 0
 	out["bagBonus"] = 0
 	out["bagCapacity"] = 20

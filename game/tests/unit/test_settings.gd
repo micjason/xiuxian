@@ -98,7 +98,7 @@ func test_avatar_opens_settings_and_logout_returns_to_login() -> void:
 	await wait_frames(2)
 	assert_true(settings.visible, "点头像打开设置")
 	var texts := _texts(settings)
-	for wanted in ["设 置", "声音", "音乐", "音效", "更多", "敬请期待", "版本号", "检查更新", "退出登录", "修改密码", "绑定手机", "兑换码", "客服反馈", "用户协议与隐私政策"]:
+	for wanted in ["设 置", "声音", "音乐", "音效", "挂机自动分解", "白", "绿", "蓝", "紫", "橙", "更多", "敬请期待", "版本号", "检查更新", "退出登录", "修改密码", "绑定手机", "兑换码", "客服反馈", "用户协议与隐私政策"]:
 		assert_has(texts, wanted)
 	for gone in ["显示战斗记录", "满包：跳过掉落", "导出存档文本", "战报"]:
 		assert_does_not_have(texts, gone)

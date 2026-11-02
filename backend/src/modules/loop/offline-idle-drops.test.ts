@@ -63,7 +63,7 @@ describe("settleOfflineIdleDrops", () => {
       const world = await loadDraftSnapshot(db);
       const stage = world.stages.find((row) => row.slug === "lianqi_1")!;
       const [player] = await db.insert(players).values({ username: "idle1", usernameLower: "idle1", passwordHash: "x" }).returning();
-      await db.insert(playerStates).values({ playerId: player!.id, cultivation: 0, spiritStones: 0, realmSlug: "lianqi_1", lastSettledAt: start });
+      await db.insert(playerStates).values({ playerId: player!.id, cultivation: 0, spiritStones: 0, realmSlug: "lianqi_1", lastSettledAt: start, autoDecomposeQualities: [], autoDecompose: false });
 
       setWaveRandom(() => 0);
       const rules = readGameRules(world);
@@ -108,7 +108,7 @@ describe("settleOfflineIdleDrops", () => {
       const world = await loadDraftSnapshot(db);
       const stage = world.stages.find((row) => row.slug === "lianqi_1")!;
       const [player] = await db.insert(players).values({ username: "idle2", usernameLower: "idle2", passwordHash: "x" }).returning();
-      await db.insert(playerStates).values({ playerId: player!.id, cultivation: 0, spiritStones: 0, realmSlug: "lianqi_1", lastSettledAt: start });
+      await db.insert(playerStates).values({ playerId: player!.id, cultivation: 0, spiritStones: 0, realmSlug: "lianqi_1", lastSettledAt: start, autoDecomposeQualities: [], autoDecompose: false });
       setWaveRandom(() => 0);
       const rules = readGameRules(world);
       const stats = { attack: 10_000, defense: 10_000, hp: 50_000, interval: 1 };
@@ -171,6 +171,8 @@ describe("settleOfflineIdleDrops", () => {
         realmSlug: "lianqi_1",
         lastSettledAt: start,
         bagBonus: 0,
+        autoDecomposeQualities: [],
+        autoDecompose: false,
       });
       // 占满唯一格子
       await db.insert(playerItems).values({

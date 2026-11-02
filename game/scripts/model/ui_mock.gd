@@ -125,7 +125,7 @@ static func state() -> Dictionary:
 	var out := {
 		"code": 200, "realmSlug": "qi2", "realmName": "炼气中期", "cultivation": 2380.0, "power": 0, "attack": 0, "defense": 0, "hp": 0, "speed": 0,
 		"breakthrough": {"cost": 2880, "nextSlug": "qi3", "rateBp": 7500}, "cultivationRate": {"gainPerTick": 6.0},
-		"challengeCooldownSeconds": null, "bagCapacity": 20, "bagBonus": 0, "enhanceExp": 0,
+		"challengeCooldownSeconds": null, "bagCapacity": 20, "bagBonus": 0, "enhanceExp": 0, "autoDecompose": true, "autoDecomposeQualities": ["white", "green", "blue"],
 		"items": rows,
 		"skills": [{"skillSlug": "heart1", "level": 2, "runningSlot": "heart"}, {"skillSlug": "art1", "level": 1, "runningSlot": null}],
 	}
@@ -291,7 +291,20 @@ static func handle(path: String, body: Dictionary, state: Dictionary, content: D
 		state["breakthrough"] = {"cost": cost * 1.6, "nextSlug": "", "rateBp": 6000}
 		result["result"] = {"success": true}
 	elif parts[0] == "auto-decompose":
-		pass  # 第五批：自动分解去掉了，老接口不做事
+		var qualities: Array = []
+		if typeof(body.get("qualities", null)) == TYPE_ARRAY:
+			for q in body.get("qualities", []):
+				var key := str(q)
+				if key in ["white", "green", "blue", "purple", "orange"] and key not in qualities:
+					qualities.append(key)
+		elif body.get("enabled", null) == true:
+			qualities = ["white", "green", "blue"]
+		elif body.get("enabled", null) == false:
+			qualities = []
+		else:
+			return {"code": 400, "error": {"message": "请勾选要自动分解的品质"}}
+		state["autoDecomposeQualities"] = qualities
+		state["autoDecompose"] = not qualities.is_empty()
 	recompute(state, content)
 	result["state"] = state
 	return result

@@ -35,6 +35,8 @@ async function boot(db: TestDb, name: string) {
   const registered = await app.inject({ method: "POST", url: "/api/v1/auth/register", payload: { username: name, password: "correct-horse" } });
   const headers = { authorization: `Bearer ${registered.json().token as string}` };
   const [player] = await db.select().from(players).where(eq(players.usernameLower, name));
+  // 本文件测「进包 / 满包跳过」；关掉默勾的白绿蓝自动拆。
+  await db.update(playerStates).set({ autoDecomposeQualities: [], autoDecompose: false }).where(eq(playerStates.playerId, player!.id));
   const jump = async (seconds: number) => {
     clock = new Date(start.getTime() + seconds * 1000);
     return (await app.inject({ method: "GET", url: "/api/v1/me/state", headers })).json();
@@ -165,7 +167,7 @@ describe("monster kill drops (5% per kill, regional quality weights, equal 6-slo
       expect((await bag()).every((row) => row.enhanceLevel === 1)).toBe(true);
       await db.delete(playerItems);
       await fill("gear_major1_weapon_white", 20);
-      await db.update(playerStates).set({ autoDecompose: false }).where(eq(playerStates.playerId, playerId));
+      await db.update(playerStates).set({ autoDecompose: false, autoDecomposeQualities: [] }).where(eq(playerStates.playerId, playerId));
       control.quality = 0; // 白：开关关闭时也不能分解
       const off = await state(30);
       expect(off.lastSettle.bagFull).toBe(true);

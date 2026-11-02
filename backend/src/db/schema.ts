@@ -503,6 +503,8 @@ export const playerStates = pgTable("player_states", {
   stateVersion: integer("state_version").notNull().default(0),
   dropPity: jsonb("drop_pity").$type<Record<string, number>>().notNull().default({}),
   autoDecompose: boolean("auto_decompose").notNull().default(true),
+  /** 挂机/关卡掉落时自动拆成炼器精粹的品质列表（白绿蓝默勾，紫橙不勾）。 */
+  autoDecomposeQualities: jsonb("auto_decompose_qualities").$type<string[]>().notNull().default(["white", "green", "blue"]),
   enhanceExp: bigint("enhance_exp", { mode: "number" }).notNull().default(0),
   bagBonus: integer("bag_bonus").notNull().default(0),
   /** 结算时不足 1 点修为的部分，单位万分之一点，0..9999。见 progress/settle.ts。 */

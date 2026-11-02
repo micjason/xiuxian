@@ -13,7 +13,7 @@ import { tuningOf } from "../content/tuning.js";
  *   同一个 requestId 但玩家 / 装备 / 件数 / source 不一样 → GRANT_REQUEST_CONFLICT（409）。
  * - 行囊满（第五批）：来源在配置概览「行囊满时不发装备的来源」里（默认 stage_drop / boss_first / boss_repeat）时，
  *   放不下就整笔不发、不写流水、不占 requestId，返回空数组并带 skipped: "bag_full"、bagFull: true（不报错，离线 / 挂机同样）。
- *   其他来源（admin_grant / mail / event）照发，可以超出容量。不再自动分解（分解由玩家自己选）。
+ *   其他来源（admin_grant / mail / event）照发，可以超出容量。挂机自动分解在 grantItem（loop/bag）按玩家勾选品质处理，本接口只负责进包。
  * - 每次发放写一行 equipment_grants 流水（后台操作日志按 source 筛）。
  * 必须在调用方的事务里调用（tx），和调用方的其他写入一起提交或回滚。
  */

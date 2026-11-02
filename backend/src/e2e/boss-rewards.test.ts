@@ -19,7 +19,7 @@ async function boot(db: TestDb, name: string, realmSlug = "lianqi_3") {
   const registered = await app.inject({ method: "POST", url: "/api/v1/auth/register", payload: { username: name, password: "correct-horse" } });
   const headers = { authorization: `Bearer ${registered.json().token as string}` };
   const [player] = await db.select().from(players).where(eq(players.usernameLower, name));
-  await db.update(playerStates).set({ realmSlug }).where(eq(playerStates.playerId, player!.id));
+  await db.update(playerStates).set({ realmSlug, autoDecomposeQualities: [], autoDecompose: false }).where(eq(playerStates.playerId, player!.id));
   // 第三批：下一关要先打赢上一关的首领才解锁。这里的用例都打黑风熊王（lianqi_3），先把前两关的精英记成已通关
   for (const stageSlug of ["lianqi_1", "lianqi_2"]) {
     await db.insert(playerStageProgress).values({ playerId: player!.id, stageSlug, unlockedAt: start, firstClearedAt: start, clearCount: 1 }).onConflictDoUpdate({ target: [playerStageProgress.playerId, playerStageProgress.stageSlug], set: { firstClearedAt: start, clearCount: 1 } });

@@ -371,6 +371,7 @@ func _build_shell() -> void:
 	# 致谢与版本叠在设置上面（通用弹层 open 时会 move_to_front），关掉回到设置
 	_settings.credits_requested.connect(func() -> void: CreditsView.show_credits(_popup))
 	_settings.closed.connect(func() -> void: _maybe_show_notice.call_deferred())
+	_settings.auto_decompose_changed.connect(_on_auto_decompose_changed)
 	add_child(_settings)
 	_salvage = SalvageDialog.new()
 	_salvage.z_index = Z_POPUP
@@ -464,6 +465,7 @@ func open_settings() -> void:
 ## 设置面板显示的账号信息：服务器 /me/account 拿到的优先，其次登录时本机记下的。
 func settings_info() -> Dictionary:
 	var account := _account if not _account.is_empty() else PlayerApi.account()
+	var qualities: Array = _state.get("autoDecomposeQualities", ["white", "green", "blue"]) if typeof(_state.get("autoDecomposeQualities", null)) == TYPE_ARRAY else ["white", "green", "blue"]
 	return {
 		"username": "演示账号" if _mock else account.get("username", ""),
 		"playerId": account.get("playerId", ""),
@@ -474,6 +476,7 @@ func settings_info() -> Dictionary:
 		"latestVersion": _latest_version,
 		"server": "演示数据" if _mock else ServerAddress.current().trim_prefix("http://").trim_prefix("https://"),
 		"appearance": _state.get("appearance", null),
+		"autoDecomposeQualities": qualities,
 	}
 
 
@@ -490,6 +493,17 @@ func _load_account() -> void:
 	# 设置弹窗还开着（没在二次确认）就刷新一下账号行
 	if _settings.visible and not _settings.is_confirming():
 		_settings.open(settings_info())
+
+
+func _on_auto_decompose_changed(qualities: Array) -> void:
+	var result := await _post("/api/v1/me/auto-decompose", {"qualities": qualities})
+	if int(result.get("code", 0)) != 200:
+		_toast.say(PlayerApi.error_message(result), false)
+		if _settings.visible:
+			_settings.open(settings_info())
+		return
+	_apply_action_state(result if result.has("state") else {"state": result})
+	_toast.say("已保存自动分解设置", true)
 
 
 func _on_manual_update_check() -> void:

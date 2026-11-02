@@ -18,6 +18,10 @@ const MODE_ARRAY := "array"
 ## 页面区相对画布原点：洞府页顶栏为紧凑态（无修为条），约 y=160；左 24 为 PAGE_MARGIN。
 const ORIGIN := Vector2(24, 160)
 const DESIGN := Vector2(1080, 2340)
+## 洞府弹层安全区：勿挡全局顶栏下沿与底栏（热区表底栏顶 y=2124）。
+const SAFE_TOP := 250.0
+const SAFE_BOTTOM := 2124.0
+const OVERLAY_DIM := Color(0.05, 0.03, 0.02, 0.62)
 
 # L0 热区 (x,y,w,h) 画布坐标
 const HS_GARDEN := Rect2(40, 820, 420, 480)
@@ -418,6 +422,55 @@ func _facility_spot(facility_id: String, rect: Rect2, level: int) -> void:
 	_stage.add_child(node)
 
 
+
+func _dim_mask(name: String = "CaveDim") -> void:
+	## 全屏压暗 + 拦截点击，避免庭院气泡透点。
+	var dim := ColorRect.new()
+	dim.name = name
+	dim.color = OVERLAY_DIM
+	dim.mouse_filter = Control.MOUSE_FILTER_STOP
+	dim.position = _design_to_local(Vector2(0, 0))
+	dim.size = DESIGN
+	_stage.add_child(dim)
+
+
+func _safe_scroll(name: String, design_rect: Rect2) -> ScrollContainer:
+	## 内容超高时滚进安全区（顶栏下 / 底栏上）。
+	var top := maxf(design_rect.position.y, SAFE_TOP)
+	var bottom := minf(design_rect.position.y + design_rect.size.y, SAFE_BOTTOM)
+	var local := _design_rect(Rect2(design_rect.position.x, top, design_rect.size.x, maxf(80.0, bottom - top)))
+	var sc := ScrollContainer.new()
+	sc.name = name
+	sc.position = local.position
+	sc.size = local.size
+	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	sc.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	sc.mouse_filter = Control.MOUSE_FILTER_STOP
+	_stage.add_child(sc)
+	return sc
+
+
+func _array_shape_glyph(shape: String, rot: int) -> String:
+	var s := shape.to_upper()
+	var r := posmod(rot, 4)
+	if s == "I":
+		return "│" if r % 2 == 0 else "─"
+	if s == "L":
+		# rot0 N+E=└ · 1 E+S=┌ · 2 S+W=┐ · 3 W+N=┘
+		return ["└", "┌", "┐", "┘"][r]
+	return s
+
+
+func _array_shape_caption(shape: String, rot: int) -> String:
+	var s := shape.to_upper()
+	var r := posmod(rot, 4)
+	if s == "I":
+		return "直脉·%s" % ("上下" if r % 2 == 0 else "左右")
+	if s == "L":
+		return "弯脉·%s" % ["上右", "右下", "下左", "左上"][r]
+	return "%s·%d" % [s, r]
+
+
 # ───────── L0 庭院 ─────────
 
 func _render_overview() -> void:
@@ -620,7 +673,11 @@ func _render_garden() -> void:
 		var plot: Dictionary = plots[i] if i < plots.size() and typeof(plots[i]) == TYPE_DICTIONARY else {"slot": i, "status": "empty", "line": "空畦 · 点击种植", "title": "地块 %d" % (i + 1)}
 		_render_plot_ridge(plot, rect)
 
-	_render_seed_drawer()
+	# A/B：种子抽屉只在点空畦后弹出，不与其它弹层叠；高度卡在底栏上。
+	if _plant_slot >= 0:
+		_render_seed_drawer()
+	else:
+		_chip("点空畦后再选种", Rect2(240, 1980, 600, 72), "SeedIdleHint")
 
 
 func _render_plot_ridge(plot: Dictionary, rect: Rect2) -> void:
@@ -695,17 +752,27 @@ func _on_plot_tap(slot: int, status: String) -> void:
 
 func _render_seed_drawer() -> void:
 	var seeds: Array = _view.get("seeds", [])
+	# 安全区：抽屉顶不低于 SAFE_TOP，底不超过 SAFE_BOTTOM（底栏顶）。
+	var drawer_top := 1580.0
+	var drawer_h := minf(360.0, SAFE_BOTTOM - drawer_top - 8.0)
+	if drawer_h < 200.0:
+		drawer_top = SAFE_BOTTOM - 360.0
+		drawer_h = 360.0
 	var drawer := PanelContainer.new()
 	drawer.name = "SeedPicker"
-	drawer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var local := _design_rect(Rect2(0, 1580, 1080, 360))
+	drawer.mouse_filter = Control.MOUSE_FILTER_STOP
+	var local := _design_rect(Rect2(0, drawer_top, 1080, drawer_h))
 	drawer.position = local.position
 	drawer.size = local.size
 	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.42, 0.30, 0.20, 0.28)
-	style.border_color = Color(UiTokens.Q_COCOA, 0.35)
-	style.set_border_width_all(0)
-	style.set_corner_radius_all(0)
+	style.bg_color = Color(0.42, 0.30, 0.20, 0.92)
+	style.border_color = Color(UiTokens.Q_COCOA, 0.55)
+	style.set_border_width_all(3)
+	style.set_corner_radius_all(28)
+	style.content_margin_left = 12
+	style.content_margin_right = 12
+	style.content_margin_top = 10
+	style.content_margin_bottom = 10
 	drawer.add_theme_stylebox_override("panel", style)
 	_stage.add_child(drawer)
 	var seed_hint := str(_view.get("seedHint", ""))
@@ -713,16 +780,19 @@ func _render_seed_drawer() -> void:
 	if not seed_hint.is_empty():
 		hint.text = seed_hint
 	elif _plant_slot < 0:
-		hint.text = "种子袋 · 先点空畦再选种"
+		hint.text = "先点空畦再选种"
 	else:
 		hint.text = "为地块 %d 选种子" % (_plant_slot + 1)
-	hint.position = _design_to_local(Vector2(48, 1600))
+	hint.position = _design_to_local(Vector2(48, drawer_top + 16))
 	hint.size = Vector2(984, 40)
 	hint.add_theme_font_size_override("font_size", 26)
 	hint.add_theme_color_override("font_color", Color(1, 0.97, 0.92, 0.95))
+	hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_stage.add_child(hint)
+	var bag_y := drawer_top + 70.0
 	for i in range(HS_SEEDS.size()):
-		var rect: Rect2 = HS_SEEDS[i]
+		var base: Rect2 = HS_SEEDS[i]
+		var rect := Rect2(base.position.x, bag_y, base.size.x, minf(base.size.y, drawer_h - 90.0))
 		var seed: Dictionary = seeds[i] if i < seeds.size() and typeof(seeds[i]) == TYPE_DICTIONARY else {}
 		var have := int(seed.get("have", 0))
 		var can_buy := bool(seed.get("canBuy", false))
@@ -837,8 +907,9 @@ func _render_trial_entry() -> void:
 	var left := int(trial.get("left", 0))
 	var slot_n := int(trial.get("slotCount", 3))
 	var line := "试炼摸索 剩余%d" % left
-	_chip(line, Rect2(48, 1920, 700, 72), "TrialInfo")
-	var btn := _hotspot("TrialModeBtn", Rect2(780, 1910, 220, 92), func() -> void:
+	var trial_y := minf(1920.0, SAFE_BOTTOM - 120.0)
+	_chip(line, Rect2(48, trial_y, 700, 72), "TrialInfo")
+	var btn := _hotspot("TrialModeBtn", Rect2(780, trial_y - 10.0, 220, 92), func() -> void:
 		_open_trial_picker(slot_n, left)
 	, "试炼", "stone")
 	btn.disabled = left <= 0 and int(trial.get("extraMax", 0)) <= int(trial.get("extraBought", 0))
@@ -1230,10 +1301,15 @@ func _enter_array() -> void:
 	if bool(ad.get("clearedToday", false)):
 		action_requested.emit("toast", {"text": "今日已接引 · 阵法经验 %d" % int(ad.get("arrayXp", 0))})
 		return
+	var puzzle: Dictionary = ad.get("puzzle", {}) if typeof(ad.get("puzzle", {})) == TYPE_DICTIONARY else {}
+	var tiles: Array = puzzle.get("tiles", []) if typeof(puzzle.get("tiles", [])) == TYPE_ARRAY else []
+	if puzzle.is_empty() or tiles.is_empty():
+		# 诚实空态：不进假格子页
+		action_requested.emit("toast", {"text": "灵脉未通，阵图尚未就绪"})
+		return
 	_array_rots.clear()
 	_array_spin_count = 0
-	var puzzle: Dictionary = ad.get("puzzle", {}) if typeof(ad.get("puzzle", {})) == TYPE_DICTIONARY else {}
-	for tile in puzzle.get("tiles", []):
+	for tile in tiles:
 		if typeof(tile) != TYPE_DICTIONARY:
 			continue
 		var t := tile as Dictionary
@@ -1244,39 +1320,78 @@ func _enter_array() -> void:
 
 func _render_array() -> void:
 	_bg("dongfu_l0")
+	_dim_mask("ArrayDim")
+	# ③ 与庭院同一份 CaveView 快照，禁止本地 demo 另起账
+	_render_resource_pills()
 	_hotspot("BackButton", HS_BACK, _on_back, "←", "ghost")
-	_chip("灵脉接引 · 灵泉→阵眼", Rect2(140, 250, 700, 88), "ArrayTitle")
-	_chip("点格顺时针旋 90° · 已旋 %d 次" % _array_spin_count, Rect2(140, 350, 800, 64), "ArrayHint")
+	_chip("灵脉接引", Rect2(140, 250, 420, 88), "ArrayTitle")
 	var ad: Dictionary = _view.get("arrayDaily", {}) if typeof(_view.get("arrayDaily", {})) == TYPE_DICTIONARY else {}
 	var puzzle: Dictionary = ad.get("puzzle", {}) if typeof(ad.get("puzzle", {})) == TYPE_DICTIONARY else {}
+	var tiles: Array = puzzle.get("tiles", []) if typeof(puzzle.get("tiles", [])) == TYPE_ARRAY else []
+	if puzzle.is_empty() or tiles.is_empty():
+		_chip("阵图未就绪 · 请返回庭院", Rect2(140, 520, 800, 120), "ArrayEmpty")
+		return
+	_chip("点格顺时针旋 90° · 已旋 %d 次" % _array_spin_count, Rect2(140, 350, 800, 64), "ArrayHint")
+	# 正式面板（非橙调试裸格）
+	var board := PanelContainer.new()
+	board.name = "ArrayBoard"
+	board.mouse_filter = Control.MOUSE_FILTER_STOP
+	var board_rect := _design_rect(Rect2(100, 440, 880, 780))
+	board.position = board_rect.position
+	board.size = board_rect.size
+	var board_style := StyleBoxFlat.new()
+	board_style.bg_color = Color(1.0, 0.973, 0.925, 0.94)
+	board_style.border_color = UiTokens.Q_COCOA
+	board_style.set_border_width_all(4)
+	board_style.set_corner_radius_all(32)
+	board.add_theme_stylebox_override("panel", board_style)
+	_stage.add_child(board)
 	var source: Dictionary = puzzle.get("source", {}) if typeof(puzzle.get("source", {})) == TYPE_DICTIONARY else {}
 	var sink: Dictionary = puzzle.get("sink", {}) if typeof(puzzle.get("sink", {})) == TYPE_DICTIONARY else {}
-	var grid_origin := Vector2(180, 520)
+	var grid_origin := Vector2(160, 480)
 	var cell := 220
 	for r in 3:
 		for c in 3:
-			var rect := Rect2(grid_origin.x + c * cell, grid_origin.y + r * cell, cell - 16, cell - 16)
+			var rect := Rect2(grid_origin.x + c * cell, grid_origin.y + r * cell, cell - 20, cell - 20)
 			var key := "%d,%d" % [r, c]
 			var label := ""
 			var locked := false
+			var kind := "ghost"
 			if int(source.get("r", -1)) == r and int(source.get("c", -1)) == c:
-				label = "泉\n%s" % str(source.get("open", ""))
+				label = "灵泉\n%s" % str(source.get("open", ""))
 				locked = true
 			elif int(sink.get("r", -1)) == r and int(sink.get("c", -1)) == c:
-				label = "眼\n%s" % str(sink.get("open", ""))
+				label = "阵眼\n%s" % str(sink.get("open", ""))
 				locked = true
 			else:
 				var shape := _array_tile_shape(puzzle, r, c)
+				if shape == "?" or not _array_rots.has(key):
+					# 空位：诚实占位，不可点假格
+					_chip("·", rect, "ArrayPad_%d_%d" % [r, c])
+					continue
 				var rot := int(_array_rots.get(key, 0))
-				label = "%s·%d" % [shape, rot]
+				label = "%s\n%s" % [_array_shape_glyph(shape, rot), _array_shape_caption(shape, rot)]
+				kind = "stone"
 			var rr := r
 			var cc := c
 			if locked:
-				_chip(label, rect, "ArrayCell_%d_%d" % [r, c])
+				var chip := _chip(label, rect, "ArrayCell_%d_%d" % [r, c])
+				chip.add_theme_font_size_override("font_size", 30)
 			else:
-				_hotspot("ArrayCell_%d_%d" % [r, c], rect, func() -> void: _rotate_array_cell(rr, cc), label, "o")
-	var settle := _hotspot("ArraySettle", Rect2(240, 1260, 600, 120), _submit_array, "收阵", "o")
-	settle.disabled = puzzle.is_empty()
+				var btn := _hotspot("ArrayCell_%d_%d" % [r, c], rect, func() -> void: _rotate_array_cell(rr, cc), label, kind)
+				btn.add_theme_font_size_override("font_size", 28)
+				var st := StyleBoxFlat.new()
+				st.bg_color = Color(0.95, 0.82, 0.55, 0.95)
+				st.border_color = UiTokens.Q_COCOA
+				st.set_border_width_all(3)
+				st.set_corner_radius_all(24)
+				btn.add_theme_stylebox_override("normal", st)
+				btn.add_theme_stylebox_override("pressed", st)
+				btn.add_theme_stylebox_override("hover", st)
+				btn.add_theme_color_override("font_color", UiTokens.TEXT)
+	var settle_y := minf(1280.0, SAFE_BOTTOM - 140.0)
+	var settle := _hotspot("ArraySettle", Rect2(240, settle_y, 600, 120), _submit_array, "收阵", "o")
+	settle.disabled = false
 
 
 func _array_tile_shape(puzzle: Dictionary, r: int, c: int) -> String:
@@ -1313,4 +1428,3 @@ func _submit_array() -> void:
 		"dayKey": str(ad.get("dayKey", "")),
 		"rots": rots,
 	})
-

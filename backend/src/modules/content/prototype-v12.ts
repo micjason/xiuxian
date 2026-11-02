@@ -10,13 +10,13 @@ import { compactDropOverride } from "./stage-defaults.js";
 import { DEFAULT_TUNING } from "./tuning.js";
 import { DEFAULT_BOSS_RULES } from "./boss-rules.js";
 import { ensureFactoryRealms } from "./realm-seed.js";
-import { REALM_FACTORY } from "./realm-factory.js";
+import { REALM_FACTORY, SHIPPED_STAGE_GATES } from "./realm-factory.js";
 import { DEFAULT_SKILLS } from "./default-skills.js";
 
 /**
  * 原型数值表 v1.2（/workspace/prototype_design_numbers.md）扩到固定 24 小层：
- * 每层同名 slug 1 关 + 1 Boss；突破闸只挂各大境第 3 层共 7 个（不含大乘三层）。
- * 前 9 层数字仍对照 tools/sim/prototype-v1.2.config.json（prototype-v12.test.ts 漂移守卫）。
+ * 每层同名 slug 1 关 + 1 Boss；突破闸挂炼气/筑基/金丹共 9 层同名关（与 realm-factory 出厂一致）。
+ * 元婴及以后占位关仍在，但不挂突破闸。前 9 层数字仍对照 tools/sim/prototype-v1.2.config.json。
  */
 
 type Stats = { hp: number; attack: number; defense: number; speed: number };
@@ -130,16 +130,6 @@ export const PROTOTYPE_SKILLS = DEFAULT_SKILLS.map((skill) => ({
 
 export const PROTOTYPE_BOSS_ULT_NAME = "剑诀·破军";
 
-const MAJOR_END_GATES = new Set([
-  "lianqi_3",
-  "zhuji_3",
-  "jindan_3",
-  "yuanying_3",
-  "huashen_3",
-  "lianxu_3",
-  "heti_3",
-]);
-
 /** 在空的（或只有初始境界的）内容库里灌入原型内容；返回关键编号，方便测试引用。 */
 export async function applyPrototypeV12(db: Db): Promise<{ stageSlugs: string[]; realmSlugs: string[]; bookSlugs: Record<string, string> }> {
   const now = new Date();
@@ -209,7 +199,7 @@ export async function applyPrototypeV12(db: Db): Promise<{ stageSlugs: string[];
   let previous: Stats = { hp: 0, attack: 0, defense: 0, speed: 0 };
   for (const [index, layer] of PROTOTYPE_LAYERS.entries()) {
     const major = PROTOTYPE_MAJORS[layer.major];
-    const gate = MAJOR_END_GATES.has(layer.slug) ? layer.slug : null;
+    const gate = SHIPPED_STAGE_GATES.has(layer.slug) ? layer.slug : null;
     await db.insert(contentRealms).values({
       slug: layer.slug,
       displayName: layer.name,

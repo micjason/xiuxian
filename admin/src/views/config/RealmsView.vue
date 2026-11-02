@@ -156,7 +156,7 @@
           </div>
         </SectionCard>
 
-        <SectionCard v-if="editing.showGate" title="突破门槛" desc="仅各大境三层需要；一二层不显示">
+        <SectionCard v-if="editing.showGate" title="突破门槛" desc="有同名关卡的层可配（炼气～金丹一二三层）">
           <template #extra>
             <CustomTag :kind="gateTuned ? 'custom' : 'default'">{{ gateTuned ? "已调" : "完整" }}</CustomTag>
           </template>
@@ -165,7 +165,7 @@
               <el-option v-for="option in stageOptions" :key="option.value || 'none'" :label="option.label" :value="option.value" />
             </el-select>
             <template #note>
-              <span>突破到下一大境一层前，需先通关本境章末首领关</span>
+              <span>突破到下一层前，需先通关指定关卡（出厂为同名关）</span>
               <span v-if="gateTuned" class="tuned-note">出厂 {{ editing.factory.requiredStageId ? "已配关卡" : "不需要" }} · 已调 <el-button link type="primary" @click="restoreGate">恢复出厂</el-button></span>
               <span v-if="stageError" class="err">关卡列表加载失败：{{ stageError }}</span>
             </template>

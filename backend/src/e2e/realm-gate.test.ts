@@ -43,7 +43,9 @@ describe("realm table: fixed 24 rows and major-breakthrough boss gate (admin API
       expect(list[0]).toMatchObject({ code: 1, displayName: "炼气一层", etaLabel: "约 30 分" });
       expect(list[0].ultName).toBeUndefined();
       expect(list[0].changed).toEqual(expect.arrayContaining(["breakthroughCost", "attack", "hp"]));
-      expect(list[2]).toMatchObject({ code: 3, displayName: "炼气三层", requiredStageId: "lianqi_3", etaLabel: "约 4 小时" });
+      expect(list[0]).toMatchObject({ code: 1, displayName: "炼气一层", requiredStageId: "lianqi_1", showGate: true, etaLabel: "约 30 分" });
+      expect(list[1]).toMatchObject({ code: 2, displayName: "炼气二层", requiredStageId: "lianqi_2", showGate: true });
+      expect(list[2]).toMatchObject({ code: 3, displayName: "炼气三层", requiredStageId: "lianqi_3", showGate: true, etaLabel: "约 4 小时" });
       expect(list[2].changed).not.toContain("requiredStageId");
       expect(list[9]).toMatchObject({
         code: 10,
@@ -57,7 +59,7 @@ describe("realm table: fixed 24 rows and major-breakthrough boss gate (admin API
         etaLabel: "约 5.5 天",
         stored: true,
       });
-      expect(list[23]).toMatchObject({ code: 24, displayName: "大乘三层", showBreakthroughCost: false, showGate: true, etaLabel: "约 55 天", breakthroughCost: 0 });
+      expect(list[23]).toMatchObject({ code: 24, displayName: "大乘三层", showBreakthroughCost: false, showGate: false, etaLabel: "约 55 天", breakthroughCost: 0 });
       const created = await db.select().from(contentRealms).where(eq(contentRealms.slug, "yuanying_1"));
       expect(created[0]).toMatchObject({ tickSeconds: 1, gainPerTick: 27, nextRealmSlug: "yuanying_2", baseInterval: 1.5 });
       expect(created[0]).not.toHaveProperty("ultName");
@@ -140,8 +142,17 @@ describe("realm table: fixed 24 rows and major-breakthrough boss gate (admin API
         headers: admin,
         payload: { requiredStageId: "lianqi_1" },
       });
-      expect(minorGate.statusCode).toBe(400);
-      expect(minorGate.json().error.message).toContain("三层");
+      expect(minorGate.statusCode).toBe(200);
+      const [lq1] = await db.select().from(contentRealms).where(eq(contentRealms.slug, "lianqi_1"));
+      expect(lq1?.requiredStageSlug).toBe("lianqi_1");
+      const nascentGate = await app.inject({
+        method: "PUT",
+        url: "/admin/draft/realms/10",
+        headers: admin,
+        payload: { requiredStageId: "yuanying_1" },
+      });
+      expect(nascentGate.statusCode).toBe(400);
+      expect(nascentGate.json().error.message).toContain("没有可配");
       await app.close();
     });
   });
@@ -207,7 +218,7 @@ describe("realm table: fixed 24 rows and major-breakthrough boss gate (admin API
     });
   });
 
-  it("the major breakthrough is blocked until the gate boss is cleared; minor layers are not gated", async () => {
+  it("each early layer breakthrough is blocked until its same-slug stage is cleared", async () => {
     await withDb(async (db) => {
       const { app, setClock } = await boot(db);
       const registered = await app.inject({ method: "POST", url: "/api/v1/auth/register", payload: { username: "gate_player", password: "correct-horse" } });
@@ -215,24 +226,48 @@ describe("realm table: fixed 24 rows and major-breakthrough boss gate (admin API
       const [player] = await db.select().from(players).where(eq(players.usernameLower, "gate_player"));
       let n = 0;
       const post = (url: string, payload: Record<string, unknown> = {}) => app.inject({ method: "POST", url: `/api/v1${url}`, headers: { ...headers, "idempotency-key": `gate-key-${(n += 1)}-padding` }, payload });
-      // 炼气一层 → 二层 → 三层：不需要通关
       await db.update(playerStates).set({ cultivation: 100000 }).where(eq(playerStates.playerId, player!.id));
-      expect((await post("/me/breakthrough")).json().result.success).toBe(true);
-      expect((await post("/me/breakthrough")).json().result.success).toBe(true);
-      const state = (await app.inject({ method: "GET", url: "/api/v1/me/state", headers })).json();
-      expect(state.realmSlug).toBe("lianqi_3");
-      expect(state.breakthrough.requiredStage).toMatchObject({ slug: "lianqi_3", name: "黑风岭·三", cleared: false });
-      // 大境界突破：没通关黑风熊王就被拒绝
-      const blocked = await post("/me/breakthrough");
+      // 炼气一层：修为够但没打过黑风岭·一 → STAGE_REQUIRED
+      let state = (await app.inject({ method: "GET", url: "/api/v1/me/state", headers })).json();
+      expect(state.realmSlug).toBe("lianqi_1");
+      expect(state.breakthrough.requiredStage).toMatchObject({ slug: "lianqi_1", name: "黑风岭·一", cleared: false });
+      let blocked = await post("/me/breakthrough");
       expect(blocked.statusCode).toBeGreaterThanOrEqual(400);
       expect(blocked.json().error.code).toBe("STAGE_REQUIRED");
-      // 通关之后（直接记一条首通记录）可以突破，进入筑基一层
-      await db.insert(playerStageProgress).values({ playerId: player!.id, stageSlug: "lianqi_3", unlockedAt: start, firstClearedAt: start, clearCount: 1 }).onConflictDoNothing();
+      const clearStage = async (slug: string) => {
+        await db
+          .insert(playerStageProgress)
+          .values({ playerId: player!.id, stageSlug: slug, unlockedAt: start, firstClearedAt: start, clearCount: 1 })
+          .onConflictDoUpdate({
+            target: [playerStageProgress.playerId, playerStageProgress.stageSlug],
+            set: { firstClearedAt: start, clearCount: 1 },
+          });
+      };
+      await clearStage("lianqi_1");
       setClock(new Date(start.getTime() + 1000));
+      expect((await post("/me/breakthrough")).json().result.success).toBe(true);
+      // 炼气二：修为够但没打过黑风岭·二 → STAGE_REQUIRED（成鹏定案验收）
+      state = (await app.inject({ method: "GET", url: "/api/v1/me/state", headers })).json();
+      expect(state.realmSlug).toBe("lianqi_2");
+      expect(state.breakthrough.requiredStage).toMatchObject({ slug: "lianqi_2", name: "黑风岭·二", cleared: false });
+      blocked = await post("/me/breakthrough");
+      expect(blocked.statusCode).toBeGreaterThanOrEqual(400);
+      expect(blocked.json().error.code).toBe("STAGE_REQUIRED");
+      await clearStage("lianqi_2");
+      setClock(new Date(start.getTime() + 2000));
+      expect((await post("/me/breakthrough")).json().result.success).toBe(true);
+      state = (await app.inject({ method: "GET", url: "/api/v1/me/state", headers })).json();
+      expect(state.realmSlug).toBe("lianqi_3");
+      expect(state.breakthrough.requiredStage).toMatchObject({ slug: "lianqi_3", name: "黑风岭·三", cleared: false });
+      blocked = await post("/me/breakthrough");
+      expect(blocked.statusCode).toBeGreaterThanOrEqual(400);
+      expect(blocked.json().error.code).toBe("STAGE_REQUIRED");
+      await clearStage("lianqi_3");
+      setClock(new Date(start.getTime() + 3000));
       const passed = await post("/me/breakthrough");
       expect(passed.json().result.success).toBe(true);
       expect(passed.json().state.realmSlug).toBe("zhuji_1");
-      expect(passed.json().state.breakthrough.requiredStage).toBeNull();
+      expect(passed.json().state.breakthrough.requiredStage).toMatchObject({ slug: "zhuji_1", cleared: false });
       await app.close();
     });
   });

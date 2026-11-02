@@ -77,32 +77,42 @@ describe("realm factory seed (§17)", () => {
     ]);
   });
 
-  it("hides breakthrough cost only on 大乘三层, and the gate only on each major's third layer", () => {
+  it("hides breakthrough cost only on 大乘三层, and shows gate on shipped same-slug stages (炼气～金丹)", () => {
     const qi1 = REALM_FACTORY[0]!;
+    const qi2 = REALM_FACTORY[1]!;
     const qi3 = REALM_FACTORY[2]!;
+    const nascent1 = REALM_FACTORY[9]!;
     const last = REALM_FACTORY[23]!;
     expect(showsBreakthroughCost(last)).toBe(false);
     expect(showsBreakthroughCost(REALM_FACTORY[22]!)).toBe(true);
-    expect(showsGate(qi1)).toBe(false);
+    expect(showsGate(qi1)).toBe(true);
+    expect(showsGate(qi2)).toBe(true);
     expect(showsGate(qi3)).toBe(true);
-    expect(showsGate(last)).toBe(true);
-    expect(editableKeys(last)).toEqual(["gainPerTick", "attack", "defense", "hp", "speed", "requiredStageId"]);
-    expect(editableKeys(qi1)).toEqual(["gainPerTick", "breakthroughCost", "attack", "defense", "hp", "speed"]);
+    expect(showsGate(nascent1)).toBe(false);
+    expect(showsGate(last)).toBe(false);
+    expect(editableKeys(last)).toEqual(["gainPerTick", "attack", "defense", "hp", "speed"]);
+    expect(editableKeys(qi1)).toEqual(["gainPerTick", "breakthroughCost", "attack", "defense", "hp", "speed", "requiredStageId"]);
     expect(editableKeys(qi3)).toEqual(["gainPerTick", "breakthroughCost", "attack", "defense", "hp", "speed", "requiredStageId"]);
+    expect(editableKeys(nascent1)).toEqual(["gainPerTick", "breakthroughCost", "attack", "defense", "hp", "speed"]);
   });
 
   it("diffs numbers against the factory constants; shipped gates stay factory and are not recomputed from cultivation", () => {
-    // 各大境第 3 层共 7 个闸（不含大乘三层到顶）
+    // 炼气/筑基/金丹共 9 个同名关闸；元婴及以后空
     expect(REALM_FACTORY.filter((row) => row.requiredStageId).map((row) => row.requiredStageId)).toEqual([
-      "lianqi_3", "zhuji_3", "jindan_3", "yuanying_3", "huashen_3", "lianxu_3", "heti_3",
+      "lianqi_1", "lianqi_2", "lianqi_3",
+      "zhuji_1", "zhuji_2", "zhuji_3",
+      "jindan_1", "jindan_2", "jindan_3",
     ]);
     expect(REALM_FACTORY[23]!.requiredStageId).toBe("");
-    expect(REALM_FACTORY.filter((row) => row.layer !== 3).every((row) => row.requiredStageId === "")).toBe(true);
+    expect(REALM_FACTORY.slice(9).every((row) => row.requiredStageId === "")).toBe(true);
     expect(changedFieldKeys(REALM_FACTORY[4]!, numbersOf(5, { gainPerTick: 4 }))).toEqual(["gainPerTick"]);
     expect(changedFieldKeys(REALM_FACTORY[23]!, numbersOf(24, { breakthroughCost: 5 }))).toEqual(["breakthroughCost"]);
-    expect(changedFieldKeys(REALM_FACTORY[0]!, numbersOf(1, { requiredStageId: "lianqi_3" }))).toEqual([]);
+    expect(changedFieldKeys(REALM_FACTORY[0]!, numbersOf(1, { requiredStageId: "lianqi_1" }))).toEqual([]);
+    expect(changedFieldKeys(REALM_FACTORY[0]!, numbersOf(1, { requiredStageId: "" }))).toEqual(["requiredStageId"]);
     expect(changedFieldKeys(REALM_FACTORY[8]!, numbersOf(9, { requiredStageId: "jindan_3" }))).toEqual([]);
     expect(changedFieldKeys(REALM_FACTORY[8]!, numbersOf(9, { requiredStageId: "" }))).toEqual(["requiredStageId"]);
+    // 元婴一层不可配闸：库里即使有值也不算改动
+    expect(changedFieldKeys(REALM_FACTORY[9]!, numbersOf(10, { requiredStageId: "yuanying_1" }))).toEqual([]);
     expect(REALM_FACTORY[8]!.etaLabel).toBe("约 4 天");
     expect(REALM_FACTORY[14]!.etaLabel).toBe("约 14 天");
     expect(REALM_FACTORY[23]!.etaLabel).toBe("约 55 天");
@@ -159,11 +169,14 @@ describe("realm factory seed (§17)", () => {
       stored: true,
       gainPerTick: 4,
       tuned: true,
-      changed: ["gainPerTick"],
+      changed: ["gainPerTick", "requiredStageId"],
       etaLabel: "约 9 小时",
-      showGate: false,
+      showGate: true,
       showBreakthroughCost: true,
+      requiredStageId: "",
     });
-    expect(listed[23]).toMatchObject({ showBreakthroughCost: false, showGate: true, etaLabel: "约 55 天", breakthroughCost: 0 });
+    expect(listed[0]).toMatchObject({ showGate: true, requiredStageId: "lianqi_1" });
+    expect(listed[9]).toMatchObject({ showGate: false, requiredStageId: "" });
+    expect(listed[23]).toMatchObject({ showBreakthroughCost: false, showGate: false, etaLabel: "约 55 天", breakthroughCost: 0 });
   });
 });

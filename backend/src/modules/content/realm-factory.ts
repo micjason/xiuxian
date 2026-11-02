@@ -2,8 +2,9 @@
  * 境界出厂 seed：固定 8 大境界 × 3 层。数字与预计时长照抄
  * realm_fixed_table §4.4 / realm_defaults.md，不随后台改数重算。
  *
- * 各大境第 3 层（炼气→合体共 7 个）出厂挂同名关卡闸；大乘三层到顶不挂。
- * 「恢复出厂」会回到这些闸，一二层出厂关卡为空。
+ * 出厂突破闸：凡有下一境、且已有同名 content_stages.slug 的层挂同名关
+ * （当前炼气/筑基/金丹共 9 层：lianqi_1..jindan_3）。元婴及以后仍空（关卡未正式开闸）。
+ * 「恢复出厂」回到这些闸。
  */
 
 export type RealmLayer = 1 | 2 | 3;
@@ -129,19 +130,24 @@ const SEEDS: Seed[][] = [
   ],
 ];
 
-/** 各大境第 3 层突破闸（不含大乘三层到顶）。一二层不挂。 */
-const MAJOR_END_GATES = new Set([
+/**
+ * 已有同名关卡、出厂即挂闸的层（与 tip/原型前九关一致）。
+ * 元婴及以后暂不挂：即便库里有占位关，也不强制突破前通关。
+ */
+export const SHIPPED_STAGE_GATES = new Set([
+  "lianqi_1",
+  "lianqi_2",
   "lianqi_3",
+  "zhuji_1",
+  "zhuji_2",
   "zhuji_3",
+  "jindan_1",
+  "jindan_2",
   "jindan_3",
-  "yuanying_3",
-  "huashen_3",
-  "lianxu_3",
-  "heti_3",
 ]);
 
 function gateOf(slug: string): string {
-  return MAJOR_END_GATES.has(slug) ? slug : "";
+  return SHIPPED_STAGE_GATES.has(slug) ? slug : "";
 }
 
 export const REALM_FACTORY: readonly RealmFactoryRow[] = MAJORS.flatMap((major, majorIndex) =>
@@ -186,9 +192,9 @@ export function showsBreakthroughCost(row: Pick<RealmFactoryRow, "code">): boole
   return row.code !== 24;
 }
 
-/** 只有各大境三层可以配突破前通关。 */
-export function showsGate(row: Pick<RealmFactoryRow, "layer">): boolean {
-  return row.layer === 3;
+/** 有下一境且出厂关卡表里有同名关时，后台可配「突破前通关」。 */
+export function showsGate(row: Pick<RealmFactoryRow, "slug" | "code">): boolean {
+  return showsBreakthroughCost(row) && SHIPPED_STAGE_GATES.has(row.slug);
 }
 
 export function editableKeys(row: RealmFactoryRow): string[] {
@@ -202,7 +208,7 @@ function sameNumber(left: number, right: number): boolean {
   return Number(left) === Number(right);
 }
 
-/** 相对出厂常量有差异的字段。预计时长不参与比较。一二层的关卡即使库里有值也不算改动（界面不提供）。 */
+/** 相对出厂常量有差异的字段。预计时长不参与比较。不可配闸的层即使库里有关卡值也不算改动（界面不提供）。 */
 export function changedFieldKeys(seed: RealmFactoryRow, current: RealmNumbers): string[] {
   const changed: string[] = [];
   if (!sameNumber(current.gainPerTick, seed.gainPerTick)) changed.push("gainPerTick");

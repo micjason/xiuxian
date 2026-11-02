@@ -12,7 +12,7 @@
 - `backend/src/modules/content/realm-seed.ts`：缺行补出厂数字。已有行的修为、属性和关卡不动。打开境界列表时把 `nextRealmSlug` 接成炼气一层到大乘三层。
 - 精粹 `realmYieldMult` 覆盖八个大境界键。元婴及以后出厂倍率是 1。
 - `backend/src/modules/content/draft-routes.ts`：`GET /admin/draft/realms` 只返回这 24 行。`PUT` 只接受白名单。去掉 `POST /admin/draft/realms`、`POST /admin/draft/realms/major`、`GET .../major-preview`、`DELETE`。
-- `admin/src/views/config/RealmsView.vue`：列表列序为名称、本境每秒修为、升下层所需修为、速度、攻击、防御、气血、预计时长、已调/完整。横幅为「固定炼气→大乘 · 每天按 6 小时有效挂机估时长 · 改过标金」。抽屉只渲染可改字段；大乘三层不显示突破修为；只有各大境三层显示突破前通关。
+- `admin/src/views/config/RealmsView.vue`：列表列序为名称、本境每秒修为、升下层所需修为、速度、攻击、防御、气血、预计时长、已调/完整。横幅为「固定炼气→大乘 · 每天按 6 小时有效挂机估时长 · 改过标金」。抽屉只渲染可改字段；大乘三层不显示突破修为；有同名关卡的层（炼气～金丹）显示突破前通关。
 - 删掉 `realm-major.ts`（新建大境界预填）。
 
 ## 还没做

@@ -82,11 +82,11 @@ describe("炼器精粹 rules", () => {
     expect(essenceYield(edited, "white", "weapon", 2, "qi")).toBe(8 + 20);
   });
 
-  it("enhance cost = round(40 × 1.25^level × quality costMult), with an optional per-level table", () => {
-    expect([0, 1, 2, 3, 4].map((level) => essenceCost(rules, "white", level))).toEqual([40, 50, 63, 78, 98]);
-    expect(essenceCost(rules, "blue", 2)).toBe(Math.round(40 * 1.25 ** 2 * 1.25));
+  it("enhance cost = round(40 × 1.4^level × quality costMult), with an optional per-level table", () => {
+    expect([0, 1, 2, 3, 4].map((level) => essenceCost(rules, "white", level))).toEqual([0, 1, 2, 3, 4].map((level) => Math.round(40 * 1.4 ** level)));
+    expect(essenceCost(rules, "blue", 2)).toBe(Math.round(40 * 1.4 ** 2 * 1.25));
     const table = enhanceRulesFromInput({ ...STARTING_ENHANCE_RULES, essence: { ...STARTING_ESSENCE_RULES, costTable: { white: [5, null, 7] } } });
-    expect([0, 1, 2, 3].map((level) => essenceCost(table, "white", level))).toEqual([5, 50, 7, 78]);
+    expect([0, 1, 2, 3].map((level) => essenceCost(table, "white", level))).toEqual([5, Math.round(40 * 1.4), 7, Math.round(40 * 1.4 ** 3)]);
   });
 
   it("validates the config (no negative yields, growth ≥ 1, an item is required)", () => {
@@ -97,10 +97,13 @@ describe("炼器精粹 rules", () => {
     expect(bad({ costTable: { white: [0] } })).toThrow(/每级精粹消耗/);
   });
 
-  it("the default migration ratio (7000) is above the worst essence/old-exp cost ratio, so nobody gets weaker", () => {
-    const worst = minSafeMigrationRatioBp(rules);
+  it("historical costGrowth 1.25 keeps migration ratio 7000 safe; 1.4 is steeper for uncapped slot enhance", () => {
+    const legacy = enhanceRulesFromInput({ ...STARTING_ENHANCE_RULES, essence: { ...STARTING_ESSENCE_RULES, costGrowth: 1.25 } });
+    const worst = minSafeMigrationRatioBp(legacy);
     expect(worst).toBeGreaterThan(6600);
-    expect(worst).toBeLessThanOrEqual(STARTING_ESSENCE_RULES.migrationRatioBp);
+    expect(worst).toBeLessThanOrEqual(7000);
+    expect(STARTING_ESSENCE_RULES.costGrowth).toBe(1.4);
+    expect(minSafeMigrationRatioBp(rules)).toBeGreaterThan(7000);
     // 暴力验证：任意经验池、任意品质、从任意等级起，旧经验能升到的等级，换成精粹后一定也能升到
     const levelsWith = (pool: number, cost: (level: number) => number, from: number, cap: number) => {
       let level = from;
@@ -111,11 +114,11 @@ describe("炼器精粹 rules", () => {
       return level;
     };
     for (const quality of ENHANCE_QUALITIES) {
-      const cap = rules.qualities[quality.key]!.cap;
+      const cap = legacy.qualities[quality.key]!.cap;
       for (let from = 0; from < cap; from += 1) {
         for (let exp = 0; exp <= 20000; exp += 37) {
-          const before = levelsWith(exp, (level) => enhanceCost(rules, quality.key, level), from, cap);
-          const after = levelsWith(migratedEssence(rules, exp), (level) => essenceCost(rules, quality.key, level), from, cap);
+          const before = levelsWith(exp, (level) => enhanceCost(legacy, quality.key, level), from, cap);
+          const after = levelsWith(migratedEssence(legacy, exp), (level) => essenceCost(legacy, quality.key, level), from, cap);
           expect(after).toBeGreaterThanOrEqual(before);
         }
       }
@@ -303,7 +306,7 @@ describe("migration 0050", () => {
       const [row] = await db.select().from(contentGlobals);
       const parsed = enhanceRulesFromInput(row!.enhance);
       expect(parsed.expBase).toBe(77);
-      expect(parsed.essence).toEqual(STARTING_ESSENCE_RULES);
+      expect(parsed.essence).toEqual({ ...STARTING_ESSENCE_RULES, costGrowth: 1.25 }); // 0050 历史种子仍为 1.25；0074 再拉陡到 1.4
       expect(row!.tuning).toEqual({ gearBudgetRatio: 0.6, bagFullSkipSources: ["stage_drop", "boss_first", "boss_repeat"] });
       const [item] = await db.select().from(contentItems).where(eq(contentItems.slug, "refine_essence"));
       expect(item).toMatchObject({ displayName: "炼器精粹", kind: "material", quality: "orange", stackable: true, iconKey: "refine_essence" });

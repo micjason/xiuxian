@@ -379,6 +379,13 @@
       "when": 1801300000000,
       "tag": "0073_auto_decompose_qualities",
       "breakpoints": true
+    },
+    {
+      "idx": 64,
+      "version": "7",
+      "when": 1801400000000,
+      "tag": "0074_slot_bound_enhance",
+      "breakpoints": true
     }
   ]
 }

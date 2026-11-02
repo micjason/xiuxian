@@ -80,6 +80,11 @@ func uses_essence() -> bool:
 	return typeof(rules.get("essence", null)) == TYPE_DICTIONARY
 
 
+## 部位强化：等级绑格子；无玩法上限、无突破材料。
+func slot_bound() -> bool:
+	return bool(rules.get("slotBound", false))
+
+
 func _essence() -> Dictionary:
 	return rules.get("essence", {}) if uses_essence() else {}
 

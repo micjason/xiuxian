@@ -448,8 +448,11 @@ func _compare_section(data: Dictionary) -> Control:
 	for spec in [["本件", LAYOUT.col_this, HORIZONTAL_ALIGNMENT_CENTER], ["身上", LAYOUT.col_worn, HORIZONTAL_ALIGNMENT_CENTER], ["变化", LAYOUT.col_delta_r, HORIZONTAL_ALIGNMENT_RIGHT]]:
 		_text_at(section, str(spec[0]), ArtLib.bold_font(), 30, COLORS.muted, float(spec[1]), LAYOUT.cmp_head_y - 6.0, 44, int(spec[2]), 160.0)
 	var all_rows: Array = rows.duplicate()
-	var power: Dictionary = data.get("power", {})
-	all_rows.append({"key": "power", "label": "战力", "value": int(power.get("value", 0)), "other": int(power.get("other", 0)), "delta": int(power.get("delta", 0))})
+	var base_power: Dictionary = data.get("base_power", data.get("power", {}))
+	all_rows.append({"key": "power", "label": "胚子战力", "value": int(base_power.get("value", 0)), "other": int(base_power.get("other", 0)), "delta": int(base_power.get("delta", 0))})
+	var with_slot: Dictionary = data.get("power_with_slot", {})
+	if not with_slot.is_empty():
+		all_rows.append({"key": "power", "label": "穿上后", "value": int(with_slot.get("value", 0)), "other": int(with_slot.get("other", 0)), "delta": int(with_slot.get("delta", 0))})
 	for i in all_rows.size():
 		var row: Dictionary = all_rows[i]
 		var y: float = LAYOUT.cmp_rows_y + i * LAYOUT.row_step

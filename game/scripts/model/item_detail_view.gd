@@ -181,22 +181,33 @@ static func kind_text(item: Dictionary) -> String:
 			return "物品"
 
 
-## 本件 vs 身上：每项属性 {key, label, value, other, delta}（显示前四舍五入，delta 用四舍五入后的值算，和看到的数一致）+ 战力行。
+## 本件 vs 身上：属性对比用胚子；另附胚子战力 + 穿上后（含本格强化）两行。
 static func compare_view(item: Dictionary, worn: Dictionary) -> Dictionary:
 	var rows: Array[Dictionary] = []
-	for row in BagModel.compare(item, worn):
+	# 对比属性用胚子（不含强化）
+	var base_item := item.duplicate(true)
+	base_item["stats"] = item.get("base_stats", item.get("stats", {}))
+	var base_worn := {}
+	if not worn.is_empty():
+		base_worn = worn.duplicate(true)
+		base_worn["stats"] = worn.get("base_stats", worn.get("stats", {}))
+	for row in BagModel.compare(base_item, base_worn):
 		var value := BagModel.shown(float(row.value))
 		var other := BagModel.shown(float(row.other))
 		rows.append({"key": str(row.key), "label": str(row.label), "value": value, "other": other, "delta": value - other})
-	var power := int(item.get("power", 0))
-	var worn_power := int(worn.get("power", 0))
+	var base_power := int(item.get("base_power", item.get("power", 0)))
+	var worn_base := int(worn.get("base_power", worn.get("power", 0))) if not worn.is_empty() else 0
+	var with_slot := int(item.get("power_with_slot", base_power))
+	var worn_with := int(worn.get("power_with_slot", worn.get("power", 0))) if not worn.is_empty() else 0
 	return {
 		"worn_name": str(worn.get("name", "")),
 		"worn_enhance": int(worn.get("enhance", 0)),
 		"worn_rarity": int(worn.get("rarity", 0)),
 		"worn_item": worn,
 		"rows": rows,
-		"power": {"value": power, "other": worn_power, "delta": power - worn_power},
+		"power": {"value": base_power, "other": worn_base, "delta": base_power - worn_base},
+		"base_power": {"value": base_power, "other": worn_base, "delta": base_power - worn_base},
+		"power_with_slot": {"value": with_slot, "other": worn_with, "delta": with_slot - worn_with},
 	}
 
 

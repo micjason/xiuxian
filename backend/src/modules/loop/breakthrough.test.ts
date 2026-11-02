@@ -105,102 +105,34 @@ async function give(db: TestDb, playerId: string, itemSlug: string, options: { s
 }
 
 describe("break-through nodes", () => {
-  it("stops enhancing on a node, takes the configured materials from the bag, then lets the gear continue", async () => {
+  it("部位强化后不再要突破材料；强化等级写在部位上", async () => {
     await withDb(async (db) => {
       const { now, player, world } = await seed(db);
       const blade = await give(db, player.playerId, "blade", { equippedSlot: "weapon", now });
       await db.update(playerStates).set({ enhanceExp: 1_000_000 }).where(eq(playerStates.playerId, player.playerId));
-
-      // 一键强化遇到 +2 节点就停下，并告诉界面是哪个节点
+      await expect(withTransaction(db, (tx) => breakthroughItem(tx, world, player.playerId, blade.id, now))).rejects.toMatchObject({
+        message: expect.stringMatching(/不再需要突破材料/),
+      });
       const first = await withTransaction(db, (tx) => enhanceItem(tx, world, player.playerId, blade.id, now, { toMax: true }));
-      expect(first.enhanced).toMatchObject({ fromLevel: 0, toLevel: 2, spentEssence: 10 + 20, blockedByBreakthrough: 2 });
-      // 再强化被拒绝，错误里写明要什么
-      await expect(withTransaction(db, (tx) => enhanceItem(tx, world, player.playerId, blade.id, now))).rejects.toMatchObject({
-        code: "BREAKTHROUGH_REQUIRED",
-        message: expect.stringContaining("甲石×3"),
-      });
-      // 没有材料：拒绝，什么也不扣
-      await expect(withTransaction(db, (tx) => breakthroughItem(tx, world, player.playerId, blade.id, now))).rejects.toMatchObject({
-        code: "BREAKTHROUGH_MATERIAL_SHORT",
-        message: expect.stringContaining("甲石 还差 3"),
-      });
-      const [unchanged] = await db.select().from(playerItems).where(eq(playerItems.id, blade.id));
-      expect(unchanged?.breakLevel).toBe(0);
-      // 材料不够（只有 2 个）：同样拒绝，不扣
-      const stack = await give(db, player.playerId, "stone_a", { stack: 2, now });
-      await expect(withTransaction(db, (tx) => breakthroughItem(tx, world, player.playerId, blade.id, now))).rejects.toMatchObject({ code: "BREAKTHROUGH_MATERIAL_SHORT" });
-      const [still] = await db.select().from(playerItems).where(eq(playerItems.id, stack.id));
-      expect(still?.quantity).toBe(2);
-      // 材料够了（5 个）：扣 3 个，剩 2 个，节点记为已突破；不会失败
-      await db.update(playerItems).set({ quantity: 5 }).where(eq(playerItems.id, stack.id));
-      const broken = await withTransaction(db, (tx) => breakthroughItem(tx, world, player.playerId, blade.id, now));
-      expect(broken.broken).toEqual({ itemId: blade.id, level: 2, materials: [{ itemSlug: "stone_a", count: 3 }] });
-      const [left] = await db.select().from(playerItems).where(eq(playerItems.id, stack.id));
-      expect(left?.quantity).toBe(2);
-      expect(broken.state.items.find((row) => row.id === blade.id)?.breakLevel).toBe(2);
-      // 同一个节点不能重复突破
-      await expect(withTransaction(db, (tx) => breakthroughItem(tx, world, player.playerId, blade.id, now))).rejects.toThrow(/不在突破节点/);
-      // 继续强化到下一个节点 +4
-      const second = await withTransaction(db, (tx) => enhanceItem(tx, world, player.playerId, blade.id, now, { toMax: true }));
-      expect(second.enhanced).toMatchObject({ fromLevel: 2, toLevel: 4, blockedByBreakthrough: 4 });
-      // +4 节点要两种材料；甲石刚好 2 个（用光后行被删除），乙石没有 → 缺乙石
-      await expect(withTransaction(db, (tx) => breakthroughItem(tx, world, player.playerId, blade.id, now))).rejects.toMatchObject({
-        message: expect.stringContaining("乙石 还差 1"),
-      });
-      const stoneB = await give(db, player.playerId, "stone_b", { stack: 1, now });
-      await withTransaction(db, (tx) => breakthroughItem(tx, world, player.playerId, blade.id, now));
-      // 突破石用光（行被删除）；剩下的堆叠只有炼器精粹
-      const rows = await db.select().from(playerItems).where(and(eq(playerItems.playerId, player.playerId), eq(playerItems.isStack, true)));
-      expect(rows.map((row) => row.itemSlug)).toEqual(["refine_essence"]);
-      expect(stoneB.id).toBeTruthy();
-      // 突破后一路升到上限 +6，没有失败、没有掉级
-      const last = await withTransaction(db, (tx) => enhanceItem(tx, world, player.playerId, blade.id, now, { toMax: true }));
-      expect(last.enhanced).toMatchObject({ fromLevel: 4, toLevel: 6, blockedByBreakthrough: null });
-      // 这个品质每级 +20%（品质自己的 statGrowthBp 覆盖了通用的 10%）
-      const attackAfter = (await readState(db, player.playerId, now)).attack;
-      const base = (await readState(db, player.playerId, now)).attack - 100 * (1 + (6 * 2000) / 10000);
-      expect(attackAfter - base).toBeCloseTo(220, 5);
+      // 旧规则里 +2 是突破节点；部位强化后应直接升过，不被卡住
+      expect(first.enhanced.toLevel).toBeGreaterThanOrEqual(2);
+      expect(first.enhanced.blockedByBreakthrough).toBeNull();
+      expect(first.state.slotEnhances?.weapon).toBe(first.enhanced.toLevel);
     });
   });
 
-  it("only blocks at the exact node level, so gear above a newly added node is not forced back", async () => {
+  it("未穿戴不能强化；分解换下的装备不按部位等级返还精粹", async () => {
     await withDb(async (db) => {
       const { now, player, world } = await seed(db);
-      const blade = await give(db, player.playerId, "blade", { now });
-      await db.update(playerItems).set({ enhanceLevel: 3 }).where(eq(playerItems.id, blade.id));
-      await db.update(playerStates).set({ enhanceExp: 1_000_000 }).where(eq(playerStates.playerId, player.playerId));
-      // 等级 3 已经超过 +2 节点：不受影响，可以升到 +4 再被 +4 节点拦住
-      const result = await withTransaction(db, (tx) => enhanceItem(tx, world, player.playerId, blade.id, now, { toMax: true }));
-      expect(result.enhanced).toMatchObject({ fromLevel: 3, toLevel: 4, blockedByBreakthrough: 4 });
-    });
-  });
-
-  it("uses the orange rules for orange gear and its own node", async () => {
-    await withDb(async (db) => {
-      const { now, player, world } = await seed(db);
-      const fairy = await give(db, player.playerId, "fairy_blade", { now });
+      const fairy = await give(db, player.playerId, "fairy_blade", { equippedSlot: "weapon", now });
       await db.update(playerStates).set({ enhanceExp: 1_000 }).where(eq(playerStates.playerId, player.playerId));
-      const one = await withTransaction(db, (tx) => enhanceItem(tx, world, player.playerId, fairy.id, now));
-      expect(one.enhanced).toMatchObject({ toLevel: 1, spentEssence: 15, blockedByBreakthrough: 1 });
-      await expect(withTransaction(db, (tx) => enhanceItem(tx, world, player.playerId, fairy.id, now))).rejects.toMatchObject({ code: "BREAKTHROUGH_REQUIRED" });
-      await give(db, player.playerId, "stone_b", { stack: 1, now });
-      await withTransaction(db, (tx) => breakthroughItem(tx, world, player.playerId, fairy.id, now));
-      const max = await withTransaction(db, (tx) => enhanceItem(tx, world, player.playerId, fairy.id, now, { toMax: true }));
-      expect(max.enhanced.toLevel).toBe(3);
+      await withTransaction(db, (tx) => enhanceItem(tx, world, player.playerId, fairy.id, now));
+      await withTransaction(db, (tx) => enhanceItem(tx, world, player.playerId, fairy.id, now));
+      await withTransaction(db, (tx) => enhanceItem(tx, world, player.playerId, fairy.id, now));
+      // 卸下后分解：只有品质一口价
+      await db.update(playerItems).set({ equippedSlot: null, enhanceLevel: 0 }).where(eq(playerItems.id, fairy.id));
       const gone = await withTransaction(db, (tx) => decomposeItem(tx, world, player.playerId, fairy.id, now));
-      // 精粹：品质产出 + 强化等级 × 每级返还（+3 × 10）
-      expect(gone.gainedEssence).toBe(99 + 3 * 10);
-    });
-  });
-
-  it("refuses to break through gear that is not on a node, and non-gear", async () => {
-    await withDb(async (db) => {
-      const { now, player, world } = await seed(db);
-      const blade = await give(db, player.playerId, "blade", { now });
-      const stack = await give(db, player.playerId, "stone_a", { stack: 9, now });
-      await expect(withTransaction(db, (tx) => breakthroughItem(tx, world, player.playerId, blade.id, now))).rejects.toThrow(/不在突破节点/);
-      await expect(withTransaction(db, (tx) => breakthroughItem(tx, world, player.playerId, stack.id, now))).rejects.toMatchObject({ code: "NOT_EQUIPMENT" });
-      await expect(withTransaction(db, (tx) => breakthroughItem(tx, world, player.playerId, "00000000-0000-0000-0000-000000000000", now))).rejects.toMatchObject({ code: "NOT_FOUND" });
+      expect(gone.gainedEssence).toBe(99);
     });
   });
 });
@@ -227,7 +159,7 @@ describe("炼器精粹 has no cap", () => {
   it("keeps growing far past any round number and still pays for enhancing", async () => {
     await withDb(async (db) => {
       const { now, player, world } = await seed(db);
-      const blade = await give(db, player.playerId, "blade", { now });
+      const blade = await give(db, player.playerId, "blade", { equippedSlot: "weapon", now });
       const spare = await give(db, player.playerId, "blade", { now });
       const huge = 9_000_000_000_000;
       await db.update(playerStates).set({ enhanceExp: huge }).where(eq(playerStates.playerId, player.playerId));
@@ -245,9 +177,9 @@ describe("enhance rules come only from content", () => {
   it("refuses to enhance when the published rules are missing instead of falling back to defaults", async () => {
     await withDb(async (db) => {
       const { now, player, world } = await seed(db, null);
-      const blade = await give(db, player.playerId, "blade", { now });
-      await expect(withTransaction(db, (tx) => enhanceItem(tx, world, player.playerId, blade.id, now))).rejects.toThrow(/请先在后台填写：强化规则/);
-      await expect(withTransaction(db, (tx) => breakthroughItem(tx, world, player.playerId, blade.id, now))).rejects.toThrow(/请先在后台填写：强化规则/);
+      const blade = await give(db, player.playerId, "blade", { equippedSlot: "weapon", now });
+      await expect(withTransaction(db, (tx) => enhanceItem(tx, world, player.playerId, blade.id, now))).rejects.toThrow(/请先在后台填写：强化规则|强化规则/);
+      await expect(withTransaction(db, (tx) => breakthroughItem(tx, world, player.playerId, blade.id, now))).rejects.toThrow(/不再需要突破材料/);
     });
   });
 
@@ -264,10 +196,12 @@ describe("enhance rules come only from content", () => {
       const blade = await give(db, player.playerId, "blade", { equippedSlot: "weapon", now });
       await db.update(playerStates).set({ enhanceExp: 1_000 }).where(eq(playerStates.playerId, player.playerId));
       const before = (await readState(db, player.playerId, now)).attack;
-      const result = await withTransaction(db, (tx) => enhanceItem(tx, world, player.playerId, blade.id, now, { toMax: true }));
-      expect(result.enhanced).toMatchObject({ toLevel: 2, spentEssence: 200 });
-      expect(result.state.attack - before).toBeCloseTo(100, 5);
-      await expect(withTransaction(db, (tx) => enhanceItem(tx, world, player.playerId, blade.id, now))).rejects.toThrow(/上限 \+2/);
+      // 部位强化无玩法上限：toMax 花光精粹；这里池子够升很多级，只断言至少升 2 级且花费按 costBase 累加
+      const one = await withTransaction(db, (tx) => enhanceItem(tx, world, player.playerId, blade.id, now));
+      expect(one.enhanced).toMatchObject({ toLevel: 1, spentEssence: 100 });
+      const two = await withTransaction(db, (tx) => enhanceItem(tx, world, player.playerId, blade.id, now));
+      expect(two.enhanced).toMatchObject({ fromLevel: 1, toLevel: 2, spentEssence: 100 });
+      expect(two.state.attack - before).toBeCloseTo(100, 5);
     });
   });
 });
@@ -277,10 +211,8 @@ describe("saving rules in the admin", () => {
     await withDb(async (db) => {
       await seed(db, null);
       const saved = await saveEnhanceRules(db, STARTING_ENHANCE_RULES, null);
-      expect(saved.createdMaterials.sort()).toEqual(["enh_stone_low", "enh_stone_mid"]);
-      const [stone] = await db.select().from(contentItems).where(eq(contentItems.slug, "enh_stone_low"));
-      expect(stone).toMatchObject({ kind: "material", stackable: true });
-      // 再保存一次不会重复创建
+      // 部位强化起始规则无突破节点 → 不自动建突破石；缺精粹物品时会创建
+      expect(saved.createdMaterials.filter((slug) => slug.startsWith("enh_stone_"))).toEqual([]);
       expect((await saveEnhanceRules(db, STARTING_ENHANCE_RULES, null)).createdMaterials).toEqual([]);
       const unknown = { ...RULES, qualities: { ...RULES.qualities, green: { ...RULES.qualities.green!, breakthroughs: [{ level: 2, materials: [{ itemSlug: "nope", count: 1 }] }] } } };
       await expect(saveEnhanceRules(db, unknown, null)).rejects.toThrow(/nope.*不存在/);

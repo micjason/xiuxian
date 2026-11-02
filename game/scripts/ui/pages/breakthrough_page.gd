@@ -3,7 +3,7 @@ extends Control
 ## 境界突破弹窗（Q 版设计稿 q_breakthrough_popup）：底栏正中「突破」圆钮打开，居中盖在当前页上（外壳加遮罩）。
 ## 绶带标题「突破 · 下一境界」；舞台（当前 → 目标境界、战力提升牌、成功率环、打坐的主角）；
 ## 突破条件（修为、必须击败的首领，满足打勾）；属性提升（生命/攻击/防御/速度 突破前 → 后、战力前 → 后）；
-## 「突破」大按钮（下写消耗）；首领没打时多一个「前往挑战」；底下「点击空白处关闭」。钮下不再重复「先击败首领」。
+## 「突破」大按钮（下写消耗）；未满足的击败条件行可点进关；底下「点击空白处关闭」。无下不再放「前往挑战」/「先击败首领」。
 ## 条件没满足时按钮灰化。数值全部来自服务器 breakthrough（preview / rateBp / requiredStage），这里不自己算。
 ## 动画（2026-10-20 动画交付）：弹窗 ui_popup 的 open / close（README 2b）；舞台用 breakthrough_fx（README 4）：
 ## 平时 idle（法阵慢转、光晕），点「突破」播 charge（进度条充满 + 水波纹），服务器回成功后播 success（光柱、光环、星光、
@@ -24,7 +24,6 @@ var _body: VBoxContainer
 var _button: Button
 var _button_title: Label
 var _button_sub: Label
-var _goto: Button
 var _close_hint: Label
 var _inset_top := 90.0
 var _fx: Control  # ui_popup 外壳；没有动画交付时为 null
@@ -83,9 +82,6 @@ func _init() -> void:
 	labels.add_child(_button_sub)
 	_button.pressed.connect(func() -> void: start_requested.emit())
 	QFx.bounce(_button)
-	_goto = QKit.button("", "m", 100, 36)
-	_goto.name = "GotoStageButton"
-	_goto.visible = false
 	_close_hint = QKit.tag("点击空白处关闭", "dark", 32, 30).get_child(0) as Label
 	var close_pill := _close_hint.get_parent() as Control
 	close_pill.name = "CloseHint"
@@ -230,8 +226,9 @@ func start_button() -> Button:
 	return _button
 
 
-func goto_button() -> Button:
-	return _goto
+## 未满足的击败条件行（可点进关）；没有则 null。
+func gate_condition_row() -> Control:
+	return find_child("GateConditionRow", true, false) as Control
 
 
 func set_busy(value: bool) -> void:
@@ -264,25 +261,13 @@ func bind(state: Dictionary, _content: Dictionary, next_realm_name: String, _aft
 	foot.alignment = BoxContainer.ALIGNMENT_CENTER
 	if _button.get_parent() != null:
 		_button.get_parent().remove_child(_button)
-	if _goto.get_parent() != null:
-		_goto.get_parent().remove_child(_goto)
 	_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	foot.add_child(_button)
-	_goto.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	foot.add_child(_goto)
 	_body.add_child(foot)
 	var can_start := bool(_view.can_start)
 	_button.disabled = not can_start
 	_button_title.text = "突破" if has_next else "已圆满"
 	_button_sub.text = "消耗 修为 %s" % OfflineView.grouped(float(_view.cost)) if has_next else ""
-	_goto.visible = has_next and bool(_view.has_gate) and not bool(_view.boss_ok)
-	for connection in _goto.pressed.get_connections():
-		_goto.pressed.disconnect(connection.callable)
-	if _goto.visible:
-		var slug := str(_view.gate_stage)
-		_goto.text = "前往挑战 %s" % str(_view.gate_stage_name)
-		_goto.custom_minimum_size.x = 460
-		_goto.pressed.connect(func() -> void: goto_stage_requested.emit(slug))
 
 
 ## 舞台：境界行、战力提升牌（左）、成功率环（右）、主角坐莲台 + 灵气环。
@@ -444,7 +429,7 @@ func _section(title: String) -> Dictionary:
 	return box
 
 
-## 突破条件：修为（当前 / 所需）、必须击败的首领。满足的打勾。
+## 突破条件：修为（当前 / 所需）、必须击败的首领。满足的打勾；未满足的击败行可点进关。
 func _conditions() -> Control:
 	var box := _section("突破条件")
 	box.panel.name = "Conditions"
@@ -454,28 +439,46 @@ func _conditions() -> Control:
 	var cult_line := CultivationFormat.progress_pair(float(_view.cultivation), float(_view.cost), true)
 	box.body.add_child(_condition_row("res_lotus", "修为已满" if bool(_view.cultivation_ok) else "修为", str(cult_line.text), bool(_view.cultivation_ok)))
 	if bool(_view.has_gate):
-		box.body.add_child(_condition_row("tab_adventure", "击败 %s" % str(_view.gate_boss), str(_view.gate_stage_name), bool(_view.boss_ok)))
+		var tap := "" if bool(_view.boss_ok) else str(_view.gate_stage)
+		box.body.add_child(_condition_row("tab_adventure", "击败 %s" % str(_view.gate_boss), str(_view.gate_stage_name), bool(_view.boss_ok), tap))
 	return box.panel
 
 
-func _condition_row(icon_name: String, title: String, value: String, ok: bool) -> Control:
+func _condition_row(icon_name: String, title: String, value: String, ok: bool, tap_slug: String = "") -> Control:
+	var tappable := not ok and not tap_slug.is_empty()
 	var panel := PanelContainer.new()
-	panel.name = "ConditionRow"
+	panel.name = "GateConditionRow" if tappable else "ConditionRow"
+	panel.mouse_filter = Control.MOUSE_FILTER_STOP if tappable else Control.MOUSE_FILTER_IGNORE
 	panel.add_theme_stylebox_override("panel", QKit.cut_box("row_cream_74", 18, 0) if ArtLib.qui("row_cream_74") != null else QSkin.custom(Color.WHITE, UiTokens.Q_COCOA, 4, 37, 4, 18, 0))
 	panel.custom_minimum_size = Vector2(0, 80)
+	if tappable:
+		var slug := tap_slug
+		panel.gui_input.connect(func(event: InputEvent) -> void:
+			if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+				goto_stage_requested.emit(slug)
+				panel.accept_event())
 	var row := UiKit.hbox(14)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.add_child(row)
-	row.add_child(UiKit.icon(icon_name, 56))
+	var icon := UiKit.icon(icon_name, 56)
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(icon)
 	var name := QKit.title(title, 34, UiTokens.TEXT)
 	name.custom_minimum_size = Vector2(260, 0)
 	name.clip_text = true
+	name.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(name)
 	var mid := UiKit.label(value, UiTokens.FS_MICRO, UiTokens.Q_MINT_DARK if ok else UiTokens.Q_RED, HORIZONTAL_ALIGNMENT_CENTER)
 	mid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	mid.clip_text = true
+	mid.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(mid)
-	row.add_child(UiKit.label("已满足" if ok else "未满足", UiTokens.FS_MICRO, UiTokens.Q_MINT_DARK if ok else UiTokens.Q_RED))
-	row.add_child(QKit.check(ok, 56))
+	var status := UiKit.label("已满足" if ok else "未满足", UiTokens.FS_MICRO, UiTokens.Q_MINT_DARK if ok else UiTokens.Q_RED)
+	status.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(status)
+	var check := QKit.check(ok, 56)
+	check.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(check)
 	return panel
 
 

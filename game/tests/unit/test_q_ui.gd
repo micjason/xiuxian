@@ -77,6 +77,25 @@ func test_center_button_hint_state_explains_and_still_shows_the_conditions() -> 
 	assert_true((scene.get("_breakthrough_page") as BreakthroughPage).start_button().disabled)
 
 
+func test_unmet_gate_condition_row_goes_to_stage_without_goto_button() -> void:
+	var scene := await _boot("gate")
+	scene.call("_open_breakthrough")
+	await get_tree().process_frame
+	var page := scene.get("_breakthrough_page") as BreakthroughPage
+	assert_null(page.find_child("GotoStageButton", true, false), "底部「前往挑战」已删除")
+	var gate_row := page.gate_condition_row()
+	assert_not_null(gate_row, "未满足的击败条件行可点")
+	assert_true(page.start_button().disabled)
+	assert_false(str(page.view().gate_stage).is_empty(), "view 暴露关卡 slug")
+	var tap := InputEventMouseButton.new()
+	tap.button_index = MOUSE_BUTTON_LEFT
+	tap.pressed = true
+	gate_row.gui_input.emit(tap)
+	await get_tree().process_frame
+	assert_false(bool(scene.call("breakthrough_open")), "点条件行后关掉突破弹窗")
+	assert_eq(str(scene.get("_page")), "adventure", "跳到历练页挑战守关")
+
+
 func test_center_button_max_state_is_disabled() -> void:
 	var button := QBreakButton.new()
 	add_child_autofree(button)

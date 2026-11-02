@@ -48,6 +48,11 @@ export type EnhanceRules = {
   statGrowthBp: number;
   /** 分解已强化装备时，返还已投入经验的万分比 */
   refundBp: number;
+  /**
+   * 部位强化（0074）：等级绑格子不绑胚子；玩法无上限、无突破材料、只吃炼器精粹。
+   * 后台 qualities.cap / breakthroughs 仍可存档，但结算侧忽略。
+   */
+  slotBound?: boolean;
   /** 强化经验池没有上限，所以这里也没有对应字段。 */
   qualities: Partial<Record<EnhanceQualityKey, EnhanceQualityRule>>;
   /**
@@ -117,7 +122,8 @@ export const STARTING_ESSENCE_RULES: EssenceRules = {
   refundPerLevel: 40,
   realmYieldMult: { ...DEFAULT_REALM_YIELD_MULT },
   costBase: 40,
-  costGrowth: 1.25,
+  /** 部位强化无上限后拉陡（原 1.25 → 1.4），控节奏。 */
+  costGrowth: 1.4,
   costTable: {},
   migrationRatioBp: 7000,
 };
@@ -144,28 +150,14 @@ export const STARTING_ENHANCE_RULES: EnhanceRules = {
   expGrowth: 1.25,
   statGrowthBp: 600,
   refundBp: 8000,
+  slotBound: true,
   qualities: {
+    // cap 留给后台/旧迁移比例校验；部位强化玩法（slotBound）结算忽略上限与突破材料。
     white: { cap: 5, costMult: 1, decomposeExp: 30, breakthroughs: [] },
-    green: { cap: 8, costMult: 1.1, decomposeExp: 60, breakthroughs: [{ level: 5, materials: [{ itemSlug: "enh_stone_low", count: 3 }] }] },
-    blue: { cap: 10, costMult: 1.25, decomposeExp: 120, breakthroughs: [{ level: 5, materials: [{ itemSlug: "enh_stone_low", count: 5 }] }] },
-    purple: {
-      cap: 12,
-      costMult: 1.4,
-      decomposeExp: 240,
-      breakthroughs: [
-        { level: 5, materials: [{ itemSlug: "enh_stone_low", count: 8 }] },
-        { level: 10, materials: [{ itemSlug: "enh_stone_mid", count: 3 }] },
-      ],
-    },
-    orange: {
-      cap: 15,
-      costMult: 1.6,
-      decomposeExp: 480,
-      breakthroughs: [
-        { level: 5, materials: [{ itemSlug: "enh_stone_low", count: 10 }] },
-        { level: 10, materials: [{ itemSlug: "enh_stone_mid", count: 6 }] },
-      ],
-    },
+    green: { cap: 8, costMult: 1.1, decomposeExp: 60, breakthroughs: [] },
+    blue: { cap: 10, costMult: 1.25, decomposeExp: 120, breakthroughs: [] },
+    purple: { cap: 12, costMult: 1.4, decomposeExp: 240, breakthroughs: [] },
+    orange: { cap: 15, costMult: 1.6, decomposeExp: 480, breakthroughs: [] },
   },
   essence: STARTING_ESSENCE_RULES,
 };
@@ -287,6 +279,9 @@ export function enhanceRulesFromInput(input: unknown, options: { requireAll?: bo
     refundBp,
     qualities,
   };
+  if (raw.slotBound === true) {
+    rules.slotBound = true;
+  }
   if (raw.essence !== undefined && raw.essence !== null) {
     rules.essence = essenceRulesFromInput(raw.essence);
   }

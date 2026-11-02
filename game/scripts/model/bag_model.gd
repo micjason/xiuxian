@@ -4,7 +4,8 @@ extends RefCounted
 ## （名称/类别/部位/品质/属性）合并成界面用的展示数据，并负责分类、排序、容量、对比、批量选择规则。
 ## 纯数据，不依赖节点，便于单元测试。
 ##
-## 强化：每件装备的强化等级来自服务器（enhanceLevel），属性按强化规则（EnhanceModel）放大。
+## 强化：已穿戴装备的强化等级来自部位（服务器 enhanceLevel 已按部位叠加）；背包胚子恒为 0。
+## 对比 / 一键换装按胚子战力（base_power）；界面另显示穿上后含本格强化的战力。
 ## 没有"出售"：分解装备得到强化经验（进强化经验池，用来强化其他装备）。
 
 const CATEGORIES: Array[Dictionary] = [
@@ -65,12 +66,26 @@ static func from_state(state: Dictionary, content: Dictionary, seen: Dictionary 
 		if typeof(def) == TYPE_DICTIONARY:
 			defs[str((def as Dictionary).get("slug", ""))] = def
 	model.defs = defs
+	var slot_levels: Dictionary = {}
+	var raw_slots: Variant = state.get("slotEnhances", null)
+	if typeof(raw_slots) == TYPE_DICTIONARY:
+		slot_levels = raw_slots as Dictionary
 	for row in state.get("items", []):
 		if typeof(row) != TYPE_DICTIONARY:
 			continue
 		model.items.append(normalize(row as Dictionary, defs.get(str((row as Dictionary).get("itemSlug", "")), {}), model.weights, model.enhance, seen))
 	for item in model.items:
 		item["break_view"] = model.break_view_of(item)
+		# 背包胚子：预估「穿上后（含本格强化）」= 胚子属性按该部位当前强化放大
+		if str(item.get("category", "")) == "equip" and not bool(item.get("equipped", false)):
+			var server_slot := str(item.get("server_slot", ""))
+			var slot_lv := int(slot_levels.get(server_slot, 0))
+			var preview_stats := {}
+			for key in STAT_KEYS:
+				var base := float((item.get("base_stats", {}) as Dictionary).get(key, 0))
+				preview_stats[key] = model.enhance.stat(base, slot_lv, int(item.get("rarity", 0))) if model.enhance.supports(int(item.get("rarity", 0))) else base
+			item["power_with_slot"] = power_of(preview_stats, model.weights)
+			item["slot_enhance_preview"] = slot_lv
 	return model
 
 
@@ -310,9 +325,18 @@ static func decompose_block_reason(item: Dictionary) -> String:
 	return ""
 
 
-## 能否强化：装备有强化规则、没到上限、也没有卡在没突破的节点上。强化经验够不够由界面另外判断。
+## 能否强化：已穿戴装备、有强化规则；部位强化无上限、无突破节点。精粹够不够由界面另外判断。
 static func can_enhance(item: Dictionary) -> bool:
-	return str(item.get("category", "")) == "equip" and int(item.get("enhance_cap", 0)) > int(item.get("enhance", 0)) and not is_blocked_by_node(item)
+	if str(item.get("category", "")) != "equip":
+		return false
+	if not bool(item.get("equipped", false)):
+		return false
+	if is_blocked_by_node(item):
+		return false
+	var cap := int(item.get("enhance_cap", 0))
+	if cap <= 0:
+		return false
+	return int(item.get("enhance", 0)) < cap
 
 
 ## 卡在没突破的节点上：必须先突破才能继续强化。

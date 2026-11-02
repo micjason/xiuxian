@@ -22,6 +22,47 @@ const V3_RULES = {
   },
 };
 
+/** 0017 写入后的规则形态（含突破节点）。与现行 STARTING（slotBound / 空节点）脱钩。 */
+const POST_0017_RULES = {
+  expBase: 60,
+  expGrowth: 1.25,
+  statGrowthBp: 600,
+  refundBp: 8000,
+  qualities: {
+    white: { cap: 5, costMult: 1, decomposeExp: 30, breakthroughs: [] },
+    green: {
+      cap: 8,
+      costMult: 1.1,
+      decomposeExp: 60,
+      breakthroughs: [{ level: 5, materials: [{ itemSlug: "enh_stone_low", count: 3 }] }],
+    },
+    blue: {
+      cap: 10,
+      costMult: 1.25,
+      decomposeExp: 120,
+      breakthroughs: [{ level: 5, materials: [{ itemSlug: "enh_stone_low", count: 5 }] }],
+    },
+    purple: {
+      cap: 12,
+      costMult: 1.4,
+      decomposeExp: 240,
+      breakthroughs: [
+        { level: 5, materials: [{ itemSlug: "enh_stone_low", count: 8 }] },
+        { level: 10, materials: [{ itemSlug: "enh_stone_mid", count: 3 }] },
+      ],
+    },
+    orange: {
+      cap: 15,
+      costMult: 1.6,
+      decomposeExp: 480,
+      breakthroughs: [
+        { level: 5, materials: [{ itemSlug: "enh_stone_low", count: 10 }] },
+        { level: 10, materials: [{ itemSlug: "enh_stone_mid", count: 6 }] },
+      ],
+    },
+  },
+};
+
 /** 迁移文件里除第一句（加列，测试库已经有了）之外的语句，原样执行。 */
 function dataStatements(): string[] {
   const text = readFileSync(new URL("../../drizzle/0017_enhance_red_and_breakthrough.sql", import.meta.url), "utf8");
@@ -37,7 +78,7 @@ describe("migration 0017", () => {
       }
       const [row] = await db.select().from(contentGlobals);
       const parsed = enhanceRulesFromInput(row?.enhance);
-      expect(parsed).toEqual({ ...STARTING_ENHANCE_RULES, expBase: 77 });
+      expect(parsed).toEqual({ ...POST_0017_RULES, expBase: 77 });
       const items = await db.select().from(contentItems);
       expect(items.map((item) => item.slug).sort()).toEqual(["enh_stone_high", "enh_stone_low", "enh_stone_mid"]);
       expect(breakMaterialProblems(parsed, items)).toEqual([]);

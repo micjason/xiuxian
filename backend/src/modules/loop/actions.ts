@@ -4,6 +4,7 @@ import {
   idempotencyKeys,
   playerItems,
   playerSkills,
+  playerSlotEnhances,
   playerStageProgress,
   playerStates,
   players,
@@ -14,7 +15,7 @@ import { ensureSkillBook } from "../content/ops-content.js";
 import { loadCurrentWorld } from "../content/snapshot.js";
 import { rollDropTable } from "../content/roll-drops.js";
 import { bookOverflowCultivation } from "../content/scheme-drops.js";
-import { enhanceCap, enhancedStat, essenceCost, essenceRules, pendingBreakNode, qualityRule, readEnhanceRules } from "../content/enhance.js";
+import { enhancedStat, essenceCost, essenceRules, readEnhanceRules } from "../content/enhance.js";
 import type { ContentSnapshot } from "../content/validate.js";
 import { settleTicks } from "../progress/settle.js";
 import { AppError } from "../../shared/errors.js";
@@ -55,11 +56,39 @@ function realmOf(world: World, slug: string) {
   return realm;
 }
 
+async function loadSlotEnhanceMap(tx: Tx, playerId: string): Promise<Record<string, number>> {
+  const rows = await tx.select().from(playerSlotEnhances).where(eq(playerSlotEnhances.playerId, playerId));
+  const map: Record<string, number> = {};
+  for (const row of rows) {
+    map[row.slot] = Math.max(0, row.enhanceLevel);
+  }
+  return map;
+}
+
+/** 读行囊：已穿戴装备的 enhanceLevel 来自部位表；背包胚子恒为 0（换下不带走强化）。 */
 async function loadPieces(tx: Tx, playerId: string) {
   const items = await tx.select().from(playerItems).where(eq(playerItems.playerId, playerId));
   const skills = await tx.select().from(playerSkills).where(eq(playerSkills.playerId, playerId));
   const stages = await tx.select().from(playerStageProgress).where(eq(playerStageProgress.playerId, playerId));
-  return { items, skills, stages };
+  const slotLevels = await loadSlotEnhanceMap(tx, playerId);
+  const mapped = items.map((item) => {
+    if (item.equippedSlot) {
+      return { ...item, enhanceLevel: slotLevels[item.equippedSlot] ?? 0, breakLevel: 0 };
+    }
+    return { ...item, enhanceLevel: 0, breakLevel: 0 };
+  });
+  return { items: mapped, skills, stages, slotLevels };
+}
+
+async function upsertSlotEnhance(tx: Tx, playerId: string, slot: string, level: number) {
+  const safe = Math.max(0, Math.floor(level));
+  await tx
+    .insert(playerSlotEnhances)
+    .values({ playerId, slot, enhanceLevel: safe })
+    .onConflictDoUpdate({
+      target: [playerSlotEnhances.playerId, playerSlotEnhances.slot],
+      set: { enhanceLevel: safe },
+    });
 }
 
 /** 这个境界开放的技能栏位数（配置概览「技能栏位」，按境界开放）。 */
@@ -600,6 +629,8 @@ async function stateDto(tx: Tx, world: World, playerId: string, settled: Awaited
     bagBonus: settled.state.bagBonus,
     bagCapacity: readGameRules(world).bagCapacity + settled.state.bagBonus,
     items: settled.pieces.items,
+    /** 各部位当前强化等级（空格子也保留；换装不丢）。 */
+    slotEnhances: settled.pieces.slotLevels ?? {},
     skills: settled.pieces.skills,
     skillSlots: skillSlotsDto(world, settled.state.realmSlug),
     // 套装：穿着的每个套装几件、哪些档位已生效（游戏端装备弹窗用；数值定义在 /content/current 的 gearSets）
@@ -1317,10 +1348,11 @@ export async function equipItem(tx: Tx, world: World, playerId: string, itemId: 
     return worn?.slot === definition.slot || row.equippedSlot === definition.slot;
   });
   for (const worn of sameSlot) {
-    await tx.update(playerItems).set({ equippedSlot: null }).where(eq(playerItems.id, worn.id));
+    // 换下归 0：胚子不带走强化，也不返还已投入精粹（防反复换装刷）。
+    await tx.update(playerItems).set({ equippedSlot: null, enhanceLevel: 0, breakLevel: 0 }).where(eq(playerItems.id, worn.id));
   }
   if (item.equippedSlot !== definition.slot) {
-    await tx.update(playerItems).set({ equippedSlot: definition.slot }).where(eq(playerItems.id, item.id));
+    await tx.update(playerItems).set({ equippedSlot: definition.slot, enhanceLevel: 0, breakLevel: 0 }).where(eq(playerItems.id, item.id));
   }
   const after = await settleLocked(tx, playerId, world, now);
   return { state: await stateDto(tx, world, playerId, after) };
@@ -1335,7 +1367,7 @@ export async function unequipItem(tx: Tx, world: World, playerId: string, itemId
   if (!item.equippedSlot) {
     throw new AppError("INVALID_INPUT", "这件没有穿上");
   }
-  await tx.update(playerItems).set({ equippedSlot: null }).where(eq(playerItems.id, item.id));
+  await tx.update(playerItems).set({ equippedSlot: null, enhanceLevel: 0, breakLevel: 0 }).where(eq(playerItems.id, item.id));
   const after = await settleLocked(tx, playerId, world, now);
   return { state: await stateDto(tx, world, playerId, after) };
 }
@@ -1344,7 +1376,7 @@ export async function unequipSlot(tx: Tx, world: World, playerId: string, slot: 
   await settleLocked(tx, playerId, world, now);
   await tx
     .update(playerItems)
-    .set({ equippedSlot: null })
+    .set({ equippedSlot: null, enhanceLevel: 0, breakLevel: 0 })
     .where(and(eq(playerItems.playerId, playerId), eq(playerItems.equippedSlot, slot)));
   const after = await settleLocked(tx, playerId, world, now);
   return { state: await stateDto(tx, world, playerId, after) };
@@ -1433,17 +1465,9 @@ export async function decomposeItems(tx: Tx, world: World, playerId: string, ite
   };
 }
 
-function materialLabel(world: World, itemSlug: string): string {
-  return world.items.find((row) => row.slug === itemSlug)?.displayName ?? itemSlug;
-}
-
-function breakRequirementText(world: World, node: { level: number; materials: { itemSlug: string; count: number }[] }): string {
-  return node.materials.map((row) => `${materialLabel(world, row.itemSlug)}×${row.count}`).join("、");
-}
-
 /**
- * 用炼器精粹给一件装备升级（第五批：消耗表见 enhance.ts essenceCost，后台可改）；一次升一级，toMax 为真时尽量升到上限、精粹用完或遇到突破节点为止。
- * 强化不会失败。装备强化到突破节点后必须先突破（breakthroughItem）才能继续。
+ * 部位强化（0074）：用炼器精粹给「已穿戴装备所在格子」升级；等级写在部位表，不写胚子。
+ * 无上限、无突破材料、必成功；toMax 时一直升到精粹不够为止（安全迭代上限防死循环）。
  */
 export async function enhanceItem(tx: Tx, world: World, playerId: string, itemId: string, now: Date, options?: { toMax?: boolean }) {
   const settled = await settleLocked(tx, playerId, world, now);
@@ -1455,22 +1479,19 @@ export async function enhanceItem(tx: Tx, world: World, playerId: string, itemId
   if (!definition || definition.kind !== "equipment" || !definition.slot) {
     throw new AppError("NOT_EQUIPMENT", "这不是装备，不能强化");
   }
-  const rules = readEnhanceRules(world);
-  const cap = enhanceCap(rules, definition.quality);
-  if (item.enhanceLevel >= cap) {
-    throw new AppError("INVALID_INPUT", `已强化到上限 +${cap}`);
+  if (!item.equippedSlot) {
+    throw new AppError("INVALID_INPUT", "请先穿上装备再强化（强化加在部位上）");
   }
+  const slot = item.equippedSlot;
+  const rules = readEnhanceRules(world);
   const essenceSlug = essenceRules(rules).itemSlug;
-  let level = item.enhanceLevel;
+  const fromLevel = settled.pieces.slotLevels?.[slot] ?? item.enhanceLevel ?? 0;
+  let level = fromLevel;
   const owned = stackCount(settled.pieces.items, essenceSlug);
   let pool = owned;
   let spent = 0;
-  let blockedBy: { level: number; materials: { itemSlug: string; count: number }[] } | null;
+  const softCap = 500;
   do {
-    blockedBy = pendingBreakNode(rules, definition.quality, level, item.breakLevel);
-    if (blockedBy) {
-      break;
-    }
     const cost = essenceCost(rules, definition.quality, level);
     if (pool < cost) {
       break;
@@ -1478,76 +1499,35 @@ export async function enhanceItem(tx: Tx, world: World, playerId: string, itemId
     pool -= cost;
     spent += cost;
     level += 1;
-  } while (options?.toMax && level < cap);
-  if (level < cap && !blockedBy) {
-    blockedBy = pendingBreakNode(rules, definition.quality, level, item.breakLevel);
-  }
-  if (level === item.enhanceLevel) {
-    if (blockedBy) {
-      throw new AppError("BREAKTHROUGH_REQUIRED", `已到突破节点 +${blockedBy.level}，需要先突破：${breakRequirementText(world, blockedBy)}`, { node: blockedBy });
-    }
+  } while (options?.toMax && level - fromLevel < softCap);
+  if (level === fromLevel) {
     const need = essenceCost(rules, definition.quality, level);
     throw new AppError("ESSENCE_SHORT", `炼器精粹不足，分解装备可获得（下一级需要 ${need}，拥有 ${owned}）`, { need, have: owned });
   }
-  await tx.update(playerItems).set({ enhanceLevel: level }).where(eq(playerItems.id, item.id));
+  await upsertSlotEnhance(tx, playerId, slot, level);
+  // 胚子列保持 0，避免换下后被分解按等级返还刷精粹。
+  await tx.update(playerItems).set({ enhanceLevel: 0, breakLevel: 0 }).where(eq(playerItems.id, item.id));
   await takeStack(tx, settled.pieces.items, essenceSlug, spent);
   const after = await settleLocked(tx, playerId, world, now);
   return {
     state: await stateDto(tx, world, playerId, after),
-    enhanced: { itemId: item.id, fromLevel: item.enhanceLevel, toLevel: level, spentEssence: spent, spentExp: 0, blockedByBreakthrough: blockedBy ? blockedBy.level : null },
+    enhanced: {
+      itemId: item.id,
+      slot,
+      fromLevel,
+      toLevel: level,
+      spentEssence: spent,
+      spentExp: 0,
+      blockedByBreakthrough: null,
+    },
   };
 }
 
 /**
- * 突破：装备强化到突破节点（等级正好等于节点等级且没突破过）后，交齐配置里的材料（从行囊里扣）才能继续强化。
- * 不会失败；材料不够时什么都不扣，直接报错并写明差多少。
+ * 部位强化后不再需要突破材料；老客户端若仍调用，明确提示。
  */
-export async function breakthroughItem(tx: Tx, world: World, playerId: string, itemId: string, now: Date) {
-  const settled = await settleLocked(tx, playerId, world, now);
-  const item = settled.pieces.items.find((row) => row.id === itemId);
-  if (!item) {
-    throw new AppError("NOT_FOUND");
-  }
-  const definition = world.items.find((row) => row.slug === item.itemSlug);
-  if (!definition || definition.kind !== "equipment" || !definition.slot) {
-    throw new AppError("NOT_EQUIPMENT", "这不是装备，不能突破");
-  }
-  const rules = readEnhanceRules(world);
-  qualityRule(rules, definition.quality);
-  const node = pendingBreakNode(rules, definition.quality, item.enhanceLevel, item.breakLevel);
-  if (!node) {
-    throw new AppError("INVALID_INPUT", "这件装备现在不在突破节点上，不需要突破");
-  }
-  const stacks = settled.pieces.items.filter((row) => row.isStack);
-  const shortages: { itemSlug: string; need: number; have: number }[] = [];
-  for (const material of node.materials) {
-    const have = stacks.filter((row) => row.itemSlug === material.itemSlug).reduce((sum, row) => sum + row.quantity, 0);
-    if (have < material.count) {
-      shortages.push({ itemSlug: material.itemSlug, need: material.count, have });
-    }
-  }
-  if (shortages.length > 0) {
-    const text = shortages.map((row) => `${materialLabel(world, row.itemSlug)} 还差 ${row.need - row.have}（需要 ${row.need}，有 ${row.have}）`).join("；");
-    throw new AppError("BREAKTHROUGH_MATERIAL_SHORT", `突破材料不足：${text}`, { shortages });
-  }
-  for (const material of node.materials) {
-    let left = material.count;
-    for (const row of stacks.filter((stack) => stack.itemSlug === material.itemSlug)) {
-      if (left <= 0) {
-        break;
-      }
-      const take = Math.min(left, row.quantity);
-      left -= take;
-      if (row.quantity - take <= 0) {
-        await tx.delete(playerItems).where(eq(playerItems.id, row.id));
-      } else {
-        await tx.update(playerItems).set({ quantity: row.quantity - take }).where(eq(playerItems.id, row.id));
-      }
-    }
-  }
-  await tx.update(playerItems).set({ breakLevel: node.level }).where(eq(playerItems.id, item.id));
-  const after = await settleLocked(tx, playerId, world, now);
-  return { state: await stateDto(tx, world, playerId, after), broken: { itemId: item.id, level: node.level, materials: node.materials } };
+export async function breakthroughItem(_tx: Tx, _world: World, _playerId: string, _itemId: string, _now: Date) {
+  throw new AppError("INVALID_INPUT", "强化已经改成加在部位上，不再需要突破材料，直接花炼器精粹强化即可");
 }
 
 /**

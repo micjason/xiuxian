@@ -185,14 +185,14 @@ describe("core loop", () => {
       });
       expect(refused.statusCode).toBe(409);
       expect(refused.json().error).toMatchObject({ code: "EQUIPPED_CANNOT_DECOMPOSE", message: expect.stringContaining("先脱下") });
-      // 突破接口已注册；没到节点时明确拒绝
+      // 部位强化后突破接口保留，统一提示不再需要突破材料
       const notOnNode = await app.inject({
         method: "POST",
         url: `/api/v1/me/items/${sword?.id}/breakthrough`,
         headers: { ...headers, "idempotency-key": "break-no-node" },
       });
       expect(notOnNode.statusCode).toBe(400);
-      expect(notOnNode.json().error.message).toContain("不在突破节点");
+      expect(notOnNode.json().error.message).toContain("不再需要突破材料");
 
       const learned = await app.inject({
         method: "POST",

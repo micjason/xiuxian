@@ -50,7 +50,7 @@ static func worn_count(slots: Dictionary) -> int:
 	return count
 
 
-## 某部位在行囊里的可替换装备，战力高的在前。
+## 某部位在行囊里的可替换装备，按胚子战力高的在前（一键换装也用胚子比）。
 static func candidates_for(bag: BagModel, slot_id: String) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	for item in bag.items:
@@ -58,7 +58,13 @@ static func candidates_for(bag: BagModel, slot_id: String) -> Array[Dictionary]:
 			continue
 		if str(item.get("category", "")) == "equip" and str(item.get("slot_id", "")) == slot_id:
 			out.append(item)
-	BagModel.sort_items(out, "power")
+	out.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		var ap := int(a.get("base_power", a.get("power", 0)))
+		var bp := int(b.get("base_power", b.get("power", 0)))
+		if ap != bp:
+			return ap > bp
+		return str(a.get("id", "")) < str(b.get("id", ""))
+	)
 	return out
 
 
@@ -76,7 +82,7 @@ static func worn_enhance_target(bag: BagModel) -> String:
 	return ""
 
 
-## 「一键穿戴」：每个核心部位里战力比身上更高的最强候选，返回物品 id 列表（没有更强的部位不动）。
+## 「一键穿戴」：每个核心部位里胚子战力比身上更高的最强候选（不含强化）。
 static func best_upgrades(bag: BagModel) -> Array[String]:
 	var out: Array[String] = []
 	var slots := slots_of(bag)
@@ -88,6 +94,8 @@ static func best_upgrades(bag: BagModel) -> Array[String]:
 		if candidates.is_empty():
 			continue
 		var best: Dictionary = candidates[0]
-		if int(best.get("power", 0)) > int(worn.get("power", 0)):
+		var best_base := int(best.get("base_power", best.get("power", 0)))
+		var worn_base := int(worn.get("base_power", worn.get("power", 0))) if not worn.is_empty() else 0
+		if best_base > worn_base:
 			out.append(str(best.get("id", "")))
 	return out

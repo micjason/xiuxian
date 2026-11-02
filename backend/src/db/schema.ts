@@ -551,6 +551,19 @@ export const playerItems = pgTable(
  * 第五批：一次性迁移「强化经验 → 炼器精粹」的记录（每个玩家最多一行，主键保证只迁一次）。
  * 迁移在玩家下次结算时做（actions.ts settleLocked），后台「装备强化」也能一键给所有玩家做完。
  */
+/** 部位强化等级（0074）：绑格子不绑胚子；换下装备 enhance_level 归 0，部位等级仍保留。 */
+export const playerSlotEnhances = pgTable(
+  "player_slot_enhances",
+  {
+    playerId: uuid("player_id")
+      .notNull()
+      .references(() => players.id, { onDelete: "cascade" }),
+    slot: text("slot").notNull(),
+    enhanceLevel: integer("enhance_level").notNull().default(0),
+  },
+  (table) => [primaryKey({ name: "player_slot_enhances_pk", columns: [table.playerId, table.slot] })],
+);
+
 export const enhanceExpMigrations = pgTable("enhance_exp_migrations", {
   playerId: uuid("player_id")
     .primaryKey()

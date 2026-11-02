@@ -1145,7 +1145,7 @@ export async function assignPuppetLines(
   return { dongfu: await readDongfuState(tx, world, playerId, now) };
 }
 
-/** 产线升级：扣本线自用存量（肉为口粮存量）。 */
+/** 产线升级：扣本线仓库存量。 */
 export async function upgradePuppetLine(
   tx: Tx,
   world: World,
@@ -1210,7 +1210,7 @@ export async function hirePuppet(tx: Tx, world: World, playerId: string, now: Da
   return { dongfu: await readDongfuState(tx, world, playerId, now) };
 }
 
-/** @deprecated 木草石为洞府自用池、肉为口粮，均不可取出；对外路由已 GONE。 */
+/** @deprecated 各产线仓库存量不可取出进背包；对外路由已 GONE。 */
 export async function withdrawPuppetStore(
   _tx: Tx,
   _world: World,

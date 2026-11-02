@@ -1,5 +1,6 @@
 /**
- * 洞府傀儡产线：肉=口粮存量；木/草/石=洞府自用池（满停进、不进背包、无收取）；肉空其它停产；离线按 settledAt 结算。
+ * 洞府傀儡产线：各线（肉/木/草/石）自有仓库与上限；产出进本线仓库；仓库越满收益越低，满则瞬时产出为 0。
+ * 不进人物背包、无收取；升级扣本线仓库存量；肉空则其它线停产；离线按 settledAt 结算。
  * 公式写死在此；后台只改 config.puppet 数字。
  */
 import type { DongfuPuppetConfig, DongfuPuppetLineId } from "./config.js";
@@ -107,7 +108,24 @@ export function normalizePuppetProgress(
   return { settledAt, lines };
 }
 
-/** 按小时结算；肉先产再被吃；肉空则非肉线本段产量为 0；自用池满则截断停进。 */
+
+/** 仓库填充衰减：瞬时 ds/dt = r*(1-s/C)，时段积分后指数逼近上限；已满则本段增益为 0。 */
+export function applyWarehouseGain(stored: number, cap: number, rawGain: number): number {
+  if (!(cap > 0)) return 0;
+  const s0 = Math.min(cap, Math.max(0, stored));
+  if (!(rawGain > 0)) return s0;
+  if (s0 >= cap - 1e-12) return cap;
+  const next = cap - (cap - s0) * Math.exp(-rawGain / cap);
+  return next >= cap - 1e-6 ? cap : next;
+}
+
+/** 当前仓库填充下的产出系数（满=0，空=1）。 */
+export function warehouseFillFactor(stored: number, cap: number): number {
+  if (!(cap > 0)) return 0;
+  return Math.max(0, Math.min(1, 1 - Math.min(cap, Math.max(0, stored)) / cap));
+}
+
+/** 按小时结算；肉先产再被吃；肉空则非肉线本段产量为 0；仓库越满本段进账越少，满则为 0。 */
 export function settlePuppetLines(
   state: PuppetProgressState,
   config: DongfuPuppetConfig,
@@ -130,10 +148,10 @@ export function settlePuppetLines(
     stone: { ...state.lines.stone },
   };
 
-  // 肉产量
+  // 肉产量（仓库衰减）
   const meatCap = storageCap(config, "meat", next.meat.level);
   const meatGain = next.meat.workers * config.lines.meat.prodPerWorker * hours;
-  next.meat.stored = Math.min(meatCap, next.meat.stored + meatGain);
+  next.meat.stored = applyWarehouseGain(next.meat.stored, meatCap, meatGain);
 
   // 吃肉需求（木草石）
   let meatNeed = 0;
@@ -147,12 +165,8 @@ export function settlePuppetLines(
 
   for (const id of ["wood", "herb", "stone"] as const) {
     const cap = storageCap(config, id, next[id].level);
-    if (next[id].stored >= cap - 1e-9) {
-      next[id].stored = cap;
-      continue;
-    }
     const gain = next[id].workers * config.lines[id].prodPerWorker * hours * meatFactor;
-    next[id].stored = Math.min(cap, next[id].stored + gain);
+    next[id].stored = applyWarehouseGain(next[id].stored, cap, gain);
   }
 
   return { settledAt: now.toISOString(), lines: next };
@@ -173,19 +187,20 @@ export function buildPuppetDto(
     const cap = storageCap(config, id, row.level);
     const prod = config.lines[id].prodPerWorker;
     const eat = id === "meat" ? 0 : config.lines[id].eatMeatPerWorker;
-    let net = row.workers * prod;
+    const fill = warehouseFillFactor(row.stored, cap);
+    let net = row.workers * prod * fill;
     if (id === "meat") {
       const consume =
         state.lines.wood.workers * config.lines.wood.eatMeatPerWorker +
         state.lines.herb.workers * config.lines.herb.eatMeatPerWorker +
         state.lines.stone.workers * config.lines.stone.eatMeatPerWorker;
-      net = row.workers * prod - consume;
+      net = row.workers * prod * fill - consume;
     } else if (meatStarved) {
       net = 0;
     }
     let stoppedReason: PuppetLineDto["stoppedReason"] = "";
     if (id !== "meat" && meatStarved && row.workers > 0) stoppedReason = "meat_empty";
-    else if (row.stored >= cap - 1e-9) stoppedReason = "storage_full";
+    else if (fill <= 1e-9 && row.workers > 0) stoppedReason = "storage_full";
     const cost = upgradeCostOf(config, id, row.level);
     return {
       id,

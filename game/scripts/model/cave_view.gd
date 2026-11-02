@@ -481,6 +481,96 @@ static func _cost_line(costs: Array[Dictionary], spirit_stones: int) -> String:
 		parts.append("灵石 ×%d" % spirit_stones)
 	return "、".join(parts)
 
+static func _material_bar(state: Dictionary, content: Dictionary, slugs: Array) -> Array:
+	var out: Array = []
+	for slug_v in slugs:
+		var slug := str(slug_v)
+		if slug.is_empty():
+			continue
+		out.append({
+			"itemSlug": slug,
+			"name": item_name(content, slug),
+			"have": bag_count(state, slug),
+		})
+	return out
+
+
+static func _forge_material_bar(forge_raw: Variant, state: Dictionary, content: Dictionary) -> Array:
+	var forge: Dictionary = forge_raw if typeof(forge_raw) == TYPE_DICTIONARY else {}
+	var bps: Array = forge.get("blueprints", []) if typeof(forge.get("blueprints", [])) == TYPE_ARRAY else []
+	var seen: Dictionary = {}
+	var slugs: Array = []
+	for bp_v in bps:
+		if typeof(bp_v) != TYPE_DICTIONARY:
+			continue
+		var costs: Array = (bp_v as Dictionary).get("costs", []) if typeof((bp_v as Dictionary).get("costs", [])) == TYPE_ARRAY else []
+		for c in costs:
+			if typeof(c) != TYPE_DICTIONARY:
+				continue
+			var slug := str((c as Dictionary).get("itemSlug", ""))
+			if slug.is_empty() or seen.has(slug):
+				continue
+			seen[slug] = true
+			slugs.append(slug)
+	if slugs.is_empty():
+		slugs = ["wood_lingmu", "herb_lingcao", "puppet_stone"]
+	return _material_bar(state, content, slugs)
+
+
+static func _forge(forge_raw: Variant, state: Dictionary, content: Dictionary) -> Dictionary:
+	var forge: Dictionary = forge_raw if typeof(forge_raw) == TYPE_DICTIONARY else {}
+	var jobs_raw: Array = forge.get("jobs", []) if typeof(forge.get("jobs", [])) == TYPE_ARRAY else []
+	var jobs: Array = []
+	for row in jobs_raw:
+		if typeof(row) != TYPE_DICTIONARY:
+			continue
+		var job := (row as Dictionary).duplicate(true)
+		var status := str(job.get("status", "crafting"))
+		var bp := str(job.get("blueprintSlug", ""))
+		var output := str(job.get("outputItemSlug", "")) if job.get("outputItemSlug", null) != null else ""
+		var ready := str(job.get("readyAt", "")) if job.get("readyAt", null) != null else ""
+		var title := item_name(content, output) if not output.is_empty() else bp
+		if status == "ready":
+			job["line"] = "%s · 可领取" % title
+		else:
+			var remain := remaining_text(ready)
+			job["line"] = "%s · %s" % [title if not title.is_empty() else "炼器中", remain if not remain.is_empty() else "炼制中"]
+		jobs.append(job)
+	var bps_raw: Array = forge.get("blueprints", []) if typeof(forge.get("blueprints", [])) == TYPE_ARRAY else []
+	var blueprints: Array = []
+	for row in bps_raw:
+		if typeof(row) != TYPE_DICTIONARY:
+			continue
+		var bp := (row as Dictionary).duplicate(true)
+		var costs_raw: Array = bp.get("costs", []) if typeof(bp.get("costs", [])) == TYPE_ARRAY else []
+		var costs: Array[Dictionary] = []
+		var can_craft := true
+		for c in costs_raw:
+			if typeof(c) != TYPE_DICTIONARY:
+				continue
+			var cost := c as Dictionary
+			var slug := str(cost.get("itemSlug", ""))
+			var need := int(cost.get("count", cost.get("need", 0)))
+			var have := bag_count(state, slug)
+			if have < need:
+				can_craft = false
+			costs.append({"itemSlug": slug, "name": item_name(content, slug), "need": need, "have": have})
+		bp["costs"] = costs
+		bp["canCraft"] = can_craft
+		bp["costLine"] = _cost_line(costs, 0)
+		if str(bp.get("displayName", "")).is_empty():
+			bp["displayName"] = str(bp.get("blueprintSlug", "图纸"))
+		blueprints.append(bp)
+	return {
+		"jobs": jobs,
+		"blueprints": blueprints,
+		"claimable": int(forge.get("claimable", 0)),
+		"forgeXp": int(forge.get("forgeXp", 0)),
+		"baseOrangeChance": float(forge.get("baseOrangeChance", 0.0)),
+		"orangeChanceCap": float(forge.get("orangeChanceCap", 0.0)),
+	}
+
+
 static func _array_daily(raw: Variant) -> Dictionary:
 	if typeof(raw) != TYPE_DICTIONARY:
 		return {"enabled": false, "clearedToday": false, "dayKey": "", "arrayXp": 0, "puzzle": {}}

@@ -913,7 +913,7 @@ func _on_battle_submit(slug: String) -> void:
 # ───────── 突破 ─────────
 
 ## 底栏突破钮 / 顶栏修为条右侧状态钮：已到最高境界不响应（按钮本身也禁用）；其余打开突破弹窗
-## （条件不满足时弹窗里写清差什么，开始按钮不可点，并给「前往挑战」）。
+## （条件不满足时弹窗里写清差什么，开始按钮不可点；未满足的击败条件行可点进关）。
 func _on_center_pressed() -> void:
 	var view := BreakthroughView.build(_state)
 	if not bool(view.has_next):

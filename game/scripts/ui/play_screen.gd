@@ -1087,12 +1087,6 @@ func _on_dongfu_action(kind: String, payload: Dictionary) -> void:
 			path = "/api/v1/me/dongfu/puppet/hire"
 			body = {}
 			ok_text = "已招傀儡"
-		"puppet_withdraw":
-			path = "/api/v1/me/dongfu/puppet/withdraw"
-			body = {"line": str(payload.get("line", ""))}
-			if payload.has("amount"):
-				body["amount"] = int(payload.get("amount", 0))
-			ok_text = "已收取入行囊"
 		"forge_start":
 			path = "/api/v1/me/dongfu/forge/start"
 			body = {"blueprintSlug": str(payload.get("blueprintSlug", ""))}

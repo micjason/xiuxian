@@ -17,7 +17,6 @@ import {
   trialAlchemy,
   upgradeFacility,
   upgradePuppetLine,
-  withdrawPuppetStore,
 } from "./actions.js";
 import type { DongfuPuppetLineId } from "./config.js";
 
@@ -196,19 +195,9 @@ export async function registerDongfuRoutes(
     );
   });
 
-  app.post("/me/dongfu/puppet/withdraw", async (request) => {
-    const playerId = request.actor!.actorId;
-    const body = (request.body ?? {}) as { line?: unknown; amount?: unknown };
-    if (body.line !== "meat" && body.line !== "wood" && body.line !== "herb" && body.line !== "stone") {
-      throw new AppError("INVALID_INPUT", "请选择产线");
-    }
-    const amount = body.amount === undefined ? undefined : body.amount;
-    if (amount !== undefined && !Number.isInteger(amount)) {
-      throw new AppError("INVALID_INPUT", "收取数量不正确");
-    }
-    return withIdempotency(deps.db, playerId, idempotencyKey(request.headers["idempotency-key"]), "dongfu-puppet-withdraw", deps.now(), (tx, world) =>
-      withdrawPuppetStore(tx, world, playerId, { line: body.line as DongfuPuppetLineId, amount: amount as number | undefined }, deps.now()),
-    );
+  // 已废弃：木草石为洞府自用池，肉为口粮，均无手动取出。保留路由防旧客户端误调。
+  app.post("/me/dongfu/puppet/withdraw", async () => {
+    throw new AppError("DISABLED", "该操作已关闭");
   });
 
   app.post("/me/dongfu/forge/start", async (request) => {

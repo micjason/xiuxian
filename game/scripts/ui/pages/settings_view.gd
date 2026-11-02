@@ -47,8 +47,6 @@ var _check: Button
 var _confirm: Control
 var _confirm_text: Label
 var _inset := Vector4.ZERO
-var _scroll: ScrollContainer
-var _content: Control
 
 
 func _init() -> void:
@@ -75,26 +73,6 @@ func _init() -> void:
 	_build_more()
 	_build_version()
 	_build_logout()
-	# 内容可滚：矮屏 / 刘海+底栏时框高被裁进安全区，避免脚注和退出键掉出屏幕（超屏 B）
-	_scroll = ScrollContainer.new()
-	_scroll.name = "SettingsScroll"
-	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	_scroll.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_scroll.offset_left = 0
-	_scroll.offset_top = 0
-	_scroll.offset_right = 0
-	_scroll.offset_bottom = 0
-	_content = Control.new()
-	_content.name = "SettingsContent"
-	_content.custom_minimum_size = Vector2(FRAME_SIZE.x, FRAME_SIZE.y)
-	_content.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var built: Array = _frame.get_children()
-	for child in built:
-		_frame.remove_child(child)
-		_content.add_child(child)
-	_scroll.add_child(_content)
-	_frame.add_child(_scroll)
-	_frame.clip_contents = true
 	_ribbon = QKit.ribbon("设 置", 52, 300, true)
 	_ribbon.name = "Ribbon"
 	add_child(_ribbon)
@@ -122,19 +100,14 @@ func _layout() -> void:
 	var view := get_viewport_rect().size if is_inside_tree() else Vector2(1080, 2340)
 	var avail_top := _inset.y
 	var avail := view.y - _inset.y - _inset.w
-	var max_h := maxf(900.0, avail - 160.0)
-	var h := minf(FRAME_SIZE.y, max_h)
-	_frame.size = Vector2(FRAME_SIZE.x, h)
-	if _content != null:
-		_content.custom_minimum_size = Vector2(FRAME_SIZE.x, FRAME_SIZE.y)
-	var top := avail_top + maxf(70.0, (avail - h) / 2.0)
+	var top := avail_top + maxf(70.0, (avail - FRAME_SIZE.y) / 2.0)
 	_frame.position = Vector2(FRAME_X, top)
 	_ribbon.position = Vector2(540 - _ribbon.custom_minimum_size.x / 2.0, top - 62)
 	_ribbon.size = _ribbon.custom_minimum_size
 	_close.position = Vector2(FRAME_X + FRAME_SIZE.x - 62, top - 36)
 	_close.size = Vector2(84, 89)
 	_hint.size = Vector2(400, 60)
-	_hint.position = Vector2(340, top + h + 22)
+	_hint.position = Vector2(340, top + FRAME_SIZE.y + 22)
 	var box := _confirm.get_node("ConfirmFrame") as Control
 	box.position = Vector2(130, top + 431)  # 稿 v2：确认框 (130,890)，设置框顶 459
 	var ribbon := _confirm.get_node("ConfirmRibbon") as Control

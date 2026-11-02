@@ -454,7 +454,6 @@ func _on_logged_in() -> void:
 
 ## 点左上角头像：打开设置面板（账号、声音、版本、退出登录）。
 func open_settings() -> void:
-	_close_other_modals("settings")
 	_settings.open(settings_info())
 	if not _mock and not PlayerApi.token().is_empty():
 		_load_account()
@@ -766,7 +765,6 @@ func _maybe_show_offline() -> void:
 
 
 func _show_offline_report(report: Dictionary) -> void:
-	_close_other_modals("offline")
 	var id := str(report.get("id", ""))
 	var bonus_bp := float((_state.get("cultivationRate", {}) as Dictionary).get("bonusBp", 0)) if typeof(_state.get("cultivationRate", null)) == TYPE_DICTIONARY else 0.0
 	var power := float(_state.get("power", -1))
@@ -916,7 +914,6 @@ func _on_center_pressed() -> void:
 
 
 func _open_breakthrough() -> void:
-	_close_other_modals("breakthrough")
 	if not _break_open:
 		_page_before_break = _page
 	_break_open = true
@@ -976,7 +973,6 @@ func _on_breakthrough() -> void:
 		_break_open = false
 		_break_layer.visible = false
 		_breakthrough_page.visible = false
-		_close_other_modals("success")
 		_success_popup.show_success(BreakthroughView.success_summary(before, _state), unlocks)
 	else:
 		_busy = false
@@ -1239,7 +1235,6 @@ func _decompose_many(ids: Array) -> Dictionary:
 func open_salvage() -> void:
 	if _salvage == null:
 		return
-	_close_other_modals("salvage")
 	_salvage.open(BagModel.from_state(_state, _content, _flags.seen if _flags != null else {}))
 
 

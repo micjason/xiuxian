@@ -67,7 +67,7 @@ describe("monster kill drops (5% per kill, regional quality weights, equal 6-slo
     await withDb(async (db) => {
       const { app, control, state, bag } = await boot(db, "drop_a");
       control.chance = 499; // < 500 → 掉
-      control.quality = 70000; // 70/25/5/0 ×1000：70000 起是绿
+      control.quality = 45000; // 40/20/15/25 ×1000：40000–60000 是绿
       control.slot = 2; // 头冠
       const result = await state(30);
       expect(result.lastSettle.kills).toBeGreaterThan(0);
@@ -117,7 +117,7 @@ describe("monster kill drops (5% per kill, regional quality weights, equal 6-slo
         await db.insert(playerStageProgress).values({ playerId, stageSlug, unlockedAt: start, firstClearedAt: start, clearCount: 1 }).onConflictDoUpdate({ target: [playerStageProgress.playerId, playerStageProgress.stageSlug], set: { firstClearedAt: start, clearCount: 1 } });
       }
       control.chance = 0;
-      control.quality = 99999; // 50/35/13/2：最后一档是紫
+      control.quality = 99999; // 筑基权重末档仍是紫
       control.slot = 5;
       const result = await state(30);
       expect(result.wave.stageSlug).toBe("zhuji_1");

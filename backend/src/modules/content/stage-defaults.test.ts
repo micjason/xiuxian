@@ -6,7 +6,7 @@ import { rollBossRepeatGear, rollMonsterKillDrop } from "./monster-drops.js";
 
 describe("empty drop overrides inherit the config-overview defaults", () => {
   it("treats null, {}, and [] as inherit, and never lets monsters roll orange", () => {
-    const expected = { chanceBp: 500, qualityWeights: { white: 70, green: 25, blue: 5, purple: 0, orange: 0 } };
+    const expected = { chanceBp: 500, qualityWeights: { white: 40, green: 20, blue: 15, purple: 25, orange: 0 } };
     expect(resolveMonsterDrop(null, DEFAULT_TUNING)).toEqual(expected);
     expect(resolveMonsterDrop({}, DEFAULT_TUNING)).toEqual(expected);
     expect(resolveMonsterDrop([], DEFAULT_TUNING)).toEqual(expected);
@@ -27,7 +27,7 @@ describe("empty drop overrides inherit the config-overview defaults", () => {
   it("does not let an empty boss-rule array replace quality weights", () => {
     expect(resolveBossRules(DEFAULT_BOSS_RULES, [] as never).repeatGearQualityPct).toEqual(DEFAULT_BOSS_RULES.repeatGearQualityPct);
     expect(resolveBossRules(DEFAULT_BOSS_RULES, { gearQualityPct: [] as never, statMul: [] as never }).statMul).toEqual(DEFAULT_BOSS_RULES.statMul);
-    expect(resolveBossRules(DEFAULT_BOSS_RULES, { gearQualityPct: [] as never }).gearQualityPct.orange).toBe(0);
+    expect(resolveBossRules(DEFAULT_BOSS_RULES, { gearQualityPct: [] as never }).gearQualityPct.orange).toBe(25);
     expect(DEFAULT_BOSS_RULES.repeatGearQualityPct.orange).toBeGreaterThan(0);
   });
 });

@@ -9,8 +9,8 @@ import { orderedStages } from "./stage-order.js";
 import { validateContent } from "./validate.js";
 
 const monsters = [{ name: "青鬃狼", attack: 24, defense: 14, hp: 110, interval: 1.5, killCultivation: 3 }];
-// 和配置概览默认值（5%、70/25/5/0）只差白：只存白和掉率
-const drop = { chancePercent: 4, weights: { white: 60, green: 25, blue: 5, purple: 0 } };
+// 和配置概览默认值（5%、40/20/15/25）只差白：只存白和掉率
+const drop = { chancePercent: 4, weights: { white: 60, green: 20, blue: 15, purple: 25 } };
 
 describe("stage admin API: monsters, monster drop, boss first-clear and repeat rewards", () => {
   it("creates and edits a stage with monsters + 5% drop + reward lists, returns them in the list, and keeps what an edit does not mention", async () => {
@@ -46,7 +46,7 @@ describe("stage admin API: monsters, monster drop, boss first-clear and repeat r
       expect(listed.monsters).toEqual(monsters);
       expect(listed.monsterDrop).toEqual({ chancePercent: 4, weights: { white: 60, green: null, blue: null, purple: null } });
       expect(listed.dropCustomCount).toBe(2);
-      expect(listed.dropDefaults).toMatchObject({ chancePercent: 5, weights: { white: 70, green: 25, blue: 5, purple: 0 } });
+      expect(listed.dropDefaults).toMatchObject({ chancePercent: 5, weights: { white: 40, green: 20, blue: 15, purple: 25 } });
       expect(listed.dropDefaults).not.toHaveProperty("orangeChancePercent");
       expect(listed.bosses[0]?.firstClear[1]).toMatchObject({ kind: "item", itemId: "enh_stone_low", displayName: "突破石·下品" });
       // 只改首领数值：奖励、怪物、掉落都保持

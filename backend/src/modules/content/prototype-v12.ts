@@ -22,14 +22,14 @@ import { DEFAULT_SKILLS } from "./default-skills.js";
 type Stats = { hp: number; attack: number; defense: number; speed: number };
 
 export const PROTOTYPE_MAJORS = [
-  { key: "qi", name: "炼气", ultMultBp: 40000, ultCooldown: 20, weights: { white: 70, green: 25, blue: 5, purple: 0 } as QualityWeights },
-  { key: "foundation", name: "筑基", ultMultBp: 50000, ultCooldown: 18, weights: { white: 50, green: 35, blue: 13, purple: 2 } as QualityWeights },
-  { key: "core", name: "金丹", ultMultBp: 60000, ultCooldown: 16, weights: { white: 35, green: 40, blue: 20, purple: 5 } as QualityWeights },
-  { key: "nascent", name: "元婴", ultMultBp: 70000, ultCooldown: 14, weights: { white: 25, green: 40, blue: 25, purple: 10 } as QualityWeights },
-  { key: "spirit", name: "化神", ultMultBp: 80000, ultCooldown: 12, weights: { white: 15, green: 40, blue: 30, purple: 15 } as QualityWeights },
-  { key: "void", name: "炼虚", ultMultBp: 90000, ultCooldown: 11, weights: { white: 10, green: 35, blue: 35, purple: 20 } as QualityWeights },
-  { key: "unity", name: "合体", ultMultBp: 100000, ultCooldown: 10, weights: { white: 5, green: 30, blue: 40, purple: 25 } as QualityWeights },
-  { key: "mahayana", name: "大乘", ultMultBp: 110000, ultCooldown: 9, weights: { white: 0, green: 25, blue: 45, purple: 30 } as QualityWeights },
+  { key: "qi", name: "炼气", ultMultBp: 40000, ultCooldown: 20, weights: { white: 40, green: 20, blue: 15, purple: 25 } as QualityWeights },
+  { key: "foundation", name: "筑基", ultMultBp: 50000, ultCooldown: 18, weights: { white: 35, green: 25, blue: 15, purple: 25 } as QualityWeights },
+  { key: "core", name: "金丹", ultMultBp: 60000, ultCooldown: 16, weights: { white: 30, green: 25, blue: 15, purple: 30 } as QualityWeights },
+  { key: "nascent", name: "元婴", ultMultBp: 70000, ultCooldown: 14, weights: { white: 25, green: 20, blue: 15, purple: 40 } as QualityWeights },
+  { key: "spirit", name: "化神", ultMultBp: 80000, ultCooldown: 12, weights: { white: 20, green: 20, blue: 15, purple: 45 } as QualityWeights },
+  { key: "void", name: "炼虚", ultMultBp: 90000, ultCooldown: 11, weights: { white: 15, green: 20, blue: 15, purple: 50 } as QualityWeights },
+  { key: "unity", name: "合体", ultMultBp: 100000, ultCooldown: 10, weights: { white: 10, green: 15, blue: 15, purple: 60 } as QualityWeights },
+  { key: "mahayana", name: "大乘", ultMultBp: 110000, ultCooldown: 9, weights: { white: 5, green: 15, blue: 15, purple: 65 } as QualityWeights },
 ] as const;
 
 /** 每层“到达后累计的面板”（表 1.1）；入库时按层相减变成“到达该境界增加的属性”。仅前 9 层手填；10–24 由 ensureFactoryRealms 补出厂。 */

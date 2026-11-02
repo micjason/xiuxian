@@ -81,7 +81,7 @@ export const DEFAULT_TUNING: Tuning = {
   bookOverflowSeconds: 30,
   bookOverflowRankFactors: { yellow: 1, xuan: 2, earth: 4, heaven: 8 },
   monsterDropChanceBp: 500,
-  monsterQualityWeights: { white: 70, green: 25, blue: 5, purple: 0, orange: 0 },
+  monsterQualityWeights: { white: 40, green: 20, blue: 15, purple: 25, orange: 0 },
   bossOrangeChanceBp: 200,
   bossRules: DEFAULT_BOSS_RULES,
   seedDrops: DEFAULT_SEED_DROPS,

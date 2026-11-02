@@ -26,7 +26,7 @@ const TABLE = {
   statPerLevel: 0.06, // 表 3.3/3.6：每级 +6% 基础属性
   refund: 0.8,
   weights: {
-    major1: { white: 70, green: 25, blue: 5, purple: 0 },
+    major1: { white: 40, green: 20, blue: 15, purple: 25 },
     major4: { white: 50, green: 35, blue: 13, purple: 2 },
     major7: { white: 35, green: 40, blue: 20, purple: 5 },
   } as Record<string, Record<string, number>>,

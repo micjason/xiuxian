@@ -50,10 +50,12 @@ describe("migration 0024 (config overview defaults: stages inherit, recommended 
 
       const world = await loadDraftSnapshot(db);
       const effective = Object.fromEntries(world.stages.map((row) => [row.slug, row.monsterDrop]));
-      expect(effective.lianqi_1).toEqual({ chanceBp: 500, qualityWeights: { white: 70, green: 25, blue: 5, purple: 0, orange: 0 } });
+      // 关卡存 null 后跟随当前代码默认（2026-11-02 掉率定案已改出厂权重）
+      expect(effective.lianqi_1).toEqual({ chanceBp: 500, qualityWeights: { white: 40, green: 20, blue: 15, purple: 25, orange: 0 } });
       expect(effective.lianqi_2?.chanceBp).toBe(450);
       expect(effective.zhuji_1?.qualityWeights).toEqual({ white: 50, green: 35, blue: 13, purple: 2, orange: 0 });
-      expect(effective.jindan_1?.qualityWeights).toEqual({ white: 100, green: 0, blue: 0, purple: 0, orange: 0 });
+      // purple 在 0024 时等于旧默认 0 被压掉；跟随现行默认紫 25
+      expect(effective.jindan_1?.qualityWeights).toEqual({ white: 100, green: 0, blue: 0, purple: 25, orange: 0 });
       expect(world.stages.find((row) => row.slug === "lianqi_1")?.recommendedPower).toBe(0);
 
       const [sword] = await db.select().from(contentItems).where(eq(contentItems.slug, "gear_major1_weapon_blue"));

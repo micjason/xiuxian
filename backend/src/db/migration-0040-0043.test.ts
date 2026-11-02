@@ -143,8 +143,16 @@ describe("migrations 0040–0045 (第三批：章节、每关首领、首领规�
 
       // 首领规则（0045 起一套）：每日首领挑战总次数沿用原来章末的 4；库里存的就是新格式
       const [globals] = await db.select().from(contentGlobals);
-      expect(tuningOf(globals!.tuning).bossRules).toEqual({ ...DEFAULT_BOSS_RULES, statMul: { hp: 5, attack: 1.3, defense: 1.2 }, dailyChallengeTotal: 4 });
-      expect((globals!.tuning as { bossRules: Record<string, unknown> }).bossRules).toEqual({ ...DEFAULT_BOSS_RULES, statMul: { hp: 5, attack: 1.3, defense: 1.2 }, dailyChallengeTotal: 4 });
+      // 0045 SQL 写入的是当时出厂品质表（与现行 2026-11-02 掉率定案无关）
+      const legacyBossRules = {
+        ...DEFAULT_BOSS_RULES,
+        gearQualityPct: { white: 0, green: 70, blue: 25, purple: 5, orange: 0 },
+        repeatGearQualityPct: { white: 0, green: 50, blue: 35, purple: 13, orange: 2 },
+        statMul: { hp: 5, attack: 1.3, defense: 1.2 },
+        dailyChallengeTotal: 4,
+      };
+      expect(tuningOf(globals!.tuning).bossRules).toEqual(legacyBossRules);
+      expect((globals!.tuning as { bossRules: Record<string, unknown> }).bossRules).toEqual(legacyBossRules);
       // 0045：章末关补「属性 = 手填」，精英补重复奖励；和新种子一样
       const rulesAndRepeat = (world: typeof once) =>
         [...world.stages]

@@ -1221,7 +1221,7 @@ func _render_enhance_cost() -> void:
 	var need := int(item.get("enhance_cost", 0))
 	var level := int(item.get("enhance", 0))
 	var can := BagModel.can_enhance(item)
-	var text := "%s %d/%d · +%d→+%d" % [unit, have, need, level, level + 1] if can else "%s · 已达上限或需突破" % str(item.get("name", "装备"))
+	var text := "%s %s · +%d→+%d" % [unit, QKit.have_need(have, need), level, level + 1] if can else "%s · 已达上限或需突破" % str(item.get("name", "装备"))
 	_chip(text, Rect2(120, 1280, 840, 88), "EnhanceCost")
 
 

@@ -170,6 +170,28 @@ func toggle_quality(rarity: int) -> void:
 	_scroll_to_first_selected(rarity)
 
 
+## 品质全选后滚到该品质首件已选格，避免勾了看不见的那一页（FINDINGS #5 / #48 漏实现）。
+func _scroll_to_first_selected(rarity: int) -> void:
+	if _scroll == null or _grid == null:
+		return
+	var target: Control = null
+	for index in model.items.size():
+		var item: Dictionary = model.items[index]
+		if int(item.get("rarity", -1)) != rarity:
+			continue
+		var id := str(item.get("id", ""))
+		if not model.is_selected(id):
+			continue
+		target = _cells.get(id, null) as Control
+		if target != null:
+			break
+	if target == null:
+		return
+	var y := maxf(0.0, target.position.y - 16.0)
+	_scroll.scroll_vertical = int(y)
+	_update_more_hint()
+
+
 ## 点「确认分解」：N=0 提示；含紫 / 橙先二次确认；否则直接分解。
 func press_confirm() -> void:
 	if model.selected_count() == 0:

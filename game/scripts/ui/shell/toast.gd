@@ -90,6 +90,7 @@ func say_neutral(text: String, seconds: float = 2.2) -> void:
 
 
 ## LockedFeature.notify 的接收端：美术提示条。
+## 贴顶栏下方（与普通 toast 同带），避免压住挂机战报 / 底栏 / 突破圆钮（FINDINGS #10/#42/#49）。
 func say_locked(feature: String = "", with_lock: bool = false) -> void:
 	set_meta("last_locked_feature", feature)
 	if _tween != null:
@@ -103,12 +104,11 @@ func say_locked(feature: String = "", with_lock: bool = false) -> void:
 	_label.add_theme_color_override("font_color", LOCKED_TEXT_COLOR)
 	var text_width := _label.get_theme_font("font").get_string_size(_label.text, HORIZONTAL_ALIGNMENT_LEFT, -1, 34).x
 	var width := maxf(LOCKED_MIN_WIDTH, ceilf(text_width) + 80.0 + (52.0 if with_lock else 0.0))
-	var view_h := get_viewport_rect().size.y if is_inside_tree() else CANVAS_HEIGHT
-	var center_y := LOCKED_CENTER_Y * view_h / CANVAS_HEIGHT
 	set_anchors_preset(Control.PRESET_CENTER_TOP)
 	offset_left = -width / 2.0
 	offset_right = width / 2.0
-	var top := center_y - LOCKED_HEIGHT / 2.0
+	# 顶栏下沿附近：用 place_top 记录的上沿；没有时退到画布 280。
+	var top := maxf(_top.position.y, 200.0)
 	offset_top = top + 12.0
 	offset_bottom = top + 12.0 + LOCKED_HEIGHT
 	modulate = Color(1, 1, 1, 0)

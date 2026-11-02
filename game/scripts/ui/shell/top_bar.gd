@@ -3,7 +3,7 @@ extends Control
 ## 顶部栏（Q 版设计稿）：圆形头像、薄荷绿境界牌、「战」+ 总战力；右侧 灵石 / 葫芦 两个货币胶囊和邮件按钮；
 ## 第二行修为条（只在修炼、功法页显示，见 set_cultivation_visible）。
 ## 真实数据：境界名、战力（服务器 power，含装备）、灵石（state.spiritStones）、修为 / 突破所需。
-## 还没有的东西照设计显示，点了统一提示「功能暂未开放」：灵石旁的「+」、葫芦货币（没有数值，显示 --）、邮件。
+## 还没有的东西照设计显示，点了统一提示「功能暂未开放」：灵石旁的「+」、葫芦货币（没有数值，显示 — + 锁标）、邮件。
 ## 点头像发 settings_pressed（设置面板）；点修为条右侧状态钮发 breakthrough_pressed（外壳决定开突破弹窗还是提示）。
 
 signal settings_pressed
@@ -129,7 +129,7 @@ func _build_identity() -> void:
 	_content.add_child(_power)
 
 
-## 右上角：灵石（真实数值）、葫芦（暂无，显示 --）、邮件（暂无）。右对齐，宽屏也贴右边。
+## 右上角：灵石（真实数值）、葫芦（暂未开放，显示 — + 锁标）、邮件（暂无）。右对齐，宽屏也贴右边。
 ## 坐标照 SPEC_Q 第 8 节：灵石 462,112,250；葫芦 742,112,170；邮件 946,100,100（画布 1080 宽）。
 func _build_currencies() -> void:
 	var stone := _currency("res_stone", "StonePill", 76)
@@ -138,12 +138,15 @@ func _build_currencies() -> void:
 	stone.root.offset_right = -368
 	var gourd := _currency("res_gourd", "GourdPill", 72)
 	_gourd = gourd.label
-	_gourd.text = "--"
+	_gourd.text = "—"
 	gourd.root.offset_left = -338
 	gourd.root.offset_right = -168
 	LockedFeature.wire(gourd.hit, "currency_gourd")
+	LockedFeature.decorate(gourd.root, "currency_gourd", 32)
 	LockedFeature.wire(stone.plus, "currency_stone_buy")
+	LockedFeature.decorate(stone.plus, "currency_stone_buy", 28)
 	LockedFeature.wire(gourd.plus, "currency_gourd_buy")
+	LockedFeature.decorate(gourd.plus, "currency_gourd_buy", 28)
 	_mail = Button.new()
 	_mail.name = "MailButton"
 	_mail.focus_mode = Control.FOCUS_NONE
@@ -170,7 +173,7 @@ func _build_currencies() -> void:
 		env.set_anchors_preset(Control.PRESET_FULL_RECT)
 		_mail.add_child(env)
 	_mail.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
-	LockedFeature.wire(_mail, "mail")
+	LockedFeature.wire_locked(_mail, "mail", 34)
 	_content.add_child(_mail)
 
 

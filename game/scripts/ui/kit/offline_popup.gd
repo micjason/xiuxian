@@ -112,9 +112,11 @@ func _layout() -> void:
 	_close.size = Vector2(84, 89)
 	if _fx != null:
 		QFx.set_popup_pivot(_fx, Rect2(FRAME.position + Vector2(0, shift), FRAME.size))
+	# 关闭提示贴在面板下沿内侧，避免飘到卡片外压住挂机文案（FINDINGS #48/#49）。
 	var foot := _host.get_node("FootPill") as Control
-	foot.position = Vector2(340, FRAME.position.y + FRAME.size.y + 34.0 + shift)
-	foot.custom_minimum_size = Vector2(400, 60)
+	foot.position = Vector2(340, FRAME.position.y + FRAME.size.y - 52.0 + shift)
+	foot.custom_minimum_size = Vector2(400, 48)
+	foot.z_index = 2
 
 
 func current_view() -> Dictionary:

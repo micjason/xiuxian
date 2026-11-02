@@ -152,7 +152,7 @@ static func _add_break_block(popup: GamePopup, card: Dictionary, id: String, lev
 		var name_label := UiKit.label(str(material.name), UiTokens.FS_BODY, UiTokens.TEXT)
 		name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		line.add_child(name_label)
-		line.add_child(UiKit.label("%s %d / %d" % ["✓" if enough else "✗", int(material.have), int(material.need)], UiTokens.FS_BODY, UiTokens.SUCCESS if enough else UiTokens.DANGER, HORIZONTAL_ALIGNMENT_RIGHT))
+		line.add_child(UiKit.label("%s %s" % ["✓" if enough else "✗", QKit.have_need(int(material.have), int(material.need))], UiTokens.FS_BODY, UiTokens.SUCCESS if enough else UiTokens.DANGER, HORIZONTAL_ALIGNMENT_RIGHT))
 	var ready := bool(node.get("ready", false))
 	var go := UiKit.button("突破", MainTheme.VAR_PRIMARY)
 	go.disabled = not ready

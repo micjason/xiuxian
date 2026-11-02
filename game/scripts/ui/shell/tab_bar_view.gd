@@ -238,6 +238,14 @@ func center_sub_text() -> String:
 	return _center_sub.text if _center_sub != null else ""
 
 
+## 首领战 / 结算时藏起凸出的突破圆钮，避免挡战报与结算按钮（FINDINGS #24）。
+func set_center_visible(on: bool) -> void:
+	if _center != null:
+		_center.visible = on
+	if _center_sub != null:
+		_center_sub.visible = on
+
+
 ## 点页签：即使已在这个页签也发信号（修炼页签下的功法、历练页签下的首领战要靠它回到主页）。
 func _on_pressed(id: String) -> void:
 	select(id, false)

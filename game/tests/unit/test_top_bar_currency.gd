@@ -1,6 +1,6 @@
 extends GutTest
 ## 顶栏货币：灵石是真实货币（服务器 state.spiritStones，玩家表 spirit_stones），显示真实余额；
-## 葫芦（血瓶）还没有这个货币 → 图标 + 「--」；state 里没有灵石字段时也显示「--」，不编数字。
+## 葫芦（血瓶）还没有这个货币 → 图标 + 「—」；state 里没有灵石字段时也显示「--」，不编数字。
 
 
 func before_each() -> void:
@@ -25,6 +25,6 @@ func test_missing_currency_shows_double_dash() -> void:
 	var bar := _bar()
 	bar.bind({"realmName": "炼气三层", "power": 950})
 	assert_eq(bar._stones.text, "--", "没有灵石字段 → --")
-	assert_eq(bar._gourd.text, "--", "葫芦（血瓶）货币还不存在 → --")
+	assert_eq(bar._gourd.text, "—", "葫芦（血瓶）货币还不存在 → —")
 	bar.bind({"realmName": "炼气三层", "power": 950, "spiritStones": 5})
-	assert_eq(bar._gourd.text, "--", "有灵石时葫芦仍是 --")
+	assert_eq(bar._gourd.text, "—", "有灵石时葫芦仍是 —")

@@ -68,11 +68,23 @@ func _init() -> void:
 
 
 func _build() -> void:
-	add_child(_build_doll())
-	add_child(_build_stats())
+	# 上半可滚：纸娃娃 / 属性 / 格子；底栏操作与 OrbRoom 固定，避免被突破圆钮挡住（FINDINGS 超屏）。
+	var scroll := ScrollContainer.new()
+	scroll.name = "BagScroll"
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	add_child(scroll)
+	var body := VBoxContainer.new()
+	body.name = "BagBody"
+	body.add_theme_constant_override("separation", 20)
+	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(body)
+	body.add_child(_build_doll())
+	body.add_child(_build_stats())
 	var filter_row := UiKit.hbox(14)
 	filter_row.name = "FilterRow"
-	add_child(filter_row)
+	body.add_child(filter_row)
 	_tabs = SegTabs.new()
 	_tabs.q_style = true
 	_tabs.add_theme_constant_override("separation", 14)
@@ -84,6 +96,7 @@ func _build() -> void:
 	filter_row.add_child(_build_capacity_pill())
 	var frame := PanelContainer.new()
 	frame.name = "GridCard"
+	frame.custom_minimum_size = Vector2(0, 520)
 	frame.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	frame.add_theme_stylebox_override("panel", QKit.cut_box("panel_cream", 22, 18))
 	var column := UiKit.vbox(10)
@@ -94,20 +107,21 @@ func _build() -> void:
 	_grid.slot_pressed.connect(_on_slot)
 	var well := PanelContainer.new()
 	well.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	well.custom_minimum_size = Vector2(0, 420)
 	well.add_theme_stylebox_override("panel", QKit.cut_box("well_bag_grid", 16, 16) if ArtLib.qui("well_bag_grid") != null else ArtLib.nine("panel_inset"))
 	well.add_child(_grid)
 	column.add_child(well)
 	_empty = UiKit.wrap_label("这个分类里还没有东西。去历练打首领，会掉落装备和材料。", UiTokens.FS_MICRO, UiTokens.TEXT_MUTED)
 	_empty.visible = false
 	column.add_child(_empty)
-	add_child(frame)
+	body.add_child(frame)
 	_hint = UiKit.wrap_label("", UiTokens.FS_MICRO, UiTokens.Q_TEAL_DARK)
 	_hint.visible = false
-	add_child(_hint)
+	body.add_child(_hint)
 	add_child(_build_capacity_row())
 	var orb_room := Control.new()
 	orb_room.name = "OrbRoom"
-	orb_room.custom_minimum_size = Vector2(0, 110)
+	orb_room.custom_minimum_size = Vector2(0, 160)
 	orb_room.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(orb_room)
 
@@ -239,7 +253,7 @@ func _build_capacity_row() -> Control:
 	_sell_button = QKit.button("一键出售", "m", 100, 36)
 	_sell_button.name = "SellAllButton"
 	_sell_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	LockedFeature.wire(_sell_button, "bag_sell")
+	LockedFeature.wire_locked(_sell_button, "bag_sell", 28)
 	row.add_child(_sell_button)
 	_wear_button = QKit.button("一键穿戴", "o", 100, 36)
 	_wear_button.name = "WearAllButton"
@@ -261,7 +275,7 @@ func _build_capacity_row() -> Control:
 
 ## 下半薄荷底板的上沿跟着属性卡（设计稿 962）。
 func sheet_anchor() -> Control:
-	return get_node_or_null("StatsCard") as Control
+	return find_child("StatsCard", true, false) as Control
 
 
 func sheet_pad() -> float:

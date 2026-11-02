@@ -517,3 +517,8 @@ static func portrait(monster_name: String, size: int, ring: Color = UiTokens.Q_M
 ## 数字千分位（12,580）。
 static func grouped(value: float) -> String:
 	return OfflineView.grouped(value)
+
+
+## 拥有/需要：避免「4965/109」读成进度条或除法（FINDINGS #35）。
+static func have_need(have: int, need: int) -> String:
+	return "拥有 %s · 需要 %s" % [grouped(float(have)), grouped(float(need))]

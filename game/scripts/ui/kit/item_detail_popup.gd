@@ -523,7 +523,7 @@ func _enhance_section(data: Dictionary) -> Control:
 			var enough := int(material.have) >= int(material.need)
 			_row_bg(section, y, LAYOUT.row_h)
 			_text_at(section, str(material.name), ArtLib.title_font(), 34, COLORS.text, 54, y, LAYOUT.row_h, HORIZONTAL_ALIGNMENT_LEFT, 400.0)
-			_text_at(section, "%s %d / %d" % ["✓" if enough else "✗", int(material.have), int(material.need)], ArtLib.title_font(), 36, COLORS.ok if enough else COLORS.bad, 840, y, LAYOUT.row_h, HORIZONTAL_ALIGNMENT_RIGHT, 300.0)
+			_text_at(section, "%s %s" % ["✓" if enough else "✗", QKit.have_need(int(material.have), int(material.need))], ArtLib.title_font(), 32, COLORS.ok if enough else COLORS.bad, 840, y, LAYOUT.row_h, HORIZONTAL_ALIGNMENT_RIGHT, 420.0)
 			y += 84.0
 		var ready := bool(pending.get("ready", false))
 		var go := _button("突 破", "o" if ready else "g", int(LAYOUT.enh_btn_h), 40)
@@ -576,7 +576,7 @@ func _enhance_section(data: Dictionary) -> Control:
 
 
 ## 第五批（SPEC_Q §17.3，稿 q_enhance_cost）：强化消耗「炼器精粹」。消耗行 = 奶白胶囊（卡内 20,80，840×112）：
-## 左精粹图标 108 +「消耗」+「炼器精粹」；右「拥有 / 需要」+「拥有数 / 需要数」（拥有数够＝绿、不够＝红）。
+## 左精粹图标 108 +「消耗」+「炼器精粹」；右「拥有 N · 需要 M」（拥有够＝绿、不够＝红）。
 ## 原来的强化经验进度条去掉。不够时按钮灰掉但能点，点了提示「炼器精粹不足，分解装备可获得」（不关详情）。
 const ESSENCE_SHORT := "炼器精粹不足，分解装备可获得"
 
@@ -596,18 +596,17 @@ func _essence_enhance(section: Control, data: Dictionary, id: String) -> Control
 	_put(row, icon, Rect2(8, 2, 108, 108))
 	_put(row, _label("消耗", ArtLib.bold_font(), 28, COLORS.muted), Rect2(124, 8, 120, 40))
 	_put(row, _label("炼器精粹", ArtLib.title_font(), 38, COLORS.text), Rect2(124, 46, 260, 56))
-	var head := _label("拥有 / 需要", ArtLib.bold_font(), 28, COLORS.muted)
+	var head := _label("消耗对照", ArtLib.bold_font(), 28, COLORS.muted)
 	head.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_put(row, head, Rect2(514, 8, 300, 40))
 	var nums := UiKit.hbox(6)
 	nums.name = "Pool"
 	nums.alignment = BoxContainer.ALIGNMENT_END
 	nums.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var have := _label(QKit.grouped(int(data.pool)), ArtLib.title_font(), 46, Color("3c9a4e") if enough else Color("d93a3f"))
+	var have := _label(QKit.have_need(int(data.pool), int(data.cost)), ArtLib.title_font(), 34, Color("3c9a4e") if enough else Color("d93a3f"))
 	have.name = "Have"
 	nums.add_child(have)
-	nums.add_child(_label("/ %s" % QKit.grouped(int(data.cost)), ArtLib.bold_font(), 34, COLORS.muted))
-	_put(row, nums, Rect2(414, 40, 400, 64))
+	_put(row, nums, Rect2(300, 40, 514, 64))
 	var one := _button("强 化", "m" if enough else "g", int(LAYOUT.enh_btn_h), 40)
 	one.name = "EnhanceOne"
 	one.pressed.connect(func() -> void: _enhance_or_short(enough, id, false))
@@ -621,7 +620,31 @@ func _essence_enhance(section: Control, data: Dictionary, id: String) -> Control
 	return section
 
 
+## 强化 / 穿戴成功后的短提示（贴在详情卡顶部，避免只靠顶栏 toast 被忽略，FINDINGS #36）。
+func flash_note(text: String, good: bool = true) -> void:
+	if text.is_empty() or _column == null:
+		return
+	var old := _column.get_node_or_null("FlashNote")
+	if old != null:
+		old.queue_free()
+	var note := QKit.outlined(text, 36, UiTokens.Q_WHITE if good else Color("ffc4c4"), UiTokens.Q_COCOA, 8, HORIZONTAL_ALIGNMENT_CENTER)
+	note.name = "FlashNote"
+	note.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	note.z_index = 20
+	_column.add_child(note)
+	note.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	note.offset_top = 8
+	note.offset_bottom = 56
+	note.modulate = Color(1, 1, 1, 0)
+	var tw := create_tween()
+	tw.tween_property(note, "modulate:a", 1.0, 0.15)
+	tw.tween_interval(1.4)
+	tw.tween_property(note, "modulate:a", 0.0, 0.25)
+	tw.tween_callback(note.queue_free)
+
+
 func _enhance_or_short(enough: bool, id: String, to_max: bool) -> void:
+
 	if enough:
 		_fire("enhance", [id, to_max])
 		return

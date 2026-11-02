@@ -39,3 +39,30 @@ static func locked_buttons(root: Node, out: Array[BaseButton] = []) -> Array[Bas
 	for child in root.get_children():
 		locked_buttons(child, out)
 	return out
+
+
+## 给暂未开放入口加小锁角标（邮箱 / 葫芦 / 丹药 / 一键出售等），点了仍走 notify。
+static func decorate(host: Control, feature: String, badge_size: int = 36) -> void:
+	if host == null:
+		return
+	host.set_meta(META, feature)
+	if host.has_node("LockedBadge"):
+		return
+	var badge := QKit.lock_icon(badge_size)
+	badge.name = "LockedBadge"
+	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	badge.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	badge.offset_left = -float(badge_size) - 4.0
+	badge.offset_right = -4.0
+	badge.offset_top = 4.0
+	badge.offset_bottom = float(badge_size) + 4.0
+	badge.z_index = 5
+	host.add_child(badge)
+
+
+## wire + decorate：按钮点了只弹「功能暂未开放」，并带锁标。
+static func wire_locked(button: BaseButton, feature: String, badge_size: int = 36) -> BaseButton:
+	wire(button, feature)
+	decorate(button, feature, badge_size)
+	return button
+

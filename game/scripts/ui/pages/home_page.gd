@@ -46,6 +46,7 @@ var _feed: Array[Dictionary] = []
 var _shown_ratio := -1.0
 var _shown_text := ""
 var _wave_card: Control
+var _last_feed_text := ""
 
 
 func _init() -> void:
@@ -61,7 +62,7 @@ func _init() -> void:
 	_build_idle_card()
 	var orb_room := Control.new()
 	orb_room.name = "OrbRoom"  # 底栏突破球凸出来的那一截
-	orb_room.custom_minimum_size = Vector2(0, 150)
+	orb_room.custom_minimum_size = Vector2(0, 180)
 	orb_room.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(orb_room)
 
@@ -137,7 +138,7 @@ func _build_side_entries() -> void:
 	alchemy.root.name = "AlchemyEntry"
 	_alchemy = alchemy.button
 	_alchemy.name = "AlchemyButton"
-	LockedFeature.wire(_alchemy, "alchemy")
+	LockedFeature.wire_locked(_alchemy, "alchemy", 40)
 	_place_side(alchemy.root, 890)
 
 
@@ -228,7 +229,7 @@ func _build_wave_card() -> void:
 	body.add_child(_wave_bar)
 	var row := UiKit.hbox(12)
 	body.add_child(row)
-	_feed_label = UiKit.label("本波打完后显示击杀与掉落", UiTokens.FS_MICRO, UiTokens.TEXT)
+	_feed_label = UiKit.label("挂机战斗中…", UiTokens.FS_MICRO, UiTokens.TEXT)
 	_feed_label.name = "FeedLine"
 	_feed_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_feed_label.clip_text = true
@@ -456,7 +457,10 @@ func _render_feed() -> void:
 		if str(line.get("kind", "")) != "drop":
 			line_text = str(line.text)
 			kind = str(line.kind)
-	_feed_label.text = line_text if not line_text.is_empty() else "本波打完后显示击杀与掉落"
+	# 有真实击杀/阵亡就记住；过期后仍显示最后一句，避免和开发占位句轮切（FINDINGS #17）。
+	if not line_text.is_empty():
+		_last_feed_text = line_text
+	_feed_label.text = line_text if not line_text.is_empty() else (_last_feed_text if not _last_feed_text.is_empty() else "挂机战斗中…")
 	_feed_label.add_theme_color_override("font_color", UiTokens.Q_RED if kind in ["warn", "death"] else UiTokens.TEXT)
 	_render_drops()
 
@@ -469,7 +473,7 @@ func _render_drops() -> void:
 		if str(line.get("kind", "")) == "drop":
 			drops.append(line)
 	if drops.is_empty():
-		_drop_row.add_child(UiKit.label("暂无", UiTokens.FS_MICRO, UiTokens.TEXT_MUTED))
+		_drop_row.add_child(UiKit.label("等待掉落", UiTokens.FS_MICRO, UiTokens.TEXT_MUTED))
 		return
 	for index in range(maxi(0, drops.size() - 2), drops.size()):
 		var line := drops[index]

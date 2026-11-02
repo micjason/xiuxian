@@ -471,7 +471,7 @@ static func _recipes(rows: Array, state: Dictionary, content: Dictionary, factor
 static func _cost_line(costs: Array[Dictionary], spirit_stones: int) -> String:
 	var parts: PackedStringArray = []
 	for cost in costs:
-		parts.append("%s %d/%d" % [str(cost.get("name", "")), int(cost.get("have", 0)), int(cost.get("need", 0))])
+		parts.append("%s %s" % [str(cost.get("name", "")), "拥有 %d · 需要 %d" % [int(cost.get("have", 0)), int(cost.get("need", 0))]])
 	if spirit_stones > 0:
 		parts.append("灵石 ×%d" % spirit_stones)
 	return "、".join(parts)

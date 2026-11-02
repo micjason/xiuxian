@@ -16,6 +16,8 @@ signal back_requested
 signal retry_requested(stage_slug: String)
 ## 点了「撤退」。running=true 时由外面弹确认（撤退将视为挑战失败），确认后调 abort()。
 signal retreat_requested(running: bool)
+## 失败结算「去变强」：外壳跳到背包强化。
+signal powerup_requested
 
 enum Phase { READY, RUNNING, SUBMITTING, RESULT }
 
@@ -29,7 +31,7 @@ const TIER_CHIEF := 2
 const HERO_POSE_HOOK := "player_fight"
 const HERO_SIZE := 390.0
 ## 外壳底栏中间按钮上凸的高度（战斗页保留外壳底栏，见第四批改动说明）。
-const TAB_OVERHANG := 64.0
+const TAB_OVERHANG := 96.0
 ## 主角整体抬高（负责人：脚要完整露出、踩在地面上，40–90px）：战斗区下沿被下方面板的圆角 / 阴影压住一截，
 ## 立绘脚底在图内 y≈600/635（SPEC_Q §17.8），抬 60px 后脚底离战斗区下沿约 80px。
 const HERO_RAISE := 60.0
@@ -83,8 +85,10 @@ var _speed_button: TextureButton
 var _speed_fallback: Label
 var _start_button: Button
 var _result_panel: PanelContainer
+var _result_dim: ColorRect
 var _controls: Control
 var _result_body: VBoxContainer
+var _frozen_time := ""
 var _report_lines := 0
 var _last_time_text := ""
 ## 大招已经结算、但剑扇还没打到首领的伤害：血条先不扣，等特效 ult_landed 再扣（血条和剑同步）
@@ -97,6 +101,15 @@ func _init() -> void:
 	add_child(_build_top_row())
 	add_child(_build_boss_hud())
 	_build_arena()
+	_result_dim = ColorRect.new()
+	_result_dim.name = "ResultDim"
+	_result_dim.color = Color(0, 0, 0, 0.55)
+	_result_dim.visible = false
+	_result_dim.mouse_filter = Control.MOUSE_FILTER_STOP
+	_result_dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_result_dim.z_index = 8
+	add_child(_result_dim)
+	_result_panel.z_index = 9
 	add_child(_result_panel)
 	_controls = _build_player_hud()
 	add_child(_controls)
@@ -429,6 +442,9 @@ func open_stage(state: Dictionary, content: Dictionary, stage: Dictionary, gate:
 	UiKit.clear(_feed)
 	_clear_floats()
 	_result_panel.visible = false
+	if _result_dim != null:
+		_result_dim.visible = false
+	_frozen_time = ""
 	_arena.visible = true
 	_controls.visible = true
 	_start_button.visible = true
@@ -628,6 +644,7 @@ func _advance(seconds: float) -> void:
 	_refresh_time()
 	if fight.finished:
 		phase = Phase.SUBMITTING
+		_freeze_hud()
 		_append_feed("end", "战斗结束，正在结算……")
 		_fx.play_result(fight.win, fight.reason)
 		submit_requested.emit(stage_slug)
@@ -849,6 +866,21 @@ func _clear_floats() -> void:
 	_float_count = {"boss": 0, "hero": 0}
 
 
+## 进入结算：冻住倒计时与血条显示，背后战斗不再推进（FINDINGS #7）。
+func _freeze_hud() -> void:
+	if fight == null:
+		return
+	_frozen_time = _timer_text.text if _timer_text != null else ""
+	_refresh_bars(false)
+	_refresh_time()
+	if _timer_text != null and not _frozen_time.is_empty():
+		_timer_text.text = _frozen_time
+
+
+func is_settling() -> bool:
+	return phase == Phase.SUBMITTING or phase == Phase.RESULT
+
+
 ## 提交失败（网络/服务器拒绝）：回到就绪，让玩家可以重来。
 func show_submit_error(message: String) -> void:
 	phase = Phase.READY
@@ -899,7 +931,13 @@ func show_result(result: Dictionary, name_of: Callable) -> void:
 	back.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	back.pressed.connect(func() -> void: back_requested.emit())
 	buttons.add_child(back)
-	var again := UiKit.button("再来一次", MainTheme.VAR_PRIMARY, UiTokens.H_CTA)
+	if not bool(view.win):
+		var powerup := UiKit.button("去变强", MainTheme.VAR_PRIMARY, UiTokens.H_CTA)
+		powerup.name = "PowerupButton"
+		powerup.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		powerup.pressed.connect(func() -> void: powerup_requested.emit())
+		buttons.add_child(powerup)
+	var again := UiKit.button("再来一次", MainTheme.VAR_PRIMARY if bool(view.win) else MainTheme.VAR_SECONDARY, UiTokens.H_CTA)
 	again.name = "RetryButton"
 	again.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	again.pressed.connect(func() -> void: retry_requested.emit(stage_slug))
@@ -910,6 +948,9 @@ func show_result(result: Dictionary, name_of: Callable) -> void:
 		await _fx.result_finished
 		if phase != Phase.RESULT:
 			return
+	_freeze_hud()
+	if _result_dim != null:
+		_result_dim.visible = true
 	_result_panel.visible = true
 	_arena.visible = false
 	_controls.visible = false

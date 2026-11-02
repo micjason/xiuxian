@@ -269,6 +269,7 @@ func _build_shell() -> void:
 	_battle_page.back_requested.connect(func() -> void: _show_page(PAGE_ADVENTURE))
 	_battle_page.retry_requested.connect(_open_battle)
 	_battle_page.retreat_requested.connect(_on_battle_retreat)
+	_battle_page.powerup_requested.connect(_on_battle_powerup)
 	_breakthrough_page = BreakthroughPage.new()
 	_breakthrough_page.start_requested.connect(_on_breakthrough)
 	_breakthrough_page.close_requested.connect(_close_breakthrough)
@@ -432,6 +433,7 @@ func _show_page(page: String) -> void:
 		if key != PAGE_BREAKTHROUGH:
 			(_pages[key] as Control).visible = key == page
 	_tab_bar.select(str(TAB_OF.get(page, page)))
+	_tab_bar.set_center_visible(page != PAGE_BATTLE)
 	_backdrop.show_background(_page_background(page))
 	_top_bar.set_cultivation_visible(page in PAGES_WITH_CULTIVATION)
 	_apply_layout()
@@ -753,7 +755,11 @@ func _select_stage(slug: String) -> void:
 func _maybe_show_offline() -> void:
 	if _defer_offline_for_update or _update_gate_pending or _update_prompt_showing:
 		return
+	if _break_open or (_success_popup != null and _success_popup.visible):
+		return
 	if _popup != null and _popup.visible:
+		return
+	if _page == PAGE_BATTLE and _battle_page != null and _battle_page.is_settling():
 		return
 	var report: Variant = _state.get("offlineReport", null)
 	if typeof(report) != TYPE_DICTIONARY or (report as Dictionary).is_empty():
@@ -868,6 +874,11 @@ func _open_battle(slug: String) -> void:
 
 
 ## 首领战「撤退」：没开打直接回历练页；打到一半先确认（撤退将视为挑战失败），本地预演作废、不提交。
+func _on_battle_powerup() -> void:
+	_show_page(PAGE_BAG)
+	_toast.say_neutral("去强化装备或突破境界，提升战力后再挑战")
+
+
 func _on_battle_retreat(running: bool) -> void:
 	if not running:
 		_show_page(PAGE_ADVENTURE)
@@ -914,6 +925,12 @@ func _on_center_pressed() -> void:
 
 
 func _open_breakthrough() -> void:
+	# 突破与离线/更新互斥：先收起离线（未 ack），避免叠盖（FINDINGS 弹窗互不遮挡）。
+	if _offline_popup != null and _offline_popup.visible:
+		_offline_popup.visible = false
+	if _update_prompt_showing:
+		_toast.say("请先处理版本更新", false)
+		return
 	if not _break_open:
 		_page_before_break = _page
 	_break_open = true
@@ -934,7 +951,9 @@ func _close_breakthrough() -> void:
 	_breakthrough_page.pop_out(func() -> void:
 		if gen == _break_gen and not _break_open:
 			_break_layer.visible = false
-			_breakthrough_page.visible = false)
+			_breakthrough_page.visible = false
+			_maybe_show_offline.call_deferred()
+			_maybe_show_notice.call_deferred())
 
 
 func breakthrough_open() -> bool:
@@ -1172,9 +1191,11 @@ func _enhance(item_id: String, to_max: bool) -> void:
 		message += "。已到突破节点 +%d，需要先突破" % int(done.get("blockedByBreakthrough", 0))
 	_toast.say(message)
 	_apply_action_state(result)
-	# 回到这件装备的详情，方便连续强化。
+	# 回到这件装备的详情，方便连续强化；卡上再闪一句，避免只改数字无反馈（FINDINGS #36）。
 	if _page == PAGE_BAG:
 		_bag_page.show_detail(item_id)
+	if _item_popup != null and _item_popup.visible:
+		_item_popup.flash_note(message, true)
 
 
 ## 突破：交齐节点材料（服务器从行囊扣），不会失败；材料不够时服务器会写明差多少。

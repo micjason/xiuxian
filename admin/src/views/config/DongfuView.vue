@@ -565,6 +565,21 @@ type ItemRow = { id: string; displayName: string };
 
 const SLUG = /^[a-z][a-z0-9_]*$/;
 
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value != null && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+function numField(obj: Record<string, unknown> | null | undefined, key: string): number | undefined {
+  const value = obj?.[key];
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+function strField(obj: Record<string, unknown> | null | undefined, key: string): string | undefined {
+  const value = obj?.[key];
+  return typeof value === "string" ? value : undefined;
+}
+
 function emptySeed(): Seed {
   return {
     seedSlug: "",
@@ -669,6 +684,13 @@ function emptyForm(): Form {
 
 function normalize(raw: Partial<Form> | null | undefined): Form {
   if (!raw) return emptyForm();
+  const puppet = asRecord(raw.puppet);
+  const forge = asRecord(raw.forge);
+  const lines = asRecord(puppet?.lines);
+  const meatLine = asRecord(lines?.meat);
+  const woodLine = asRecord(lines?.wood);
+  const herbLine = asRecord(lines?.herb);
+  const stoneLine = asRecord(lines?.stone);
   return {
     plotCount: raw.plotCount ?? null,
     alchemyQueueLength: raw.alchemyQueueLength ?? null,
@@ -739,21 +761,21 @@ function normalize(raw: Partial<Form> | null | undefined): Form {
       trialMaxSlots: row.trialMaxSlots ?? null,
       usageTag: row.usageTag ?? "",
     })),
-    puppetStartCount: (raw as any).puppet?.startCount ?? (raw as any).puppetStartCount ?? 8,
-    puppetMaxCount: (raw as any).puppet?.maxCount ?? (raw as any).puppetMaxCount ?? 30,
-    puppetHireCostMeat: (raw as any).puppet?.hireCostMeat ?? (raw as any).puppetHireCostMeat ?? 50,
-    puppetStorageUpgradeMult: (raw as any).puppet?.storageUpgradeMult ?? (raw as any).puppetStorageUpgradeMult ?? 1.45,
-    puppetUpgradeCostHours: (raw as any).puppet?.upgradeCostHoursOfProd ?? (raw as any).puppetUpgradeCostHours ?? 2.5,
-    meatProdPerWorker: (raw as any).puppet?.lines?.meat?.prodPerWorker ?? (raw as any).meatProdPerWorker ?? 2.5,
-    woodEatMeat: (raw as any).puppet?.lines?.wood?.eatMeatPerWorker ?? (raw as any).woodEatMeat ?? 2,
-    herbEatMeat: (raw as any).puppet?.lines?.herb?.eatMeatPerWorker ?? (raw as any).herbEatMeat ?? 4,
-    stoneEatMeat: (raw as any).puppet?.lines?.stone?.eatMeatPerWorker ?? (raw as any).stoneEatMeat ?? 4,
-    gardenSeedReturnChance: (raw as any).gardenSeedReturnChance ?? 0.4,
-    alchemyRepeatSeconds: (raw as any).alchemyRepeatSeconds ?? 120,
-    forgeBaseOrangeChance: (raw as any).forge?.baseOrangeChance ?? (raw as any).forgeBaseOrangeChance ?? 0.005,
-    forgeOrangeChanceCap: (raw as any).forge?.orangeChanceCap ?? (raw as any).forgeOrangeChanceCap ?? 0.08,
-    puppet: (raw as any).puppet ?? null,
-    forge: (raw as any).forge ?? null,
+    puppetStartCount: numField(puppet, "startCount") ?? raw.puppetStartCount ?? 8,
+    puppetMaxCount: numField(puppet, "maxCount") ?? raw.puppetMaxCount ?? 30,
+    puppetHireCostMeat: numField(puppet, "hireCostMeat") ?? raw.puppetHireCostMeat ?? 50,
+    puppetStorageUpgradeMult: numField(puppet, "storageUpgradeMult") ?? raw.puppetStorageUpgradeMult ?? 1.45,
+    puppetUpgradeCostHours: numField(puppet, "upgradeCostHoursOfProd") ?? raw.puppetUpgradeCostHours ?? 2.5,
+    meatProdPerWorker: numField(meatLine, "prodPerWorker") ?? raw.meatProdPerWorker ?? 2.5,
+    woodEatMeat: numField(woodLine, "eatMeatPerWorker") ?? raw.woodEatMeat ?? 2,
+    herbEatMeat: numField(herbLine, "eatMeatPerWorker") ?? raw.herbEatMeat ?? 4,
+    stoneEatMeat: numField(stoneLine, "eatMeatPerWorker") ?? raw.stoneEatMeat ?? 4,
+    gardenSeedReturnChance: raw.gardenSeedReturnChance ?? 0.4,
+    alchemyRepeatSeconds: raw.alchemyRepeatSeconds ?? 120,
+    forgeBaseOrangeChance: numField(forge, "baseOrangeChance") ?? raw.forgeBaseOrangeChance ?? 0.005,
+    forgeOrangeChanceCap: numField(forge, "orangeChanceCap") ?? raw.forgeOrangeChanceCap ?? 0.08,
+    puppet,
+    forge,
   };
 }
 
@@ -845,52 +867,63 @@ function payload(form: Form): Record<string, unknown> {
     }),
     gardenSeedReturnChance: form.gardenSeedReturnChance,
     alchemyRepeatSeconds: form.alchemyRepeatSeconds,
-    puppet: {
-      ...(form.puppet || {}),
-      startCount: form.puppetStartCount,
-      maxCount: form.puppetMaxCount,
-      hireCostMeat: form.puppetHireCostMeat,
-      storageUpgradeMult: form.puppetStorageUpgradeMult,
-      upgradeCostHoursOfProd: form.puppetUpgradeCostHours,
-      defaultAssign: (form.puppet as any)?.defaultAssign ?? { meat: 6, wood: 2, herb: 0, stone: 0 },
-      lines: {
-        meat: {
-          ...(((form.puppet as any)?.lines?.meat) || {}),
-          prodPerWorker: form.meatProdPerWorker,
-          eatMeatPerWorker: 0,
-          storageBase: ((form.puppet as any)?.lines?.meat?.storageBase) ?? 500,
-          bagItemSlug: ((form.puppet as any)?.lines?.meat?.bagItemSlug) ?? "puppet_meat",
+    puppet: (() => {
+      const puppet = asRecord(form.puppet) ?? {};
+      const lines = asRecord(puppet.lines) ?? {};
+      const meat = asRecord(lines.meat) ?? {};
+      const wood = asRecord(lines.wood) ?? {};
+      const herb = asRecord(lines.herb) ?? {};
+      const stone = asRecord(lines.stone) ?? {};
+      return {
+        ...puppet,
+        startCount: form.puppetStartCount,
+        maxCount: form.puppetMaxCount,
+        hireCostMeat: form.puppetHireCostMeat,
+        storageUpgradeMult: form.puppetStorageUpgradeMult,
+        upgradeCostHoursOfProd: form.puppetUpgradeCostHours,
+        defaultAssign: asRecord(puppet.defaultAssign) ?? { meat: 6, wood: 2, herb: 0, stone: 0 },
+        lines: {
+          meat: {
+            ...meat,
+            prodPerWorker: form.meatProdPerWorker,
+            eatMeatPerWorker: 0,
+            storageBase: numField(meat, "storageBase") ?? 500,
+            bagItemSlug: strField(meat, "bagItemSlug") ?? "puppet_meat",
+          },
+          wood: {
+            ...wood,
+            prodPerWorker: numField(wood, "prodPerWorker") ?? 1.0,
+            eatMeatPerWorker: form.woodEatMeat,
+            storageBase: numField(wood, "storageBase") ?? 300,
+            bagItemSlug: strField(wood, "bagItemSlug") ?? "wood_lingmu",
+          },
+          herb: {
+            ...herb,
+            prodPerWorker: numField(herb, "prodPerWorker") ?? 0.8,
+            eatMeatPerWorker: form.herbEatMeat,
+            storageBase: numField(herb, "storageBase") ?? 200,
+            bagItemSlug: strField(herb, "bagItemSlug") ?? "herb_lingcao",
+          },
+          stone: {
+            ...stone,
+            prodPerWorker: numField(stone, "prodPerWorker") ?? 0.8,
+            eatMeatPerWorker: form.stoneEatMeat,
+            storageBase: numField(stone, "storageBase") ?? 200,
+            bagItemSlug: strField(stone, "bagItemSlug") ?? "puppet_stone",
+          },
         },
-        wood: {
-          ...(((form.puppet as any)?.lines?.wood) || {}),
-          prodPerWorker: ((form.puppet as any)?.lines?.wood?.prodPerWorker) ?? 1.0,
-          eatMeatPerWorker: form.woodEatMeat,
-          storageBase: ((form.puppet as any)?.lines?.wood?.storageBase) ?? 300,
-          bagItemSlug: ((form.puppet as any)?.lines?.wood?.bagItemSlug) ?? "wood_lingmu",
-        },
-        herb: {
-          ...(((form.puppet as any)?.lines?.herb) || {}),
-          prodPerWorker: ((form.puppet as any)?.lines?.herb?.prodPerWorker) ?? 0.8,
-          eatMeatPerWorker: form.herbEatMeat,
-          storageBase: ((form.puppet as any)?.lines?.herb?.storageBase) ?? 200,
-          bagItemSlug: ((form.puppet as any)?.lines?.herb?.bagItemSlug) ?? "herb_lingcao",
-        },
-        stone: {
-          ...(((form.puppet as any)?.lines?.stone) || {}),
-          prodPerWorker: ((form.puppet as any)?.lines?.stone?.prodPerWorker) ?? 0.8,
-          eatMeatPerWorker: form.stoneEatMeat,
-          storageBase: ((form.puppet as any)?.lines?.stone?.storageBase) ?? 200,
-          bagItemSlug: ((form.puppet as any)?.lines?.stone?.bagItemSlug) ?? "puppet_stone",
-        },
-      },
-    },
-    forge: {
-      ...(form.forge || {}),
-      baseOrangeChance: form.forgeBaseOrangeChance,
-      orangeChanceCap: form.forgeOrangeChanceCap,
-      craftSecondsDefault: (form.forge as any)?.craftSecondsDefault ?? 180,
-      blueprints: (form.forge as any)?.blueprints,
-    },
+      };
+    })(),
+    forge: (() => {
+      const forge = asRecord(form.forge) ?? {};
+      return {
+        ...forge,
+        baseOrangeChance: form.forgeBaseOrangeChance,
+        orangeChanceCap: form.forgeOrangeChanceCap,
+        craftSecondsDefault: numField(forge, "craftSecondsDefault") ?? 180,
+        blueprints: forge.blueprints,
+      };
+    })(),
   };
 }
 

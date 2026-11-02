@@ -1,5 +1,5 @@
 /**
- * 洞府傀儡产线：肉底座 + 木/草/石；仓满不进账；肉空其它停产；离线按 settledAt 结算。
+ * 洞府傀儡产线：肉=口粮存量；木/草/石=洞府自用池（满停进、不进背包、无收取）；肉空其它停产；离线按 settledAt 结算。
  * 公式写死在此；后台只改 config.puppet 数字。
  */
 import type { DongfuPuppetConfig, DongfuPuppetLineId } from "./config.js";
@@ -107,7 +107,7 @@ export function normalizePuppetProgress(
   return { settledAt, lines };
 }
 
-/** 按小时结算；肉先产再被吃；肉空则非肉线本段产量为 0；仓满截断。 */
+/** 按小时结算；肉先产再被吃；肉空则非肉线本段产量为 0；自用池满则截断停进。 */
 export function settlePuppetLines(
   state: PuppetProgressState,
   config: DongfuPuppetConfig,

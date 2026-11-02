@@ -1145,7 +1145,7 @@ export async function assignPuppetLines(
   return { dongfu: await readDongfuState(tx, world, playerId, now) };
 }
 
-/** 产线升级扩仓：扣本线仓库存量。 */
+/** 产线升级：扣本线自用存量（肉为口粮存量）。 */
 export async function upgradePuppetLine(
   tx: Tx,
   world: World,
@@ -1162,7 +1162,7 @@ export async function upgradePuppetLine(
   const state = pack.puppetState;
   const cost = upgradeCostOf(config.puppet, line, state.lines[line].level);
   if (state.lines[line].stored + 1e-9 < cost) {
-    throw new AppError("MATERIAL_SHORT", "仓库资源不足，无法升级");
+    throw new AppError("MATERIAL_SHORT", "存量不足，无法升级");
   }
   const nextLines = {
     meat: { ...state.lines.meat },
@@ -1210,51 +1210,15 @@ export async function hirePuppet(tx: Tx, world: World, playerId: string, now: Da
   return { dongfu: await readDongfuState(tx, world, playerId, now) };
 }
 
-/** 从产线仓库收取到背包。 */
+/** @deprecated 木草石为洞府自用池、肉为口粮，均不可取出；对外路由已 GONE。 */
 export async function withdrawPuppetStore(
-  tx: Tx,
-  world: World,
-  playerId: string,
-  input: { line: DongfuPuppetLineId; amount?: number },
-  now: Date,
+  _tx: Tx,
+  _world: World,
+  _playerId: string,
+  _input: { line: DongfuPuppetLineId; amount?: number },
+  _now: Date,
 ) {
-  const line = input.line;
-  if (!PUPPET_LINES.includes(line)) {
-    throw new AppError("INVALID_INPUT", "未知产线");
-  }
-  const config = dongfuOf(world);
-  const bagSlug = config.puppet.lines[line].bagItemSlug;
-  if (!bagSlug) {
-    throw new AppError("INVALID_INPUT", "该产线不可收取到行囊");
-  }
-  const progress = await ensureProgress(tx, config, playerId, now);
-  const pack = await loadAndSettlePuppet(tx, config, progress, playerId, now);
-  const state = pack.puppetState;
-  const have = Math.floor(state.lines[line].stored);
-  if (have <= 0) {
-    throw new AppError("INVALID_INPUT", "仓库为空");
-  }
-  const amount = input.amount === undefined ? have : Math.floor(input.amount);
-  if (!Number.isInteger(amount) || amount <= 0 || amount > have) {
-    throw new AppError("INVALID_INPUT", "收取数量不正确");
-  }
-  await assertCanAcceptStacks(tx, world, playerId, [bagSlug]);
-  const nextLines = {
-    meat: { ...state.lines.meat },
-    wood: { ...state.lines.wood },
-    herb: { ...state.lines.herb },
-    stone: { ...state.lines.stone },
-  };
-  nextLines[line] = { ...nextLines[line], stored: nextLines[line].stored - amount };
-  await tx
-    .update(playerDongfu)
-    .set({ puppetState: { settledAt: state.settledAt, lines: nextLines } })
-    .where(eq(playerDongfu.playerId, playerId));
-  await addStack(tx, playerId, bagSlug, amount, "dongfu_puppet_withdraw", now);
-  return {
-    dongfu: await readDongfuState(tx, world, playerId, now),
-    gained: [{ itemSlug: bagSlug, quantity: amount }],
-  };
+  throw new AppError("DISABLED", "该操作已关闭");
 }
 
 /** 开炼：扣材料入队。 */

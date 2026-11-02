@@ -102,6 +102,7 @@ var _enhance_selected_id := ""
 var _array_rots: Dictionary = {}
 var _array_spin_count := 0
 var _alchemy_slots: Array = []  # [{itemSlug,count}]
+var _alchemy_recipe_y0 := 1630.0
 var _alchemy_last_recipe := ""
 var _forge_blueprint := ""
 var _forge_picked: Array = []  # material slugs tapped into craft zone
@@ -878,52 +879,71 @@ func _render_alchemy() -> void:
 		var job: Dictionary = jobs[i] if i < jobs.size() and typeof(jobs[i]) == TYPE_DICTIONARY else {}
 		_render_alchemy_tray(i, rect, job, i >= queue_len)
 
+	# 分层：材料槽 → 试炼/复炼/清空 → 开始炼制 → 材料条；整体落在安全区内可滚。
+	_render_alchemy_slots_and_bar()
 	var recipes: Array = _view.get("recipes", [])
 	var craftable: Array = []
 	for r in recipes:
 		if typeof(r) == TYPE_DICTIONARY and not bool((r as Dictionary).get("locked", false)):
 			craftable.append(r)
 	var queue_full := jobs.size() >= queue_len
-	for i in range(mini(2, HS_RECIPE_CTAS.size())):
-		var recipe: Dictionary = craftable[i] if i < craftable.size() and typeof(craftable[i]) == TYPE_DICTIONARY else {}
+	for i in range(mini(2, craftable.size())):
+		var recipe: Dictionary = craftable[i] if typeof(craftable[i]) == TYPE_DICTIONARY else {}
 		_render_recipe_cta(i, recipe, queue_full)
-	_render_alchemy_slots_and_bar()
-
-
 
 
 func _render_alchemy_slots_and_bar() -> void:
-	## 三槽 + 试炼/复炼/清空；下方本页材料条点入槽，不弹背包。
+	## 三槽 + 试炼/复炼/清空；下方本页材料条点入槽，不弹背包。Y 分层，勿与配方行叠字。
 	if _alchemy_slots.size() < 3:
 		_alchemy_slots = [{}, {}, {}]
 	var trial: Dictionary = _view.get("trial", {}) if typeof(_view.get("trial", {})) == TYPE_DICTIONARY else {}
 	var left := int(trial.get("left", 0))
-	_chip("材料槽（点下方放入）· 试炼剩%d" % left, Rect2(48, 1360, 700, 56), "SlotHint")
-	var slot_rects := [Rect2(48, 1430, 300, 100), Rect2(390, 1430, 300, 100), Rect2(732, 1430, 300, 100)]
+	# 托盘底约 1310；本区从 1340 起分层，底不超过 SAFE_BOTTOM。
+	var y_hint := 1340.0
+	var y_slots := 1404.0
+	var y_ops := 1520.0
+	var y_recipe0 := 1630.0
+	var y_mat_title := 1860.0
+	var y_mat := 1920.0
+	if y_mat + 160.0 > SAFE_BOTTOM - 8.0:
+		var overflow := (y_mat + 160.0) - (SAFE_BOTTOM - 8.0)
+		y_hint -= overflow
+		y_slots -= overflow
+		y_ops -= overflow
+		y_recipe0 -= overflow
+		y_mat_title -= overflow
+		y_mat -= overflow
+	_alchemy_recipe_y0 = y_recipe0
+	_chip("材料槽（点下方放入）· 试炼剩%d" % left, Rect2(48, y_hint, 700, 56), "SlotHint")
+	var slot_rects := [
+		Rect2(48, y_slots, 300, 96),
+		Rect2(390, y_slots, 300, 96),
+		Rect2(732, y_slots, 300, 96),
+	]
 	for i in range(3):
 		var cell: Dictionary = _alchemy_slots[i] if typeof(_alchemy_slots[i]) == TYPE_DICTIONARY else {}
 		var slug := str(cell.get("itemSlug", ""))
 		var label := "空槽"
 		if not slug.is_empty():
 			label = "%s×%d" % [slug, int(cell.get("count", 1))]
-			# 尽量用中文名
 			for mat in _view.get("alchemyMaterials", []):
 				if typeof(mat) == TYPE_DICTIONARY and str((mat as Dictionary).get("itemSlug", "")) == slug:
 					label = "%s×%d" % [str((mat as Dictionary).get("name", slug)), int(cell.get("count", 1))]
 					break
 		_hotspot("AlchemySlot_%d" % i, slot_rects[i], func() -> void: pass, label, "ghost")
-	_hotspot("AlchemyTrial", Rect2(48, 1550, 300, 88), func() -> void: _alchemy_trial_emit(), "试炼", "o")
-	_hotspot("AlchemyRepeat", Rect2(390, 1550, 300, 88), func() -> void: _alchemy_repeat_emit(), "一键复炼", "o")
-	_hotspot("AlchemyClear", Rect2(732, 1550, 300, 88), func() -> void: _alchemy_clear_slots(), "清空槽", "ghost")
-	_chip("当前能用材料", Rect2(48, 1650, 500, 48), "MatBarTitle")
+	_hotspot("AlchemyTrial", Rect2(48, y_ops, 300, 88), func() -> void: _alchemy_trial_emit(), "试炼", "o")
+	_hotspot("AlchemyRepeat", Rect2(390, y_ops, 300, 88), func() -> void: _alchemy_repeat_emit(), "一键复炼", "o")
+	_hotspot("AlchemyClear", Rect2(732, y_ops, 300, 88), func() -> void: _alchemy_clear_slots(), "清空", "ghost")
+	_chip("当前能用材料", Rect2(48, y_mat_title, 500, 48), "MatBarTitle")
 	var mats: Array = _view.get("alchemyMaterials", [])
 	for i in range(HS_MAT_BAR.size()):
 		var rect: Rect2 = HS_MAT_BAR[i]
-		rect.position.y = 1710
+		rect.position.y = y_mat
+		rect.size.y = mini(rect.size.y, SAFE_BOTTOM - y_mat - 8.0)
 		var mat: Dictionary = mats[i] if i < mats.size() and typeof(mats[i]) == TYPE_DICTIONARY else {}
 		var label := "—"
 		if not mat.is_empty():
-			label = "%s\n×%d" % [str(mat.get("name", "")), int(mat.get("have", 0))]
+			label = "%s ×%d" % [str(mat.get("name", "")), int(mat.get("have", 0))]
 		var btn := _hotspot("AlchemyMat_%d" % i, rect, func() -> void: _alchemy_put_material(mat), label, "ghost")
 		btn.disabled = mat.is_empty() or int(mat.get("have", 0)) <= 0
 
@@ -1003,10 +1023,12 @@ func _render_recipe_cta(index: int, recipe: Dictionary, queue_full: bool) -> voi
 		return
 	var can := bool(recipe.get("canCraft", false)) and not queue_full
 	var label := "开始炼制" if index == 0 and can else ("入队" if can else ("不足" if not bool(recipe.get("canCraft", false)) else "队列满"))
-	# 配方行说明（v3 石台 SY=1400：1472/1620/1768）
-	var row: Rect2 = HS_RECIPE_ROWS[index] if index < HS_RECIPE_ROWS.size() else Rect2(48, 1472 + index * 148, 984, 134)
-	_chip("%s · %s" % [str(recipe.get("title", "")), str(recipe.get("costLine", ""))], Rect2(row.position.x, row.position.y + 20, 700, 72), "Recipe_%s" % str(recipe.get("recipeSlug", index)))
-	var cta := _hotspot("RecipeCta_%d" % index, HS_RECIPE_CTAS[index], func() -> void:
+	# 叠在材料槽/操作钮下方，勿再用旧石台 HS_RECIPE_*（会与槽位叠字）。
+	var row_y := _alchemy_recipe_y0 + index * 110.0
+	var row := Rect2(48, row_y, 984, 100)
+	var cta_rect := Rect2(780, row_y + 14, 220, 72)
+	_chip("%s · %s" % [str(recipe.get("title", "")), str(recipe.get("costLine", ""))], Rect2(row.position.x, row.position.y + 14, 700, 72), "Recipe_%s" % str(recipe.get("recipeSlug", index)))
+	var cta := _hotspot("RecipeCta_%d" % index, cta_rect, func() -> void:
 		if not can:
 			action_requested.emit("toast", {"text": "材料不足" if not bool(recipe.get("canCraft", false)) else "炼丹队列已满"})
 			return
@@ -1437,18 +1459,18 @@ func _render_puppet() -> void:
 		if stop == "meat_empty":
 			stop_txt = " ·肉空停"
 		elif stop == "storage_full":
-			stop_txt = " ·仓满"
-		var info := "%s Lv%d  仓%.0f/%.0f  净产%+.1f/时%s  仆%d" % [title, int(row.get("level", 1)), stored, cap, net, stop_txt, workers]
+			stop_txt = " ·已满停"
+		# 肉=口粮存量；木草石=洞府自用池（不进背包、无收取）。
+		var pool_label := "肉量" if id == "meat" else "自用"
+		var info := "%s Lv%d  %s%.0f/%.0f  净产%+.1f/时%s  仆%d" % [title, int(row.get("level", 1)), pool_label, stored, cap, net, stop_txt, workers]
 		_chip(info, Rect2(48, y, 700, 72), "LineInfo_%s" % id)
 		var minus := _hotspot("PuppetMinus_%s" % id, Rect2(760, y, 100, 72), func() -> void: _puppet_shift(id, -1), "−", "ghost")
 		minus.disabled = workers <= 0
 		var plus := _hotspot("PuppetPlus_%s" % id, Rect2(880, y, 100, 72), func() -> void: _puppet_shift(id, 1), "+", "o")
 		plus.disabled = idle <= 0
 		y += 88.0
-		var up := _hotspot("PuppetUp_%s" % id, Rect2(48, y, 300, 72), func() -> void: action_requested.emit("puppet_upgrade", {"line": id}), "升级扩仓", "o")
+		var up := _hotspot("PuppetUp_%s" % id, Rect2(48, y, 300, 72), func() -> void: action_requested.emit("puppet_upgrade", {"line": id}), "升级", "o")
 		up.disabled = not bool(row.get("canUpgrade", false))
-		var wd := _hotspot("PuppetWd_%s" % id, Rect2(380, y, 300, 72), func() -> void: action_requested.emit("puppet_withdraw", {"line": id}), "收取入囊", "ghost")
-		wd.disabled = stored < 1.0
 		y += 96.0
 
 

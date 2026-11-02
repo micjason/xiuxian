@@ -104,7 +104,7 @@ export type DongfuPuppetLineConfig = {
   /** 每傀儡每小时吃肉；养肉线为 0 */
   eatMeatPerWorker: number;
   storageBase: number;
-  /** 收取到背包的物品；肉可空（仅仓内）。 */
+  /** 历史字段；现木草石为洞府自用池、肉为口粮，均不经此取出。 */
   bagItemSlug: string | null;
 };
 

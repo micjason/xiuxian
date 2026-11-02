@@ -1459,10 +1459,9 @@ func _render_puppet() -> void:
 		if stop == "meat_empty":
 			stop_txt = " ·肉空停"
 		elif stop == "storage_full":
-			stop_txt = " ·已满停"
-		# 肉=口粮存量；木草石=洞府自用池（不进背包、无收取）。
-		var pool_label := "肉量" if id == "meat" else "自用"
-		var info := "%s Lv%d  %s%.0f/%.0f  净产%+.1f/时%s  仆%d" % [title, int(row.get("level", 1)), pool_label, stored, cap, net, stop_txt, workers]
+			stop_txt = " ·仓库已满，产出减少"
+		# 各产线自有仓库：产出进仓库；满则减产；升级吃本线存量；不进背包、无收取。
+		var info := "%s Lv%d  存量%.0f/%.0f  产出%+.1f/时%s  仆%d" % [title, int(row.get("level", 1)), stored, cap, net, stop_txt, workers]
 		_chip(info, Rect2(48, y, 700, 72), "LineInfo_%s" % id)
 		var minus := _hotspot("PuppetMinus_%s" % id, Rect2(760, y, 100, 72), func() -> void: _puppet_shift(id, -1), "−", "ghost")
 		minus.disabled = workers <= 0

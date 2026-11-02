@@ -195,7 +195,7 @@ export async function registerDongfuRoutes(
     );
   });
 
-  // 已废弃：木草石为洞府自用池，肉为口粮，均无手动取出。保留路由防旧客户端误调。
+  // 已废弃：各产线仓库存量不进背包、无手动取出。保留路由防旧客户端误调。
   app.post("/me/dongfu/puppet/withdraw", async () => {
     throw new AppError("DISABLED", "该操作已关闭");
   });

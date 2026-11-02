@@ -79,15 +79,15 @@ export type BossRuleOverride = Partial<Omit<BossRuleSet, GroupKey>> & {
 
 /**
  * 起始值（第四批，由第三批两档合并来，待负责人确认）：
- * 属性、首通品质、自动挑战沿用原小首领；重复奖励品质、每日次数沿用原章末首领；挂机每 1000 波刷一次，默认不算每日次数。
+ * 2026-11-02 掉率定案：首通/重复紫橙大幅提高（白蓝当材料）；挂机每 1000 波刷一次，默认不算每日次数。
  */
 export const DEFAULT_BOSS_RULE_SET: BossRuleSet = {
   statMode: "auto",
   statMul: { hp: 6.5, attack: 1.55, defense: 1.4 },
   allowRepeat: true,
   repeatRewards: true,
-  gearQualityPct: { white: 0, green: 70, blue: 25, purple: 5, orange: 0 },
-  repeatGearQualityPct: { white: 0, green: 50, blue: 35, purple: 13, orange: 2 },
+  gearQualityPct: { white: 0, green: 20, blue: 20, purple: 35, orange: 25 },
+  repeatGearQualityPct: { white: 0, green: 10, blue: 15, purple: 35, orange: 40 },
   autoChallenge: true,
   autoChallengePowerPct: 100,
   autoChallengeRetrySeconds: 60,

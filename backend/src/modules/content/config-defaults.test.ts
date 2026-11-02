@@ -17,10 +17,10 @@ describe("配置概览: stages inherit the global default drop, overrides stay",
   it("changing the default moves every inheriting stage, a customized stage keeps its own value, restore = inherit again", async () => {
     await withDb(async (db) => {
       await applyPrototypeV12(db);
-      expect(await effectiveDrop(db, "lianqi_1")).toEqual({ chanceBp: 500, qualityWeights: { white: 70, green: 25, blue: 5, purple: 0, orange: 0 } });
+      expect(await effectiveDrop(db, "lianqi_1")).toEqual({ chanceBp: 500, qualityWeights: { white: 40, green: 20, blue: 15, purple: 25, orange: 0 } });
 
       // 黑风岭·二 单独把掉率改成 8%
-      await updateOpsStage(db, "lianqi_2", { displayName: "黑风岭·二", realmCode: 2, bosses: [], monsterDrop: { chancePercent: 8, weights: { white: 70, green: 25, blue: 5, purple: 0 } } }, null);
+      await updateOpsStage(db, "lianqi_2", { displayName: "黑风岭·二", realmCode: 2, bosses: [], monsterDrop: { chancePercent: 8, weights: { white: 40, green: 20, blue: 15, purple: 25 } } }, null);
       const [stage2] = await db.select().from(contentStages).where(eq(contentStages.slug, "lianqi_2"));
       expect(stage2!.monsterDrop).toEqual({ chanceBp: 800 });
 
@@ -28,8 +28,8 @@ describe("配置概览: stages inherit the global default drop, overrides stay",
       expect(await effectiveDrop(db, "lianqi_1")).toEqual({ chanceBp: 600, qualityWeights: { white: 60, green: 30, blue: 10, purple: 0, orange: 0 } });
       // 只改了掉率的关卡：掉率保持 8%，权重跟着新默认
       expect(await effectiveDrop(db, "lianqi_2")).toEqual({ chanceBp: 800, qualityWeights: { white: 60, green: 30, blue: 10, purple: 0, orange: 0 } });
-      // 筑基关卡迁移时就是自定义权重：不动
-      expect((await effectiveDrop(db, "zhuji_1")).qualityWeights).toEqual({ white: 50, green: 35, blue: 13, purple: 2, orange: 0 });
+      // 筑基种子只存了与出厂不同的白/绿；蓝/紫跟随刚改的全局默认
+      expect((await effectiveDrop(db, "zhuji_1")).qualityWeights).toEqual({ white: 35, green: 25, blue: 10, purple: 0, orange: 0 });
 
       const listed = (await listOpsStages(db)).find((row) => row.id === "lianqi_2")!;
       expect(listed.dropCustomCount).toBe(1);

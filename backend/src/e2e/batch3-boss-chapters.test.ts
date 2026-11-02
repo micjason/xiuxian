@@ -103,7 +103,7 @@ describe("第三批：章节与每关首领", () => {
     });
   });
 
-  it("unlock chain: the next stage needs the previous boss beaten (and the realm); elite first clear = spirit stones + low stone + 1 gear rolled at 0/70/25/5/0; a repeat win now gives the repeat reward and uses the daily total (第四批)", async () => {
+  it("unlock chain: the next stage needs the previous boss beaten (and the realm); elite first clear = spirit stones + low stone + 1 gear rolled at 0/20/20/35/25; a repeat win now gives the repeat reward and uses the daily total (第四批)", async () => {
     await withDb(async (db) => {
       const { challenge, state, monster, app } = await boot(db, "b3_unlock");
       const before = await state();
@@ -330,9 +330,9 @@ describe("第三批后台接口", () => {
       // 原章末 3 关存了「属性 = 手填」
       expect(read.usage).toMatchObject({ stages: 24, customized: 9 }); // 8 章末手填 + 炼气首关手填/关自动挑战
       const put = (payload: Record<string, unknown>) => app.inject({ method: "PUT", url: "/admin/draft/boss-rules", headers: admin, payload });
-      const saved = await put({ dailyChallengeTotal: 3, idleSpawnCountsDaily: true, repeatGearQualityPct: { green: 48, orange: 4 } });
+      const saved = await put({ dailyChallengeTotal: 3, idleSpawnCountsDaily: true, repeatGearQualityPct: { green: 30, orange: 20 } });
       expect(saved.statusCode).toBe(200);
-      expect(saved.json().rules).toMatchObject({ dailyChallengeTotal: 3, idleSpawnCountsDaily: true, repeatGearQualityPct: { white: 0, green: 48, blue: 35, purple: 13, orange: 4 } });
+      expect(saved.json().rules).toMatchObject({ dailyChallengeTotal: 3, idleSpawnCountsDaily: true, repeatGearQualityPct: { white: 0, green: 30, blue: 15, purple: 35, orange: 20 } });
       expect(saved.json().rules.statMul).toEqual({ hp: 6.5, attack: 1.55, defense: 1.4 });
       const bad = await put({ gearQualityPct: { green: 90 } });
       expect(bad.statusCode).toBe(400);

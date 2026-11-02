@@ -6,14 +6,14 @@ import { DEFAULT_BOSS_RULES, bossRuleProblems, bossRulesFromInput, bossRulesOf, 
 const wolf = { name: "青鬃狼", hp: 110, attack: 24, defense: 14, interval: 1.5, killCultivation: 3 };
 
 describe("首领规则（第四批：一套规则）", () => {
-  it("defaults: one rule set — auto ×6.5/×1.55/×1.4, first-clear 0/70/25/5/0, repeat 0/50/35/13/2 with rewards, auto-challenge, idle boss every 1000 waves not counted; 5 per day in total", () => {
+  it("defaults: one rule set — auto ×6.5/×1.55/×1.4, first-clear 0/20/20/35/25, repeat 0/10/15/35/40 with rewards, auto-challenge, idle boss every 1000 waves not counted; 5 per day in total", () => {
     expect(DEFAULT_BOSS_RULES).toEqual({
       statMode: "auto",
       statMul: { hp: 6.5, attack: 1.55, defense: 1.4 },
       allowRepeat: true,
       repeatRewards: true,
-      gearQualityPct: { white: 0, green: 70, blue: 25, purple: 5, orange: 0 },
-      repeatGearQualityPct: { white: 0, green: 50, blue: 35, purple: 13, orange: 2 },
+      gearQualityPct: { white: 0, green: 20, blue: 20, purple: 35, orange: 25 },
+      repeatGearQualityPct: { white: 0, green: 10, blue: 15, purple: 35, orange: 40 },
       autoChallenge: true,
       autoChallengePowerPct: 100,
       autoChallengeRetrySeconds: 60,
@@ -29,8 +29,8 @@ describe("首领规则（第四批：一套规则）", () => {
   });
 
   it("strict input: partial input merges onto the fallback; bad values and a quality total ≠ 100 are rejected", () => {
-    const saved = bossRulesFromInput({ dailyChallengeTotal: 3, idleSpawnWaves: 500, repeatGearQualityPct: { green: 52, orange: 0 } });
-    expect(saved).toMatchObject({ dailyChallengeTotal: 3, idleSpawnWaves: 500, repeatGearQualityPct: { white: 0, green: 52, blue: 35, purple: 13, orange: 0 } });
+    const saved = bossRulesFromInput({ dailyChallengeTotal: 3, idleSpawnWaves: 500, repeatGearQualityPct: { green: 40, orange: 10 } });
+    expect(saved).toMatchObject({ dailyChallengeTotal: 3, idleSpawnWaves: 500, repeatGearQualityPct: { white: 0, green: 40, blue: 15, purple: 35, orange: 10 } });
     expect(() => bossRulesFromInput({ gearQualityPct: { green: 80 } })).toThrow(/首通装备品质掉率.*100%/);
     expect(() => bossRulesFromInput({ repeatGearQualityPct: { green: 80 } })).toThrow(/重复奖励装备品质掉率.*100%/);
     expect(() => bossRulesFromInput({ statMode: "nope" })).toThrow();
@@ -76,7 +76,7 @@ describe("首领规则（第四批：一套规则）", () => {
     expect(resolved).not.toHaveProperty("dailyChallengeTotal");
     expect(resolveBossRules(defaults, { dailyRewardLimit: 3 } as never)).not.toHaveProperty("dailyRewardLimit");
     expect(() => compactBossRuleOverride({ gearQualityPct: { orange: 10 } }, defaults)).toThrow(/100%/);
-    expect(compactBossRuleOverride({ repeatGearQualityPct: { green: 48, orange: 4 } }, defaults)).toEqual({ repeatGearQualityPct: { green: 48, orange: 4 } });
+    expect(compactBossRuleOverride({ repeatGearQualityPct: { green: 30, orange: 20 } }, defaults)).toEqual({ repeatGearQualityPct: { green: 30, orange: 20 } });
     // 默认值后来改了，单关的部分覆盖合计不再是 100：发布校验报出来
     expect(bossRuleProblems(resolveBossRules({ ...defaults, gearQualityPct: { white: 0, green: 50, blue: 25, purple: 5, orange: 0 } }, { gearQualityPct: { green: 60 } }))).toHaveLength(1);
   });

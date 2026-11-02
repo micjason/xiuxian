@@ -358,6 +358,13 @@
       "when": 1801000000000,
       "tag": "0070_realm_stage_gates",
       "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1801100000000,
+      "tag": "0071_drop_rates_orange_purple",
+      "breakpoints": true
     }
   ]
 }

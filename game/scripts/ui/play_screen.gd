@@ -1070,6 +1070,38 @@ func _on_dongfu_action(kind: String, payload: Dictionary) -> void:
 			path = "/api/v1/me/dongfu/allocate"
 			body = {"garden": int(payload.get("garden", 0)), "alchemy": int(payload.get("alchemy", 0))}
 			ok_text = "傀儡已分配"
+		"puppet_assign":
+			path = "/api/v1/me/dongfu/puppet/assign"
+			body = {
+				"meat": int(payload.get("meat", 0)),
+				"wood": int(payload.get("wood", 0)),
+				"herb": int(payload.get("herb", 0)),
+				"stone": int(payload.get("stone", 0)),
+			}
+			ok_text = "产线已派工"
+		"puppet_upgrade":
+			path = "/api/v1/me/dongfu/puppet/upgrade"
+			body = {"line": str(payload.get("line", ""))}
+			ok_text = "产线已升级"
+		"puppet_hire":
+			path = "/api/v1/me/dongfu/puppet/hire"
+			body = {}
+			ok_text = "已招傀儡"
+		"puppet_withdraw":
+			path = "/api/v1/me/dongfu/puppet/withdraw"
+			body = {"line": str(payload.get("line", ""))}
+			if payload.has("amount"):
+				body["amount"] = int(payload.get("amount", 0))
+			ok_text = "已收取入行囊"
+		"forge_start":
+			path = "/api/v1/me/dongfu/forge/start"
+			body = {"blueprintSlug": str(payload.get("blueprintSlug", ""))}
+			ok_text = "开始炼器"
+		"forge_claim":
+			path = "/api/v1/me/dongfu/forge/claim"
+			if payload.has("jobId") and not str(payload.get("jobId", "")).is_empty():
+				body = {"jobId": str(payload.get("jobId", ""))}
+			ok_text = "装备已入行囊"
 		"dongfu_upgrade":
 			path = "/api/v1/me/dongfu/upgrade"
 			body = {"facility": str(payload.get("facility", ""))}

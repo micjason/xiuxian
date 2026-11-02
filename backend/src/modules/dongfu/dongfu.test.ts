@@ -142,7 +142,8 @@ describe("dongfu v1 garden + alchemy", () => {
   });
   it("plants a seed, matures offline, and claims herb into bag", async () => {
     await withDb(async (db) => {
-      await seedWorld(db);
+      // 关掉返种，断言只收草药（返种概率默认 0.4 会偶发带上 seed）
+      await seedWorld(db, { ...DEFAULT_DONGFU, gardenSeedReturnChance: 0 });
       const plantedAt = new Date("2026-10-29T04:00:00.000Z");
       const player = await registerPlayer(db, { username: "gardener", password: "correct-horse", now: plantedAt });
       await giveStack(db, player.playerId, "seed_lingcao", 2, plantedAt);
@@ -322,12 +323,14 @@ describe("dongfu v1 garden + alchemy", () => {
 });
 
 describe("dongfu servant allocation and facility upgrade", () => {
-  /** 分配/缩时断言沿用旧节奏秒数，避免被 playable DEFAULT 的 5s/4s 冲掉。 */
+  /** 分配/炼丹缩时仍可用；药园与傀儡独立后不再指望派仆缩短生长。节奏秒数避开 playable DEFAULT 的 5s/4s。 */
   const freeServants = {
     ...DEFAULT_DONGFU,
     servantAssignLingshi: 0,
-    startingServants: 4,
+    startingServants: 8,
     startingWood: 32,
+    // 药园与傀儡独立：派园仆不缩短生长
+    gardenReducePercent: 0,
     seeds: [
       { seedSlug: "seed_lingcao", herbSlug: "herb_lingcao", growSeconds: 60 },
       { seedSlug: "seed_qingxin", herbSlug: "herb_qingxin", growSeconds: 120 },
@@ -336,7 +339,7 @@ describe("dongfu servant allocation and facility upgrade", () => {
       r.recipeSlug === "pill_cultivate" ? { ...r, craftSeconds: 30 } : r,
     ),
   };
-  it("grants starter servants and wood, then shortens grow time when servants are assigned", async () => {
+  it("grants starter puppets and wood; garden grow ignores garden allocation", async () => {
     await withDb(async (db) => {
       await seedWorld(db, freeServants);
       const plantedAt = new Date("2026-10-29T08:00:00.000Z");
@@ -346,7 +349,8 @@ describe("dongfu servant allocation and facility upgrade", () => {
       if (!world) throw new Error("no world");
 
       const opened = await withTransaction(db, (tx) => readDongfuState(tx, world, player.playerId, plantedAt));
-      expect(opened.servantTotal).toBe(4);
+      // servantTotal 以 puppet.startCount 为准（DEFAULT 8），不是旧 startingServants:4
+      expect(opened.servantTotal).toBe(8);
       expect(opened.allocation).toEqual({ garden: 0, alchemy: 0 });
       expect(opened.woodCount).toBe(32);
       expect(opened.timeScale.garden).toBe(1);
@@ -355,21 +359,22 @@ describe("dongfu servant allocation and facility upgrade", () => {
       const assigned = await withTransaction(db, (tx) =>
         allocateServants(tx, world, player.playerId, { garden: 4, alchemy: 0 }, plantedAt),
       );
-      expect(assigned.dongfu.timeScale.garden).toBe(0.8);
+      // gardenReducePercent=0 → 派园仆不缩短
+      expect(assigned.dongfu.timeScale.garden).toBe(1);
       expect(assigned.dongfu.allocation).toEqual({ garden: 4, alchemy: 0 });
 
       const planted = await withTransaction(db, (tx) =>
         plantSeed(tx, world, player.playerId, { slot: 0, seedSlug: "seed_lingcao" }, plantedAt),
       );
-      expect(planted.dongfu.plots[0]?.matureAt).toBe(new Date(plantedAt.getTime() + 48_000).toISOString());
+      expect(planted.dongfu.plots[0]?.matureAt).toBe(new Date(plantedAt.getTime() + 60_000).toISOString());
 
       await expect(
-        withTransaction(db, (tx) => allocateServants(tx, world, player.playerId, { garden: 3, alchemy: 2 }, plantedAt)),
+        withTransaction(db, (tx) => allocateServants(tx, world, player.playerId, { garden: 5, alchemy: 4 }, plantedAt)),
       ).rejects.toMatchObject({ code: "INVALID_INPUT" });
     });
   });
 
-  it("rescales the remaining grow time when allocation changes", async () => {
+  it("keeps garden matureAt when allocation changes (garden independent of puppets)", async () => {
     await withDb(async (db) => {
       await seedWorld(db, freeServants);
       const plantedAt = new Date("2026-10-29T08:10:00.000Z");
@@ -377,13 +382,16 @@ describe("dongfu servant allocation and facility upgrade", () => {
       await giveStack(db, player.playerId, "seed_lingcao", 1, plantedAt);
       const world = (await loadCurrentWorld(db))!;
       if (!world) throw new Error("no world");
-      await withTransaction(db, (tx) => plantSeed(tx, world, player.playerId, { slot: 0, seedSlug: "seed_lingcao" }, plantedAt));
+      const planted = await withTransaction(db, (tx) => plantSeed(tx, world, player.playerId, { slot: 0, seedSlug: "seed_lingcao" }, plantedAt));
+      const baseMature = planted.dongfu.plots[0]?.matureAt;
+      expect(baseMature).toBe(new Date(plantedAt.getTime() + 60_000).toISOString());
       const midway = new Date(plantedAt.getTime() + 30_000);
       const shifted = await withTransaction(db, (tx) =>
         allocateServants(tx, world, player.playerId, { garden: 4, alchemy: 0 }, midway),
       );
-      expect(shifted.dongfu.plots[0]?.matureAt).toBe(new Date(midway.getTime() + 24_000).toISOString());
+      expect(shifted.dongfu.plots[0]?.matureAt).toBe(baseMature);
       expect(shifted.dongfu.plots[0]?.status).toBe("growing");
+      expect(shifted.dongfu.timeScale.garden).toBe(1);
     });
   });
 

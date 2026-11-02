@@ -129,10 +129,25 @@ describe("grantEquipment (ADMIN_SPEC §14)", () => {
   });
 
   it("source enum matches ADMIN_SPEC §14 and the migration's CHECK constraint; 0027 runs after 0026", () => {
-    expect([...GRANT_SOURCES].sort()).toEqual(["admin_grant", "boss_first", "boss_repeat", "event", "mail", "stage_drop"]);
-    const sqlText = readFileSync(new URL("../../../drizzle/0027_equipment_grants.sql", import.meta.url), "utf8");
+    expect([...GRANT_SOURCES].sort()).toEqual([
+      "admin_grant",
+      "boss_first",
+      "boss_repeat",
+      "dongfu_forge",
+      "event",
+      "mail",
+      "stage_drop",
+    ]);
+    const sql0027 = readFileSync(new URL("../../../drizzle/0027_equipment_grants.sql", import.meta.url), "utf8");
+    const sql0072 = readFileSync(new URL("../../../drizzle/0072_dongfu_puppet_forge.sql", import.meta.url), "utf8");
+    const baseline = ["stage_drop", "boss_first", "boss_repeat", "admin_grant", "event", "mail"] as const;
+    for (const source of baseline) {
+      expect(sql0027).toContain(`'${source}'`);
+    }
+    // dongfu_forge 由 0072 扩 CHECK，与 GRANT_SOURCES 对齐
+    expect(sql0072).toContain("'dongfu_forge'");
     for (const source of GRANT_SOURCES) {
-      expect(sqlText).toContain(`'${source}'`);
+      expect(sql0027.includes(`'${source}'`) || sql0072.includes(`'${source}'`)).toBe(true);
     }
     const journal = JSON.parse(readFileSync(new URL("../../../drizzle/meta/_journal.json", import.meta.url), "utf8")) as { entries: { idx: number; tag: string; when: number }[] };
     const entry = journal.entries.find((row) => row.tag === "0027_equipment_grants")!;

@@ -42,6 +42,54 @@
       </section>
 
       <section class="xx-card gap">
+        <h2>傀儡产线（OPS 数字旋钮）</h2>
+        <p class="hint">与药园/炼丹/炼器独立。肉空停产、仓满不进账写死在服务端。改大/改小效果见 OPS 文档。</p>
+        <el-form label-position="top" class="form grid2">
+          <el-form-item label="开局傀儡数">
+            <el-input-number v-model="form.puppetStartCount" :min="0" :max="99" :precision="0" controls-position="right" @change="touched = true" />
+            <p class="hint">改大更好调；改小早期紧、易断肉。</p>
+          </el-form-item>
+          <el-form-item label="傀儡上限">
+            <el-input-number v-model="form.puppetMaxCount" :min="1" :max="999" :precision="0" controls-position="right" @change="touched = true" />
+          </el-form-item>
+          <el-form-item label="招1人耗肉">
+            <el-input-number v-model="form.puppetHireCostMeat" :min="0" :precision="0" controls-position="right" @change="touched = true" />
+          </el-form-item>
+          <el-form-item label="仓容升级倍数">
+            <el-input-number v-model="form.puppetStorageUpgradeMult" :min="1" :max="10" :step="0.05" :precision="2" controls-position="right" @change="touched = true" />
+            <p class="hint">改大后期更松；改小一直要盯仓。</p>
+          </el-form-item>
+          <el-form-item label="升级折合小时产量">
+            <el-input-number v-model="form.puppetUpgradeCostHours" :min="0.1" :max="100" :step="0.1" :precision="1" controls-position="right" @change="touched = true" />
+          </el-form-item>
+          <el-form-item label="养肉单产/仆·时">
+            <el-input-number v-model="form.meatProdPerWorker" :min="0" :step="0.1" :precision="2" controls-position="right" @change="touched = true" />
+          </el-form-item>
+          <el-form-item label="木仆吃肉/时">
+            <el-input-number v-model="form.woodEatMeat" :min="0" :step="0.1" :precision="2" controls-position="right" @change="touched = true" />
+          </el-form-item>
+          <el-form-item label="草仆吃肉/时">
+            <el-input-number v-model="form.herbEatMeat" :min="0" :step="0.1" :precision="2" controls-position="right" @change="touched = true" />
+          </el-form-item>
+          <el-form-item label="石仆吃肉/时">
+            <el-input-number v-model="form.stoneEatMeat" :min="0" :step="0.1" :precision="2" controls-position="right" @change="touched = true" />
+          </el-form-item>
+          <el-form-item label="收割返种概率">
+            <el-input-number v-model="form.gardenSeedReturnChance" :min="0" :max="1" :step="0.05" :precision="2" controls-position="right" @change="touched = true" />
+          </el-form-item>
+          <el-form-item label="一键复炼秒">
+            <el-input-number v-model="form.alchemyRepeatSeconds" :min="0" :max="86400" :precision="0" controls-position="right" @change="touched = true" />
+          </el-form-item>
+          <el-form-item label="炼器基础出橙率">
+            <el-input-number v-model="form.forgeBaseOrangeChance" :min="0" :max="1" :step="0.001" :precision="3" controls-position="right" @change="touched = true" />
+          </el-form-item>
+          <el-form-item label="炼器出橙率上限">
+            <el-input-number v-model="form.forgeOrangeChanceCap" :min="0" :max="1" :step="0.01" :precision="2" controls-position="right" @change="touched = true" />
+          </el-form-item>
+        </el-form>
+      </section>
+
+      <section class="xx-card gap">
         <h2>灵仆与灵木</h2>
         <el-form label-position="top" class="form grid2">
           <el-form-item label="灵木物品">
@@ -495,11 +543,42 @@ type Form = {
   auraSources: AuraSource[];
   seeds: Seed[];
   recipes: Recipe[];
+  puppetStartCount: number | null;
+  puppetMaxCount: number | null;
+  puppetHireCostMeat: number | null;
+  puppetStorageUpgradeMult: number | null;
+  puppetUpgradeCostHours: number | null;
+  meatProdPerWorker: number | null;
+  woodEatMeat: number | null;
+  herbEatMeat: number | null;
+  stoneEatMeat: number | null;
+  gardenSeedReturnChance: number | null;
+  alchemyRepeatSeconds: number | null;
+  forgeBaseOrangeChance: number | null;
+  forgeOrangeChanceCap: number | null;
+  /** 透传服务端完整 puppet/forge（图纸等）；数字旋钮会覆盖进去。 */
+  puppet: Record<string, unknown> | null;
+  forge: Record<string, unknown> | null;
 };
 type View = { config: Form | null; starting: Form };
 type ItemRow = { id: string; displayName: string };
 
 const SLUG = /^[a-z][a-z0-9_]*$/;
+
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value != null && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+function numField(obj: Record<string, unknown> | null | undefined, key: string): number | undefined {
+  const value = obj?.[key];
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+function strField(obj: Record<string, unknown> | null | undefined, key: string): string | undefined {
+  const value = obj?.[key];
+  return typeof value === "string" ? value : undefined;
+}
 
 function emptySeed(): Seed {
   return {
@@ -585,11 +664,33 @@ function emptyForm(): Form {
     auraSources: [],
     seeds: [emptySeed()],
     recipes: [emptyRecipe()],
+    puppetStartCount: 8,
+    puppetMaxCount: 30,
+    puppetHireCostMeat: 50,
+    puppetStorageUpgradeMult: 1.45,
+    puppetUpgradeCostHours: 2.5,
+    meatProdPerWorker: 2.5,
+    woodEatMeat: 2,
+    herbEatMeat: 4,
+    stoneEatMeat: 4,
+    gardenSeedReturnChance: 0.4,
+    alchemyRepeatSeconds: 120,
+    forgeBaseOrangeChance: 0.005,
+    forgeOrangeChanceCap: 0.08,
+    puppet: null,
+    forge: null,
   };
 }
 
 function normalize(raw: Partial<Form> | null | undefined): Form {
   if (!raw) return emptyForm();
+  const puppet = asRecord(raw.puppet);
+  const forge = asRecord(raw.forge);
+  const lines = asRecord(puppet?.lines);
+  const meatLine = asRecord(lines?.meat);
+  const woodLine = asRecord(lines?.wood);
+  const herbLine = asRecord(lines?.herb);
+  const stoneLine = asRecord(lines?.stone);
   return {
     plotCount: raw.plotCount ?? null,
     alchemyQueueLength: raw.alchemyQueueLength ?? null,
@@ -660,6 +761,21 @@ function normalize(raw: Partial<Form> | null | undefined): Form {
       trialMaxSlots: row.trialMaxSlots ?? null,
       usageTag: row.usageTag ?? "",
     })),
+    puppetStartCount: numField(puppet, "startCount") ?? raw.puppetStartCount ?? 8,
+    puppetMaxCount: numField(puppet, "maxCount") ?? raw.puppetMaxCount ?? 30,
+    puppetHireCostMeat: numField(puppet, "hireCostMeat") ?? raw.puppetHireCostMeat ?? 50,
+    puppetStorageUpgradeMult: numField(puppet, "storageUpgradeMult") ?? raw.puppetStorageUpgradeMult ?? 1.45,
+    puppetUpgradeCostHours: numField(puppet, "upgradeCostHoursOfProd") ?? raw.puppetUpgradeCostHours ?? 2.5,
+    meatProdPerWorker: numField(meatLine, "prodPerWorker") ?? raw.meatProdPerWorker ?? 2.5,
+    woodEatMeat: numField(woodLine, "eatMeatPerWorker") ?? raw.woodEatMeat ?? 2,
+    herbEatMeat: numField(herbLine, "eatMeatPerWorker") ?? raw.herbEatMeat ?? 4,
+    stoneEatMeat: numField(stoneLine, "eatMeatPerWorker") ?? raw.stoneEatMeat ?? 4,
+    gardenSeedReturnChance: raw.gardenSeedReturnChance ?? 0.4,
+    alchemyRepeatSeconds: raw.alchemyRepeatSeconds ?? 120,
+    forgeBaseOrangeChance: numField(forge, "baseOrangeChance") ?? raw.forgeBaseOrangeChance ?? 0.005,
+    forgeOrangeChanceCap: numField(forge, "orangeChanceCap") ?? raw.forgeOrangeChanceCap ?? 0.08,
+    puppet,
+    forge,
   };
 }
 
@@ -749,6 +865,65 @@ function payload(form: Form): Record<string, unknown> {
       }
       return out;
     }),
+    gardenSeedReturnChance: form.gardenSeedReturnChance,
+    alchemyRepeatSeconds: form.alchemyRepeatSeconds,
+    puppet: (() => {
+      const puppet = asRecord(form.puppet) ?? {};
+      const lines = asRecord(puppet.lines) ?? {};
+      const meat = asRecord(lines.meat) ?? {};
+      const wood = asRecord(lines.wood) ?? {};
+      const herb = asRecord(lines.herb) ?? {};
+      const stone = asRecord(lines.stone) ?? {};
+      return {
+        ...puppet,
+        startCount: form.puppetStartCount,
+        maxCount: form.puppetMaxCount,
+        hireCostMeat: form.puppetHireCostMeat,
+        storageUpgradeMult: form.puppetStorageUpgradeMult,
+        upgradeCostHoursOfProd: form.puppetUpgradeCostHours,
+        defaultAssign: asRecord(puppet.defaultAssign) ?? { meat: 6, wood: 2, herb: 0, stone: 0 },
+        lines: {
+          meat: {
+            ...meat,
+            prodPerWorker: form.meatProdPerWorker,
+            eatMeatPerWorker: 0,
+            storageBase: numField(meat, "storageBase") ?? 500,
+            bagItemSlug: strField(meat, "bagItemSlug") ?? "puppet_meat",
+          },
+          wood: {
+            ...wood,
+            prodPerWorker: numField(wood, "prodPerWorker") ?? 1.0,
+            eatMeatPerWorker: form.woodEatMeat,
+            storageBase: numField(wood, "storageBase") ?? 300,
+            bagItemSlug: strField(wood, "bagItemSlug") ?? "wood_lingmu",
+          },
+          herb: {
+            ...herb,
+            prodPerWorker: numField(herb, "prodPerWorker") ?? 0.8,
+            eatMeatPerWorker: form.herbEatMeat,
+            storageBase: numField(herb, "storageBase") ?? 200,
+            bagItemSlug: strField(herb, "bagItemSlug") ?? "herb_lingcao",
+          },
+          stone: {
+            ...stone,
+            prodPerWorker: numField(stone, "prodPerWorker") ?? 0.8,
+            eatMeatPerWorker: form.stoneEatMeat,
+            storageBase: numField(stone, "storageBase") ?? 200,
+            bagItemSlug: strField(stone, "bagItemSlug") ?? "puppet_stone",
+          },
+        },
+      };
+    })(),
+    forge: (() => {
+      const forge = asRecord(form.forge) ?? {};
+      return {
+        ...forge,
+        baseOrangeChance: form.forgeBaseOrangeChance,
+        orangeChanceCap: form.forgeOrangeChanceCap,
+        craftSecondsDefault: numField(forge, "craftSecondsDefault") ?? 180,
+        blueprints: forge.blueprints,
+      };
+    })(),
   };
 }
 

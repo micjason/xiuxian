@@ -17,7 +17,7 @@ import { tuningOf } from "../content/tuning.js";
  * - 每次发放写一行 equipment_grants 流水（后台操作日志按 source 筛）。
  * 必须在调用方的事务里调用（tx），和调用方的其他写入一起提交或回滚。
  */
-export const GRANT_SOURCES = ["stage_drop", "boss_first", "boss_repeat", "admin_grant", "event", "mail"] as const;
+export const GRANT_SOURCES = ["stage_drop", "boss_first", "boss_repeat", "admin_grant", "event", "mail", "dongfu_forge"] as const;
 export type GrantSource = (typeof GRANT_SOURCES)[number];
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

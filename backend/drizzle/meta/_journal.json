@@ -365,6 +365,13 @@
       "when": 1801100000000,
       "tag": "0071_drop_rates_orange_purple",
       "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "7",
+      "when": 1801200000000,
+      "tag": "0072_dongfu_puppet_forge",
+      "breakpoints": true
     }
   ]
 }

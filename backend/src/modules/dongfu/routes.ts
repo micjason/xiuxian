@@ -2,7 +2,24 @@ import type { FastifyInstance } from "fastify";
 import { AppError } from "../../shared/errors.js";
 import type { Db } from "../operations/record.js";
 import { withIdempotency } from "../loop/actions.js";
-import { allocateServants, buySeed, claimAlchemy, claimGarden, completeArrayDaily, plantSeed, startAlchemy, trialAlchemy, upgradeFacility } from "./actions.js";
+import {
+  allocateServants,
+  assignPuppetLines,
+  buySeed,
+  claimAlchemy,
+  claimForge,
+  claimGarden,
+  completeArrayDaily,
+  hirePuppet,
+  plantSeed,
+  startAlchemy,
+  startForge,
+  trialAlchemy,
+  upgradeFacility,
+  upgradePuppetLine,
+  withdrawPuppetStore,
+} from "./actions.js";
+import type { DongfuPuppetLineId } from "./config.js";
 
 function idempotencyKey(header: string | string[] | undefined): string {
   const key = Array.isArray(header) ? header[0] : header;
@@ -142,6 +159,77 @@ export async function registerDongfuRoutes(
           },
           deps.now(),
         ),
+    );
+  });
+
+
+  app.post("/me/dongfu/puppet/assign", async (request) => {
+    const playerId = request.actor!.actorId;
+    const body = (request.body ?? {}) as Record<string, unknown>;
+    const input: Partial<Record<DongfuPuppetLineId, number>> = {};
+    for (const key of ["meat", "wood", "herb", "stone"] as const) {
+      if (body[key] !== undefined) {
+        if (!Number.isInteger(body[key])) throw new AppError("INVALID_INPUT", "请填写正确的傀儡数量");
+        input[key] = body[key] as number;
+      }
+    }
+    return withIdempotency(deps.db, playerId, idempotencyKey(request.headers["idempotency-key"]), "dongfu-puppet-assign", deps.now(), (tx, world) =>
+      assignPuppetLines(tx, world, playerId, input, deps.now()),
+    );
+  });
+
+  app.post("/me/dongfu/puppet/upgrade", async (request) => {
+    const playerId = request.actor!.actorId;
+    const body = (request.body ?? {}) as { line?: unknown };
+    if (body.line !== "meat" && body.line !== "wood" && body.line !== "herb" && body.line !== "stone") {
+      throw new AppError("INVALID_INPUT", "请选择产线");
+    }
+    return withIdempotency(deps.db, playerId, idempotencyKey(request.headers["idempotency-key"]), "dongfu-puppet-upgrade", deps.now(), (tx, world) =>
+      upgradePuppetLine(tx, world, playerId, body.line as DongfuPuppetLineId, deps.now()),
+    );
+  });
+
+  app.post("/me/dongfu/puppet/hire", async (request) => {
+    const playerId = request.actor!.actorId;
+    return withIdempotency(deps.db, playerId, idempotencyKey(request.headers["idempotency-key"]), "dongfu-puppet-hire", deps.now(), (tx, world) =>
+      hirePuppet(tx, world, playerId, deps.now()),
+    );
+  });
+
+  app.post("/me/dongfu/puppet/withdraw", async (request) => {
+    const playerId = request.actor!.actorId;
+    const body = (request.body ?? {}) as { line?: unknown; amount?: unknown };
+    if (body.line !== "meat" && body.line !== "wood" && body.line !== "herb" && body.line !== "stone") {
+      throw new AppError("INVALID_INPUT", "请选择产线");
+    }
+    const amount = body.amount === undefined ? undefined : body.amount;
+    if (amount !== undefined && !Number.isInteger(amount)) {
+      throw new AppError("INVALID_INPUT", "收取数量不正确");
+    }
+    return withIdempotency(deps.db, playerId, idempotencyKey(request.headers["idempotency-key"]), "dongfu-puppet-withdraw", deps.now(), (tx, world) =>
+      withdrawPuppetStore(tx, world, playerId, { line: body.line as DongfuPuppetLineId, amount: amount as number | undefined }, deps.now()),
+    );
+  });
+
+  app.post("/me/dongfu/forge/start", async (request) => {
+    const playerId = request.actor!.actorId;
+    const body = (request.body ?? {}) as { blueprintSlug?: unknown };
+    if (typeof body.blueprintSlug !== "string" || !body.blueprintSlug) {
+      throw new AppError("INVALID_INPUT", "请选择图纸");
+    }
+    return withIdempotency(deps.db, playerId, idempotencyKey(request.headers["idempotency-key"]), "dongfu-forge-start", deps.now(), (tx, world) =>
+      startForge(tx, world, playerId, { blueprintSlug: body.blueprintSlug as string }, deps.now()),
+    );
+  });
+
+  app.post("/me/dongfu/forge/claim", async (request) => {
+    const playerId = request.actor!.actorId;
+    const body = (request.body ?? {}) as { jobId?: unknown };
+    if (body.jobId !== undefined && (typeof body.jobId !== "string" || !body.jobId)) {
+      throw new AppError("INVALID_INPUT", "炼器任务编号不正确");
+    }
+    return withIdempotency(deps.db, playerId, idempotencyKey(request.headers["idempotency-key"]), "dongfu-forge-claim", deps.now(), (tx, world) =>
+      claimForge(tx, world, playerId, { jobId: body.jobId as string | undefined }, deps.now()),
     );
   });
 }

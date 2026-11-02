@@ -95,6 +95,46 @@ export type DongfuArrayDailyConfig = {
   puzzles: DongfuArrayPuzzle[];
 };
 
+
+export type DongfuPuppetLineId = "meat" | "wood" | "herb" | "stone";
+
+export type DongfuPuppetLineConfig = {
+  /** 每傀儡每小时产量 */
+  prodPerWorker: number;
+  /** 每傀儡每小时吃肉；养肉线为 0 */
+  eatMeatPerWorker: number;
+  storageBase: number;
+  /** 收取到背包的物品；肉可空（仅仓内）。 */
+  bagItemSlug: string | null;
+};
+
+export type DongfuPuppetConfig = {
+  startCount: number;
+  maxCount: number;
+  hireCostMeat: number;
+  storageUpgradeMult: number;
+  upgradeCostHoursOfProd: number;
+  defaultAssign: Record<DongfuPuppetLineId, number>;
+  lines: Record<DongfuPuppetLineId, DongfuPuppetLineConfig>;
+};
+
+export type DongfuForgeBlueprint = {
+  blueprintSlug: string;
+  displayName: string;
+  slot: string;
+  craftSeconds: number;
+  costs: DongfuRecipeCost[];
+  /** 各品质对应装备 slug（与掉落同表）。 */
+  outputByQuality: Partial<Record<"white" | "green" | "blue" | "purple" | "orange", string>>;
+};
+
+export type DongfuForgeConfig = {
+  craftSecondsDefault: number;
+  baseOrangeChance: number;
+  orangeChanceCap: number;
+  blueprints: DongfuForgeBlueprint[];
+};
+
 export type DongfuConfig = {
   plotCount: number;
   alchemyQueueLength: number;
@@ -147,6 +187,14 @@ export type DongfuConfig = {
   servantAssignLingshi: number;
   /** 阵法每日小游戏。 */
   arrayDaily: DongfuArrayDailyConfig;
+  /** 收割返种概率 0～1。 */
+  gardenSeedReturnChance: number;
+  /** 一键复炼基础秒（已知方 start 用；可被配方 craftSeconds 覆盖）。 */
+  alchemyRepeatSeconds: number;
+  /** 傀儡产线（与药园/炼丹/炼器独立）。 */
+  puppet: DongfuPuppetConfig;
+  /** 炼器图纸造装。 */
+  forge: DongfuForgeConfig;
 };
 
 /**
@@ -220,6 +268,81 @@ export const DEFAULT_ARRAY_DAILY: DongfuArrayDailyConfig = {
   ],
 };
 
+
+export const DEFAULT_PUPPET: DongfuPuppetConfig = {
+  startCount: 8,
+  maxCount: 30,
+  hireCostMeat: 50,
+  storageUpgradeMult: 1.45,
+  upgradeCostHoursOfProd: 2.5,
+  defaultAssign: { meat: 6, wood: 2, herb: 0, stone: 0 },
+  lines: {
+    meat: { prodPerWorker: 2.5, eatMeatPerWorker: 0, storageBase: 500, bagItemSlug: "puppet_meat" },
+    wood: { prodPerWorker: 1.0, eatMeatPerWorker: 2, storageBase: 300, bagItemSlug: "wood_lingmu" },
+    herb: { prodPerWorker: 0.8, eatMeatPerWorker: 4, storageBase: 200, bagItemSlug: "herb_lingcao" },
+    stone: { prodPerWorker: 0.8, eatMeatPerWorker: 4, storageBase: 200, bagItemSlug: "puppet_stone" },
+  },
+};
+
+export const DEFAULT_FORGE: DongfuForgeConfig = {
+  craftSecondsDefault: 180,
+  baseOrangeChance: 0.005,
+  orangeChanceCap: 0.08,
+  blueprints: [
+    {
+      blueprintSlug: "bp_weapon_qi",
+      displayName: "炼气兵图纸",
+      slot: "weapon",
+      craftSeconds: 180,
+      costs: [
+        { itemSlug: "wood_lingmu", count: 8 },
+        { itemSlug: "puppet_stone", count: 4 },
+      ],
+      outputByQuality: {
+        white: "gear_major1_weapon_white",
+        green: "gear_major1_weapon_green",
+        blue: "gear_major1_weapon_blue",
+        purple: "gear_major1_weapon_purple",
+        orange: "gear_major1_weapon_orange",
+      },
+    },
+    {
+      blueprintSlug: "bp_clothes_qi",
+      displayName: "炼气甲图纸",
+      slot: "clothes",
+      craftSeconds: 180,
+      costs: [
+        { itemSlug: "wood_lingmu", count: 6 },
+        { itemSlug: "herb_lingcao", count: 4 },
+      ],
+      outputByQuality: {
+        white: "gear_major1_clothes_white",
+        green: "gear_major1_clothes_green",
+        blue: "gear_major1_clothes_blue",
+        purple: "gear_major1_clothes_purple",
+        orange: "gear_major1_clothes_orange",
+      },
+    },
+    {
+      blueprintSlug: "bp_accessory_qi",
+      displayName: "炼气饰图纸",
+      slot: "accessory",
+      craftSeconds: 180,
+      costs: [
+        { itemSlug: "puppet_stone", count: 6 },
+        { itemSlug: "herb_qingxin", count: 3 },
+      ],
+      outputByQuality: {
+        white: "gear_major1_accessory_white",
+        green: "gear_major1_accessory_green",
+        blue: "gear_major1_accessory_blue",
+        purple: "gear_major1_accessory_purple",
+        orange: "gear_major1_accessory_orange",
+      },
+    },
+  ],
+};
+
 /** 出厂默认（迁移 / 测试 / 后台重置用）。 */
 export const DEFAULT_DONGFU: DongfuConfig = {
   plotCount: 4,
@@ -238,7 +361,7 @@ export const DEFAULT_DONGFU: DongfuConfig = {
   gardenReducePercent: 5,
   alchemyReducePercent: 5,
   minDurationPercent: 20,
-  maxPlotCount: 12,
+  maxPlotCount: 10,
   maxAlchemyQueue: 4,
   gardenUpgrades: DEFAULT_GARDEN_UPGRADES,
   alchemyUpgrades: DEFAULT_ALCHEMY_UPGRADES,
@@ -259,6 +382,10 @@ export const DEFAULT_DONGFU: DongfuConfig = {
   auraSources: [],
   servantAssignLingshi: 0,
   arrayDaily: DEFAULT_ARRAY_DAILY,
+  gardenSeedReturnChance: 0.4,
+  alchemyRepeatSeconds: 120,
+  puppet: DEFAULT_PUPPET,
+  forge: DEFAULT_FORGE,
   seeds: [
     { seedSlug: "seed_lingcao", herbSlug: "herb_lingcao", growSeconds: 5 },
     { seedSlug: "seed_qingxin", herbSlug: "herb_qingxin", growSeconds: 8 },
@@ -853,6 +980,98 @@ function parseSeedOffers(raw: unknown): DongfuSeedOffer[] {
   return raw.map((row, index) => parseSeedOffer(row, index));
 }
 
+
+function numberOr(value: unknown, label: string, min: number, max: number, fallback: number): number {
+  if (value === undefined || value === null || value === "") return fallback;
+  if (typeof value !== "number" || Number.isNaN(value) || value < min || value > max) {
+    throw new AppError("INVALID_INPUT", `${label}必须是 ${min}～${max} 的数字`);
+  }
+  return value;
+}
+
+function parsePuppetLine(raw: unknown, id: DongfuPuppetLineId, fallback: DongfuPuppetLineConfig): DongfuPuppetLineConfig {
+  if (!raw || typeof raw !== "object") return { ...fallback };
+  const input = raw as Record<string, unknown>;
+  const bag =
+    input.bagItemSlug === undefined || input.bagItemSlug === null || input.bagItemSlug === ""
+      ? fallback.bagItemSlug
+      : slugOf(input.bagItemSlug, `${id}背包物品`);
+  return {
+    prodPerWorker: numberOr(input.prodPerWorker, `${id}单产`, 0, 1_000_000, fallback.prodPerWorker),
+    eatMeatPerWorker: numberOr(input.eatMeatPerWorker, `${id}吃肉`, 0, 1_000_000, fallback.eatMeatPerWorker),
+    storageBase: intOr(input.storageBase, `${id}开局仓`, 1, 1_000_000_000, fallback.storageBase),
+    bagItemSlug: bag,
+  };
+}
+
+function parsePuppet(raw: unknown): DongfuPuppetConfig {
+  const fb = DEFAULT_PUPPET;
+  if (!raw || typeof raw !== "object") return { ...fb, defaultAssign: { ...fb.defaultAssign }, lines: { meat: { ...fb.lines.meat }, wood: { ...fb.lines.wood }, herb: { ...fb.lines.herb }, stone: { ...fb.lines.stone } } };
+  const input = raw as Record<string, unknown>;
+  const linesRaw = (input.lines && typeof input.lines === "object" ? input.lines : {}) as Record<string, unknown>;
+  const assignRaw = (input.defaultAssign && typeof input.defaultAssign === "object" ? input.defaultAssign : {}) as Record<string, unknown>;
+  return {
+    startCount: intOr(input.startCount, "开局傀儡数", 0, 99, fb.startCount),
+    maxCount: intOr(input.maxCount, "傀儡上限", 1, 999, fb.maxCount),
+    hireCostMeat: intOr(input.hireCostMeat, "招人耗肉", 0, 1_000_000_000, fb.hireCostMeat),
+    storageUpgradeMult: numberOr(input.storageUpgradeMult, "仓容升级倍数", 1, 10, fb.storageUpgradeMult),
+    upgradeCostHoursOfProd: numberOr(input.upgradeCostHoursOfProd, "升级折合小时产量", 0.1, 100, fb.upgradeCostHoursOfProd),
+    defaultAssign: {
+      meat: intOr(assignRaw.meat, "默认养肉人数", 0, 99, fb.defaultAssign.meat),
+      wood: intOr(assignRaw.wood, "默认木仆", 0, 99, fb.defaultAssign.wood),
+      herb: intOr(assignRaw.herb, "默认草仆", 0, 99, fb.defaultAssign.herb),
+      stone: intOr(assignRaw.stone, "默认石仆", 0, 99, fb.defaultAssign.stone),
+    },
+    lines: {
+      meat: parsePuppetLine(linesRaw.meat, "meat", fb.lines.meat),
+      wood: parsePuppetLine(linesRaw.wood, "wood", fb.lines.wood),
+      herb: parsePuppetLine(linesRaw.herb, "herb", fb.lines.herb),
+      stone: parsePuppetLine(linesRaw.stone, "stone", fb.lines.stone),
+    },
+  };
+}
+
+function parseForgeBlueprint(raw: unknown, index: number): DongfuForgeBlueprint {
+  if (!raw || typeof raw !== "object") {
+    throw new AppError("INVALID_INPUT", `炼器图纸第 ${index + 1} 行格式不正确`);
+  }
+  const input = raw as Record<string, unknown>;
+  const blueprintSlug = slugOf(input.blueprintSlug, `炼器图纸第 ${index + 1} 编号`);
+  const displayName = typeof input.displayName === "string" && input.displayName.trim() ? input.displayName.trim() : blueprintSlug;
+  const slot = typeof input.slot === "string" && input.slot ? input.slot : "weapon";
+  const craftSeconds = intInRange(input.craftSeconds ?? DEFAULT_FORGE.craftSecondsDefault, `图纸 ${blueprintSlug} 秒数`, 0, 86400);
+  if (!Array.isArray(input.costs) || input.costs.length === 0) {
+    throw new AppError("INVALID_INPUT", `图纸 ${blueprintSlug} 至少一种材料`);
+  }
+  const costs = input.costs.map((row, i) => parseCost(row, blueprintSlug, i));
+  const outRaw = (input.outputByQuality && typeof input.outputByQuality === "object" ? input.outputByQuality : {}) as Record<string, unknown>;
+  const outputByQuality: DongfuForgeBlueprint["outputByQuality"] = {};
+  for (const q of ["white", "green", "blue", "purple", "orange"] as const) {
+    if (outRaw[q]) outputByQuality[q] = slugOf(outRaw[q], `图纸 ${blueprintSlug} ${q} 产出`);
+  }
+  if (!outputByQuality.white && !outputByQuality.green && !outputByQuality.blue) {
+    throw new AppError("INVALID_INPUT", `图纸 ${blueprintSlug} 至少配置一种品质产出`);
+  }
+  return { blueprintSlug, displayName, slot, craftSeconds, costs, outputByQuality };
+}
+
+function parseForge(raw: unknown): DongfuForgeConfig {
+  const fb = DEFAULT_FORGE;
+  if (!raw || typeof raw !== "object") {
+    return { ...fb, blueprints: fb.blueprints.map((b) => ({ ...b, costs: b.costs.map((c) => ({ ...c })), outputByQuality: { ...b.outputByQuality } })) };
+  }
+  const input = raw as Record<string, unknown>;
+  const blueprints = Array.isArray(input.blueprints) && input.blueprints.length > 0
+    ? input.blueprints.map((row, i) => parseForgeBlueprint(row, i))
+    : fb.blueprints.map((b) => ({ ...b, costs: b.costs.map((c) => ({ ...c })), outputByQuality: { ...b.outputByQuality } }));
+  return {
+    craftSecondsDefault: intOr(input.craftSecondsDefault, "炼器默认秒数", 0, 86400, fb.craftSecondsDefault),
+    baseOrangeChance: numberOr(input.baseOrangeChance, "基础出橙率", 0, 1, fb.baseOrangeChance),
+    orangeChanceCap: numberOr(input.orangeChanceCap, "出橙率上限", 0, 1, fb.orangeChanceCap),
+    blueprints,
+  };
+}
+
 /** 后台保存 / 发布校验用：严格解析整份洞府配置。缺分配字段时用出厂默认，兼容 0060 已发布配置。 */
 export function dongfuConfigFromInput(raw: unknown): DongfuConfig {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
@@ -993,6 +1212,10 @@ export function dongfuConfigFromInput(raw: unknown): DongfuConfig {
     auraSources: parseAuraSources(input.auraSources),
     servantAssignLingshi: intOr(input.servantAssignLingshi, "傀儡上工灵石", 0, 1_000_000_000, DEFAULT_DONGFU.servantAssignLingshi),
     arrayDaily: parseArrayDaily(input.arrayDaily),
+    gardenSeedReturnChance: numberOr(input.gardenSeedReturnChance, "收割返种概率", 0, 1, DEFAULT_DONGFU.gardenSeedReturnChance),
+    alchemyRepeatSeconds: intOr(input.alchemyRepeatSeconds, "一键复炼秒", 0, 86400, DEFAULT_DONGFU.alchemyRepeatSeconds),
+    puppet: parsePuppet(input.puppet),
+    forge: parseForge(input.forge),
   };
 }
 
@@ -1054,5 +1277,15 @@ export function dongfuReferencedItemSlugs(config: DongfuConfig): string[] {
     if (source.itemSlug) slugs.add(source.itemSlug);
   }
   if (config.arrayDaily.rewardShardItemSlug) slugs.add(config.arrayDaily.rewardShardItemSlug);
+  for (const id of ["meat", "wood", "herb", "stone"] as const) {
+    const bag = config.puppet.lines[id].bagItemSlug;
+    if (bag) slugs.add(bag);
+  }
+  for (const bp of config.forge.blueprints) {
+    for (const cost of bp.costs) slugs.add(cost.itemSlug);
+    for (const slug of Object.values(bp.outputByQuality)) {
+      if (slug) slugs.add(slug);
+    }
+  }
   return [...slugs];
 }

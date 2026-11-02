@@ -6,6 +6,7 @@ import { and, eq, isNull, sql } from "drizzle-orm";
 import {
   playerDongfu,
   playerDongfuAlchemy,
+  playerDongfuForge,
   playerDongfuPlots,
   playerItems,
   playerStates,
@@ -17,7 +18,17 @@ import { applyActiveBuff } from "../loop/active-buffs.js";
 import { addStack, stackCount, takeStack } from "../loop/bag.js";
 import { readGameRules } from "../content/rules.js";
 import { rewardDayKey } from "../progress/day.js";
-import { recipeOf, requireDongfu, seedOf, type DongfuConfig, type DongfuRecipeConfig, type DongfuUpgradeTier } from "./config.js";
+import { recipeOf, requireDongfu, seedOf, type DongfuConfig, type DongfuPuppetLineId, type DongfuRecipeConfig, type DongfuUpgradeTier } from "./config.js";
+import {
+  PUPPET_LINES,
+  buildPuppetDto,
+  normalizePuppetProgress,
+  settlePuppetLines,
+  upgradeCostOf,
+  type PuppetProgressState,
+} from "./puppet-lines.js";
+import { blueprintOf, outputSlugForQuality, rollForgeQuality, type ForgeQuality } from "./forge.js";
+import { grantEquipment } from "../player/grant.js";
 import {
   isSourceSinkConnected,
   normalizeRots,
@@ -100,7 +111,7 @@ export type DongfuStateDto = {
     dayKey: string;
   };
   servantAssignLingshi: number;
-  /** 阵法每日小游戏。 */
+  /** 阵法每日小游戏（本期洞府总览不入口；接口保留）。 */
   arrayDaily: {
     enabled: boolean;
     clearedToday: boolean;
@@ -114,6 +125,36 @@ export type DongfuStateDto = {
       tiles: { r: number; c: number; shape: string; rot: number }[];
     };
   };
+  /** 傀儡产线（肉/木/草/石），与药园独立。 */
+  puppet: import("./puppet-lines.js").PuppetDto;
+  /** 炼器。 */
+  forge: {
+    jobs: {
+      id: string;
+      blueprintSlug: string;
+      startedAt: string;
+      readyAt: string;
+      status: "crafting" | "ready";
+      rolledQuality: string | null;
+      outputItemSlug: string | null;
+    }[];
+    blueprints: {
+      blueprintSlug: string;
+      displayName: string;
+      slot: string;
+      craftSeconds: number;
+      costs: { itemSlug: string; count: number }[];
+      outputByQuality: Record<string, string>;
+    }[];
+    forgeXp: number;
+    claimable: number;
+    baseOrangeChance: number;
+    orangeChanceCap: number;
+  };
+  gardenSeedReturnChance: number;
+  alchemyRepeatSeconds: number;
+  /** 总览四入口；无阵法、无洞府强化。 */
+  hubEntries: ("puppet" | "garden" | "alchemy" | "forge")[];
 };
 
 type DongfuProgress = typeof playerDongfu.$inferSelect;
@@ -148,7 +189,7 @@ async function ensureProgress(tx: Tx, config: DongfuConfig, playerId: string, no
       .insert(playerDongfu)
       .values({
         playerId,
-        servantTotal: config.startingServants,
+        servantTotal: config.puppet?.startCount ?? config.startingServants,
         gardenAllocation: 0,
         alchemyAllocation: 0,
         gardenLevel: 1,
@@ -323,10 +364,33 @@ function pickHint(config: DongfuConfig, tier: "fail" | "imperfect", now: Date): 
   return list[now.getUTCSeconds() % list.length]!;
 }
 
+
+async function loadAndSettlePuppet(
+  tx: Tx,
+  config: DongfuConfig,
+  progress: DongfuProgress,
+  playerId: string,
+  now: Date,
+): Promise<{ progress: DongfuProgress; puppetState: PuppetProgressState }> {
+  const normalized = normalizePuppetProgress(progress.puppetState, config.puppet, progress.servantTotal, now);
+  const settled = settlePuppetLines(normalized, config.puppet, now);
+  const same =
+    progress.puppetState &&
+    JSON.stringify(progress.puppetState) === JSON.stringify(settled);
+  if (!same) {
+    await tx.update(playerDongfu).set({ puppetState: settled }).where(eq(playerDongfu.playerId, playerId));
+    return { progress: { ...progress, puppetState: settled }, puppetState: settled };
+  }
+  return { progress, puppetState: settled };
+}
+
 /** 组装 state.dongfu。首次会写入灵仆行并发放初始灵木；之后按 now 只读结算状态。 */
 export async function readDongfuState(tx: Tx, world: World, playerId: string, now: Date): Promise<DongfuStateDto> {
   const config = dongfuOf(world);
-  const progress = await ensureProgress(tx, config, playerId, now);
+  let progress = await ensureProgress(tx, config, playerId, now);
+  const settledPack = await loadAndSettlePuppet(tx, config, progress, playerId, now);
+  progress = settledPack.progress;
+  const puppetState = settledPack.puppetState;
   const sizes = sizesOf(config, progress);
   const scale = scalesOf(config, progress);
   const plotRows = await tx.select().from(playerDongfuPlots).where(eq(playerDongfuPlots.playerId, playerId));
@@ -431,6 +495,44 @@ export async function readDongfuState(tx: Tx, world: World, playerId: string, no
     },
     servantAssignLingshi: config.servantAssignLingshi,
     arrayDaily: buildArrayDailyDto(config, progress, now),
+    puppet: buildPuppetDto(puppetState, config.puppet, progress.servantTotal),
+    forge: await buildForgeDto(tx, config, progress, playerId, now),
+    gardenSeedReturnChance: config.gardenSeedReturnChance,
+    alchemyRepeatSeconds: config.alchemyRepeatSeconds,
+    hubEntries: ["puppet", "garden", "alchemy", "forge"],
+  };
+}
+
+async function buildForgeDto(tx: Tx, config: DongfuConfig, progress: DongfuProgress, playerId: string, now: Date) {
+  const jobs = await tx
+    .select()
+    .from(playerDongfuForge)
+    .where(and(eq(playerDongfuForge.playerId, playerId), isNull(playerDongfuForge.claimedAt)));
+  const mapped = jobs
+    .sort((a, b) => a.startedAt.getTime() - b.startedAt.getTime())
+    .map((job) => ({
+      id: job.id,
+      blueprintSlug: job.blueprintSlug,
+      startedAt: job.startedAt.toISOString(),
+      readyAt: job.readyAt.toISOString(),
+      status: (job.readyAt.getTime() <= now.getTime() ? "ready" : "crafting") as "crafting" | "ready",
+      rolledQuality: job.rolledQuality,
+      outputItemSlug: job.outputItemSlug,
+    }));
+  return {
+    jobs: mapped,
+    blueprints: config.forge.blueprints.map((bp) => ({
+      blueprintSlug: bp.blueprintSlug,
+      displayName: bp.displayName,
+      slot: bp.slot,
+      craftSeconds: bp.craftSeconds,
+      costs: bp.costs.map((c) => ({ ...c })),
+      outputByQuality: { ...bp.outputByQuality } as Record<string, string>,
+    })),
+    forgeXp: progress.forgeXp ?? 0,
+    claimable: mapped.filter((j) => j.status === "ready").length,
+    baseOrangeChance: config.forge.baseOrangeChance,
+    orangeChanceCap: config.forge.orangeChanceCap,
   };
 }
 
@@ -540,9 +642,14 @@ export async function claimGarden(
     throw new AppError("INVALID_INPUT", input.slot !== undefined ? "这块地还不能领取" : "没有可领取的草药");
   }
   const gained: { itemSlug: string; quantity: number }[] = [];
+  const seedReturns: { itemSlug: string; quantity: number }[] = [];
   for (const row of ready) {
     const seed = seedOf(config, row.seedSlug!);
     gained.push({ itemSlug: seed.herbSlug, quantity: 1 });
+    if (config.gardenSeedReturnChance > 0 && Math.random() < config.gardenSeedReturnChance) {
+      seedReturns.push({ itemSlug: seed.seedSlug, quantity: 1 });
+      gained.push({ itemSlug: seed.seedSlug, quantity: 1 });
+    }
   }
   await assertCanAcceptStacks(
     tx,
@@ -556,6 +663,9 @@ export async function claimGarden(
     await tx
       .delete(playerDongfuPlots)
       .where(and(eq(playerDongfuPlots.playerId, playerId), eq(playerDongfuPlots.slot, row.slot)));
+  }
+  for (const pack of seedReturns) {
+    await addStack(tx, playerId, pack.itemSlug, pack.quantity, "dongfu_seed_return", now);
   }
   return { dongfu: await readDongfuState(tx, world, playerId, now), gained };
 }
@@ -990,4 +1100,267 @@ export async function completeArrayDaily(
     gained,
     arrayXpGained,
   };
+}
+
+
+/** 傀儡产线派工：meat/wood/herb/stone 人数之和 ≤ servantTotal。 */
+export async function assignPuppetLines(
+  tx: Tx,
+  world: World,
+  playerId: string,
+  input: Partial<Record<DongfuPuppetLineId, number>>,
+  now: Date,
+) {
+  const config = dongfuOf(world);
+  let progress = await ensureProgress(tx, config, playerId, now);
+  const pack = await loadAndSettlePuppet(tx, config, progress, playerId, now);
+  progress = pack.progress;
+  const state = pack.puppetState;
+  const nextWorkers = { ...Object.fromEntries(PUPPET_LINES.map((id) => [id, state.lines[id].workers])) } as Record<
+    DongfuPuppetLineId,
+    number
+  >;
+  for (const id of PUPPET_LINES) {
+    if (input[id] === undefined) continue;
+    const n = input[id];
+    if (!Number.isInteger(n) || (n as number) < 0) {
+      throw new AppError("INVALID_INPUT", "傀儡数量不正确");
+    }
+    nextWorkers[id] = n as number;
+  }
+  const used = PUPPET_LINES.reduce((sum, id) => sum + nextWorkers[id], 0);
+  if (used > progress.servantTotal) {
+    throw new AppError("INVALID_INPUT", "傀儡不够分配");
+  }
+  const nextState: PuppetProgressState = {
+    settledAt: state.settledAt,
+    lines: {
+      meat: { ...state.lines.meat, workers: nextWorkers.meat },
+      wood: { ...state.lines.wood, workers: nextWorkers.wood },
+      herb: { ...state.lines.herb, workers: nextWorkers.herb },
+      stone: { ...state.lines.stone, workers: nextWorkers.stone },
+    },
+  };
+  await tx.update(playerDongfu).set({ puppetState: nextState }).where(eq(playerDongfu.playerId, playerId));
+  return { dongfu: await readDongfuState(tx, world, playerId, now) };
+}
+
+/** 产线升级扩仓：扣本线仓库存量。 */
+export async function upgradePuppetLine(
+  tx: Tx,
+  world: World,
+  playerId: string,
+  line: DongfuPuppetLineId,
+  now: Date,
+) {
+  if (!PUPPET_LINES.includes(line)) {
+    throw new AppError("INVALID_INPUT", "未知产线");
+  }
+  const config = dongfuOf(world);
+  const progress = await ensureProgress(tx, config, playerId, now);
+  const pack = await loadAndSettlePuppet(tx, config, progress, playerId, now);
+  const state = pack.puppetState;
+  const cost = upgradeCostOf(config.puppet, line, state.lines[line].level);
+  if (state.lines[line].stored + 1e-9 < cost) {
+    throw new AppError("MATERIAL_SHORT", "仓库资源不足，无法升级");
+  }
+  const nextLines = {
+    meat: { ...state.lines.meat },
+    wood: { ...state.lines.wood },
+    herb: { ...state.lines.herb },
+    stone: { ...state.lines.stone },
+  };
+  nextLines[line] = {
+    ...nextLines[line],
+    stored: nextLines[line].stored - cost,
+    level: nextLines[line].level + 1,
+  };
+  const nextState: PuppetProgressState = { settledAt: state.settledAt, lines: nextLines };
+  await tx.update(playerDongfu).set({ puppetState: nextState }).where(eq(playerDongfu.playerId, playerId));
+  return { dongfu: await readDongfuState(tx, world, playerId, now) };
+}
+
+/** 耗肉招 1 傀儡。 */
+export async function hirePuppet(tx: Tx, world: World, playerId: string, now: Date) {
+  const config = dongfuOf(world);
+  let progress = await ensureProgress(tx, config, playerId, now);
+  const pack = await loadAndSettlePuppet(tx, config, progress, playerId, now);
+  progress = pack.progress;
+  const state = pack.puppetState;
+  if (progress.servantTotal >= config.puppet.maxCount) {
+    throw new AppError("INVALID_INPUT", "傀儡已达上限");
+  }
+  const cost = config.puppet.hireCostMeat;
+  if (state.lines.meat.stored + 1e-9 < cost) {
+    throw new AppError("MATERIAL_SHORT", "灵肉不足，无法招人");
+  }
+  const nextState: PuppetProgressState = {
+    settledAt: state.settledAt,
+    lines: {
+      meat: { ...state.lines.meat, stored: state.lines.meat.stored - cost },
+      wood: { ...state.lines.wood },
+      herb: { ...state.lines.herb },
+      stone: { ...state.lines.stone },
+    },
+  };
+  await tx
+    .update(playerDongfu)
+    .set({ puppetState: nextState, servantTotal: progress.servantTotal + 1 })
+    .where(eq(playerDongfu.playerId, playerId));
+  return { dongfu: await readDongfuState(tx, world, playerId, now) };
+}
+
+/** 从产线仓库收取到背包。 */
+export async function withdrawPuppetStore(
+  tx: Tx,
+  world: World,
+  playerId: string,
+  input: { line: DongfuPuppetLineId; amount?: number },
+  now: Date,
+) {
+  const line = input.line;
+  if (!PUPPET_LINES.includes(line)) {
+    throw new AppError("INVALID_INPUT", "未知产线");
+  }
+  const config = dongfuOf(world);
+  const bagSlug = config.puppet.lines[line].bagItemSlug;
+  if (!bagSlug) {
+    throw new AppError("INVALID_INPUT", "该产线不可收取到行囊");
+  }
+  const progress = await ensureProgress(tx, config, playerId, now);
+  const pack = await loadAndSettlePuppet(tx, config, progress, playerId, now);
+  const state = pack.puppetState;
+  const have = Math.floor(state.lines[line].stored);
+  if (have <= 0) {
+    throw new AppError("INVALID_INPUT", "仓库为空");
+  }
+  const amount = input.amount === undefined ? have : Math.floor(input.amount);
+  if (!Number.isInteger(amount) || amount <= 0 || amount > have) {
+    throw new AppError("INVALID_INPUT", "收取数量不正确");
+  }
+  await assertCanAcceptStacks(tx, world, playerId, [bagSlug]);
+  const nextLines = {
+    meat: { ...state.lines.meat },
+    wood: { ...state.lines.wood },
+    herb: { ...state.lines.herb },
+    stone: { ...state.lines.stone },
+  };
+  nextLines[line] = { ...nextLines[line], stored: nextLines[line].stored - amount };
+  await tx
+    .update(playerDongfu)
+    .set({ puppetState: { settledAt: state.settledAt, lines: nextLines } })
+    .where(eq(playerDongfu.playerId, playerId));
+  await addStack(tx, playerId, bagSlug, amount, "dongfu_puppet_withdraw", now);
+  return {
+    dongfu: await readDongfuState(tx, world, playerId, now),
+    gained: [{ itemSlug: bagSlug, quantity: amount }],
+  };
+}
+
+/** 开炼：扣材料入队。 */
+export async function startForge(
+  tx: Tx,
+  world: World,
+  playerId: string,
+  input: { blueprintSlug: string },
+  now: Date,
+) {
+  const config = dongfuOf(world);
+  await ensureProgress(tx, config, playerId, now);
+  let bp;
+  try {
+    bp = blueprintOf(config.forge, input.blueprintSlug);
+  } catch {
+    throw new AppError("INVALID_INPUT", "未知图纸");
+  }
+  const open = await tx
+    .select()
+    .from(playerDongfuForge)
+    .where(and(eq(playerDongfuForge.playerId, playerId), isNull(playerDongfuForge.claimedAt)));
+  if (open.length >= 1) {
+    throw new AppError("QUEUE_FULL", "炼器炉忙，请先领取");
+  }
+  const items = await loadBagItems(tx, playerId);
+  for (const cost of bp.costs) {
+    if (stackCount(items, cost.itemSlug) < cost.count) {
+      throw new AppError("MATERIAL_SHORT", "材料不足");
+    }
+  }
+  for (const cost of bp.costs) {
+    await takeStack(tx, items, cost.itemSlug, cost.count);
+  }
+  const quality = rollForgeQuality(config.forge);
+  let outputItemSlug: string;
+  try {
+    outputItemSlug = outputSlugForQuality(bp, quality);
+  } catch {
+    // 缺橙等时回退白/绿/蓝
+    const fallback = (["white", "green", "blue", "purple", "orange"] as ForgeQuality[]).find((q) => bp.outputByQuality[q]);
+    if (!fallback) throw new AppError("INVALID_INPUT", "图纸未配置产出");
+    outputItemSlug = outputSlugForQuality(bp, fallback);
+  }
+  const readyAt = new Date(now.getTime() + Math.max(0, bp.craftSeconds) * 1000);
+  const [row] = await tx
+    .insert(playerDongfuForge)
+    .values({
+      playerId,
+      blueprintSlug: bp.blueprintSlug,
+      startedAt: now,
+      readyAt,
+      rolledQuality: quality,
+      outputItemSlug,
+    })
+    .returning();
+  return { dongfu: await readDongfuState(tx, world, playerId, now), jobId: row?.id };
+}
+
+/** 领取炼器成品：走统一发放指定装备。 */
+export async function claimForge(
+  tx: Tx,
+  world: World,
+  playerId: string,
+  input: { jobId?: string },
+  now: Date,
+) {
+  const config = dongfuOf(world);
+  const progress = await ensureProgress(tx, config, playerId, now);
+  const jobs = await tx
+    .select()
+    .from(playerDongfuForge)
+    .where(and(eq(playerDongfuForge.playerId, playerId), isNull(playerDongfuForge.claimedAt)));
+  const ready = jobs.filter((job) => {
+    if (job.readyAt.getTime() > now.getTime()) return false;
+    if (input.jobId && job.id !== input.jobId) return false;
+    return true;
+  });
+  if (ready.length === 0) {
+    throw new AppError("INVALID_INPUT", "没有可领取的炼器成品");
+  }
+  const gained: { itemSlug: string; quality: string | null; itemId?: string }[] = [];
+  for (const job of ready) {
+    const slug = job.outputItemSlug;
+    if (!slug) throw new AppError("INVALID_INPUT", "炼器产出缺失");
+    const granted = await grantEquipment(tx, {
+      playerId,
+      itemId: slug,
+      count: 1,
+      source: "dongfu_forge",
+      sourceRef: job.blueprintSlug,
+      requestId: `dongfu-forge-${job.id}`,
+    });
+    if (granted.bagFull) {
+      throw new AppError("BAG_FULL", "行囊已满，请先分解或使用");
+    }
+    const inst = granted[0];
+    gained.push({ itemSlug: slug, quality: job.rolledQuality, itemId: inst?.id });
+    await tx
+      .update(playerDongfuForge)
+      .set({ claimedAt: now })
+      .where(eq(playerDongfuForge.id, job.id));
+  }
+  await tx
+    .update(playerDongfu)
+    .set({ forgeXp: (progress.forgeXp ?? 0) + ready.length * 5 })
+    .where(eq(playerDongfu.playerId, playerId));
+  return { dongfu: await readDongfuState(tx, world, playerId, now), gained };
 }

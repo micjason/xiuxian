@@ -167,6 +167,7 @@ func toggle_item(id: String) -> void:
 func toggle_quality(rarity: int) -> void:
 	model.toggle_quality(rarity)
 	_render_state()
+	_scroll_to_first_selected(rarity)
 
 
 ## 点「确认分解」：N=0 提示；含紫 / 橙先二次确认；否则直接分解。
@@ -381,7 +382,7 @@ func _build_grid() -> void:
 	_scroll = ScrollContainer.new()
 	_scroll.name = "GridScroll"
 	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
+	_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 	_at(_grid_well, _scroll, Vector2(7, 74), Vector2(866, 760))
 	_scroll.get_v_scroll_bar().value_changed.connect(func(_v: float) -> void: _update_more_hint())
 	_grid = Control.new()
@@ -473,6 +474,7 @@ func _cell(item: Dictionary) -> Button:
 	var box := _tex("check_box_off", Vector2(56, 56))
 	box.name = "Check"
 	box.position = Vector2(CELL - 44, -12)
+	box.z_index = 5  # 压在槽位角标之上，选中勾必须看得见
 	cell.add_child(box)
 	var rarity := int(item.get("rarity", 0))
 	var word_color := Color("#8E96A3") if rarity <= 0 else UiTokens.rarity_color(rarity).darkened(0.3)
@@ -549,11 +551,26 @@ func _build_buttons() -> void:
 
 ## 勾选一变就重算（格子勾、胶囊、已选数、汇总、按钮）。
 func _render_state() -> void:
+	var any_on := model.selected_count() > 0
 	for id in _cells:
 		var cell := _cells[id] as Control
 		var on := model.is_selected(str(id))
-		(cell.get_node("Ring") as CanvasItem).visible = on
-		(cell.get_node("Check") as TextureRect).texture = ArtLib.qui("check_box_on" if on else "check_box_off")
+		var ring := cell.get_node("Ring") as CanvasItem
+		ring.visible = on
+		var check := cell.get_node("Check") as TextureRect
+		# 显式切图；缺资源时退回字勾，避免「已选 N 件但格子全空」
+		var on_tex := ArtLib.qui("check_box_on")
+		var off_tex := ArtLib.qui("check_box_off")
+		if on:
+			check.texture = on_tex if on_tex != null else off_tex
+			check.modulate = Color.WHITE
+			if on_tex == null:
+				check.modulate = PICK_ORANGE
+		else:
+			check.texture = off_tex
+			check.modulate = Color.WHITE
+		# 有选中时，未勾的略暗，勾上的保持亮 + 橙圈，避免「按品质全选了但首屏看不见勾」
+		cell.modulate = Color.WHITE if on or not any_on else Color(1, 1, 1, 0.72)
 	for rarity in _chips.size():
 		_style_chip(_chips[rarity], rarity, model.chip_on(rarity), model.count_of(rarity) == 0)
 	var n := model.selected_count()

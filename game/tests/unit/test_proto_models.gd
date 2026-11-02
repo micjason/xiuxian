@@ -204,3 +204,13 @@ func test_top_bar_shows_realm_power_and_cultivation_only() -> void:
 	assert_eq(bar.realm_text(), "炼气三层")
 	assert_eq(bar.power_text(), "战力 12,345")
 	assert_eq(bar.cultivation_text(), "1,200 / 3,600")
+
+
+func test_top_bar_cultivation_hides_overflow_numerator() -> void:
+	var bar := TopBar.new()
+	add_child_autofree(bar)
+	bar.bind({"realmName": "炼气一层", "power": 282, "cultivation": 257469.0, "breakthrough": {"cost": 1080.0, "nextSlug": "lianqi_2", "rateBp": 10000}})
+	assert_eq(bar.cultivation_text(), "已满(+256,389) / 1,080")
+	assert_eq(bar.status_text(), "已满·可突破")
+	var pair := CultivationFormat.progress_pair(500.0, 1080.0, true)
+	assert_eq(str(pair.text), "500 / 1,080")

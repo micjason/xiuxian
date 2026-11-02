@@ -308,9 +308,9 @@ func bind(state: Dictionary) -> void:
 	var cultivation := float(state.get("cultivation", 0))
 	var cost := float(view.cost)
 	var has_next := bool(view.has_next)
-	_cult_value.text = "%s / %s" % [OfflineView.grouped(cultivation), OfflineView.grouped(cost)] if has_next else OfflineView.grouped(cultivation)
-	var ratio := clampf(cultivation / maxf(cost, 1.0), 0.0, 1.0) if has_next else 1.0
-	_cult_bar.set_ratio(ratio)
+	var progress := CultivationFormat.progress_pair(cultivation, cost, has_next)
+	_cult_value.text = str(progress.text)
+	_cult_bar.set_ratio(float(progress.ratio))
 	var kind := "c"
 	if not has_next:
 		_cult_status.text = "已至最高境界"

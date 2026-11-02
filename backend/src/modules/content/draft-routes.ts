@@ -125,7 +125,7 @@ export async function registerDraftRoutes(app: FastifyInstance, deps: { db: Db; 
         throw new AppError("INVALID_INPUT", "大乘三层没有下一层，不能改突破修为");
       }
       if (key === "requiredStageId" && !showsGate(seed)) {
-        throw new AppError("INVALID_INPUT", "只有各大境三层可以设置突破前通关");
+        throw new AppError("INVALID_INPUT", "这一层没有可配的突破关卡");
       }
       throw new AppError("INVALID_INPUT", `不能修改「${key}」`);
     }

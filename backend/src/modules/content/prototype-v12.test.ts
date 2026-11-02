@@ -17,7 +17,11 @@ const sim = JSON.parse(readFileSync(new URL("../../../../tools/sim/prototype-v1.
   gearTable: Record<string, Record<string, number>[]>;
 };
 
-const GATE_SLUGS = ["lianqi_3", "zhuji_3", "jindan_3", "yuanying_3", "huashen_3", "lianxu_3", "heti_3"] as const;
+const GATE_SLUGS = [
+  "lianqi_1", "lianqi_2", "lianqi_3",
+  "zhuji_1", "zhuji_2", "zhuji_3",
+  "jindan_1", "jindan_2", "jindan_3",
+] as const;
 
 describe("prototype v1.2 content", () => {
   it("keeps the simulation config drift guard for the original 9 layers / 3 majors / overlapping stages", () => {
@@ -38,7 +42,7 @@ describe("prototype v1.2 content", () => {
     }
   });
 
-  it("ships 24 same-slug stages with a boss each, 8 chapters, and only the 7 major-end gates", async () => {
+  it("ships 24 same-slug stages with a boss each, 8 chapters, and the 9 early-realm stage gates", async () => {
     await withDb(async (db) => {
       const seeded = await applyPrototypeV12(db);
       expect(seeded.stageSlugs).toHaveLength(24);

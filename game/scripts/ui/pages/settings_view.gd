@@ -332,7 +332,7 @@ func _build_auto_decompose() -> void:
 
 
 func _auto_chip(index: int) -> Button:
-	var key := QUALITY_KEYS[index]
+	var key: String = QUALITY_KEYS[index]
 	var chip := Button.new()
 	chip.name = "AutoQuality_%s" % key
 	chip.focus_mode = Control.FOCUS_NONE
@@ -371,8 +371,8 @@ func _apply_auto_qualities(raw: Variant) -> void:
 		next = DEFAULT_AUTO_QUALITIES.duplicate()
 	_auto_qualities = next
 	for i in _auto_chips.size():
-		var key := QUALITY_KEYS[i]
-		var on := key in _auto_qualities
+		var key: String = QUALITY_KEYS[i]
+		var on: bool = key in _auto_qualities
 		_auto_chips[i].set_pressed_no_signal(on)
 		_paint_auto_chip(_auto_chips[i], on)
 
@@ -391,8 +391,8 @@ func _toggle_auto_quality(key: String, on: bool) -> void:
 			ordered.append(q)
 	_auto_qualities = ordered
 	for i in _auto_chips.size():
-		var k := QUALITY_KEYS[i]
-		var chip_on := k in _auto_qualities
+		var k: String = QUALITY_KEYS[i]
+		var chip_on: bool = k in _auto_qualities
 		_auto_chips[i].set_pressed_no_signal(chip_on)
 		_paint_auto_chip(_auto_chips[i], chip_on)
 	auto_decompose_changed.emit(_auto_qualities)

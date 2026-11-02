@@ -87,9 +87,13 @@ func test_garden_card_opens_subpage() -> void:
 	enter.pressed.emit()
 	assert_eq(page.mode(), "garden")
 	assert_not_null(page.find_child("GardenClaimAll", true, false))
-	assert_not_null(page.find_child("Plot_0", true, false))
+	assert_not_null(page.find_child("PlotTap_0", true, false))
 	assert_not_null(page.find_child("Upgrade_garden", true, false))
-	assert_not_null(page.find_child("SeedPicker", true, false))
+	assert_not_null(page.find_child("SeedIdleHint", true, false), "未点空畦时不弹种子抽屉")
+	assert_null(page.find_child("SeedPicker", true, false), "未点空畦无 SeedPicker")
+	var plot0 := page.find_child("PlotTap_0", true, false) as BaseButton
+	plot0.pressed.emit()
+	assert_not_null(page.find_child("SeedPicker", true, false), "点空畦后弹出种子抽屉")
 
 
 func test_allocate_and_upgrade_emit_actions() -> void:
@@ -206,6 +210,9 @@ func test_seed_drawer_buy_when_empty() -> void:
 	var enter := page.find_child("Enter_garden", true, false) as BaseButton
 	enter.pressed.emit()
 	assert_eq(page.mode(), "garden")
+	var plot0 := page.find_child("PlotTap_0", true, false) as BaseButton
+	assert_not_null(plot0)
+	plot0.pressed.emit()
 	watch_signals(page)
 	var bag0 := page.find_child("SeedBag_0", true, false) as BaseButton
 	assert_not_null(bag0)

@@ -517,7 +517,7 @@ func _hub_entry(id: String, rect: Rect2, card: Dictionary) -> void:
 	btn.disabled = not bool(_view.get("available", false)) and id != "forge"
 
 
-func _render_resource_pillsfunc _render_resource_pills() -> void:
+func _render_resource_pills() -> void:
 	var stones := int(_view.get("spiritStones", 0))
 	var wood := int(_view.get("woodCount", 0))
 	var wood_name := str(_view.get("woodName", "灵木"))
@@ -768,6 +768,22 @@ func _on_plot_tap(slot: int, status: String) -> void:
 			action_requested.emit("garden_claim", {"slot": slot})
 		_:
 			action_requested.emit("toast", {"text": "还在生长中"})
+
+
+func _render_seed_bar_inline() -> void:
+	# 本页下方选种条：复用抽屉实现（成鹏确认不弹背包）
+	_render_seed_drawer()
+
+
+func _first_empty_plot() -> int:
+	var plots: Array = _view.get("plots", [])
+	for i in range(plots.size()):
+		var plot: Variant = plots[i]
+		if typeof(plot) != TYPE_DICTIONARY:
+			continue
+		if str((plot as Dictionary).get("status", "")) == "empty":
+			return int((plot as Dictionary).get("slot", i))
+	return -1
 
 
 func _render_seed_drawer() -> void:

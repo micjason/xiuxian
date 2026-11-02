@@ -181,7 +181,6 @@ export async function grantItem(
   const autoQualities = isAutoDecomposeGrantSource(grant.source) ? await loadAutoDecomposeQualities(tx, playerId) : [];
   const shouldAuto = isAutoDecomposeGrantSource(grant.source) && qualitiesInclude(autoQualities, definition.quality);
   if (shouldAuto) {
-    let essencePer = 0;
     try {
       const rules = readEnhanceRules(world);
       const slug = essenceRules(rules).itemSlug;
@@ -190,7 +189,7 @@ export async function grantItem(
       }
       const realm = world.realms.find((row) => row.sortOrder === definition.requiredRealmOrder);
       const major = resolveRealmYieldMajor(realm);
-      essencePer = essenceYield(rules, definition.quality, definition.slot, 0, major);
+      const essencePer = essenceYield(rules, definition.quality, definition.slot, 0, major);
       for (let index = 0; index < quantity; index += 1) {
         await addStack(tx, playerId, slug, essencePer, "auto_decompose", now);
         result.decomposed += 1;

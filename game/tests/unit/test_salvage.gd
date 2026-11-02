@@ -246,3 +246,22 @@ func test_quality_words_sit_under_the_slot_and_the_bottom_fade_covers_the_last_v
 			var center := word.get_global_rect().get_center() - hint.global_position
 			assert_between(center.y, 0.0, hint.size.y, "最后一行的字落在渐隐范围内")
 			assert_gt(grad.sample(center.y / hint.size.y).a, 0.95, "最后一行的品质字被渐隐盖住，不和提示字打架")
+
+func test_quality_toggle_marks_cell_checkbox_and_scrolls() -> void:
+	var dialog := SalvageDialog.new()
+	dialog.animate = false
+	add_child_autofree(dialog)
+	dialog.open(_bag())
+	assert_gt(dialog.model.count_of(0), 0)
+	dialog.toggle_quality(0)
+	assert_eq(dialog.model.selected_of(0), dialog.model.count_of(0))
+	var first_id := _ids_of(dialog.model, 0)[0]
+	var cell := dialog.find_child("Cell_" + first_id, true, false) as Control
+	assert_not_null(cell, "白品格子存在")
+	var check := cell.get_node("Check") as TextureRect
+	assert_not_null(check)
+	var on_tex := ArtLib.qui("check_box_on")
+	if on_tex != null:
+		assert_eq(check.texture, on_tex, "按品质全选后勾选框必须是 on")
+	assert_true((cell.get_node("Ring") as CanvasItem).visible, "选中橙圈可见")
+

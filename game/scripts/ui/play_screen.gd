@@ -920,7 +920,9 @@ func _on_center_pressed() -> void:
 		_toast.say_neutral(str(view.hint))
 		return
 	if not bool(view.can_start):
-		_toast.say_neutral(str(view.hint))
+		var tip := str(view.hint)
+		if not tip.is_empty():
+			_toast.say_neutral(tip)
 	_open_breakthrough()
 
 

@@ -3,7 +3,7 @@ extends Control
 ## 境界突破弹窗（Q 版设计稿 q_breakthrough_popup）：底栏正中「突破」圆钮打开，居中盖在当前页上（外壳加遮罩）。
 ## 绶带标题「突破 · 下一境界」；舞台（当前 → 目标境界、战力提升牌、成功率环、打坐的主角）；
 ## 突破条件（修为、必须击败的首领，满足打勾）；属性提升（生命/攻击/防御/速度 突破前 → 后、战力前 → 后）；
-## 「突破」大按钮（下写消耗）；首领没打时多一个「前往挑战」；底下「点击空白处关闭」。
+## 「突破」大按钮（下写消耗）；首领没打时多一个「前往挑战」；底下「点击空白处关闭」。钮下不再重复「先击败首领」。
 ## 条件没满足时按钮灰化。数值全部来自服务器 breakthrough（preview / rateBp / requiredStage），这里不自己算。
 ## 动画（2026-10-20 动画交付）：弹窗 ui_popup 的 open / close（README 2b）；舞台用 breakthrough_fx（README 4）：
 ## 平时 idle（法阵慢转、光晕），点「突破」播 charge（进度条充满 + 水波纹），服务器回成功后播 success（光柱、光环、星光、
@@ -24,7 +24,6 @@ var _body: VBoxContainer
 var _button: Button
 var _button_title: Label
 var _button_sub: Label
-var _hint: Label
 var _goto: Button
 var _close_hint: Label
 var _inset_top := 90.0
@@ -87,8 +86,6 @@ func _init() -> void:
 	_goto = QKit.button("", "m", 100, 36)
 	_goto.name = "GotoStageButton"
 	_goto.visible = false
-	_hint = UiKit.label("", UiTokens.FS_MICRO, UiTokens.TEXT_MUTED, HORIZONTAL_ALIGNMENT_CENTER)
-	_hint.name = "Hint"
 	_close_hint = QKit.tag("点击空白处关闭", "dark", 32, 30).get_child(0) as Label
 	var close_pill := _close_hint.get_parent() as Control
 	close_pill.name = "CloseHint"
@@ -269,11 +266,8 @@ func bind(state: Dictionary, _content: Dictionary, next_realm_name: String, _aft
 		_button.get_parent().remove_child(_button)
 	if _goto.get_parent() != null:
 		_goto.get_parent().remove_child(_goto)
-	if _hint.get_parent() != null:
-		_hint.get_parent().remove_child(_hint)
 	_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	foot.add_child(_button)
-	foot.add_child(_hint)
 	_goto.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	foot.add_child(_goto)
 	_body.add_child(foot)
@@ -281,7 +275,6 @@ func bind(state: Dictionary, _content: Dictionary, next_realm_name: String, _aft
 	_button.disabled = not can_start
 	_button_title.text = "突破" if has_next else "已圆满"
 	_button_sub.text = "消耗 修为 %s" % OfflineView.grouped(float(_view.cost)) if has_next else ""
-	_hint.text = str(_view.hint)
 	_goto.visible = has_next and bool(_view.has_gate) and not bool(_view.boss_ok)
 	for connection in _goto.pressed.get_connections():
 		_goto.pressed.disconnect(connection.callable)

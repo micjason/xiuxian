@@ -144,7 +144,7 @@ func test_breakthrough_view_blocks_on_cultivation_then_on_boss() -> void:
 	state.cultivation = 3300.0
 	view = BreakthroughView.build(state)
 	assert_false(view.can_start)
-	assert_eq(view.hint, "先击败首领「黑风熊王」")
+	assert_eq(view.hint, "", "首领条件已在突破条件区展示，hint 不再重复")
 
 
 func test_breakthrough_view_without_gate_or_next_realm() -> void:

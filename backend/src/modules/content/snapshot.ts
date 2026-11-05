@@ -65,6 +65,7 @@ export async function loadDraftSnapshot(db: Db | Tx): Promise<ContentSnapshot> {
       tuning,
       artSlotRules: skillSlotRulesOf(globals?.artSlotRules),
       dongfu: globals?.dongfu ?? undefined,
+      fog: globals?.fog ?? undefined,
       slots: SLOT_TABLE,
       qualities: QUALITY_TABLE,
     },

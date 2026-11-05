@@ -14,6 +14,8 @@ const PAGE_BREAKTHROUGH := "breakthrough"
 const PAGE_BAG := "bag"
 const PAGE_SKILL := "skill"
 const PAGE_CAVE := "cave"
+const PAGE_FOG := "fog"
+const PAGE_FOG_BATTLE := "fog_battle"
 
 ## 页面 → 背景画。
 const PAGE_BACKGROUNDS := {
@@ -24,9 +26,11 @@ const PAGE_BACKGROUNDS := {
 	PAGE_BAG: "",
 	PAGE_SKILL: "",
 	PAGE_CAVE: "",
+	PAGE_FOG: "",
+	PAGE_FOG_BATTLE: "battle",
 }
 ## 不在页签里的页面 → 高亮哪个页签。
-const TAB_OF := {PAGE_BATTLE: PAGE_ADVENTURE, PAGE_SKILL: PAGE_CULTIVATE}
+const TAB_OF := {PAGE_BATTLE: PAGE_ADVENTURE, PAGE_SKILL: PAGE_CULTIVATE, PAGE_FOG_BATTLE: PAGE_FOG, PAGE_FOG: PAGE_CULTIVATE}
 ## 顶栏第二行（修为条）只在这些页显示（设计稿：修炼、功法）。
 const PAGES_WITH_CULTIVATION := [PAGE_CULTIVATE, PAGE_SKILL]
 ## 心跳：服务器 onlineGapSeconds（默认 15 秒）内有请求才算在线，所以间隔要比它短。
@@ -77,6 +81,8 @@ var _break_gen := 0
 var _page_before_break := PAGE_CULTIVATE
 var _bag_page: BagPage
 var _skill_page: SkillPage
+var _fog_page
+var _fog_battle_page
 var _cave_page: CavePage
 var _offline_popup: OfflinePopup
 var _success_popup: BreakthroughSuccess
@@ -256,7 +262,7 @@ func _build_shell() -> void:
 	_home_page = HomePage.new()
 	_home_page.breakthrough_requested.connect(_open_breakthrough)
 	_home_page.adventure_requested.connect(func() -> void: _show_page(PAGE_ADVENTURE))
-	_home_page.page_requested.connect(_show_page)
+	_home_page.page_requested.connect(_on_page_requested)
 	_home_page.offline_requested.connect(_reopen_offline)
 	_stage_page = StagePage.new()
 	_stage_page.stage_selected.connect(_select_stage)
@@ -285,7 +291,18 @@ func _build_shell() -> void:
 	_cave_page.back_requested.connect(func() -> void: _show_page(PAGE_CULTIVATE))
 	_cave_page.action_requested.connect(_on_dongfu_action)
 	_cave_page.enhance_entry_requested.connect(open_enhance_entry)
-	_pages = {PAGE_CULTIVATE: _home_page, PAGE_ADVENTURE: _stage_page, PAGE_BATTLE: _battle_page, PAGE_BREAKTHROUGH: _breakthrough_page, PAGE_BAG: _bag_page, PAGE_SKILL: _skill_page, PAGE_CAVE: _cave_page}
+	_fog_page = FogMapPage.new()
+	_fog_page.back_requested.connect(func() -> void: _show_page(PAGE_CULTIVATE))
+	_fog_page.toast_requested.connect(func(text: String, ok: bool) -> void:
+		if ok:
+			_toast.say(text, true)
+		else:
+			_toast.say_neutral(text))
+	_fog_page.battle_requested.connect(_on_fog_battle)
+	_fog_battle_page = FogBattlePage.new()
+	_fog_battle_page.back_requested.connect(func() -> void: _show_page(PAGE_FOG))
+	_fog_battle_page.finished.connect(_on_fog_battle_finished)
+	_pages = {PAGE_CULTIVATE: _home_page, PAGE_ADVENTURE: _stage_page, PAGE_BATTLE: _battle_page, PAGE_BREAKTHROUGH: _breakthrough_page, PAGE_BAG: _bag_page, PAGE_SKILL: _skill_page, PAGE_CAVE: _cave_page, PAGE_FOG: _fog_page, PAGE_FOG_BATTLE: _fog_battle_page}
 	for key in _pages:
 		(_pages[key] as Control).visible = false
 		if key != PAGE_BREAKTHROUGH:
@@ -1398,3 +1415,55 @@ func _skill_def(slug: String) -> Dictionary:
 		if typeof(row) == TYPE_DICTIONARY and str((row as Dictionary).get("slug", "")) == slug:
 			return row
 	return {}
+
+
+# ───────── 迷雾秘境 ─────────
+
+func _open_fog() -> void:
+	_busy = true
+	var result := await _get_fog()
+	_busy = false
+	if int(result.get("code", 0)) != 200 and not result.has("fog"):
+		_toast.say_neutral(PlayerApi.error_message(result) if not result.is_empty() else "秘境暂不可用")
+		return
+	_fog_page.bind_fog(result)
+	_show_page(PAGE_FOG)
+
+
+func _get_fog() -> Dictionary:
+	return await ApiClient.request_json(HTTPClient.METHOD_GET, "/api/v1/me/fog", {}, PlayerApi.token())
+
+
+func _on_fog_battle(payload: Dictionary) -> void:
+	_fog_battle_page.open_battle(payload)
+	_show_page(PAGE_FOG_BATTLE)
+
+
+func _on_fog_battle_finished(payload: Dictionary) -> void:
+	if payload.has("fog"):
+		_fog_page.bind_fog(payload)
+	# 刷新总状态（掉落进背包）
+	_refresh_state_soft()
+
+
+func _refresh_state_soft() -> void:
+	# 非阻塞刷新：有现成心跳则下次带上；这里尝试拉一次
+	if _busy:
+		return
+	var state := await PlayerApi.fetch_state()
+	if int(state.get("code", 0)) == 200 or state.has("playerId"):
+		_apply_action_state(state)
+
+func _on_page_requested(page: String) -> void:
+	if page == PAGE_FOG or page == "fog":
+		await _open_fog()
+		return
+	_show_page(page)
+
+
+func _ensure_fog_loaded() -> void:
+	if _page != PAGE_FOG:
+		return
+	var result := await _get_fog()
+	if result.has("fog") or int(result.get("code", 0)) == 200:
+		_fog_page.bind_fog(result)

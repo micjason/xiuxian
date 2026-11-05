@@ -456,9 +456,9 @@ export async function battleFog(
 
   let monsterSide: { attack: number; defense: number; hp: number; interval: number };
   let monsterName: string;
-  let loot: FogLoot[] = [];
+  let loot: FogLoot[];
   let skillBookSkillSlug: string | undefined;
-  let grantSkillBook = false;
+  const grantSkillBook = false;
   let onWin: () => void;
 
   if (obj.kind === "monster") {

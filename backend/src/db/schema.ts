@@ -4,6 +4,7 @@ import type { Tuning } from "../modules/content/tuning.js";
 import type { BossRuleOverride, BossStatKey } from "../modules/content/boss-rules.js";
 import type { RealmYieldMajor } from "../modules/content/enhance.js";
 import type { DongfuConfig } from "../modules/dongfu/config.js";
+import type { FogConfig } from "../modules/fog/config.js";
 import { sql } from "drizzle-orm";
 import {
   bigint,
@@ -264,6 +265,8 @@ export const contentGlobals = pgTable("content_globals", {
   artSlotRules: jsonb("art_slot_rules").$type<{ minRealmOrder: number; slots: number }[]>(),
   /** 洞府：药园 / 炼丹 / 灵仆分配 / 设施升级（见 modules/dongfu/config.ts）。 */
   dongfu: jsonb("dongfu").$type<DongfuConfig>(),
+  /** 迷雾秘境 P0（见 modules/fog/config.ts）。 */
+  fog: jsonb("fog").$type<FogConfig>(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   updatedBy: uuid("updated_by"),
 });
@@ -849,3 +852,26 @@ export const playerActiveBuffs = pgTable(
   },
   (table) => [index("player_active_buffs_player_idx").on(table.playerId)],
 );
+
+/** 迷雾秘境进度：位置、已开雾、箱/怪状态、游历点日限。 */
+export const playerFogRuns = pgTable(
+  "player_fog_runs",
+  {
+    playerId: uuid("player_id")
+      .notNull()
+      .references(() => players.id, { onDelete: "cascade" }),
+    mapId: text("map_id").notNull(),
+    posR: integer("pos_r").notNull().default(0),
+    posC: integer("pos_c").notNull().default(0),
+    revealed: jsonb("revealed").$type<string[]>().notNull().default([]),
+    objects: jsonb("objects")
+      .$type<Record<string, { opened?: boolean; defeated?: boolean }>>()
+      .notNull()
+      .default({}),
+    travelPoints: integer("travel_points").notNull().default(0),
+    travelDay: text("travel_day"),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [primaryKey({ name: "player_fog_runs_pk", columns: [table.playerId, table.mapId] })],
+);
+

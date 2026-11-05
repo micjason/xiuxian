@@ -32,6 +32,8 @@ export type ContentSnapshot = {
     artSlotRules?: { minRealmOrder: number; slots: number }[];
     /** 洞府 v1（药园/炼丹）配置；缺了运行时报 CONTENT_NOT_PUBLISHED。 */
     dongfu?: import("../dongfu/config.js").DongfuConfig;
+    /** 迷雾秘境 P0；缺省用 DEFAULT_FOG。 */
+    fog?: import("../fog/config.js").FogConfig;
     /** 统一部位表 / 品质表（catalog.ts），游戏和后台都按这里的名字显示。 */
     slots?: readonly import("./catalog.js").SlotRow[];
     qualities?: readonly import("./catalog.js").QualityRow[];

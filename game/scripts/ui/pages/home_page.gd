@@ -134,11 +134,11 @@ func _build_side_entries() -> void:
 	_skill.name = "SkillButton"
 	_skill.pressed.connect(func() -> void: page_requested.emit("skill"))
 	_place_side(skills.root, 670)
-	var alchemy := QKit.side_button("side_alchemy", "炼丹")
-	alchemy.root.name = "AlchemyEntry"
+	var alchemy := QKit.side_button("side_alchemy", "秘境")
+	alchemy.root.name = "FogEntry"
 	_alchemy = alchemy.button
-	_alchemy.name = "AlchemyButton"
-	LockedFeature.wire_locked(_alchemy, "alchemy", 40)
+	_alchemy.name = "FogButton"
+	_alchemy.pressed.connect(func() -> void: page_requested.emit("fog"))
 	_place_side(alchemy.root, 890)
 
 

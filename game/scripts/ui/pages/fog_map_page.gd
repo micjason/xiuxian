@@ -245,7 +245,7 @@ func _on_cell(x: int, y: int) -> void:
 		if not FogMapView.is_revealed(_view, x, y):
 			continue
 		var kind := str(o.get("kind", ""))
-		var manh := abs(x - px) + abs(y - py)
+		var manh: int = absi(x - px) + absi(y - py)
 		if manh > 1:
 			toast_requested.emit("先走到旁边", false)
 			return

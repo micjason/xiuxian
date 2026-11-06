@@ -1,6 +1,6 @@
 class_name FogMapView
 extends RefCounted
-## 迷雾秘境状态整形；服 fog DTO 权威。
+## 迷雾秘境状态整形；服 fog DTO 权威。地图定妆贴图见 FogMapPage / FogLevelTiles。
 
 static func from_payload(data: Dictionary) -> Dictionary:
 	var fog: Variant = data.get("fog", data)

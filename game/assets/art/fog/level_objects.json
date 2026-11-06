@@ -1,0 +1,474 @@
+{
+  "realm_id": "wenxin_gu_p0",
+  "title": "问心谷 P0",
+  "width": 8,
+  "height": 12,
+  "origin": "top_left",
+  "axis": {
+    "x": "right",
+    "y": "down"
+  },
+  "spawn": {
+    "id": "spawn",
+    "x": 3,
+    "y": 10
+  },
+  "travel_points_initial": 20,
+  "fog": {
+    "initial_reveal_manhattan": 1,
+    "reveal_on_arrive_manhattan": 1
+  },
+  "tiles": [
+    [
+      "grass",
+      "grass",
+      "rock",
+      "rock",
+      "grass",
+      "rock",
+      "rock",
+      "grass"
+    ],
+    [
+      "grass",
+      "grass",
+      "grass",
+      "path",
+      "path",
+      "grass",
+      "grass",
+      "grass"
+    ],
+    [
+      "water",
+      "grass",
+      "grass",
+      "path",
+      "path",
+      "path",
+      "grass",
+      "grass"
+    ],
+    [
+      "water",
+      "water",
+      "grass",
+      "grass",
+      "path",
+      "path",
+      "path",
+      "grass"
+    ],
+    [
+      "water",
+      "water",
+      "grass",
+      "path",
+      "path",
+      "rock",
+      "grass",
+      "grass"
+    ],
+    [
+      "water",
+      "grass",
+      "rock",
+      "path",
+      "path",
+      "path",
+      "grass",
+      "rock"
+    ],
+    [
+      "grass",
+      "path",
+      "path",
+      "path",
+      "path",
+      "path",
+      "rock",
+      "rock"
+    ],
+    [
+      "grass",
+      "path",
+      "path",
+      "path",
+      "path",
+      "grass",
+      "grass",
+      "rock"
+    ],
+    [
+      "grass",
+      "grass",
+      "path",
+      "path",
+      "path",
+      "grass",
+      "rock",
+      "grass"
+    ],
+    [
+      "grass",
+      "grass",
+      "path",
+      "path",
+      "path",
+      "grass",
+      "grass",
+      "grass"
+    ],
+    [
+      "grass",
+      "grass",
+      "grass",
+      "path",
+      "path",
+      "grass",
+      "grass",
+      "grass"
+    ],
+    [
+      "grass",
+      "grass",
+      "grass",
+      "path",
+      "grass",
+      "grass",
+      "grass",
+      "grass"
+    ]
+  ],
+  "blocked": {
+    "water": [
+      [
+        0,
+        2
+      ],
+      [
+        0,
+        3
+      ],
+      [
+        0,
+        4
+      ],
+      [
+        0,
+        5
+      ],
+      [
+        1,
+        3
+      ],
+      [
+        1,
+        4
+      ]
+    ],
+    "rock": [
+      [
+        2,
+        0
+      ],
+      [
+        2,
+        5
+      ],
+      [
+        3,
+        0
+      ],
+      [
+        5,
+        0
+      ],
+      [
+        5,
+        4
+      ],
+      [
+        6,
+        0
+      ],
+      [
+        6,
+        6
+      ],
+      [
+        6,
+        8
+      ],
+      [
+        7,
+        5
+      ],
+      [
+        7,
+        6
+      ],
+      [
+        7,
+        7
+      ]
+    ]
+  },
+  "path_suggested": [
+    [
+      1,
+      6
+    ],
+    [
+      1,
+      7
+    ],
+    [
+      2,
+      6
+    ],
+    [
+      2,
+      7
+    ],
+    [
+      2,
+      8
+    ],
+    [
+      2,
+      9
+    ],
+    [
+      3,
+      1
+    ],
+    [
+      3,
+      2
+    ],
+    [
+      3,
+      4
+    ],
+    [
+      3,
+      5
+    ],
+    [
+      3,
+      6
+    ],
+    [
+      3,
+      7
+    ],
+    [
+      3,
+      8
+    ],
+    [
+      3,
+      9
+    ],
+    [
+      3,
+      10
+    ],
+    [
+      3,
+      11
+    ],
+    [
+      4,
+      1
+    ],
+    [
+      4,
+      2
+    ],
+    [
+      4,
+      3
+    ],
+    [
+      4,
+      4
+    ],
+    [
+      4,
+      5
+    ],
+    [
+      4,
+      6
+    ],
+    [
+      4,
+      7
+    ],
+    [
+      4,
+      8
+    ],
+    [
+      4,
+      9
+    ],
+    [
+      4,
+      10
+    ],
+    [
+      5,
+      2
+    ],
+    [
+      5,
+      3
+    ],
+    [
+      5,
+      5
+    ],
+    [
+      5,
+      6
+    ],
+    [
+      6,
+      3
+    ]
+  ],
+  "objects": [
+    {
+      "id": "spawn",
+      "kind": "spawn",
+      "name": "出生",
+      "x": 3,
+      "y": 10
+    },
+    {
+      "id": "m_slime",
+      "kind": "monster",
+      "name": "浊气小妖",
+      "x": 2,
+      "y": 8
+    },
+    {
+      "id": "m_wolf",
+      "kind": "monster",
+      "name": "影狼",
+      "x": 5,
+      "y": 6
+    },
+    {
+      "id": "m_guard",
+      "kind": "monster",
+      "name": "谷口护卫",
+      "x": 4,
+      "y": 1
+    },
+    {
+      "id": "c_near",
+      "kind": "chest",
+      "name": "近箱",
+      "x": 4,
+      "y": 9,
+      "drop": "丹材×3"
+    },
+    {
+      "id": "c_mid",
+      "kind": "chest",
+      "name": "中箱",
+      "x": 1,
+      "y": 6,
+      "drop": "丹材×5"
+    },
+    {
+      "id": "c_high",
+      "kind": "chest",
+      "name": "高箱",
+      "x": 6,
+      "y": 3,
+      "drop": "技能书残页×1"
+    },
+    {
+      "id": "e_herb",
+      "kind": "event",
+      "name": "仙草争执",
+      "x": 3,
+      "y": 4,
+      "title": "仙草争执",
+      "option_a": "上前理论（开战）",
+      "option_b": "转身离开（无奖）"
+    }
+  ],
+  "monsters": [
+    {
+      "id": "m_slime",
+      "kind": "monster",
+      "name": "浊气小妖",
+      "x": 2,
+      "y": 8
+    },
+    {
+      "id": "m_wolf",
+      "kind": "monster",
+      "name": "影狼",
+      "x": 5,
+      "y": 6
+    },
+    {
+      "id": "m_guard",
+      "kind": "monster",
+      "name": "谷口护卫",
+      "x": 4,
+      "y": 1
+    }
+  ],
+  "chests": [
+    {
+      "id": "c_near",
+      "kind": "chest",
+      "name": "近箱",
+      "x": 4,
+      "y": 9,
+      "drop": "丹材×3"
+    },
+    {
+      "id": "c_mid",
+      "kind": "chest",
+      "name": "中箱",
+      "x": 1,
+      "y": 6,
+      "drop": "丹材×5"
+    },
+    {
+      "id": "c_high",
+      "kind": "chest",
+      "name": "高箱",
+      "x": 6,
+      "y": 3,
+      "drop": "技能书残页×1"
+    }
+  ],
+  "events": [
+    {
+      "id": "e_herb",
+      "kind": "event",
+      "name": "仙草争执",
+      "x": 3,
+      "y": 4,
+      "title": "仙草争执",
+      "option_a": "上前理论（开战）",
+      "option_b": "转身离开（无奖）"
+    }
+  ],
+  "notes": {
+    "path": "path tiles are visual guidance; walkable = grass|path",
+    "combat": "monsters -> other-dimension battle, not on-map",
+    "source": "FOG_LEVEL_DESIGN_P0_2026-11-05.md",
+    "map_art": "preview/MAP_8x12_annotated.jpg"
+  }
+}

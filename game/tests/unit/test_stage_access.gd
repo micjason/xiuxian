@@ -242,8 +242,8 @@ func test_tab_switch_shows_that_chapter_and_selects_its_stage() -> void:
 	assert_true(page.selected.begins_with("lianqi_"), page.selected)
 
 
-## 精英预览小卡（SPEC_Q §14.5）：挂机所在关的首领能打、打了有东西拿才显示；点了 = 挑战这关。
-func test_elite_preview_card_shows_the_idle_stage_boss_and_challenges_it() -> void:
+## 精英预览小卡（SPEC_Q §14.5）：挂机所在关的首领能打、打了有东西拿才显示；点了 = 查看该首领掉落。
+func test_elite_preview_card_shows_the_idle_stage_boss_and_opens_loot() -> void:
 	var scene := await _boot("gate")
 	scene.call("_show_page", "adventure")
 	await get_tree().process_frame
@@ -259,8 +259,8 @@ func test_elite_preview_card_shows_the_idle_stage_boss_and_challenges_it() -> vo
 	assert_almost_eq(rect.size, Vector2(170, 230), Vector2(1, 1))
 	card.pressed.emit()
 	await get_tree().process_frame
-	assert_true((scene.get("_battle_page") as Control).visible, "点小卡进首领战")
-	assert_eq((scene.get("_battle_page") as BattlePage).stage_slug, "lianqi_3")
+	assert_false((scene.get("_battle_page") as Control).visible, "头像只看掉落，不进入战斗")
+	assert_not_null(page.find_child("StagePopup", true, false), "点头像打开掉落预览")
 
 
 func test_elite_preview_hidden_when_nothing_to_win() -> void:
@@ -308,4 +308,4 @@ func test_stage_card_fixed_height_and_clips() -> void:
 	assert_gt(heights.size(), 0, "至少有一张关卡卡")
 	for name in heights:
 		var h: float = heights[name]
-		assert_true(is_equal_approx(h, 220.0) or is_equal_approx(h, 236.0) or is_equal_approx(h, 300.0), "%s 行高应为 220/236/300，实为 %s" % [name, h])
+		assert_almost_eq(h, 236.0, 0.1, "%s：确认稿三态统一紧凑行高" % name)

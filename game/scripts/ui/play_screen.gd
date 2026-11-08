@@ -267,6 +267,7 @@ func _build_shell() -> void:
 	_stage_page = StagePage.new()
 	_stage_page.stage_selected.connect(_select_stage)
 	_stage_page.challenge_requested.connect(_open_battle)
+	_stage_page.fog_requested.connect(func() -> void: _show_page(PAGE_FOG))
 	_stage_page.idle_stage_requested.connect(_on_idle_stage)
 	_stage_page.back_requested.connect(func() -> void: _show_page(PAGE_CULTIVATE))
 	_stage_page.salvage_requested.connect(open_salvage)
@@ -417,8 +418,9 @@ func _apply_layout() -> void:
 	_page_host.offset_left = float(UiTokens.PAGE_MARGIN) + inset.x
 	_page_host.offset_right = -(float(UiTokens.PAGE_MARGIN) + inset.z)
 	var standalone_battle := _page == PAGE_BATTLE
-	_page_host.offset_top = inset.y + (float(UiTokens.SP_1) if standalone_battle else _top_bar.content_height() + float(UiTokens.SP_1))
-	_page_host.offset_bottom = -(inset.w + float(UiTokens.SP_2)) if standalone_battle else -(float(TabBarView.HEIGHT) + TabBarView.bottom_pad(inset) + float(UiTokens.SP_2))
+	_page_host.offset_top = inset.y + 32.0 if standalone_battle else inset.y + _top_bar.content_height() + float(UiTokens.SP_1)
+	_page_host.offset_bottom = -(inset.w + 32.0) if standalone_battle else -(float(TabBarView.HEIGHT) + TabBarView.bottom_pad(inset) + float(UiTokens.SP_2))
+
 	_toast.place_top(float(UiTokens.PAGE_MARGIN) + inset.x, inset.y + _top_bar.content_height() + float(UiTokens.SP_2), float(UiTokens.PAGE_MARGIN) + inset.z, 110.0)
 	_breakthrough_page.apply_safe_area(inset)
 	_offline_popup.apply_safe_area(inset)

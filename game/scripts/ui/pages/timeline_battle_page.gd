@@ -64,6 +64,7 @@ func open_stage(state: Dictionary, content: Dictionary, stage: Dictionary, gate:
 	source = "stage"
 	_session_data = {}
 	super.open_stage(state, content, stage, gate, realm)
+	_slots.reset_cast()
 	# No stat preview panel; UI teammate owns the base layout and its final spacing.
 	_controls.visible = false
 	if _skip != null:
@@ -96,6 +97,7 @@ func open_session(session: Dictionary, state: Dictionary, content: Dictionary, s
 	stage["bosses"] = [mon]
 	# Base opens the confirmed visual layout only; replace its preview immediately with timeline playback.
 	super.open_stage(state, content, stage, {}, str(state.get("realmName", "")))
+	_slots.reset_cast()
 	fight = BattleTimeline.new()
 	(fight as BattleTimeline).load_session(session)
 	_shown_player_hp = fight.player_max_hp

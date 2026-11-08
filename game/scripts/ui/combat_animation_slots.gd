@@ -7,10 +7,17 @@ var host: Control
 var fx: Node2D
 var speed := 1.0
 var _instances: Dictionary = {}
+var cast: Node2D
+const Cast := preload("res://anim_q/battle_runtime/scripts/combat_cast.gd")
 
 func setup(arena: Control, fallback: Node2D) -> void:
 	host = arena
 	fx = fallback
+	cast = Cast.new()
+	cast.setup(host, fx)
+
+func reset_cast() -> void:
+	cast.reset_cast()
 
 func play_slot(side: String, slot: String, event: Dictionary = {}) -> void:
 	if not SLOTS.has(slot):
@@ -31,7 +38,9 @@ func play_slot(side: String, slot: String, event: Dictionary = {}) -> void:
 		if node != null and node.has_method("play_slot"):
 			node.call("play_slot", slot, event, speed)
 			return
-	# Existing hero/monster rigs + sword/slash/flash are the placeholders.
+	# Default actors use supplied sheet poses + an articulated enemy mesh.
+	cast.play_slot(side, slot, event, speed)
+	# Reuse existing sword/slash/flash only; hidden old rigs never render.
 	if slot in ["attack", "skill", "ult"]:
 		var shown := event.duplicate()
 		shown["kind"] = "ult" if slot in ["skill", "ult"] else "attack"

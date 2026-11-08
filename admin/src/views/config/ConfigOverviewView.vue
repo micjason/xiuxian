@@ -227,6 +227,8 @@
             </FormRow>
           </SectionCard>
 
+          <CombatRuntimeSection ref="combatSection" v-model="tuning.battle" />
+
           <SkillSlotsSection v-model="skillSlots" :realms="realms" :max="data.skillSlots?.max ?? 6" />
 
           <NewbieSection v-model="newbie" :realms="realms.map((realm) => ({ slug: realm.slug, displayName: realm.displayName }))" :limits="data.newbie?.limits ?? { maxRows: 20, maxQuantity: 9999 }" />
@@ -275,7 +277,12 @@ import type { FormValues, Schema } from "../../schema/types";
 
 type Quality = "white" | "green" | "blue" | "purple" | "orange";
 type Rank = "yellow" | "xuan" | "earth" | "heaven";
+import CombatRuntimeSection, { type CombatRuntime } from "./overview/CombatRuntimeSection.vue";
+
+const combatSection = ref<InstanceType<typeof CombatRuntimeSection>>();
+
 type Tuning = {
+  battle: CombatRuntime;
   gearBudgetRatio: number;
   slotShares: Record<string, number>;
   skillLayerFactors: [number, number, number, number];
@@ -565,6 +572,7 @@ async function latestOverview(): Promise<unknown> {
 }
 
 async function save(): Promise<boolean> {
+  if (combatSection.value && !combatSection.value.validate()) { ElMessage.error("请检查战斗参数、倍速及功法效果 JSON"); return false; }
   saving.value = true;
   try {
     applySeedRowsToTuning();

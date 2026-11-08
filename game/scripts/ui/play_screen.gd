@@ -72,7 +72,7 @@ const CHARGE_SECONDS := 2.0
 var _page_host: MarginContainer
 var _home_page: HomePage
 var _stage_page: StagePage
-var _battle_page: BattlePage
+var _battle_page: TimelineBattlePage
 var _breakthrough_page: BreakthroughPage
 ## 突破弹窗层（全屏遮罩 + 居中弹窗，盖在当前页上面、顶栏和底栏下面也遮住）。
 var _break_layer: Control
@@ -82,7 +82,7 @@ var _page_before_break := PAGE_CULTIVATE
 var _bag_page: BagPage
 var _skill_page: SkillPage
 var _fog_page
-var _fog_battle_page
+var _combat_recovery_checked := false
 var _cave_page: CavePage
 var _offline_popup: OfflinePopup
 var _success_popup: BreakthroughSuccess
@@ -271,10 +271,11 @@ func _build_shell() -> void:
 	_stage_page.idle_stage_requested.connect(_on_idle_stage)
 	_stage_page.back_requested.connect(func() -> void: _show_page(PAGE_CULTIVATE))
 	_stage_page.salvage_requested.connect(open_salvage)
-	_battle_page = BattlePage.new()
-	_battle_page.submit_requested.connect(_on_battle_submit)
-	_battle_page.back_requested.connect(func() -> void: _show_page(PAGE_ADVENTURE))
-	_battle_page.retry_requested.connect(_open_battle)
+	_battle_page = TimelineBattlePage.new()
+	_battle_page.start_requested.connect(_on_timeline_start)
+	_battle_page.settle_requested.connect(_on_timeline_settle)
+	_battle_page.back_requested.connect(_leave_timeline_battle)
+	_battle_page.retry_requested.connect(_retry_timeline_battle)
 	_battle_page.retreat_requested.connect(_on_battle_retreat)
 	_battle_page.powerup_requested.connect(_on_battle_powerup)
 	_breakthrough_page = BreakthroughPage.new()
@@ -300,10 +301,7 @@ func _build_shell() -> void:
 		else:
 			_toast.say_neutral(text))
 	_fog_page.battle_requested.connect(_on_fog_battle)
-	_fog_battle_page = FogBattlePage.new()
-	_fog_battle_page.back_requested.connect(func() -> void: _show_page(PAGE_FOG))
-	_fog_battle_page.finished.connect(_on_fog_battle_finished)
-	_pages = {PAGE_CULTIVATE: _home_page, PAGE_ADVENTURE: _stage_page, PAGE_BATTLE: _battle_page, PAGE_BREAKTHROUGH: _breakthrough_page, PAGE_BAG: _bag_page, PAGE_SKILL: _skill_page, PAGE_CAVE: _cave_page, PAGE_FOG: _fog_page, PAGE_FOG_BATTLE: _fog_battle_page}
+	_pages = {PAGE_CULTIVATE: _home_page, PAGE_ADVENTURE: _stage_page, PAGE_BATTLE: _battle_page, PAGE_BREAKTHROUGH: _breakthrough_page, PAGE_BAG: _bag_page, PAGE_SKILL: _skill_page, PAGE_CAVE: _cave_page, PAGE_FOG: _fog_page}
 	for key in _pages:
 		(_pages[key] as Control).visible = false
 		if key != PAGE_BREAKTHROUGH:
@@ -422,6 +420,7 @@ func _apply_layout() -> void:
 	var standalone_battle := _page == PAGE_BATTLE
 	_page_host.offset_top = inset.y + 32.0 if standalone_battle else inset.y + _top_bar.content_height() + float(UiTokens.SP_1)
 	_page_host.offset_bottom = -(inset.w + 32.0) if standalone_battle else -(float(TabBarView.HEIGHT) + TabBarView.bottom_pad(inset) + float(UiTokens.SP_2))
+
 	_toast.place_top(float(UiTokens.PAGE_MARGIN) + inset.x, inset.y + _top_bar.content_height() + float(UiTokens.SP_2), float(UiTokens.PAGE_MARGIN) + inset.z, 110.0)
 	_breakthrough_page.apply_safe_area(inset)
 	_offline_popup.apply_safe_area(inset)
@@ -470,6 +469,7 @@ func _on_logged_in() -> void:
 	_login.hide()
 	_set_status("")
 	_account = PlayerApi.account()
+	_combat_recovery_checked = false
 	_timer.start()
 	_refresh_state()
 
@@ -580,6 +580,8 @@ func _refresh_state() -> void:
 		return
 	if PlayerApi.token().is_empty() or _busy:
 		return
+	if _page == PAGE_BATTLE and (_battle_page.is_running() or _battle_page.is_settling()):
+		return
 	if _content.is_empty():
 		var content := await PlayerApi.fetch_content()
 		if int(content.get("code", 0)) == 200:
@@ -601,6 +603,9 @@ func _refresh_state() -> void:
 	if not is_equal_approx(_timer.wait_time, wanted):
 		_timer.wait_time = wanted
 	_render(true)
+	if not _combat_recovery_checked:
+		_combat_recovery_checked = true
+		await _recover_timeline_battle()
 	_maybe_show_offline()
 	_sync_notices(state.get("notices", []))
 
@@ -908,15 +913,16 @@ func _open_battle(slug: String) -> void:
 	_show_page(PAGE_BATTLE)
 
 
-## 首领战「撤退」：没开打直接回历练页；打到一半先确认（撤退将视为挑战失败），本地预演作废、不提交。
+## 首领战「撤退」：运行中先确认；服务端将当前会话记为失败，不发胜利掉落。
 func _on_battle_powerup() -> void:
+	await _leave_timeline_battle()
 	_show_page(PAGE_BAG)
 	_toast.say_neutral("去强化装备或突破境界，提升战力后再挑战")
 
 
 func _on_battle_retreat(running: bool) -> void:
 	if not running:
-		_show_page(PAGE_ADVENTURE)
+		_leave_timeline_battle()
 		return
 	_popup.clear_content()
 	var hint := UiKit.label("撤退将视为挑战失败", UiTokens.FS_BODY, UiTokens.TEXT, HORIZONTAL_ALIGNMENT_CENTER)
@@ -925,24 +931,15 @@ func _on_battle_retreat(running: bool) -> void:
 	_popup.set_actions([
 		{"text": "继续战斗", "variation": MainTheme.VAR_SECONDARY},
 		{"text": "撤退", "variation": MainTheme.VAR_PRIMARY, "callback": func() -> void:
-			_battle_page.abort()
-			_show_page(PAGE_ADVENTURE)},
+			_on_timeline_settle(_battle_page.combat_id, "retreat")},
 	])
 	_popup.open_popup("撤退", true)
 
 
-## 战斗画面打完就提交挑战（第四批起大招全自动，不再上报 ultTaps）；胜负和掉落以服务器返回为准。
-func _on_battle_submit(slug: String) -> void:
-	_busy = true
-	var result := await _post("/api/v1/me/stages/%s/challenge" % slug.uri_encode(), {})
-	_busy = false
-	if int(result.get("code", 0)) != 200:
-		_battle_page.show_submit_error(PlayerApi.error_message(result))
-		return
-	_enrich_drops(result.get("drops", []))
-	_apply_action_state(result)
-	_battle_page.show_result(result, _reward_name)
-	# 第五批 §17.5：背包满不再弹 BagFullPrompt（会打断挂机）；结算页的「行囊已满，装备未拾取」+ 历练页提示条 + 底栏 badge_full 代替。
+## 兼容旧测试入口；只读取已存在战斗会话的权威结算。
+func _on_battle_submit(_slug: String) -> void:
+	# Compatibility entry: never simulate or grant a second independent fight.
+	await _on_timeline_settle(_battle_page.combat_id, "complete")
 
 
 # ───────── 突破 ─────────
@@ -1439,8 +1436,8 @@ func _get_fog() -> Dictionary:
 
 
 func _on_fog_battle(payload: Dictionary) -> void:
-	_fog_battle_page.open_battle(payload)
-	_show_page(PAGE_FOG_BATTLE)
+	_battle_page.open_session(payload, _state, _content)
+	_show_page(PAGE_BATTLE)
 
 
 func _on_fog_battle_finished(payload: Dictionary) -> void:
@@ -1471,3 +1468,91 @@ func _ensure_fog_loaded() -> void:
 	var result := await _get_fog()
 	if result.has("fog") or int(result.get("code", 0)) == 200:
 		_fog_page.bind_fog(result)
+
+
+# Shared authoritative combat sessions (stage and fog).
+func _on_timeline_start(slug: String) -> void:
+	if not _battle_page.combat_id.is_empty():
+		await _on_timeline_settle(_battle_page.combat_id, "complete")
+		return
+	_busy = true
+	var result: Dictionary = _mock_timeline("stage", slug) if _mock else await PlayerApi.post_action("/api/v1/me/combat/start", {"source": "stage", "stageSlug": slug})
+	_busy = false
+	if not result.has("combatId"):
+		_battle_page.show_submit_error(PlayerApi.error_message(result))
+		return
+	_battle_page.open_session(result, _state, _content)
+	if typeof(result.get("result")) == TYPE_DICTIONARY:
+		_present_timeline_result(result)
+
+func _on_timeline_settle(id: String, mode: String) -> void:
+	if _busy or id.is_empty():
+		return
+	_busy = true
+	var response: Dictionary
+	if _mock:
+		response = _battle_page._session_data.duplicate(true)
+		var battle: Dictionary = response.get("battle", {})
+		if mode == "retreat":
+			battle["win"] = false
+			battle["reason"] = "retreat"
+		response["result"] = {"battle": battle, "drops": []}
+	else:
+		response = await PlayerApi.post_action("/api/v1/me/combat/%s/finish" % id.uri_encode(), {"mode": mode})
+	_busy = false
+	if not response.has("result") or typeof(response.get("result")) != TYPE_DICTIONARY:
+		_battle_page.show_submit_error(PlayerApi.error_message(response))
+		return
+	_present_timeline_result(response)
+	if mode == "retreat":
+		await _leave_timeline_battle()
+
+func _present_timeline_result(session: Dictionary) -> void:
+	var result: Dictionary = session.get("result", {})
+	_enrich_drops(result.get("drops", []))
+	if result.has("state"):
+		_apply_action_state(result)
+	if result.has("fog"):
+		_fog_page.bind_fog(result)
+	_battle_page.show_result(result, _reward_name)
+
+func _leave_timeline_battle() -> void:
+	if _busy:
+		return
+	var fog := _battle_page.source == "fog"
+	var id := _battle_page.combat_id
+	if not id.is_empty() and not _mock:
+		_busy = true
+		var ack := await PlayerApi.post_action("/api/v1/me/combat/%s/ack" % id.uri_encode(), {})
+		_busy = false
+		if int(ack.get("code", 0)) != 200:
+			_toast.say_neutral("战斗结果已保存，返回后可继续查看")
+	_battle_page.abort()
+	_battle_page.combat_id = ""
+	_show_page(PAGE_FOG if fog else PAGE_ADVENTURE)
+	if fog:
+		_refresh_state_soft()
+
+func _recover_timeline_battle() -> void:
+	if _mock or _page == PAGE_BATTLE or _busy or PlayerApi.token().is_empty():
+		return
+	_busy = true
+	var response := await ApiClient.request_json(HTTPClient.METHOD_GET, "/api/v1/me/combat/pending", {}, PlayerApi.token())
+	_busy = false
+	if typeof(response.get("session")) != TYPE_DICTIONARY:
+		return
+	var session: Dictionary = response.session
+	_battle_page.open_session(session, _state, _content, false)
+	_show_page(PAGE_BATTLE)
+	_present_timeline_result(session)
+
+func _mock_timeline(battle_source: String, slug: String = "") -> Dictionary:
+	var fixture: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://fixtures/combat_timeline.json"))
+	fixture["source"] = battle_source
+	fixture["target"] = {"source": battle_source, "stageSlug": slug}
+	return fixture
+
+
+func _retry_timeline_battle(slug: String) -> void:
+	await _leave_timeline_battle()
+	_open_battle(slug)

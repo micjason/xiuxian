@@ -29,7 +29,10 @@ export type SkillRank = (typeof SKILL_RANKS)[number];
 export const BAG_FULL_SOURCES = ["stage_drop", "boss_first", "boss_repeat", "admin_grant", "event", "mail"] as const;
 export type BagFullSource = (typeof BAG_FULL_SOURCES)[number];
 
+import { runtimeConfigOf, runtimeConfigFromInput, type RuntimeCombatConfig } from "../combat/runtime-config.js";
+
 export type Tuning = {
+  battle: RuntimeCombatConfig;
   /** 装备预算 = 大境界第一层累计属性 × 这个比例 */
   gearBudgetRatio: number;
   /** 6 个部位各占预算的比例，合计 1 */
@@ -65,6 +68,7 @@ export type Tuning = {
 };
 
 export const DEFAULT_TUNING: Tuning = {
+  battle: runtimeConfigOf(null),
   gearBudgetRatio: 0.55,
   slotShares: { weapon: 0.25, clothes: 0.2, helmet: 0.13, gloves: 0.12, shoes: 0.15, accessory: 0.15 },
   slotStats: {
@@ -162,6 +166,7 @@ export function tuningFromInput(raw: Raw): Tuning {
     throw new AppError("INVALID_INPUT", "默认品质权重至少有一档大于 0");
   }
   return {
+    battle: runtimeConfigFromInput(pick(raw, "battle", DEFAULT_TUNING.battle)),
     gearBudgetRatio: num(pick(raw, "gearBudgetRatio", DEFAULT_TUNING.gearBudgetRatio), "装备预算比例", 0.01, 10),
     slotShares,
     slotStats,

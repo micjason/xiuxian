@@ -1,0 +1,921 @@
+{
+  "combatId": "mock-combat",
+  "source": "fog",
+  "target": {
+    "source": "fog",
+    "mapId": "fog_wenxin_valley",
+    "objectId": "m_guard"
+  },
+  "battle": {
+    "win": true,
+    "reason": "win",
+    "durationSeconds": 17,
+    "log": [
+      {
+        "t": 1,
+        "side": "player",
+        "kind": "attack",
+        "damage": 189.96511627906978,
+        "targetHpAfter": 4610.03488372093,
+        "critical": true,
+        "dodged": false,
+        "absorbed": 0,
+        "healed": 0,
+        "playerHpAfter": 2200,
+        "bossHpAfter": 4610.03488372093,
+        "rageAfter": 25,
+        "statuses": []
+      },
+      {
+        "t": 1,
+        "side": "player",
+        "damage": 265.95116279069765,
+        "targetHpAfter": 4344.083720930233,
+        "kind": "skill",
+        "skillSlug": "skill_liekong",
+        "name": "裂空斩",
+        "castMode": "auto",
+        "fxType": "slash",
+        "critical": true,
+        "dodged": false,
+        "absorbed": 0,
+        "healed": 0,
+        "playerHpAfter": 2200,
+        "bossHpAfter": 4344.083720930233,
+        "rageAfter": 25,
+        "statuses": [
+          {
+            "kind": "attack_up",
+            "valueBp": 2000,
+            "durationSeconds": 3,
+            "source": "skill_liekong",
+            "side": "player",
+            "expiresAt": 4
+          },
+          {
+            "kind": "defense_down",
+            "valueBp": 3000,
+            "durationSeconds": 3,
+            "source": "skill_liekong",
+            "side": "boss",
+            "expiresAt": 4
+          }
+        ]
+      },
+      {
+        "t": 1.4,
+        "side": "boss",
+        "kind": "attack",
+        "damage": 89.62962962962963,
+        "targetHpAfter": 2110.3703703703704,
+        "critical": false,
+        "dodged": false,
+        "absorbed": 0,
+        "healed": 0,
+        "playerHpAfter": 2110.3703703703704,
+        "bossHpAfter": 4344.083720930233,
+        "rageAfter": 35,
+        "statuses": [
+          {
+            "kind": "attack_up",
+            "valueBp": 2000,
+            "durationSeconds": 3,
+            "source": "skill_liekong",
+            "side": "player",
+            "expiresAt": 4
+          },
+          {
+            "kind": "defense_down",
+            "valueBp": 3000,
+            "durationSeconds": 3,
+            "source": "skill_liekong",
+            "side": "boss",
+            "expiresAt": 4
+          }
+        ]
+      },
+      {
+        "t": 2,
+        "side": "player",
+        "kind": "attack",
+        "damage": 151.73684210526315,
+        "targetHpAfter": 4192.346878824969,
+        "critical": false,
+        "dodged": false,
+        "absorbed": 0,
+        "healed": 0,
+        "playerHpAfter": 2110.3703703703704,
+        "bossHpAfter": 4192.346878824969,
+        "rageAfter": 60,
+        "statuses": [
+          {
+            "kind": "attack_up",
+            "valueBp": 2000,
+            "durationSeconds": 3,
+            "source": "skill_liekong",
+            "side": "player",
+            "expiresAt": 4
+          },
+          {
+            "kind": "defense_down",
+            "valueBp": 3000,
+            "durationSeconds": 3,
+            "source": "skill_liekong",
+            "side": "boss",
+            "expiresAt": 4
+          }
+        ]
+      },
+      {
+        "t": 2.8,
+        "side": "boss",
+        "kind": "attack",
+        "damage": 0,
+        "targetHpAfter": 2110.3703703703704,
+        "critical": false,
+        "dodged": true,
+        "absorbed": 0,
+        "healed": 0,
+        "playerHpAfter": 2110.3703703703704,
+        "bossHpAfter": 4192.346878824969,
+        "rageAfter": 60,
+        "statuses": [
+          {
+            "kind": "attack_up",
+            "valueBp": 2000,
+            "durationSeconds": 3,
+            "source": "skill_liekong",
+            "side": "player",
+            "expiresAt": 4
+          },
+          {
+            "kind": "defense_down",
+            "valueBp": 3000,
+            "durationSeconds": 3,
+            "source": "skill_liekong",
+            "side": "boss",
+            "expiresAt": 4
+          }
+        ]
+      },
+      {
+        "t": 3,
+        "side": "player",
+        "kind": "attack",
+        "damage": 151.73684210526315,
+        "targetHpAfter": 4040.610036719706,
+        "critical": false,
+        "dodged": false,
+        "absorbed": 0,
+        "healed": 0,
+        "playerHpAfter": 2110.3703703703704,
+        "bossHpAfter": 4040.610036719706,
+        "rageAfter": 85,
+        "statuses": [
+          {
+            "kind": "attack_up",
+            "valueBp": 2000,
+            "durationSeconds": 3,
+            "source": "skill_liekong",
+            "side": "player",
+            "expiresAt": 4
+          },
+          {
+            "kind": "defense_down",
+            "valueBp": 3000,
+            "durationSeconds": 3,
+            "source": "skill_liekong",
+            "side": "boss",
+            "expiresAt": 4
+          }
+        ]
+      },
+      {
+        "t": 4,
+        "side": "player",
+        "kind": "attack",
+        "damage": 111.74418604651163,
+        "targetHpAfter": 3928.8658506731945,
+        "critical": false,
+        "dodged": false,
+        "absorbed": 0,
+        "healed": 0,
+        "playerHpAfter": 2110.3703703703704,
+        "bossHpAfter": 3928.8658506731945,
+        "rageAfter": 100,
+        "statuses": []
+      },
+      {
+        "t": 4,
+        "side": "player",
+        "kind": "ult",
+        "damage": 569.8953488372093,
+        "targetHpAfter": 3358.970501835985,
+        "critical": true,
+        "dodged": false,
+        "absorbed": 0,
+        "healed": 0,
+        "playerHpAfter": 2110.3703703703704,
+        "bossHpAfter": 3358.970501835985,
+        "rageAfter": 0,
+        "statuses": []
+      },
+      {
+        "t": 4.199999999999999,
+        "side": "boss",
+        "kind": "attack",
+        "damage": 89.62962962962963,
+        "targetHpAfter": 2020.7407407407409,
+        "critical": false,
+        "dodged": false,
+        "absorbed": 0,
+        "healed": 0,
+        "playerHpAfter": 2020.7407407407409,
+        "bossHpAfter": 3358.970501835985,
+        "rageAfter": 10,
+        "statuses": []
+      },
+      {
+        "t": 5,
+        "side": "player",
+        "kind": "attack",
+        "damage": 111.74418604651163,
+        "targetHpAfter": 3247.2263157894736,
+        "critical": false,
+        "dodged": false,
+        "absorbed": 0,
+        "healed": 0,
+        "playerHpAfter": 2020.7407407407409,
+        "bossHpAfter": 3247.2263157894736,
+        "rageAfter": 35,
+        "statuses": []
+      },
+      {
+        "t": 5,
+        "side": "player",
+        "damage": 55.872093023255815,
+        "targetHpAfter": 3191.354222766218,
+        "kind": "skill",
+        "skillSlug": "skill_tuna",
+        "name": "吐纳护体",
+        "castMode": "passive",
+        "fxType": "heal_circle",
+        "critical": false,
+        "dodged": false,
+        "absorbed": 0,
+        "healed": 179.25925925925912,
+        "playerHpAfter": 2200,
+        "bossHpAfter": 3191.354222766218,
+        "rageAfter": 35,
+        "statuses": [
+          {
+            "kind": "shield",
+            "valueBp": 1000,
+            "durationSeconds": 3,
+            "source": "skill_tuna",
+            "side": "player",
+            "expiresAt": 8,
+            "remaining": 220
+          }
+        ]
+      },
+      {
+        "t": 5.6,
+        "side": "boss",
+        "kind": "attack",
+        "damage": 0,
+        "targetHpAfter": 2200,
+        "critical": false,
+        "dodged": false,
+        "absorbed": 89.62962962962963,
+        "healed": 0,
+        "playerHpAfter": 2200,
+        "bossHpAfter": 3191.354222766218,
+        "rageAfter": 45,
+        "statuses": [
+          {
+            "kind": "shield",
+            "valueBp": 1000,
+            "durationSeconds": 3,
+            "source": "skill_tuna",
+            "side": "player",
+            "expiresAt": 8,
+            "remaining": 130.37037037037038
+          }
+        ]
+      },
+      {
+        "t": 6,
+        "side": "player",
+        "kind": "attack",
+        "damage": 189.96511627906978,
+        "targetHpAfter": 3001.389106487148,
+        "critical": true,
+        "dodged": false,
+        "absorbed": 0,
+        "healed": 0,
+        "playerHpAfter": 2200,
+        "bossHpAfter": 3001.389106487148,
+        "rageAfter": 70,
+        "statuses": [
+          {
+            "kind": "shield",
+            "valueBp": 1000,
+            "durationSeconds": 3,
+            "source": "skill_tuna",
+            "side": "player",
+            "expiresAt": 8,
+            "remaining": 130.37037037037038
+          }
+        ]
+      },
+      {
+        "t": 7,
+        "side": "player",
+        "kind": "attack",
+        "damage": 111.74418604651163,
+        "targetHpAfter": 2889.6449204406367,
+        "critical": false,
+        "dodged": false,
+        "absorbed": 0,
+        "healed": 0,
+        "playerHpAfter": 2200,
+        "bossHpAfter": 2889.6449204406367,
+        "rageAfter": 95,
+        "statuses": [
+          {
+            "kind": "shield",
+            "valueBp": 1000,
+            "durationSeconds": 3,
+            "source": "skill_tuna",
+            "side": "player",
+            "expiresAt": 8,
+            "remaining": 130.37037037037038
+          }
+        ]
+      },
+      {
+        "t": 7,
+        "side": "boss",
+        "kind": "attack",
+        "damage": 0,
+        "targetHpAfter": 2200,
+        "critical": false,
+        "dodged": false,
+        "absorbed": 89.62962962962963,
+        "healed": 0,
+        "playerHpAfter": 2200,
+        "bossHpAfter": 2889.6449204406367,
+        "rageAfter": 100,
+        "statuses": [
+          {
+            "kind": "shield",
+            "valueBp": 1000,
+            "durationSeconds": 3,
+            "source": "skill_tuna",
+            "side": "player",
+            "expiresAt": 8,
+            "remaining": 40.74074074074075
+          }
+        ]
+      },
+      {
+        "t": 7,
+        "side": "player",
+        "kind": "ult",
+        "damage": 335.2325581395349,
+        "targetHpAfter": 2554.412362301102,
+        "critical": false,
+        "dodged": false,
+        "absorbed": 0,
+        "healed": 0,
+        "playerHpAfter": 2200,
+        "bossHpAfter": 2554.412362301102,
+        "rageAfter": 0,
+        "statuses": [
+          {
+            "kind": "shield",
+            "valueBp": 1000,
+            "durationSeconds": 3,
+            "source": "skill_tuna",
+            "side": "player",
+            "expiresAt": 8,
+            "remaining": 40.74074074074075
+          }
+        ]
+      },
+      {
+        "t": 8,
+        "side": "player",
+        "kind": "attack",
+        "damage": 111.74418604651163,
+        "targetHpAfter": 2442.6681762545904,
+        "critical": false,
+        "dodged": false,
+        "absorbed": 0,
+        "healed": 0,
+        "playerHpAfter": 2200,
+        "bossHpAfter": 2442.6681762545904,
+        "rageAfter": 25,
+        "statuses": []
+      },
+      {
+        "t": 8.4,
+        "side": "boss",
+        "kind": "attack",
+        "damage": 89.62962962962963,
+        "targetHpAfter": 2110.3703703703704,
+        "critical": false,
+        "dodged": false,
+        "absorbed": 0,
+        "healed": 0,
+        "playerHpAfter": 2110.3703703703704,
+        "bossHpAfter": 2442.6681762545904,
+        "rageAfter": 35,
+        "statuses": []
+      },
+      {
+        "t": 9,
+        "side": "player",
+        "kind": "attack",
+        "damage": 189.96511627906978,
+        "targetHpAfter": 2252.703059975521,
+        "critical": true,
+        "dodged": false,
+        "absorbed": 0,
+        "healed": 0,
+        "playerHpAfter": 2110.3703703703704,
+        "bossHpAfter": 2252.703059975521,
+        "rageAfter": 60,
+        "statuses": []
+      },
+      {
+        "t": 9,
+        "side": "player",
+        "damage": 156.44186046511626,
+        "targetHpAfter": 2096.2611995104044,
+        "kind": "skill",
+        "skillSlug": "skill_liekong",
+        "name": "裂空斩",
+        "castMode": "auto",
+        "fxType": "slash",
+        "critical": false,
+        "dodged": false,
+        "absorbed": 0,
+        "healed": 0,
+        "playerHpAfter": 2110.3703703703704,
+        "bossHpAfter": 2096.2611995104044,
+        "rageAfter": 60,
+        "statuses": [
+          {
+            "kind": "attack_up",
+            "valueBp": 2000,
+            "durationSeconds": 3,
+            "source": "skill_liekong",
+            "side": "player",
+            "expiresAt": 12
+          },
+          {
+            "kind": "defense_down",
+            "valueBp": 3000,
+            "durationSeconds": 3,
+            "source": "skill_liekong",
+            "side": "boss",
+            "expiresAt": 12
+          }
+        ]
+      },
+      {
+        "t": 9.8,
+        "side": "boss",
+        "kind": "attack",
+        "damage": 89.62962962962963,
+        "targetHpAfter": 2020.7407407407409,
+        "critical": false,
+        "dodged": false,
+        "absorbed": 0,
+        "healed": 0,
+        "playerHpAfter": 2020.7407407407409,
+        "bossHpAfter": 2096.2611995104044,
+        "rageAfter": 70,
+        "statuses": [
+          {
+            "kind": "attack_up",
+            "valueBp": 2000,
+            "durationSeconds": 3,
+            "source": "skill_liekong",
+            "side": "player",
+            "expiresAt": 12
+          },
+          {
+            "kind": "defense_down",
+            "valueBp": 3000,
+            "durationSeconds": 3,
+            "source": "skill_liekong",
+            "side": "boss",
+            "expiresAt": 12
+          }
+        ]
+      },
+      {
+        "t": 10,
+        "side": "player",
+        "kind": "attack",
+        "damage": 257.9526315789474,
+        "targetHpAfter": 1838.308567931457,
+        "critical": true,
+        "dodged": false,
+        "absorbed": 0,
+        "healed": 0,
+        "playerHpAfter": 2020.7407407407409,
+        "bossHpAfter": 1838.308567931457,
+        "rageAfter": 95,
+        "statuses": [
+          {
+            "kind": "attack_up",
+            "valueBp": 2000,
+            "durationSeconds": 3,
+            "source": "skill_liekong",
+            "side": "player",
+            "expiresAt": 12
+          },
+          {
+            "kind": "defense_down",
+            "valueBp": 3000,
+            "durationSeconds": 3,
+            "source": "skill_liekong",
+            "side": "boss",
+            "expiresAt": 12
+          }
+        ]
+      },
+      {
+        "t": 11,
+        "side": "player",
+        "kind": "attack",
+        "damage": 257.9526315789474,
+        "targetHpAfter": 1580.3559363525096,
+        "critical": true,
+        "dodged": false,
+        "absorbed": 0,
+        "healed": 0,
+        "playerHpAfter": 2020.7407407407409,
+        "bossHpAfter": 1580.3559363525096,
+        "rageAfter": 100,
+        "statuses": [
+          {
+            "kind": "attack_up",
+            "valueBp": 2000,
+            "durationSeconds": 3,
+            "source": "skill_liekong",
+            "side": "player",
+            "expiresAt": 12
+          },
+          {
+            "kind": "defense_down",
+            "valueBp": 3000,
+            "durationSeconds": 3,
+            "source": "skill_liekong",
+            "side": "boss",
+            "expiresAt": 12
+          }
+        ]
+      },
+      {
+        "t": 11,
+        "side": "player",
+        "kind": "ult",
+        "damage": 455.2105263157895,
+        "targetHpAfter": 1125.14541003672,
+        "critical": false,
+        "dodged": false,
+        "absorbed": 0,
+        "healed": 0,
+        "playerHpAfter": 2020.7407407407409,
+        "bossHpAfter": 1125.14541003672,
+        "rageAfter": 0,
+        "statuses": [
+          {
+            "kind": "attack_up",
+            "valueBp": 2000,
+            "durationSeconds": 3,
+            "source": "skill_liekong",
+            "side": "player",
+            "expiresAt": 12
+          },
+          {
+            "kind": "defense_down",
+            "valueBp": 3000,
+            "durationSeconds": 3,
+            "source": "skill_liekong",
+            "side": "boss",
+            "expiresAt": 12
+          }
+        ]
+      },
+      {
+        "t": 11.200000000000001,
+        "side": "boss",
+        "kind": "attack",
+        "damage": 89.62962962962963,
+        "targetHpAfter": 1931.1111111111113,
+        "critical": false,
+        "dodged": false,
+        "absorbed": 0,
+        "healed": 0,
+        "playerHpAfter": 1931.1111111111113,
+        "bossHpAfter": 1125.14541003672,
+        "rageAfter": 10,
+        "statuses": [
+          {
+            "kind": "attack_up",
+            "valueBp": 2000,
+            "durationSeconds": 3,
+            "source": "skill_liekong",
+            "side": "player",
+            "expiresAt": 12
+          },
+          {
+            "kind": "defense_down",
+            "valueBp": 3000,
+            "durationSeconds": 3,
+            "source": "skill_liekong",
+            "side": "boss",
+            "expiresAt": 12
+          }
+        ]
+      },
+      {
+        "t": 12,
+        "side": "player",
+        "kind": "attack",
+        "damage": 111.74418604651163,
+        "targetHpAfter": 1013.4012239902083,
+        "critical": false,
+        "dodged": false,
+        "absorbed": 0,
+        "healed": 0,
+        "playerHpAfter": 1931.1111111111113,
+        "bossHpAfter": 1013.4012239902083,
+        "rageAfter": 35,
+        "statuses": []
+      },
+      {
+        "t": 12.600000000000001,
+        "side": "boss",
+        "kind": "attack",
+        "damage": 89.62962962962963,
+        "targetHpAfter": 1841.4814814814818,
+        "critical": false,
+        "dodged": false,
+        "absorbed": 0,
+        "healed": 0,
+        "playerHpAfter": 1841.4814814814818,
+        "bossHpAfter": 1013.4012239902083,
+        "rageAfter": 45,
+        "statuses": []
+      },
+      {
+        "t": 13,
+        "side": "player",
+        "kind": "attack",
+        "damage": 189.96511627906978,
+        "targetHpAfter": 823.4361077111386,
+        "critical": true,
+        "dodged": false,
+        "absorbed": 0,
+        "healed": 0,
+        "playerHpAfter": 1841.4814814814818,
+        "bossHpAfter": 823.4361077111386,
+        "rageAfter": 70,
+        "statuses": []
+      },
+      {
+        "t": 13,
+        "side": "player",
+        "damage": 55.872093023255815,
+        "targetHpAfter": 767.5640146878827,
+        "kind": "skill",
+        "skillSlug": "skill_tuna",
+        "name": "吐纳护体",
+        "castMode": "passive",
+        "fxType": "heal_circle",
+        "critical": false,
+        "dodged": false,
+        "absorbed": 0,
+        "healed": 220,
+        "playerHpAfter": 2061.4814814814818,
+        "bossHpAfter": 767.5640146878827,
+        "rageAfter": 70,
+        "statuses": [
+          {
+            "kind": "shield",
+            "valueBp": 1000,
+            "durationSeconds": 3,
+            "source": "skill_tuna",
+            "side": "player",
+            "expiresAt": 16,
+            "remaining": 220
+          }
+        ]
+      },
+      {
+        "t": 14,
+        "side": "player",
+        "kind": "attack",
+        "damage": 111.74418604651163,
+        "targetHpAfter": 655.819828641371,
+        "critical": false,
+        "dodged": false,
+        "absorbed": 0,
+        "healed": 0,
+        "playerHpAfter": 2061.4814814814818,
+        "bossHpAfter": 655.819828641371,
+        "rageAfter": 95,
+        "statuses": [
+          {
+            "kind": "shield",
+            "valueBp": 1000,
+            "durationSeconds": 3,
+            "source": "skill_tuna",
+            "side": "player",
+            "expiresAt": 16,
+            "remaining": 220
+          }
+        ]
+      },
+      {
+        "t": 14.000000000000002,
+        "side": "boss",
+        "kind": "attack",
+        "damage": 0,
+        "targetHpAfter": 2061.4814814814818,
+        "critical": false,
+        "dodged": false,
+        "absorbed": 89.62962962962963,
+        "healed": 0,
+        "playerHpAfter": 2061.4814814814818,
+        "bossHpAfter": 655.819828641371,
+        "rageAfter": 100,
+        "statuses": [
+          {
+            "kind": "shield",
+            "valueBp": 1000,
+            "durationSeconds": 3,
+            "source": "skill_tuna",
+            "side": "player",
+            "expiresAt": 16,
+            "remaining": 130.37037037037038
+          }
+        ]
+      },
+      {
+        "t": 14.000000000000002,
+        "side": "player",
+        "kind": "ult",
+        "damage": 335.2325581395349,
+        "targetHpAfter": 320.58727050183614,
+        "critical": false,
+        "dodged": false,
+        "absorbed": 0,
+        "healed": 0,
+        "playerHpAfter": 2061.4814814814818,
+        "bossHpAfter": 320.58727050183614,
+        "rageAfter": 0,
+        "statuses": [
+          {
+            "kind": "shield",
+            "valueBp": 1000,
+            "durationSeconds": 3,
+            "source": "skill_tuna",
+            "side": "player",
+            "expiresAt": 16,
+            "remaining": 130.37037037037038
+          }
+        ]
+      },
+      {
+        "t": 15,
+        "side": "player",
+        "kind": "attack",
+        "damage": 111.74418604651163,
+        "targetHpAfter": 208.84308445532452,
+        "critical": false,
+        "dodged": false,
+        "absorbed": 0,
+        "healed": 0,
+        "playerHpAfter": 2061.4814814814818,
+        "bossHpAfter": 208.84308445532452,
+        "rageAfter": 25,
+        "statuses": [
+          {
+            "kind": "shield",
+            "valueBp": 1000,
+            "durationSeconds": 3,
+            "source": "skill_tuna",
+            "side": "player",
+            "expiresAt": 16,
+            "remaining": 130.37037037037038
+          }
+        ]
+      },
+      {
+        "t": 15.400000000000002,
+        "side": "boss",
+        "kind": "attack",
+        "damage": 0,
+        "targetHpAfter": 2061.4814814814818,
+        "critical": false,
+        "dodged": false,
+        "absorbed": 89.62962962962963,
+        "healed": 0,
+        "playerHpAfter": 2061.4814814814818,
+        "bossHpAfter": 208.84308445532452,
+        "rageAfter": 35,
+        "statuses": [
+          {
+            "kind": "shield",
+            "valueBp": 1000,
+            "durationSeconds": 3,
+            "source": "skill_tuna",
+            "side": "player",
+            "expiresAt": 16,
+            "remaining": 40.74074074074075
+          }
+        ]
+      },
+      {
+        "t": 16,
+        "side": "player",
+        "kind": "attack",
+        "damage": 111.74418604651163,
+        "targetHpAfter": 97.09889840881289,
+        "critical": false,
+        "dodged": false,
+        "absorbed": 0,
+        "healed": 0,
+        "playerHpAfter": 2061.4814814814818,
+        "bossHpAfter": 97.09889840881289,
+        "rageAfter": 60,
+        "statuses": []
+      },
+      {
+        "t": 16.8,
+        "side": "boss",
+        "kind": "attack",
+        "damage": 89.62962962962963,
+        "targetHpAfter": 1971.8518518518522,
+        "critical": false,
+        "dodged": false,
+        "absorbed": 0,
+        "healed": 0,
+        "playerHpAfter": 1971.8518518518522,
+        "bossHpAfter": 97.09889840881289,
+        "rageAfter": 70,
+        "statuses": []
+      },
+      {
+        "t": 17,
+        "side": "player",
+        "kind": "attack",
+        "damage": 111.74418604651163,
+        "targetHpAfter": 0,
+        "critical": false,
+        "dodged": false,
+        "absorbed": 0,
+        "healed": 0,
+        "playerHpAfter": 1971.8518518518522,
+        "bossHpAfter": 0,
+        "rageAfter": 95,
+        "statuses": []
+      }
+    ]
+  },
+  "playback": {
+    "player": {
+      "attack": 155,
+      "defense": 25,
+      "hp": 2200,
+      "interval": 1,
+      "critChanceBp": 2500,
+      "dodgeChanceBp": 1200,
+      "critMultBp": 17000
+    },
+    "monster": {
+      "id": "m_guard",
+      "name": "焚天火鸦",
+      "artKey": "boss_fire_crow",
+      "attack": 110,
+      "defense": 60,
+      "hp": 4800,
+      "interval": 1.4
+    },
+    "timeLimitSeconds": 45,
+    "speeds": [
+      1,
+      2,
+      3
+    ],
+    "canSkip": true
+  }
+}

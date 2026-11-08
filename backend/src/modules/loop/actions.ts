@@ -1,3 +1,5 @@
+import { hasUnsettledCombat, requireNoCombat } from "../combat/journal-guard.js";
+import { runtimeConfigOf, configuredSkills, combatTraits } from "../combat/runtime-config.js";
 import { and, eq, sql } from "drizzle-orm";
 import { withTransaction, type Tx } from "../../db/tx.js";
 import {
@@ -9,7 +11,7 @@ import {
   playerStates,
   players,
 } from "../../db/schema.js";
-import { simulateBossFight, toCombatSkills, type UltConfig } from "../combat/battle.js";
+import { simulateBattle, toCombatSkills, type BattleResult, type UltConfig } from "../combat/battle.js";
 import { computePower, ratePower, resolveBreakthrough, skillLayerFactor, sumReachedRealmStats } from "../combat/stats.js";
 import { ensureSkillBook } from "../content/ops-content.js";
 import { loadCurrentWorld } from "../content/snapshot.js";
@@ -406,6 +408,7 @@ export function battleConfigOf(world: ContentSnapshot) {
 
 async function settleLocked(tx: Tx, playerId: string, world: World, now: Date, options: { autoChallenge?: boolean } = {}) {
   const { state } = await lockedState(tx, playerId);
+  const activeCombat = await hasUnsettledCombat(tx, playerId);
   // 第五批：剩余强化经验一次性换成炼器精粹（幂等，见 essence-migration.ts）
   if (await migratePlayerEnhanceExp(tx, world, playerId, state, now)) {
     state.enhanceExp = 0;
@@ -546,7 +549,7 @@ async function settleLocked(tx: Tx, playerId: string, world: World, now: Date, o
     }
   }
   let idleBoss: IdleBossResult | null = null;
-  if (stage && idleWaves > 0) {
+  if (!activeCombat && stage && idleWaves > 0) {
     idleBoss = await settleIdleBosses(tx, world, playerId, { state: kept, stats, pieces, access }, stage, idleWaves, now);
     if (idleBoss) {
       const [fresh] = await tx.select().from(playerStates).where(eq(playerStates.playerId, playerId)).limit(1);
@@ -556,7 +559,7 @@ async function settleLocked(tx: Tx, playerId: string, world: World, now: Date, o
   }
   // 自动挑战（首领规则「允许自动挑战」）：挂机关卡的首领还没击败、战力 ≥ 推荐战力 × 比例时，结算里直接打一场。
   let autoChallenge: AutoChallengeResult | null = null;
-  if (options.autoChallenge !== false && stage) {
+  if (!activeCombat && options.autoChallenge !== false && stage) {
     autoChallenge = await tryAutoChallenge(tx, world, playerId, { state: kept, stats, pieces, access }, stage, now);
     if (autoChallenge) {
       const [fresh] = await tx.select().from(playerStates).where(eq(playerStates.playerId, playerId)).limit(1);
@@ -954,11 +957,12 @@ export function ultOf(_world: World, _realmSlug: string): (UltConfig & { name: s
 }
 
 /** 第四批：大招全自动释放（冷却好后过「自动释放等待」秒放出），不再接收客户端上报的点击时间；老客户端传的 ultTaps / ultWaits 忽略。 */
-export type ChallengeOptions = Record<string, never>;
+export type ChallengeOptions = { preview?: boolean; resolvedBattle?: BattleResult; resume?: boolean };
 
 export async function challengeStage(tx: Tx, world: World, playerId: string, stageSlug: string, now: Date, randomInt: RandomInt, _options: ChallengeOptions = {}) {
   // 手动挑战前的结算不触发自动挑战（否则点「挑战」时可能先被自动打掉，这一场变成重打）
   const settled = await settleLocked(tx, playerId, world, now, { autoChallenge: false });
+  if (!_options.resume) await requireNoCombat(tx, playerId);
   const stage = world.stages.find((row) => row.slug === stageSlug);
   if (!stage) {
     throw new AppError("NOT_FOUND");
@@ -976,10 +980,10 @@ export async function challengeStage(tx: Tx, world: World, playerId: string, sta
   }
   const rules = readGameRules(world);
   const cooldown = rules.challengeCooldownSeconds;
-  if (cooldown > 0 && settled.state.lastChallengeAt && now.getTime() - settled.state.lastChallengeAt.getTime() < cooldown * 1000) {
+  if (!_options.resume && cooldown > 0 && settled.state.lastChallengeAt && now.getTime() - settled.state.lastChallengeAt.getTime() < cooldown * 1000) {
     throw new AppError("CHALLENGE_COOLDOWN", `挑战冷却中，要间隔 ${cooldown} 秒`);
   }
-  const fought = await fightStageBoss(tx, world, playerId, settled, stage, now, randomInt, { mode: "manual" });
+  const fought = await fightStageBoss(tx, world, playerId, settled, stage, now, randomInt, { mode: "manual", ..._options });
   const after = await settleLocked(tx, playerId, world, now);
   return { ...fought, state: await stateDto(tx, world, playerId, after) };
 }
@@ -991,7 +995,7 @@ type FightInput = Pick<Awaited<ReturnType<typeof settleLocked>>, "state" | "stat
  * 首领规则「允许重打」关掉时，已击败的首领不能手动再打（挂机刷首领只看「挂机刷首领」开关）。
  * mode = idle（挂机刷出来的）：不占挑战冷却，奖励按「挂机首领算每日次数」开关决定消不消耗每日次数。
  */
-async function fightStageBoss(tx: Tx, world: World, playerId: string, settled: FightInput, stage: World["stages"][number], now: Date, randomInt: RandomInt, fight: { mode: "manual" | "idle" }) {
+async function fightStageBoss(tx: Tx, world: World, playerId: string, settled: FightInput, stage: World["stages"][number], now: Date, randomInt: RandomInt, fight: { mode: "manual" | "idle" } & ChallengeOptions) {
   const stageSlug = stage.slug;
   const rules = readGameRules(world);
   let progress = settled.pieces.stages.find((row) => row.stageSlug === stageSlug);
@@ -1020,7 +1024,7 @@ async function fightStageBoss(tx: Tx, world: World, playerId: string, settled: F
     throw new AppError("INVALID_INPUT", boss.statsProblem);
   }
   const bossRules = bossRulesFor(world, stage);
-  if (fight.mode === "manual" && progress.firstClearedAt && !bossRules.allowRepeat) {
+  if (!fight.resume && fight.mode === "manual" && progress.firstClearedAt && !bossRules.allowRepeat) {
     throw new AppError("BOSS_REPEAT_DISABLED");
   }
   const bossAttack = boss ? boss.attack : (stage.bossAttack ?? 1);
@@ -1032,9 +1036,14 @@ async function fightStageBoss(tx: Tx, world: World, playerId: string, settled: F
   }
   const fighter = { attack: settled.stats.attack, defense: settled.stats.defense, hp: settled.stats.hp, interval: settled.stats.interval };
   const monsterSide = { attack: bossAttack, defense: bossDefense, hp: bossHp, interval: bossInterval };
-  const ult = ultOf(world, settled.state.realmSlug);
-  const skills = toCombatSkills(settled.pieces.skills, world.skills, openSkillSlotsFor(world, settled.state.realmSlug));
-  const battle = simulateBossFight(fighter, monsterSide, battleConfigOf(world), ult, [], skills);
+  const runtime = runtimeConfigOf(world.globals.tuning?.battle);
+  const skills = configuredSkills(toCombatSkills(settled.pieces.skills, world.skills, openSkillSlotsFor(world, settled.state.realmSlug)), runtime);
+  const playerSide = { ...fighter, ...combatTraits(skills, runtime) };
+  // Compatibility field for older clients; automatic rage casts live in log,
+  // not in the retired manual-ult command/result channel.
+  const battle = { ...(fight.resolvedBattle ?? simulateBattle(playerSide, monsterSide, { ...battleConfigOf(world), rage: runtime.rage }, skills)), ultCasts: [] };
+  const playback = { player: playerSide, monster: { ...monsterSide, name: boss?.name ?? stage.bossName, artKey: boss?.artKey }, timeLimitSeconds: battleConfigOf(world).timeLimitSeconds, canSkip: runtime.skipAfterWin && Boolean(progress.firstClearedAt), rageMax: runtime.rage.max, speeds: runtime.speeds };
+  if (fight.preview) return { battle, playback, drops: [] as { itemSlug: string; quantity: number; decomposed?: boolean; enhanceExp?: number; dropped?: boolean; freed?: { itemSlug: string; enhanceExp: number }[] }[], bagFull: false, reward: null };
   const drops: { itemSlug: string; quantity: number; decomposed?: boolean; enhanceExp?: number; dropped?: boolean; freed?: { itemSlug: string; enhanceExp: number }[] }[] = [];
   let bagFullNotice = false;
   let rewardInfo: Awaited<ReturnType<typeof grantBossRewards>> | null = null;
@@ -1128,6 +1137,7 @@ async function fightStageBoss(tx: Tx, world: World, playerId: string, settled: F
   }
   return {
     battle,
+    playback,
     drops,
     bagFull: bagFullNotice,
     reward: rewardInfo

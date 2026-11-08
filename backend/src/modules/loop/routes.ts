@@ -1,3 +1,4 @@
+import { registerCombatSessionRoutes } from "../combat/sessions.js";
 import type { FastifyInstance } from "fastify";
 import { AppError } from "../../shared/errors.js";
 import type { Db } from "../operations/record.js";
@@ -21,6 +22,7 @@ export async function registerLoopRoutes(
   deps: { db: Db; now: () => Date; randomInt: RandomInt },
 ): Promise<void> {
   setWaveRandom(deps.randomInt);
+  await registerCombatSessionRoutes(app, deps);
   app.get("/me/state", async (request) => readState(deps.db, request.actor!.actorId, deps.now()));
 
   app.post("/me/breakthrough", async (request) => {

@@ -1,3 +1,5 @@
+import { requireNoCombat } from "../combat/journal-guard.js";
+import { runtimeConfigOf, configuredSkills, combatTraits } from "../combat/runtime-config.js";
 /**
  * 迷雾秘境 P0：问心谷。移动/揭雾/箱/怪/事件/异空间战。
  * 库表 pos_c=x、pos_r=y；DTO 对外 x/y。
@@ -15,7 +17,7 @@ import {
 import type { Tx } from "../../db/tx.js";
 import { AppError } from "../../shared/errors.js";
 import type { ContentSnapshot } from "../content/validate.js";
-import { simulateBattle, toCombatSkills } from "../combat/battle.js";
+import { simulateBattle, toCombatSkills, type BattleResult } from "../combat/battle.js";
 import { shanghaiDayKey } from "../dongfu/array-daily.js";
 import { addStack } from "../loop/bag.js";
 import { battleConfigOf, combatStats, openSkillSlotsFor } from "../loop/actions.js";
@@ -342,6 +344,8 @@ export async function moveFog(
   input: { x: number; y: number },
   now: Date,
 ) {
+  await tx.select({ playerId: playerStates.playerId }).from(playerStates).where(eq(playerStates.playerId, playerId)).for("update");
+  await requireNoCombat(tx, playerId);
   const config = fogOf(world);
   const map = fogMapOf(config, mapId);
   const run = await refreshTravel(tx, playerId, mapId, config, now);
@@ -380,6 +384,8 @@ export async function interactFog(
   input: { objectId: string; optionId?: string },
   now: Date,
 ) {
+  await tx.select({ playerId: playerStates.playerId }).from(playerStates).where(eq(playerStates.playerId, playerId)).for("update");
+  await requireNoCombat(tx, playerId);
   const config = fogOf(world);
   const map = fogMapOf(config, mapId);
   const run = await refreshTravel(tx, playerId, mapId, config, now);
@@ -446,7 +452,10 @@ export async function battleFog(
   mapId: string,
   input: { objectId: string },
   now: Date,
+  options: { preview?: boolean; resolvedBattle?: BattleResult } = {},
 ) {
+  await tx.select({ playerId: playerStates.playerId }).from(playerStates).where(eq(playerStates.playerId, playerId)).for("update");
+  if (!options.resolvedBattle) await requireNoCombat(tx, playerId);
   const config = fogOf(world);
   const map = fogMapOf(config, mapId);
   const run = await refreshTravel(tx, playerId, mapId, config, now);
@@ -488,10 +497,15 @@ export async function battleFog(
   }
 
   const fighter = await playerFighter(tx, world, playerId);
-  const battle = simulateBattle(fighter.side, monsterSide, battleConfigOf(world), fighter.skills);
+  const runtime = runtimeConfigOf(world.globals.tuning?.battle);
+  const skills = configuredSkills(fighter.skills, runtime);
+  const playerSide = { ...fighter.side, ...combatTraits(skills, runtime) };
+  // Fog owns its enemy/loot/time limit, sharing only damage rules and playback.
+  const timeLimitSeconds = map.timeLimitSeconds ?? runtime.fogTimeLimitSeconds;
+  const battle = options.resolvedBattle ?? simulateBattle(playerSide, monsterSide, { ...battleConfigOf(world), timeLimitSeconds, rage: runtime.rage }, skills);
 
   let gained: { itemSlug: string; quantity: number; displayName: string }[] = [];
-  if (battle.win) {
+  if (battle.win && !options.preview) {
     gained = await grantLoot(tx, world, playerId, loot, "fog_battle", now, { skillBookSkillSlug, grantSkillBook });
     onWin();
     await persistRun(tx, playerId, mapId, run, now);
@@ -499,6 +513,7 @@ export async function battleFog(
 
   return {
     fog: toDto(config, map, run),
+    playback: { player: playerSide, monster: { id: obj.id, name: monsterName, ...monsterSide }, timeLimitSeconds, rageMax: runtime.rage.max, speeds: runtime.speeds, canSkip: false },
     win: battle.win,
     reason: battle.reason,
     durationSeconds: battle.durationSeconds,

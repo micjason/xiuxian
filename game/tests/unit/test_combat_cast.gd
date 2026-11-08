@@ -6,85 +6,84 @@ func _page() -> TimelineBattlePage:
 	add_child_autofree(page)
 	return page
 
-func test_ready_cast_is_centered_small_and_uses_real_idle_frames() -> void:
+func test_ready_uses_unified_actors_centered_without_fallback_cast() -> void:
 	var page := _page()
 	await get_tree().process_frame
-	page.open_stage({}, {}, {"slug": "test", "bosses": [{"name": "青鬃狼王", "artKey": "wolf"}]}, {}, "")
+	page.open_stage({}, {}, {"slug": "test", "bosses": [{"name": "雾境守卫", "artKey": "bear"}]}, {}, "")
 	await get_tree().process_frame
-	var cast: Node2D = page.get("_arena").get_node_or_null("CombatCast")
-	assert_not_null(cast, "standalone cast replaces giant boss + bottom-left hero")
-	if cast == null:
-		return
 	var arena: Control = page.get("_arena")
-	var hero: AnimatedSprite2D = cast.get("player")
-	var enemy: Node2D = cast.get("enemy")
-	assert_almost_eq((hero.position.x + enemy.position.x) / 2.0, arena.size.x / 2.0, 0.1)
-	assert_almost_eq(hero.position.y, enemy.position.y, 0.1)
-	assert_lt(hero.position.y, arena.size.y * 0.7, "not bottom-left")
-	assert_lte(cast.get("display_height"), 300.0)
-	assert_eq(hero.sprite_frames.get_frame_count("idle"), 4)
-	assert_ne(hero.sprite_frames.get_frame_texture("idle", 0), hero.sprite_frames.get_frame_texture("idle", 1))
-	var stable_scale := hero.scale
-	var stable_feet := hero.position
-	var before_frame := hero.frame
-	var before_mesh: PackedVector2Array = enemy.get("mesh").polygon
-	cast.call("advance_pose", 0.5)
-	assert_ne(hero.frame, before_frame, "ready actually advances pose frames")
-	assert_ne(enemy.get("mesh").polygon, before_mesh, "ready enemy articulates its head/limb/tail")
-	assert_eq(hero.scale, stable_scale, "idle has no breathing scale")
-	assert_eq(hero.position, stable_feet, "feet do not slide")
+	assert_null(arena.get_node_or_null("CombatCast"), "actor.tscn takes over so CombatCast is not also created")
+	var player: Node2D = arena.get_node_or_null("UnifiedPlayerActor")
+	var boss: Node2D = arena.get_node_or_null("UnifiedBossActor")
+	assert_not_null(player, "player actor")
+	assert_not_null(boss, "boss actor")
+	if player == null or boss == null:
+		return
+	assert_almost_eq((player.position.x + boss.position.x) / 2.0, arena.size.x / 2.0, 2.0)
+	assert_almost_eq(player.position.y, boss.position.y, 0.1)
+	assert_lt(player.position.y, arena.size.y * 0.75, "not bottom-left")
+	assert_gt(player.position.x, 10.0)
+	var hero: Node2D = player.get("fighter")
+	assert_eq(hero.get("sprite").sprite_frames.get_frame_count("idle"), 1)
+	var before_y: float = hero.get("sprite").position.y
+	hero.call("advance", 0.65)
+	assert_ne(hero.get("sprite").position.y, before_y, "idle uses code-driven breath")
 	assert_false((page.get("_fx").get("boss") as CanvasItem).visible)
 	page.abort()
 
-func test_outgoing_attack_has_pose_frames_and_enemy_uses_joint_motion() -> void:
+func test_outgoing_attack_uses_sheet_and_recovers_to_idle() -> void:
 	var page := _page()
 	await get_tree().process_frame
-	page.open_stage({}, {}, {"slug": "test", "bosses": [{"name": "青鬃狼王", "artKey": "wolf"}]}, {}, "")
-	var cast: Node2D = page.get("_arena").get_node_or_null("CombatCast")
-	assert_not_null(cast)
-	if cast == null:
+	page.open_stage({}, {}, {"slug": "test", "bosses": [{"name": "雾境守卫", "artKey": "bear"}]}, {}, "")
+	await get_tree().process_frame
+	var arena: Control = page.get("_arena")
+	var player: Node2D = arena.get_node_or_null("UnifiedPlayerActor")
+	var boss: Node2D = arena.get_node_or_null("UnifiedBossActor")
+	assert_not_null(player)
+	assert_not_null(boss)
+	if player == null or boss == null:
 		return
 	var slots: RefCounted = page.get("_slots")
+	var hero: Node2D = player.get("fighter")
+	var home: Vector2 = hero.position
 	slots.call("play_slot", "player", "attack", {"side": "player", "kind": "attack"})
-	cast.call("advance_pose", 0.21)
-	var hero: AnimatedSprite2D = cast.get("player")
-	assert_eq(hero.animation, &"attack")
-	assert_gte(hero.frame, 2)
-	assert_eq(hero.sprite_frames.get_frame_count("attack"), 5)
-	var enemy: Node2D = cast.get("enemy")
-	var mesh: Polygon2D = enemy.get("mesh")
-	var idle_points := mesh.polygon
-	var feet := enemy.position
+	player.call("advance_presentation", 0.21)
+	assert_eq(hero.state, "attack")
+	assert_eq(hero.get("sprite").animation, &"普通攻击")
+	assert_gt(hero.get("sprite").frame, 0)
+	assert_ne(hero.position, home, "code-driven attack lunge")
+	player.call("advance_presentation", 1.0)
+	assert_eq(hero.state, "idle")
+	var enemy: Node2D = boss.get("fighter")
+	var enemy_home: Vector2 = enemy.position
 	slots.call("play_slot", "boss", "attack", {"side": "boss", "kind": "attack"})
-	cast.call("advance_pose", 0.21)
-	assert_ne(mesh.polygon, idle_points, "joint pose changes, not a rigid card")
-	assert_eq(enemy.position, feet, "no whole-image lunge")
-	assert_eq(enemy.scale, Vector2.ONE)
-	assert_eq(enemy.rotation, 0.0)
-	# At least the planted rear foot remains fixed while the striking limb moves.
-	assert_eq(mesh.polygon[mesh.polygon.size() - 1], idle_points[idle_points.size() - 1])
+	boss.call("advance_presentation", 0.21)
+	assert_eq(enemy.state, "attack")
+	assert_ne(enemy.position, enemy_home, "boss also uses velocity")
 	page.abort()
 
-func test_slots_return_to_idle_and_fog_reuses_cast_and_layout() -> void:
+func test_slots_return_to_idle_and_fog_reuses_actors() -> void:
 	var page := _page()
 	await get_tree().process_frame
 	var session: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://fixtures/combat_timeline.json"))
 	page.open_session(session, {}, {}, false)
-	var cast: Node2D = page.get("_arena").get_node_or_null("CombatCast")
-	assert_not_null(cast)
-	if cast == null:
+	var arena: Control = page.get("_arena")
+	var player: Node2D = arena.get_node_or_null("UnifiedPlayerActor")
+	assert_not_null(player)
+	if player == null:
 		return
 	var slots: RefCounted = page.get("_slots")
 	slots.call("play_slot", "player", "skill", {"side": "player", "kind": "skill"})
-	cast.call("advance_pose", 2.0)
-	assert_eq((cast.get("player") as AnimatedSprite2D).animation, &"idle")
-	var hero_feet: Vector2 = cast.get("player").position
-	var enemy_feet: Vector2 = cast.get("enemy").position
+	player.call("advance_presentation", 3.0)
+	assert_eq(player.get("fighter").state, "idle")
+	var hero_feet: Vector2 = player.position
+	var boss: Node2D = arena.get_node_or_null("UnifiedBossActor")
+	var enemy_feet: Vector2 = boss.position
 	session["source"] = "fog"
 	page.open_session(session, {}, {}, false)
-	assert_eq(page.get("_arena").get_node_or_null("CombatCast"), cast)
-	assert_eq(cast.get("player").position, hero_feet)
-	assert_eq(cast.get("enemy").position, enemy_feet)
+	assert_eq(arena.get_node_or_null("UnifiedPlayerActor"), player)
+	assert_eq(player.position, hero_feet)
+	assert_eq(boss.position, enemy_feet)
 	assert_false((page.get("_boss_realm").get_parent() as Control).visible)
 	page.abort()
 

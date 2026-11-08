@@ -1,0 +1,23 @@
+{
+  "arena_size": "(1032.0, 1182.0)",
+  "authoritative_events": 4,
+  "fps": 30,
+  "frames": 360,
+  "height": 2340,
+  "route": "fog navigation -> _on_fog_battle -> TimelineBattlePage.open_session",
+  "scene": "res://scenes/main.tscn",
+  "settled": true,
+  "slot_actors": 2,
+  "stills": {
+    "attack": 87,
+    "cast": 147,
+    "finished": 349,
+    "hit": 236,
+    "idle": 45,
+    "impact": 182,
+    "recover": 248,
+    "skill": 172
+  },
+  "width": 1080,
+  "wrapper_test": "verify_fog.gd: FogBattlePage.open_battle -> open_session"
+}

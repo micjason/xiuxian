@@ -23,6 +23,7 @@ var _allowed_speeds: Array = [1, 2, 3]
 
 func _ready() -> void:
 	_slots.setup(_arena, _fx)
+	_arena.resized.connect(func() -> void: _refresh_statuses.call_deferred())
 	_fx.set("external_numbers", true)
 	for connection in _speed_button.pressed.get_connections():
 		_speed_button.pressed.disconnect(connection.callable)
@@ -257,8 +258,8 @@ func _refresh_statuses() -> void:
 			own.append(tag)
 		else:
 			enemy.append(tag)
-	var hero_rect: Rect2 = _fx.get("_hero_rect")
-	var boss_rect: Rect2 = _fx.get("_boss_rect")
+	var hero_rect: Rect2 = _slots.actor_rect("player", _fx.get("_hero_rect"))
+	var boss_rect: Rect2 = _slots.actor_rect("boss", _fx.get("_boss_rect"))
 	_statuses.position = Vector2(maxf(12, hero_rect.position.x), maxf(80, hero_rect.position.y - 70))
 	_statuses.text = " · ".join(own)
 	_enemy_status.position = Vector2(maxf(12, boss_rect.position.x), maxf(90, boss_rect.position.y - 30))

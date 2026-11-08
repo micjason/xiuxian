@@ -549,3 +549,92 @@ anim_q/skill_fx/fx/fx_ring_gold.png,B. 动画特效包 skill_fx（九套技能�
 anim_q/skill_fx/fx/fx_flame_a.png,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
 anim_q/skill_fx/fx/fx_poison_mist.png,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
 anim_q/skill_fx/fx/fx_wind_streak.png,B. 动画特效包 skill_fx（九套技能表现）,自有（本项目动画包）,无,anim_out_q/skill_fx → game/anim_q/skill_fx
+anim_q/battle_runtime/README.md,自有代码（Godot 场景 / 脚本，战斗表现运行时骨架）,自有,无,game/anim_q/battle_runtime/README.md（阶段二布局演示说明）
+anim_q/battle_runtime/scenes/battle_demo.tscn,自有代码（Godot 场景 / 脚本，战斗表现运行时骨架）,自有,无,game/anim_q/battle_runtime/scenes/battle_demo.tscn（竖屏布局演示场景）
+anim_q/battle_runtime/scripts/battle_config.gd,自有代码（Godot 场景 / 脚本，战斗表现运行时骨架）,自有,无,game/anim_q/battle_runtime/scripts/battle_config.gd（布局常量）
+anim_q/battle_runtime/scripts/battle_demo.gd,自有代码（Godot 场景 / 脚本，战斗表现运行时骨架）,自有,无,game/anim_q/battle_runtime/scripts/battle_demo.gd（演示场景搭建）
+anim_q/battle_runtime/scripts/capture_layout.gd,自有代码（Godot 场景 / 脚本，战斗表现运行时骨架）,自有,无,game/anim_q/battle_runtime/scripts/capture_layout.gd（开发用布局截图）
+anim_q/battle_runtime/preview/layout_1080x2340.png,B. 本项目 Godot 渲染截图（开发预览，引用已有角色/背景资源）,自有（本项目引擎截图）,无,xvfb + Godot 4.7 渲染 battle_demo.tscn → preview/layout_1080x2340.png
+anim_q/battle_runtime/art/hero_sheet.png,用户提供动作表 / alpha 清理与手工不规则网格切片,用户提供；权属与商用授权未独立核验,发布前由提供者确认原图及衍生切片授权,用户提供 art/hero_sheet.png；slice_sheet.py；未修改原表
+anim_q/battle_runtime/frames/fx/技能特效-剑气/00.png,用户提供动作表 / alpha 清理与手工不规则网格切片,用户提供；权属与商用授权未独立核验,发布前由提供者确认原图及衍生切片授权,用户提供 art/hero_sheet.png；slice_sheet.py；未修改原表
+anim_q/battle_runtime/frames/fx/技能特效-剑气/01.png,用户提供动作表 / alpha 清理与手工不规则网格切片,用户提供；权属与商用授权未独立核验,发布前由提供者确认原图及衍生切片授权,用户提供 art/hero_sheet.png；slice_sheet.py；未修改原表
+anim_q/battle_runtime/frames/fx/技能特效-剑气/02.png,用户提供动作表 / alpha 清理与手工不规则网格切片,用户提供；权属与商用授权未独立核验,发布前由提供者确认原图及衍生切片授权,用户提供 art/hero_sheet.png；slice_sheet.py；未修改原表
+anim_q/battle_runtime/frames/fx/技能特效-剑气/03.png,用户提供动作表 / alpha 清理与手工不规则网格切片,用户提供；权属与商用授权未独立核验,发布前由提供者确认原图及衍生切片授权,用户提供 art/hero_sheet.png；slice_sheet.py；未修改原表
+anim_q/battle_runtime/frames/fx/技能特效-剑气/04.png,用户提供动作表 / alpha 清理与手工不规则网格切片,用户提供；权属与商用授权未独立核验,发布前由提供者确认原图及衍生切片授权,用户提供 art/hero_sheet.png；slice_sheet.py；未修改原表
+anim_q/battle_runtime/frames/fx/技能特效-剑气/05.png,用户提供动作表 / alpha 清理与手工不规则网格切片,用户提供；权属与商用授权未独立核验,发布前由提供者确认原图及衍生切片授权,用户提供 art/hero_sheet.png；slice_sheet.py；未修改原表
+anim_q/battle_runtime/frames/fx/技能特效-剑气/06.png,用户提供动作表 / alpha 清理与手工不规则网格切片,用户提供；权属与商用授权未独立核验,发布前由提供者确认原图及衍生切片授权,用户提供 art/hero_sheet.png；slice_sheet.py；未修改原表
+anim_q/battle_runtime/frames/fx/技能特效-爆炸/00.png,用户提供动作表 / alpha 清理与手工不规则网格切片,用户提供；权属与商用授权未独立核验,发布前由提供者确认原图及衍生切片授权,用户提供 art/hero_sheet.png；slice_sheet.py；未修改原表
+anim_q/battle_runtime/frames/fx/技能特效-爆炸/01.png,用户提供动作表 / alpha 清理与手工不规则网格切片,用户提供；权属与商用授权未独立核验,发布前由提供者确认原图及衍生切片授权,用户提供 art/hero_sheet.png；slice_sheet.py；未修改原表
+anim_q/battle_runtime/frames/fx/技能特效-爆炸/02.png,用户提供动作表 / alpha 清理与手工不规则网格切片,用户提供；权属与商用授权未独立核验,发布前由提供者确认原图及衍生切片授权,用户提供 art/hero_sheet.png；slice_sheet.py；未修改原表
+anim_q/battle_runtime/frames/fx/技能特效-爆炸/03.png,用户提供动作表 / alpha 清理与手工不规则网格切片,用户提供；权属与商用授权未独立核验,发布前由提供者确认原图及衍生切片授权,用户提供 art/hero_sheet.png；slice_sheet.py；未修改原表
+anim_q/battle_runtime/frames/fx/技能特效-爆炸/04.png,用户提供动作表 / alpha 清理与手工不规则网格切片,用户提供；权属与商用授权未独立核验,发布前由提供者确认原图及衍生切片授权,用户提供 art/hero_sheet.png；slice_sheet.py；未修改原表
+anim_q/battle_runtime/frames/fx/技能特效-爆炸/05.png,用户提供动作表 / alpha 清理与手工不规则网格切片,用户提供；权属与商用授权未独立核验,发布前由提供者确认原图及衍生切片授权,用户提供 art/hero_sheet.png；slice_sheet.py；未修改原表
+anim_q/battle_runtime/frames/fx/特效素材/00.png,用户提供动作表 / alpha 清理与手工不规则网格切片,用户提供；权属与商用授权未独立核验,发布前由提供者确认原图及衍生切片授权,用户提供 art/hero_sheet.png；slice_sheet.py；未修改原表
+anim_q/battle_runtime/frames/fx/特效素材/01.png,用户提供动作表 / alpha 清理与手工不规则网格切片,用户提供；权属与商用授权未独立核验,发布前由提供者确认原图及衍生切片授权,用户提供 art/hero_sheet.png；slice_sheet.py；未修改原表
+anim_q/battle_runtime/frames/fx/特效素材/02.png,用户提供动作表 / alpha 清理与手工不规则网格切片,用户提供；权属与商用授权未独立核验,发布前由提供者确认原图及衍生切片授权,用户提供 art/hero_sheet.png；slice_sheet.py；未修改原表
+anim_q/battle_runtime/frames/hero/倒地/00.png,用户提供动作表 / alpha 清理与手工不规则网格切片,用户提供；权属与商用授权未独立核验,发布前由提供者确认原图及衍生切片授权,用户提供 art/hero_sheet.png；slice_sheet.py；未修改原表
+anim_q/battle_runtime/frames/hero/倒地/01.png,用户提供动作表 / alpha 清理与手工不规则网格切片,用户提供；权属与商用授权未独立核验,发布前由提供者确认原图及衍生切片授权,用户提供 art/hero_sheet.png；slice_sheet.py；未修改原表
+anim_q/battle_runtime/frames/hero/倒地/02.png,用户提供动作表 / alpha 清理与手工不规则网格切片,用户提供；权属与商用授权未独立核验,发布前由提供者确认原图及衍生切片授权,用户提供 art/hero_sheet.png；slice_sheet.py；未修改原表
+anim_q/battle_runtime/frames/hero/倒地/03.png,用户提供动作表 / alpha 清理与手工不规则网格切片,用户提供；权属与商用授权未独立核验,发布前由提供者确认原图及衍生切片授权,用户提供 art/hero_sheet.png；slice_sheet.py；未修改原表
+anim_q/battle_runtime/frames/hero/倒地/04.png,用户提供动作表 / alpha 清理与手工不规则网格切片,用户提供；权属与商用授权未独立核验,发布前由提供者确认原图及衍生切片授权,用户提供 art/hero_sheet.png；slice_sheet.py；未修改原表
+anim_q/battle_runtime/frames/hero/冲刺/00.png,用户提供动作表 / alpha 清理与手工不规则网格切片,用户提供；权属与商用授权未独立核验,发布前由提供者确认原图及衍生切片授权,用户提供 art/hero_sheet.png；slice_sheet.py；未修改原表
+anim_q/battle_runtime/frames/hero/冲刺/01.png,用户提供动作表 / alpha 清理与手工不规则网格切片,用户提供；权属与商用授权未独立核验,发布前由提供者确认原图及衍生切片授权,用户提供 art/hero_sheet.png；slice_sheet.py；未修改原表
+anim_q/battle_runtime/frames/hero/冲刺/02.png,用户提供动作表 / alpha 清理与手工不规则网格切片,用户提供；权属与商用授权未独立核验,发布前由提供者确认原图及衍生切片授权,用户提供 art/hero_sheet.png；slice_sheet.py；未修改原表
+anim_q/battle_runtime/frames/hero/受击/00.png,用户提供动作表 / alpha 清理与手工不规则网格切片,用户提供；权属与商用授权未独立核验,发布前由提供者确认原图及衍生切片授权,用户提供 art/hero_sheet.png；slice_sheet.py；未修改原表
+anim_q/battle_runtime/frames/hero/受击/01.png,用户提供动作表 / alpha 清理与手工不规则网格切片,用户提供；权属与商用授权未独立核验,发布前由提供者确认原图及衍生切片授权,用户提供 art/hero_sheet.png；slice_sheet.py；未修改原表
+anim_q/battle_runtime/frames/hero/受击/02.png,用户提供动作表 / alpha 清理与手工不规则网格切片,用户提供；权属与商用授权未独立核验,发布前由提供者确认原图及衍生切片授权,用户提供 art/hero_sheet.png；slice_sheet.py；未修改原表
+anim_q/battle_runtime/frames/hero/受击/03.png,用户提供动作表 / alpha 清理与手工不规则网格切片,用户提供；权属与商用授权未独立核验,发布前由提供者确认原图及衍生切片授权,用户提供 art/hero_sheet.png；slice_sheet.py；未修改原表
+anim_q/battle_runtime/frames/hero/奔跑/00.png,用户提供动作表 / alpha 清理与手工不规则网格切片,用户提供；权属与商用授权未独立核验,发布前由提供者确认原图及衍生切片授权,用户提供 art/hero_sheet.png；slice_sheet.py；未修改原表
+anim_q/battle_runtime/frames/hero/奔跑/01.png,用户提供动作表 / alpha 清理与手工不规则网格切片,用户提供；权属与商用授权未独立核验,发布前由提供者确认原图及衍生切片授权,用户提供 art/hero_sheet.png；slice_sheet.py；未修改原表
+anim_q/battle_runtime/frames/hero/奔跑/02.png,用户提供动作表 / alpha 清理与手工不规则网格切片,用户提供；权属与商用授权未独立核验,发布前由提供者确认原图及衍生切片授权,用户提供 art/hero_sheet.png；slice_sheet.py；未修改原表
+anim_q/battle_runtime/frames/hero/奔跑/03.png,用户提供动作表 / alpha 清理与手工不规则网格切片,用户提供；权属与商用授权未独立核验,发布前由提供者确认原图及衍生切片授权,用户提供 art/hero_sheet.png；slice_sheet.py；未修改原表
+anim_q/battle_runtime/frames/hero/技能攻击/00.png,用户提供动作表 / alpha 清理与手工不规则网格切片,用户提供；权属与商用授权未独立核验,发布前由提供者确认原图及衍生切片授权,用户提供 art/hero_sheet.png；slice_sheet.py；未修改原表
+anim_q/battle_runtime/frames/hero/技能攻击/01.png,用户提供动作表 / alpha 清理与手工不规则网格切片,用户提供；权属与商用授权未独立核验,发布前由提供者确认原图及衍生切片授权,用户提供 art/hero_sheet.png；slice_sheet.py；未修改原表
+anim_q/battle_runtime/frames/hero/技能攻击/02.png,用户提供动作表 / alpha 清理与手工不规则网格切片,用户提供；权属与商用授权未独立核验,发布前由提供者确认原图及衍生切片授权,用户提供 art/hero_sheet.png；slice_sheet.py；未修改原表
+anim_q/battle_runtime/frames/hero/技能攻击/03.png,用户提供动作表 / alpha 清理与手工不规则网格切片,用户提供；权属与商用授权未独立核验,发布前由提供者确认原图及衍生切片授权,用户提供 art/hero_sheet.png；slice_sheet.py；未修改原表
+anim_q/battle_runtime/frames/hero/技能施放/00.png,用户提供动作表 / alpha 清理与手工不规则网格切片,用户提供；权属与商用授权未独立核验,发布前由提供者确认原图及衍生切片授权,用户提供 art/hero_sheet.png；slice_sheet.py；未修改原表
+anim_q/battle_runtime/frames/hero/技能施放/01.png,用户提供动作表 / alpha 清理与手工不规则网格切片,用户提供；权属与商用授权未独立核验,发布前由提供者确认原图及衍生切片授权,用户提供 art/hero_sheet.png；slice_sheet.py；未修改原表
+anim_q/battle_runtime/frames/hero/技能施放/02.png,用户提供动作表 / alpha 清理与手工不规则网格切片,用户提供；权属与商用授权未独立核验,发布前由提供者确认原图及衍生切片授权,用户提供 art/hero_sheet.png；slice_sheet.py；未修改原表
+anim_q/battle_runtime/frames/hero/技能施放/03.png,用户提供动作表 / alpha 清理与手工不规则网格切片,用户提供；权属与商用授权未独立核验,发布前由提供者确认原图及衍生切片授权,用户提供 art/hero_sheet.png；slice_sheet.py；未修改原表
+anim_q/battle_runtime/frames/hero/技能施放/04.png,用户提供动作表 / alpha 清理与手工不规则网格切片,用户提供；权属与商用授权未独立核验,发布前由提供者确认原图及衍生切片授权,用户提供 art/hero_sheet.png；slice_sheet.py；未修改原表
+anim_q/battle_runtime/frames/hero/普通攻击/00.png,用户提供动作表 / alpha 清理与手工不规则网格切片,用户提供；权属与商用授权未独立核验,发布前由提供者确认原图及衍生切片授权,用户提供 art/hero_sheet.png；slice_sheet.py；未修改原表
+anim_q/battle_runtime/frames/hero/普通攻击/01.png,用户提供动作表 / alpha 清理与手工不规则网格切片,用户提供；权属与商用授权未独立核验,发布前由提供者确认原图及衍生切片授权,用户提供 art/hero_sheet.png；slice_sheet.py；未修改原表
+anim_q/battle_runtime/frames/hero/普通攻击/02.png,用户提供动作表 / alpha 清理与手工不规则网格切片,用户提供；权属与商用授权未独立核验,发布前由提供者确认原图及衍生切片授权,用户提供 art/hero_sheet.png；slice_sheet.py；未修改原表
+anim_q/battle_runtime/frames/hero/普通攻击/03.png,用户提供动作表 / alpha 清理与手工不规则网格切片,用户提供；权属与商用授权未独立核验,发布前由提供者确认原图及衍生切片授权,用户提供 art/hero_sheet.png；slice_sheet.py；未修改原表
+anim_q/battle_runtime/frames/hero/普通攻击/04.png,用户提供动作表 / alpha 清理与手工不规则网格切片,用户提供；权属与商用授权未独立核验,发布前由提供者确认原图及衍生切片授权,用户提供 art/hero_sheet.png；slice_sheet.py；未修改原表
+anim_q/battle_runtime/frames/hero/移动/00.png,用户提供动作表 / alpha 清理与手工不规则网格切片,用户提供；权属与商用授权未独立核验,发布前由提供者确认原图及衍生切片授权,用户提供 art/hero_sheet.png；slice_sheet.py；未修改原表
+anim_q/battle_runtime/frames/hero/移动/01.png,用户提供动作表 / alpha 清理与手工不规则网格切片,用户提供；权属与商用授权未独立核验,发布前由提供者确认原图及衍生切片授权,用户提供 art/hero_sheet.png；slice_sheet.py；未修改原表
+anim_q/battle_runtime/frames/hero/移动/02.png,用户提供动作表 / alpha 清理与手工不规则网格切片,用户提供；权属与商用授权未独立核验,发布前由提供者确认原图及衍生切片授权,用户提供 art/hero_sheet.png；slice_sheet.py；未修改原表
+anim_q/battle_runtime/frames/hero/移动/03.png,用户提供动作表 / alpha 清理与手工不规则网格切片,用户提供；权属与商用授权未独立核验,发布前由提供者确认原图及衍生切片授权,用户提供 art/hero_sheet.png；slice_sheet.py；未修改原表
+anim_q/battle_runtime/frames/hero/移动/04.png,用户提供动作表 / alpha 清理与手工不规则网格切片,用户提供；权属与商用授权未独立核验,发布前由提供者确认原图及衍生切片授权,用户提供 art/hero_sheet.png；slice_sheet.py；未修改原表
+anim_q/battle_runtime/frames/hero/移动/05.png,用户提供动作表 / alpha 清理与手工不规则网格切片,用户提供；权属与商用授权未独立核验,发布前由提供者确认原图及衍生切片授权,用户提供 art/hero_sheet.png；slice_sheet.py；未修改原表
+anim_q/battle_runtime/frames/hero/移动/06.png,用户提供动作表 / alpha 清理与手工不规则网格切片,用户提供；权属与商用授权未独立核验,发布前由提供者确认原图及衍生切片授权,用户提供 art/hero_sheet.png；slice_sheet.py；未修改原表
+anim_q/battle_runtime/frames/hero/胜利/00.png,用户提供动作表 / alpha 清理与手工不规则网格切片,用户提供；权属与商用授权未独立核验,发布前由提供者确认原图及衍生切片授权,用户提供 art/hero_sheet.png；slice_sheet.py；未修改原表
+anim_q/battle_runtime/frames/hero/胜利/01.png,用户提供动作表 / alpha 清理与手工不规则网格切片,用户提供；权属与商用授权未独立核验,发布前由提供者确认原图及衍生切片授权,用户提供 art/hero_sheet.png；slice_sheet.py；未修改原表
+anim_q/battle_runtime/frames/hero/胜利/02.png,用户提供动作表 / alpha 清理与手工不规则网格切片,用户提供；权属与商用授权未独立核验,发布前由提供者确认原图及衍生切片授权,用户提供 art/hero_sheet.png；slice_sheet.py；未修改原表
+anim_q/battle_runtime/frames/hero/跳跃/00.png,用户提供动作表 / alpha 清理与手工不规则网格切片,用户提供；权属与商用授权未独立核验,发布前由提供者确认原图及衍生切片授权,用户提供 art/hero_sheet.png；slice_sheet.py；未修改原表
+anim_q/battle_runtime/frames/hero/跳跃/01.png,用户提供动作表 / alpha 清理与手工不规则网格切片,用户提供；权属与商用授权未独立核验,发布前由提供者确认原图及衍生切片授权,用户提供 art/hero_sheet.png；slice_sheet.py；未修改原表
+anim_q/battle_runtime/frames/hero/跳跃/02.png,用户提供动作表 / alpha 清理与手工不规则网格切片,用户提供；权属与商用授权未独立核验,发布前由提供者确认原图及衍生切片授权,用户提供 art/hero_sheet.png；slice_sheet.py；未修改原表
+anim_q/battle_runtime/frames/manifest.json,用户提供动作表 / alpha 清理与手工不规则网格切片,用户提供；权属与商用授权未独立核验,发布前由提供者确认原图及衍生切片授权,用户提供 art/hero_sheet.png；slice_sheet.py；未修改原表
+anim_q/battle_runtime/preview/demo_anim.mp4,Godot 真实渲染预览 / 切片检查与验证数据,继承引用素材授权；用户动作表授权未独立核验,发布前核验原图及项目背景/熊王素材授权,battle_runtime；Godot 4.7.2 + Xvfb + ffmpeg；独立演出预览
+anim_q/battle_runtime/preview/demo_attack.png,Godot 真实渲染预览 / 切片检查与验证数据,继承引用素材授权；用户动作表授权未独立核验,发布前核验原图及项目背景/熊王素材授权,battle_runtime；Godot 4.7.2 + Xvfb + ffmpeg；独立演出预览
+anim_q/battle_runtime/preview/demo_hit.png,Godot 真实渲染预览 / 切片检查与验证数据,继承引用素材授权；用户动作表授权未独立核验,发布前核验原图及项目背景/熊王素材授权,battle_runtime；Godot 4.7.2 + Xvfb + ffmpeg；独立演出预览
+anim_q/battle_runtime/preview/demo_idle.png,Godot 真实渲染预览 / 切片检查与验证数据,继承引用素材授权；用户动作表授权未独立核验,发布前核验原图及项目背景/熊王素材授权,battle_runtime；Godot 4.7.2 + Xvfb + ffmpeg；独立演出预览
+anim_q/battle_runtime/preview/demo_skill.png,Godot 真实渲染预览 / 切片检查与验证数据,继承引用素材授权；用户动作表授权未独立核验,发布前核验原图及项目背景/熊王素材授权,battle_runtime；Godot 4.7.2 + Xvfb + ffmpeg；独立演出预览
+anim_q/battle_runtime/preview/sheet_slices_contact.png,Godot 真实渲染预览 / 切片检查与验证数据,继承引用素材授权；用户动作表授权未独立核验,发布前核验原图及项目背景/熊王素材授权,battle_runtime；Godot 4.7.2 + Xvfb + ffmpeg；独立演出预览
+anim_q/battle_runtime/preview/validation_report.json,Godot 真实渲染预览 / 切片检查与验证数据,继承引用素材授权；用户动作表授权未独立核验,发布前核验原图及项目背景/熊王素材授权,battle_runtime；Godot 4.7.2 + Xvfb + ffmpeg；独立演出预览
+anim_q/battle_runtime/scripts/capture_demo.gd,项目内生成脚本（切片/真实视口录制/回归校验）,项目代码,无额外外部素材许可；按项目代码授权,本次独立 battle_runtime 动作演示实现
+anim_q/battle_runtime/scripts/slice_sheet.py,项目内生成脚本（切片/真实视口录制/回归校验）,项目代码,无额外外部素材许可；按项目代码授权,本次独立 battle_runtime 动作演示实现
+anim_q/battle_runtime/scripts/verify_demo.gd,项目内生成脚本（切片/真实视口录制/回归校验）,项目代码,无额外外部素材许可；按项目代码授权,本次独立 battle_runtime 动作演示实现
+anim_q/battle_runtime/preview/fog_idle.png,Godot 实战页面真实视口预览（含现有界面壳层）,继承引用素材授权；用户动作原图授权未独立核验,发布前核验用户原图及引用素材授权,main.tscn → TimelineBattlePage → combat_slots；本机 mock 录制；不连线上
+anim_q/battle_runtime/preview/fog_attack.png,Godot 实战页面真实视口预览（含现有界面壳层）,继承引用素材授权；用户动作原图授权未独立核验,发布前核验用户原图及引用素材授权,main.tscn → TimelineBattlePage → combat_slots；本机 mock 录制；不连线上
+anim_q/battle_runtime/preview/fog_cast.png,Godot 实战页面真实视口预览（含现有界面壳层）,继承引用素材授权；用户动作原图授权未独立核验,发布前核验用户原图及引用素材授权,main.tscn → TimelineBattlePage → combat_slots；本机 mock 录制；不连线上
+anim_q/battle_runtime/preview/fog_skill.png,Godot 实战页面真实视口预览（含现有界面壳层）,继承引用素材授权；用户动作原图授权未独立核验,发布前核验用户原图及引用素材授权,main.tscn → TimelineBattlePage → combat_slots；本机 mock 录制；不连线上
+anim_q/battle_runtime/preview/fog_impact.png,Godot 实战页面真实视口预览（含现有界面壳层）,继承引用素材授权；用户动作原图授权未独立核验,发布前核验用户原图及引用素材授权,main.tscn → TimelineBattlePage → combat_slots；本机 mock 录制；不连线上
+anim_q/battle_runtime/preview/fog_hit.png,Godot 实战页面真实视口预览（含现有界面壳层）,继承引用素材授权；用户动作原图授权未独立核验,发布前核验用户原图及引用素材授权,main.tscn → TimelineBattlePage → combat_slots；本机 mock 录制；不连线上
+anim_q/battle_runtime/preview/fog_recover.png,Godot 实战页面真实视口预览（含现有界面壳层）,继承引用素材授权；用户动作原图授权未独立核验,发布前核验用户原图及引用素材授权,main.tscn → TimelineBattlePage → combat_slots；本机 mock 录制；不连线上
+anim_q/battle_runtime/preview/fog_finished.png,Godot 实战页面真实视口预览（含现有界面壳层）,继承引用素材授权；用户动作原图授权未独立核验,发布前核验用户原图及引用素材授权,main.tscn → TimelineBattlePage → combat_slots；本机 mock 录制；不连线上
+anim_q/battle_runtime/preview/fog_battle.mp4,Godot 实战页面真实视口预览（含现有界面壳层）,继承引用素材授权；用户动作原图授权未独立核验,发布前核验用户原图及引用素材授权,main.tscn → TimelineBattlePage → combat_slots；本机 mock 录制；不连线上
+anim_q/battle_runtime/preview/fog_validation.json,Godot 实战页面真实视口预览（含现有界面壳层）,继承引用素材授权；用户动作原图授权未独立核验,发布前核验用户原图及引用素材授权,main.tscn → TimelineBattlePage → combat_slots；本机 mock 录制；不连线上
+anim_q/combat_slots/player/actor.tscn,统一权威时间轴的持久角色动画槽（项目代码）,项目代码,不新增外部素材；引用动作原图授权另见对应条目,battle_runtime 切片 → 官方 CombatAnimationSlots
+anim_q/combat_slots/boss/actor.tscn,统一权威时间轴的持久怪物动画槽（项目代码）,项目代码,不新增外部素材；复用现有熊王图授权,battle_runtime 惯性表现 → 官方 CombatAnimationSlots

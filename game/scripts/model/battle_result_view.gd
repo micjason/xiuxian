@@ -13,6 +13,8 @@ static func build(result: Dictionary, boss_name: String, name_of: Callable) -> D
 	var reason := ""
 	if win:
 		reason = "击败 %s，用时 %.1f 秒" % [boss_name, float(summary.seconds)]
+	elif str(summary.reason) == "retreat":
+		reason = "中途撤退，挑战失败"
 	elif str(summary.reason) == "timeout":
 		reason = "时间到：%.0f 秒内没能击败 %s" % [float(summary.seconds), boss_name]
 	else:

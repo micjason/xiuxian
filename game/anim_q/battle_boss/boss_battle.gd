@@ -111,6 +111,9 @@ var _hero_rect := Rect2(20, 280, 260, 254)
 var _boss_rect := Rect2(552, 210, 460, 380)
 var _size := Vector2(1032, 799)
 
+var playback_speed := 1.0
+var external_numbers := false
+
 var _t := 0.0
 var _shake := 0.0
 var _shake_amp := 0.0
@@ -502,6 +505,12 @@ func _sword_home() -> Vector2:
 func on_event(event: Dictionary) -> void:
 	var dmg := int(round(float(event.get("damage", 0))))
 	var side := str(event.get("side", ""))
+	if external_numbers and bool(event.get("dodged", false)):
+		if side == "boss":
+			boss.attack()
+		elif hero_rig != null:
+			hero_rig.play_attack()
+		return
 	if side == "boss":
 		_on_boss_attack(dmg)
 	elif str(event.get("kind", "")) == "ult":
@@ -546,6 +555,8 @@ func _on_boss_attack(dmg: int) -> void:
 
 
 func _on_boss_impact() -> void:
+	if external_numbers and _hero_pending.is_empty():
+		return
 	var heavy := _tele_hit
 	_tele_hit = false
 	for d in _hero_pending:
@@ -822,10 +833,11 @@ func _update_ult(delta: float) -> void:
 		# 自动技能：zoom 1.04 / shake 8～12 / hitstop 2～3 + 落地震波尘
 		_kick_feel(shake_strong, 0.36, HITSTOP_FRAMES_SKILL + 1, PUNCH_ZOOM_SKILL, PUNCH_ZOOM_RETURN_SKILL)
 		_play_land_fx(Vector2(target.x, _boss_rect.end.y - 12.0))
+		_big.visible = not external_numbers
 		_big_label.text = "-%d" % _ult_dmg
 		_big.position = Vector2(_boss_rect.position.x + 70.0, maxf(target.y - _boss_rect.size.y * 0.24, number_top + 70.0))
 		_big_t = 0.0
-		_big.visible = true
+		_big.visible = not external_numbers
 		number_shown.emit("boss", _ult_dmg)
 		ult_landed.emit(_ult_dmg)
 	if t > impact + 0.25:
@@ -838,6 +850,7 @@ func _update_ult(delta: float) -> void:
 
 # ================================================================ 每帧
 func _process(delta: float) -> void:
+	delta *= playback_speed
 	if not is_visible_in_tree():
 		return
 	# 轻推拉回弹用真实时间
@@ -994,6 +1007,8 @@ func _update_fx(delta: float) -> void:
 
 # ---------------------------------------------------------------- 数字（首领身上 4 个、主角身上 3 个，循环复用）
 func _show_boss_number(v: int) -> void:
+	if external_numbers:
+		return
 	var i := _bn_next
 	_bn_next = (_bn_next + 1) % _boss_nums.size()
 	(_boss_nums[i].get_child(0) as Label).text = "-%d" % v
@@ -1005,6 +1020,8 @@ func _show_boss_number(v: int) -> void:
 
 
 func _show_hero_number(v: int) -> void:
+	if external_numbers:
+		return
 	var i := _hn_next
 	_hn_next = (_hn_next + 1) % _hero_nums.size()
 	(_hero_nums[i].get_child(0) as Label).text = "-%d" % v

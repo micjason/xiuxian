@@ -707,7 +707,7 @@ func _do_interact(object_id: String, option_id: String = "") -> void:
 
 func _do_battle(object_id: String) -> void:
 	_set_busy(true)
-	var result: Dictionary = await PlayerApi.post_action("/api/v1/me/fog/%s/battle" % _map_id.uri_encode(), {"objectId": object_id})
+	var result: Dictionary = await PlayerApi.post_action("/api/v1/me/combat/start", {"source": "fog", "mapId": _map_id, "objectId": object_id})
 	_set_busy(false)
 	if int(result.get("code", 0)) != 200:
 		toast_requested.emit(PlayerApi.error_message(result), false)

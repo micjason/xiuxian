@@ -63,6 +63,7 @@ export type FogMapConfig = {
   spawn: { x: number; y: number };
   blocks: { x: number; y: number }[];
   objects: FogMapObject[];
+  timeLimitSeconds?: number;
 };
 
 export type FogConfig = {
@@ -321,6 +322,7 @@ function asMap(raw: unknown): FogMapConfig | null {
     spawn: spawnPos,
     blocks,
     objects: asObjects(m.objects),
+    timeLimitSeconds: m.timeLimitSeconds == null ? undefined : asInt(m.timeLimitSeconds, 45, 1, 600),
   };
 }
 

@@ -136,7 +136,7 @@ func test_stage_page_cards_follow_server_stage_access_in_every_realm() -> void:
 			var button := stage_page.challenge_button_for(stage_slug)
 			assert_not_null(button, "%s/%s：每张卡都有按钮" % [slug, stage_slug])
 			if not bool(acc.get("playable", false)):
-				assert_true(button.disabled, "%s/%s：没解锁的不能打" % [slug, stage_slug])
+				assert_false(button.disabled, "%s/%s：未解锁按钮可点开条件，不能发战斗请求" % [slug, stage_slug])
 				assert_eq(button.text, "未解锁")
 		var chosen := stage_page.challenge_button()
 		assert_not_null(chosen, "%s：默认选中一个关卡" % slug)
@@ -157,26 +157,32 @@ func test_lianqi_2_points_to_lianqi_3_and_the_bear_king() -> void:
 	var stage_page := scene.get("_stage_page") as StagePage
 	assert_eq(stage_page.current_tab(), "heifeng")
 	assert_eq(stage_page.selected, "lianqi_2", "默认选中能打没打过的关卡")
-	assert_eq(stage_page.challenge_button_for("lianqi_1").text, "再 战")
-	assert_eq(stage_page.challenge_button_for("lianqi_2").text, "挑 战")
+	assert_eq(stage_page.challenge_button_for("lianqi_1").text, "再战")
+	assert_eq(stage_page.challenge_button_for("lianqi_2").text, "挑战")
 	assert_false(stage_page.challenge_button_for("lianqi_2").disabled)
 	var locked := stage_page.challenge_button_for("lianqi_3")
 	assert_eq(locked.text, "未解锁")
-	assert_true(locked.disabled)
+	assert_false(locked.disabled, "未解锁按钮用于查看条件")
 	var card := stage_page.find_child("Stage_lianqi_3", true, false)
 	var text := "\n".join(_texts(card))
 	assert_true(text.contains("黑风熊王"), text)
-	assert_true(text.contains("首领"), text)
-	assert_true(text.contains("击败首领「精英·赤眼狐妖」"), text)
-	assert_true(text.contains("达到炼气三层"), text)
+	assert_false(text.contains("击败首领"), "条件不再挤在列表里")
+	locked.pressed.emit()
+	var popup := stage_page.find_child("StagePopup", true, false)
+	assert_not_null(popup)
+	var popup_text := "\n".join(_texts(popup))
+	assert_true(popup_text.contains("击败首领「精英·赤眼狐妖」"), popup_text)
+	assert_true(popup_text.contains("达到炼气三层"), popup_text)
+	stage_page.call("_close_stage_popup")
 	var youming := stage_page.find_child("ChapterTab_youming", true, false) as Button
 	assert_true(youming.disabled, "幽冥古道还没解锁")
 	assert_true("\n".join(_texts(youming)).contains("黑风熊王"), "页签写明解锁条件")
-	assert_not_null(stage_page.find_child("IdleStageCard", true, false), "挂机刷怪地点仍然在")
+	assert_null(stage_page.find_child("IdleStageCard", true, false), "列表不再另占地点条")
+	assert_not_null(stage_page.find_child("IdleLocationButton", true, false), "挂机地点入口迁至关卡横幅")
 
 
 ## 第四批：每日首领挑战次数是全局的——列表顶上一条「今日首领挑战 剩余/总数」，卡片上不再有按关的次数胶囊；
-## 用完以后已击败的首领「明日再来」不能点，没击败过的首领第一次挑战照常能点（不耗次数）。
+## 用完以后已击败的首领「再战」变灰不能点，没击败过的首领第一次挑战照常能点（不耗次数）。
 func test_global_daily_total_sits_above_the_cards_and_spent_only_locks_beaten_bosses() -> void:
 	var scene := await _boot_in(Vector2i(1080, 2340), "gate")
 	var content: Dictionary = scene.get("_content")
@@ -214,11 +220,11 @@ func test_global_daily_total_sits_above_the_cards_and_spent_only_locks_beaten_bo
 	assert_true("\n".join(_texts(stage_page.find_child("DailyTotalBar", true, false))).contains("今日次数已用完"))
 	again = stage_page.challenge_button_for("lianqi_1")
 	assert_true(again.disabled, "已击败的首领：次数用完不能再打")
-	assert_eq(again.text, "明日再来")
-	assert_true("\n".join(_texts(stage_page.find_child("Stage_lianqi_1", true, false))).contains("今日次数已用完"))
+	assert_eq(again.text, "再战", "次数耗尽也保持三态文案")
+	assert_true(again.tooltip_text.contains("今日次数已用完"))
 	var first := stage_page.challenge_button_for("lianqi_2")
 	assert_false(first.disabled, "没击败过的首领：第一次挑战不耗次数，照常能打")
-	assert_eq(first.text, "挑 战")
+	assert_eq(first.text, "挑战")
 
 
 ## 演示数据的修为不能超过本境界突破所需（曾出现「3,300 / 300」）。最高境界没有 cost，不检查。

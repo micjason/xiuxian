@@ -115,9 +115,10 @@ func test_stage_list_drag_on_cards_scrolls_without_selecting() -> void:
 	await get_tree().process_frame
 	var page := scene.get("_stage_page") as StagePage
 	var view := page.get("_stage_view") as ScrollContainer
-	# 第三批：一章 3 张竖排卡在 2340 高的屏上正好放得下；展开挂机地点下拉，让列表超出可视区
-	page.set("_dropdown_open", true)
-	page.call("_render_stages")
+	# 确认稿三张紧凑卡可完整展示；注入额外列表内容构造真实溢出，验证拖动不会变点击。
+	var overflow := Control.new()
+	overflow.custom_minimum_size.y = 600
+	(page.get("_stage_box") as VBoxContainer).add_child(overflow)
 	await get_tree().process_frame
 	await get_tree().process_frame
 	var kit := ScrollKit.of(view)

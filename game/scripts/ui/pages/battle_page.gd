@@ -2,7 +2,7 @@ class_name BattlePage
 extends VBoxContainer
 ## 首领战斗页（第四批，SPEC_Q §17.1 / 设计稿 q_battle_boss_1080x2340.png）：
 ##   顶行（撤退 · 章节·关 绶带 · 限时胶囊）→ 首领 HUD（头像 + 首领名牌 + 境界 + 战力 + 首领大血条）
-##   → 场景（首领主视觉、玩家、倍速按钮、开始挑战）→ 玩家 HUD（血条 + 属性）→ 战报（最多 4 行）。
+##   → 场景（首领主视觉、玩家、倍速按钮、开始挑战）→ 战报（最多 4 行）；独立全屏，不显示全局栏和玩家数字面板。
 ## 战斗永远自动：不画技能冷却条、充能圆盘，也没有「自动战斗」开关和「战斗速度」行；倍速在场景右下角。
 ## 蓄力只驱动主角脚下聚气环，不在 HUD 上显示百分比或冷却提示。
 ## 不再区分精英战 / 首领战：标题、名牌、光圈一律首领样式（后台 tier 只剩外观用途，这里也统一按首领显示）。
@@ -30,8 +30,6 @@ const TIER_CHIEF := 2
 ## 主角战斗姿势（SPEC_Q §17.8）：res://assets/art/q/sprites/player_fight.png，朝右，显示 390×390；没有就退回动画主角。
 const HERO_POSE_HOOK := "player_fight"
 const HERO_SIZE := 390.0
-## 外壳底栏中间按钮上凸的高度（战斗页保留外壳底栏，见第四批改动说明）。
-const TAB_OVERHANG := 96.0
 ## 主角整体抬高（负责人：脚要完整露出、踩在地面上，40–90px）：战斗区下沿被下方面板的圆角 / 阴影压住一截，
 ## 立绘脚底在图内 y≈600/635（SPEC_Q §17.8），抬 60px 后脚底离战斗区下沿约 80px。
 const HERO_RAISE := 60.0
@@ -113,13 +111,8 @@ func _init() -> void:
 	add_child(_result_panel)
 	_controls = _build_player_hud()
 	add_child(_controls)
+	_controls.visible = false  # 保留血条数据绑定接口，不占确认稿布局。
 	add_child(_build_report_panel())
-	# 底部留白：外壳底栏中间的大按钮会往上凸，别压住战报最后一行
-	var tail := Control.new()
-	tail.name = "TabOverhangSpacer"
-	tail.custom_minimum_size = Vector2(0, TAB_OVERHANG)
-	tail.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(tail)
 	_load_speed()
 	resized.connect(queue_redraw)
 	_arena.resized.connect(queue_redraw)
@@ -132,7 +125,7 @@ func _build_top_row() -> Control:
 	var row := HBoxContainer.new()
 	row.name = "TopRow"
 	row.add_theme_constant_override("separation", UiTokens.SP_1)
-	row.custom_minimum_size = Vector2(0, 112)
+	row.custom_minimum_size = Vector2(0, 350)
 	var retreat := VBoxContainer.new()
 	retreat.name = "Retreat"
 	retreat.add_theme_constant_override("separation", -8)
@@ -145,13 +138,14 @@ func _build_top_row() -> Control:
 	back.focus_mode = Control.FOCUS_NONE
 	back.pressed.connect(_on_retreat)
 	retreat.add_child(back)
-	var word := QKit.outlined("撤退", 30, UiTokens.Q_WHITE, UiTokens.Q_COCOA, 7, HORIZONTAL_ALIGNMENT_CENTER)
+	var word := QKit.outlined("返回", 30, UiTokens.Q_WHITE, UiTokens.Q_COCOA, 7, HORIZONTAL_ALIGNMENT_CENTER)
 	word.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	retreat.add_child(word)
 	row.add_child(retreat)
 	var mid := CenterContainer.new()
 	mid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	mid.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	mid.size_flags_vertical = Control.SIZE_SHRINK_END
 	var ribbon := QKit.ribbon("", 46, 300, false)
 	ribbon.name = "TitleRibbon"
 	_title = ribbon.find_child("RibbonText", true, false) as Label
@@ -167,7 +161,7 @@ func _build_top_row() -> Control:
 	timer_row.add_child(_timer_text)
 	var pill := QKit.pill(UiTokens.Q_CREAM, timer_row, 4, 5, 18, 4)
 	pill.name = "TimerPill"
-	pill.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	pill.size_flags_vertical = Control.SIZE_SHRINK_END
 	row.add_child(pill)
 	return row
 
@@ -395,6 +389,7 @@ func _build_report_panel() -> Control:
 	var made := QKit.panel(UiTokens.Q_CREAM, 34, 24, 10, 4, 6, "panel_cream")
 	var panel := made.panel as PanelContainer
 	panel.name = "ReportPanel"
+	panel.custom_minimum_size.y = 520
 	var body := made.body as VBoxContainer
 	body.add_theme_constant_override("separation", 4)
 	var ribbon := QKit.ribbon("战报", 36, 120, false)
@@ -404,7 +399,7 @@ func _build_report_panel() -> Control:
 	var well := PanelContainer.new()
 	well.name = "ReportWell"
 	well.add_theme_stylebox_override("panel", QKit.cut_box("well_apricot", 18, 10) if ArtLib.qui("well_apricot") != null else QSkin.custom(UiTokens.Q_CARD, Color(0, 0, 0, 0), 0, 24, 0, 18, 10))
-	well.custom_minimum_size = Vector2(0, REPORT_ROWS * 54 + 24)
+	well.custom_minimum_size = Vector2(0, 350)
 	_feed = UiKit.vbox(6)
 	_feed.name = "ReportFeed"
 	well.add_child(_feed)
@@ -446,7 +441,7 @@ func open_stage(state: Dictionary, content: Dictionary, stage: Dictionary, gate:
 		_result_dim.visible = false
 	_frozen_time = ""
 	_arena.visible = true
-	_controls.visible = true
+	_controls.visible = false
 	_start_button.visible = true
 	_start_button.disabled = fight == null
 	_title.text = title_text(stage)
@@ -507,9 +502,9 @@ static func boss_sprite_of(boss: Dictionary) -> String:
 	return sprite
 
 
-## 战斗页底下的薄荷底板从玩家 HUD 上沿开始（同修炼页下半区）。
+## 确认稿 02：薄荷底板从战报上沿开始。
 func sheet_anchor() -> Control:
-	return _controls if _controls != null and _controls.visible else null
+	return find_child("ReportPanel", false, false) as Control
 
 
 func sheet_pad() -> float:

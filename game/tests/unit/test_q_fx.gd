@@ -133,10 +133,11 @@ func test_home_hero_sits_in_the_design_frame() -> void:
 	scene.call("_show_page", "cultivate")
 	await get_tree().process_frame
 	var hero := (scene.get("_home_page") as Node).find_child("HeroSprite", true, false) as QHero
-	# README 1：锚点 = 角色框底边中点 (540, 1070)，1 倍设计尺寸
+	# 确认稿 03：放大后仍居中；适配蓝衣换装图的透明边距。
 	var anchor := hero.hero.get_global_transform().origin
 	assert_almost_eq(anchor.x, 540.0, 2.0)
-	assert_almost_eq(hero.hero.scale.x, 1.0, 0.01)
+	assert_eq(hero.size, Vector2(820, 800))
+	assert_almost_eq(hero.hero.scale.x, minf(820.0 / 706.0, 800.0 / 690.0), 0.01)
 
 
 func test_top_bar_avatar_uses_the_new_player_avatar() -> void:

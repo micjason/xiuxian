@@ -1,8 +1,7 @@
 class_name HomePage
 extends VBoxContainer
-## 修炼页（Q 版设计稿 q_cultivate）：莲台场景上打坐的主角（背景图自带莲台）、右侧圆形入口
-## 「历练」（副标 = 正在刷的关卡）/「功法」/「炼丹」（暂未开放）、左下宝箱「+收益」；
-## 下半薄荷底板上：当前一波的关卡卡（进度 3 段、最近一次击杀、最近掉落）和挂机修炼条。
+## 修炼页（确认稿 03）：莲台场景 + 简洁波次进度；移除右侧入口与挂机说明。
+## 左下宝箱、光晕、气泡只在离线报告待领取时出现。
 ## 「突破」在底栏正中的大圆钮（外壳处理），这里不再放突破按钮。
 ## 只负责显示和发信号。波次进度由服务器每次心跳给出，两次心跳之间按本地经过的秒数推进（只影响显示）。
 ## 设计稿坐标（SPEC_Q 第 8 节）按页面区域（画布 y 362 起、x 24 起）换算。
@@ -21,10 +20,9 @@ const ORIGIN := Vector2(24, 362)
 var _hero: Control
 var _ring: TextureRect
 var _adventure: Button
-var _adventure_caption: Label
-var _adventure_dot: Control
 var _skill: Button
 var _alchemy: Button
+var _chest_glow: Control
 var _chest: Button
 var _chest_dot: Control
 var _chest_bubble: PanelContainer
@@ -36,8 +34,6 @@ var _wave_bar: QBar
 var _feed_label: Label
 var _drop_row: HBoxContainer
 var _auto_button: Button
-var _idle_title: Label
-var _idle_text: Label
 var _spin: Tween
 var _state: Dictionary = {}
 var _content: Dictionary = {}
@@ -47,7 +43,6 @@ var _shown_ratio := -1.0
 var _shown_text := ""
 var _wave_card: Control
 var _last_feed_text := ""
-
 
 func _init() -> void:
 	add_theme_constant_override("separation", 0)
@@ -59,19 +54,17 @@ func _init() -> void:
 	gap.custom_minimum_size = Vector2(0, 30)
 	gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(gap)
-	_build_idle_card()
+
 	var orb_room := Control.new()
 	orb_room.name = "OrbRoom"  # 底栏突破球凸出来的那一截
 	orb_room.custom_minimum_size = Vector2(0, 180)
 	orb_room.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(orb_room)
 
-
 func _ready() -> void:
 	if _ring != null:
 		_spin = create_tween().set_loops()
 		_spin.tween_property(_ring, "rotation", TAU, 20.0).from(0.0)
-
 
 func _sprite(path: String, rect: Rect2, parent: Control, alpha: float = 1.0) -> TextureRect:
 	var node := TextureRect.new()
@@ -86,7 +79,6 @@ func _sprite(path: String, rect: Rect2, parent: Control, alpha: float = 1.0) -> 
 	parent.add_child(node)
 	return node
 
-
 func _build_hero() -> void:
 	_hero = Control.new()
 	_hero.name = "Hero"
@@ -100,58 +92,19 @@ func _build_hero() -> void:
 		_sprite("sprites/fx_aura_radial", Rect2(90, 330, 900, 900), _hero, 0.85)
 		_ring = _sprite("sprites/fx_ring_dashed", Rect2(265, 470, 550, 550), _hero, 0.8)
 		_ring.pivot_offset = Vector2(275, 275)
-	_sprite("sprites/fx_ground_shadow", Rect2(300, 1016, 480, 70), _hero, 0.8)
-	# 动画主角（anim_q/hero_meditate）：锚点 = 设计稿 (540, 1070)，角色框 706×690（README 第 1 节）
+	_sprite("sprites/fx_ground_shadow", Rect2(300, 1236, 480, 70), _hero, 0.8)
+	# 确认稿人物居中落在莲台前沿；换装贴图仍完全由服务器 appearance 决定。
 	hero.name = "HeroSprite"
-	hero.position = Vector2(187, 380) - ORIGIN
-	hero.size = Vector2(706, 690)
+	hero.position = Vector2(130, 490) - ORIGIN
+	hero.size = Vector2(820, 800)
 	_hero.add_child(hero)
-	_build_side_entries()
 	_build_chest()
 
 
-## 右侧三个圆形入口（设计稿 924,400 / 924,670 / 924,890）。
-func _build_side_entries() -> void:
-	var adventure := QKit.side_button("tab_adventure", "历练")
-	adventure.root.name = "AdventureEntry"
-	_adventure = adventure.button
-	_adventure.name = "AdventureButton"
-	_adventure_dot = adventure.dot
-	_adventure.pressed.connect(func() -> void: adventure_requested.emit())
-	_place_side(adventure.root, 400)
-	_adventure_caption = QKit.outlined("", 30, UiTokens.Q_WHITE, UiTokens.Q_COCOA, 8, HORIZONTAL_ALIGNMENT_CENTER)
-	_adventure_caption.name = "AdventureCaption"
-	var chip := QKit.tag("", "dark", 30, 14)
-	chip.name = "AdventureStage"
-	chip.remove_child(chip.get_child(0))
-	chip.add_child(_adventure_caption)
-	chip.position = Vector2(906, 586) - ORIGIN
-	chip.custom_minimum_size = Vector2(168, 44)
-	_hero.add_child(chip)
-	var skills := QKit.side_button("tab_skill", "技能")
-	skills.root.name = "SkillEntry"
-	_skill = skills.button
-	_skill.name = "SkillButton"
-	_skill.pressed.connect(func() -> void: page_requested.emit("skill"))
-	_place_side(skills.root, 670)
-	var alchemy := QKit.side_button("side_alchemy", "秘境")
-	alchemy.root.name = "FogEntry"
-	_alchemy = alchemy.button
-	_alchemy.name = "FogButton"
-	_alchemy.pressed.connect(func() -> void: page_requested.emit("fog"))
-	_place_side(alchemy.root, 890)
-
-
-func _place_side(root: Control, y: float) -> void:
-	root.position = Vector2(924 - 30, y) - ORIGIN
-	root.custom_minimum_size = Vector2(192, 190)
-	_hero.add_child(root)
-
-
 ## 左下宝箱 + 「+收益」气泡。
-## 有未 ack 的离线收益 → 红点 + 「待领取」，点开再弹离线窗；否则仍是「功能暂未开放」占位。
+## 只在有未领取离线报告时显示，领取后图标、光晕、气泡一起消失。
 func _build_chest() -> void:
-	_sprite("sprites/fx_chest_glow", Rect2(28, 1150, 220, 90), _hero, 0.9)
+	_chest_glow = _sprite("sprites/fx_chest_glow", Rect2(28, 1150, 220, 90), _hero, 0.9)
 	_chest = Button.new()
 	_chest.name = "ChestButton"
 	_chest.focus_mode = Control.FOCUS_NONE
@@ -183,31 +136,35 @@ func _build_chest() -> void:
 	_chest_bubble.position = Vector2(150, 986) - ORIGIN
 	_chest_bubble_label = _chest_bubble.get_child(0) as Label
 	_hero.add_child(_chest_bubble)
-
+	set_offline_pending(false)
 
 func _on_chest_pressed() -> void:
 	if _offline_pending:
 		offline_requested.emit()
-	else:
-		LockedFeature.notify(_chest, "idle_chest")
+
 
 
 ## 外壳在有/无 pending offlineReport 时调用：控制宝箱红点与气泡文案。
 func set_offline_pending(pending: bool) -> void:
 	_offline_pending = pending
+	if _chest != null:
+		_chest.visible = pending
+	if _chest_glow != null:
+		_chest_glow.visible = pending
+	if _chest_bubble != null:
+		_chest_bubble.visible = pending
 	if _chest_dot != null:
 		_chest_dot.visible = pending
 	if _chest_bubble_label != null:
 		_chest_bubble_label.text = "待领取" if pending else "+收益"
 	if _chest != null:
-		_chest.tooltip_text = "领取离线收益" if pending else "功能暂未开放"
-
+		_chest.tooltip_text = "领取离线收益" if pending else ""
 
 func _build_wave_card() -> void:
 	var card := QKit.panel(UiTokens.Q_CREAM, 34, 30, 22)
 	_wave_card = card.panel
 	_wave_card.name = "WaveCard"
-	_wave_card.custom_minimum_size = Vector2(0, 372)
+	_wave_card.custom_minimum_size = Vector2(0, 280)
 	_wave_card.size_flags_horizontal = Control.SIZE_FILL
 	add_child(_wave_card)
 	var body := card.body as VBoxContainer
@@ -223,7 +180,7 @@ func _build_wave_card() -> void:
 	head.add_child(_wave_title)
 	_wave_text = UiKit.label("", UiTokens.FS_MICRO, UiTokens.TEXT_MUTED, HORIZONTAL_ALIGNMENT_RIGHT)
 	_wave_text.name = "WaveText"
-	head.add_child(_wave_text)
+
 	_wave_bar = QKit.bar(0.0, UiTokens.Q_MINT, 40, 3) as QBar
 	_wave_bar.name = "WaveBar"
 	body.add_child(_wave_bar)
@@ -231,9 +188,13 @@ func _build_wave_card() -> void:
 	body.add_child(row)
 	_feed_label = UiKit.label("挂机战斗中…", UiTokens.FS_MICRO, UiTokens.TEXT)
 	_feed_label.name = "FeedLine"
+	_feed_label.visible = false
 	_feed_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_feed_label.clip_text = true
 	row.add_child(_feed_label)
+	_wave_text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_wave_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	row.add_child(_wave_text)
 	_auto_button = QKit.button("⚔ 自动挑战中", "m", 60, 30)
 	_auto_button.name = "AutoChallenge"
 	_auto_button.custom_minimum_size.x = 240
@@ -242,6 +203,7 @@ func _build_wave_card() -> void:
 	row.add_child(_auto_button)
 	var drops := QKit.inset(UiTokens.Q_CARD, 24, 20, 8)
 	drops.panel.name = "DropRow"
+	drops.panel.visible = false
 	drops.panel.custom_minimum_size = Vector2(0, 104)
 	body.add_child(drops.panel)
 	_drop_row = UiKit.hbox(14)
@@ -250,37 +212,6 @@ func _build_wave_card() -> void:
 	(drops.body as VBoxContainer).size_flags_vertical = Control.SIZE_EXPAND_FILL
 	drops.body.add_child(_drop_row)
 	_render_drops()
-
-
-func _build_idle_card() -> void:
-	var card := PanelContainer.new()
-	card.name = "IdleCard"
-	card.custom_minimum_size = Vector2(0, 140)
-	if ArtLib.qui("panel_pill_132") != null:
-		card.add_theme_stylebox_override("panel", QKit.cut_box("panel_pill_132", 20, 6))
-		(card.get_theme_stylebox("panel") as StyleBoxTexture).content_margin_left = 16
-	else:
-		card.add_theme_stylebox_override("panel", QSkin.custom(UiTokens.Q_CREAM, UiTokens.Q_COCOA, 4, 66, 8, 20, 6))
-	add_child(card)
-	var row := UiKit.hbox(UiTokens.SP_2)
-	card.add_child(row)
-	var disc := QKit.cut_rect("idle_lotus_disc", Vector2(104, 104))
-	disc.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	if disc is TextureRect:
-		var lotus := UiKit.icon("res_lotus", 80)
-		QKit.center_in(lotus, Vector2(80, 80))
-		disc.add_child(lotus)
-	row.add_child(disc)
-	var text := UiKit.vbox(0)
-	text.alignment = BoxContainer.ALIGNMENT_CENTER
-	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(text)
-	_idle_title = QKit.title("挂机修炼中  · · ·", 40, UiTokens.TEXT)
-	text.add_child(_idle_title)
-	_idle_text = UiKit.label("", UiTokens.FS_MICRO, UiTokens.TEXT_MUTED)
-	_idle_text.name = "IdleText"
-	text.add_child(_idle_text)
-
 
 func _process(delta: float) -> void:
 	if not visible or _state.is_empty():
@@ -294,18 +225,14 @@ func _process(delta: float) -> void:
 func sheet_anchor() -> Control:
 	return _wave_card
 
-
 func adventure_button() -> Button:
 	return _adventure
-
 
 func skill_button() -> Button:
 	return _skill
 
-
 func alchemy_button() -> Button:
 	return _alchemy
-
 
 func chest_button() -> Button:
 	return _chest
@@ -319,43 +246,10 @@ func bind(state: Dictionary, content: Dictionary, _next_realm_name: String) -> v
 	if meditate != null:
 		meditate.apply_outfit(OutfitAppearance.texture(state.get("appearance", null), "meditate"))
 	_elapsed = 0.0
-	var caption := WaveView.stage_caption(state)
-	_adventure_caption.text = caption if not caption.is_empty() else "未开启"
-	var view := BreakthroughView.build(state)
-	# 历练入口的红点：突破被首领卡住（修为够了、首领没打）时提醒去历练。
-	_adventure_dot.visible = bool(view.has_next) and bool(view.cultivation_ok) and not bool(view.boss_ok)
 	var report: Variant = state.get("offlineReport", null)
 	set_offline_pending(typeof(report) == TYPE_DICTIONARY and not (report as Dictionary).is_empty())
 	_shown_ratio = -1.0
 	_refresh_wave_bar()
-	_render_idle(state, content)
-
-
-func _render_idle(state: Dictionary, content: Dictionary) -> void:
-	var rate: Dictionary = state.get("cultivationRate", {}) if typeof(state.get("cultivationRate", null)) == TYPE_DICTIONARY else {}
-	var gain := float(rate.get("gainPerTick", 0))
-	var bonus := float(rate.get("bonusBp", 0)) / 10000.0
-	var tick := 1.0
-	for realm in content.get("realms", []):
-		if typeof(realm) == TYPE_DICTIONARY and str((realm as Dictionary).get("slug", "")) == str(state.get("realmSlug", "")):
-			tick = maxf(float((realm as Dictionary).get("tickSeconds", 1.0)), 0.1)
-	var globals: Dictionary = content.get("globals", {}) if typeof(content.get("globals", null)) == TYPE_DICTIONARY else {}
-	var cap := float(globals.get("offlineCapSeconds", 0))
-	if gain <= 0.0:
-		_idle_text.text = "后台还没设置修炼速度，现在得不到修为。"
-		return
-	var per_second := gain * (1.0 + bonus) / tick
-	var text := "每秒修为 +%s" % _plain_number(per_second)
-	if cap > 0.0:
-		text += " · 离线最多累计 %s" % OfflineView.duration_text(int(cap))
-	_idle_text.text = text
-
-
-static func _plain_number(value: float) -> String:
-	if is_equal_approx(value, roundf(value)):
-		return str(int(roundf(value)))
-	return ("%.2f" % value).trim_suffix("0")
-
 
 func _refresh_wave_bar() -> void:
 	var online := true
@@ -365,7 +259,7 @@ func _refresh_wave_bar() -> void:
 	var shown := WaveView.display(_state, _elapsed if online else 0.0)
 	var wave: Dictionary = _state.get("wave", {}) if typeof(_state.get("wave", null)) == TYPE_DICTIONARY else {}
 	_wave_title.text = str(wave.get("stageName", "")) if bool(shown.available) else "未开启"
-	var text := str(shown.text)
+	var text := "%d/%d" % [int(shown.kills), int(shown.wave_size)] if bool(shown.available) else "—"
 	if text == _shown_text and absf(float(shown.ratio) - _shown_ratio) < 0.004:
 		return
 	_shown_text = text
@@ -388,7 +282,6 @@ func show_gains(last: Dictionary) -> void:
 	if kill > 0:
 		_float_gain(kill, 1, Vector2(780, 560))
 
-
 func _float_gain(value: int, style: int, design_pos: Vector2) -> void:
 	var node := QFx.make(QFx.FLOAT_NUMBER) as Node2D
 	if node == null:
@@ -404,7 +297,6 @@ func _float_gain(value: int, style: int, design_pos: Vector2) -> void:
 	ap.animation_finished.connect(func(_name: StringName) -> void: node.queue_free())
 	ap.play("pop")
 
-
 func gain_floats() -> Array[Node]:
 	return _hero.get_children().filter(func(n: Node) -> bool: return n.has_meta(&"gain_float") and not n.is_queued_for_deletion())
 
@@ -412,6 +304,8 @@ func gain_floats() -> Array[Node]:
 ## 掉落行里第 index 件掉落物格子的画布中心（飞入背包的起点）；没有返回 null。
 func drop_slot_centers() -> Array[Vector2]:
 	var out: Array[Vector2] = []
+	if not _drop_row.is_visible_in_tree():
+		return out
 	for child in _drop_row.get_children():
 		if child is Control and (child as Control).tooltip_text != "":
 			out.append((child as Control).get_global_rect().get_center())
@@ -429,13 +323,11 @@ func show_feedback(lines: Array[Dictionary]) -> void:
 		_feed.pop_front()
 	_render_feed()
 
-
 func feed_texts() -> Array[String]:
 	var out: Array[String] = []
 	for line in _feed:
 		out.append(str(line.text))
 	return out
-
 
 func _expire_feed(delta: float) -> void:
 	if _feed.is_empty():
@@ -448,7 +340,6 @@ func _expire_feed(delta: float) -> void:
 		changed = true
 	if changed:
 		_render_feed()
-
 
 func _render_feed() -> void:
 	var line_text := ""
@@ -463,7 +354,6 @@ func _render_feed() -> void:
 	_feed_label.text = line_text if not line_text.is_empty() else (_last_feed_text if not _last_feed_text.is_empty() else "挂机战斗中…")
 	_feed_label.add_theme_color_override("font_color", UiTokens.Q_RED if kind in ["warn", "death"] else UiTokens.TEXT)
 	_render_drops()
-
 
 func _render_drops() -> void:
 	UiKit.clear(_drop_row)

@@ -119,7 +119,7 @@ func open_session(session: Dictionary, state: Dictionary, content: Dictionary, s
 		_clock = 0.0
 		_start_button.visible = false
 		_fx.play_intro()
-		_append_feed("info", "服务器时间轴 · 全自动战斗")
+		_append_feed("info", "战斗开始")
 		_slots.play_slot("player", "idle")
 		_slots.play_slot("boss", "idle")
 

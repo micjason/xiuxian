@@ -267,7 +267,7 @@ func _build_shell() -> void:
 	_stage_page = StagePage.new()
 	_stage_page.stage_selected.connect(_select_stage)
 	_stage_page.challenge_requested.connect(_open_battle)
-	_stage_page.fog_requested.connect(func() -> void: _show_page(PAGE_FOG))
+	_stage_page.fog_requested.connect(func() -> void: await _open_fog())
 	_stage_page.idle_stage_requested.connect(_on_idle_stage)
 	_stage_page.back_requested.connect(func() -> void: _show_page(PAGE_CULTIVATE))
 	_stage_page.salvage_requested.connect(open_salvage)
@@ -290,7 +290,7 @@ func _build_shell() -> void:
 	_bag_page.action_requested.connect(_on_page_action)
 	_skill_page = SkillPage.new()
 	_cave_page = CavePage.new()
-	_cave_page.fog_requested.connect(func() -> void: _show_page(PAGE_FOG))
+	_cave_page.fog_requested.connect(func() -> void: await _open_fog())
 	_cave_page.back_requested.connect(func() -> void: _show_page(PAGE_CULTIVATE))
 	_cave_page.action_requested.connect(_on_dongfu_action)
 	_cave_page.enhance_entry_requested.connect(open_enhance_entry)
@@ -461,8 +461,6 @@ func _show_page(page: String) -> void:
 	_apply_layout()
 	var page_node := _pages[page] as Control
 	_backdrop.set_sheet_anchor(page_node.call("sheet_anchor") if page_node.has_method("sheet_anchor") else null, float(page_node.call("sheet_pad")) if page_node.has_method("sheet_pad") else 52.0)
-	if page == PAGE_FOG and not _mock:
-		_ensure_fog_loaded()
 	if page == PAGE_BAG:
 		_bag_page.mark_visible_seen()
 		_update_dots()

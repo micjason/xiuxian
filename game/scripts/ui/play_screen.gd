@@ -30,7 +30,7 @@ const PAGE_BACKGROUNDS := {
 	PAGE_FOG_BATTLE: "battle",
 }
 ## 不在页签里的页面 → 高亮哪个页签。
-const TAB_OF := {PAGE_BATTLE: PAGE_ADVENTURE, PAGE_SKILL: PAGE_CULTIVATE, PAGE_FOG_BATTLE: PAGE_FOG, PAGE_FOG: PAGE_CULTIVATE}
+const TAB_OF := {PAGE_BATTLE: PAGE_ADVENTURE, PAGE_SKILL: PAGE_CULTIVATE, PAGE_FOG_BATTLE: PAGE_FOG, PAGE_FOG: PAGE_CAVE}
 ## 顶栏第二行（修为条）只在这些页显示（设计稿：修炼、功法）。
 const PAGES_WITH_CULTIVATION := [PAGE_CULTIVATE, PAGE_SKILL]
 ## 心跳：服务器 onlineGapSeconds（默认 15 秒）内有请求才算在线，所以间隔要比它短。
@@ -267,7 +267,7 @@ func _build_shell() -> void:
 	_stage_page = StagePage.new()
 	_stage_page.stage_selected.connect(_select_stage)
 	_stage_page.challenge_requested.connect(_open_battle)
-	_stage_page.fog_requested.connect(func() -> void: _show_page(PAGE_FOG))
+	_stage_page.fog_requested.connect(func() -> void: await _open_fog())
 	_stage_page.idle_stage_requested.connect(_on_idle_stage)
 	_stage_page.back_requested.connect(func() -> void: _show_page(PAGE_CULTIVATE))
 	_stage_page.salvage_requested.connect(open_salvage)
@@ -290,11 +290,13 @@ func _build_shell() -> void:
 	_bag_page.action_requested.connect(_on_page_action)
 	_skill_page = SkillPage.new()
 	_cave_page = CavePage.new()
+	_cave_page.fog_requested.connect(func() -> void: await _open_fog())
 	_cave_page.back_requested.connect(func() -> void: _show_page(PAGE_CULTIVATE))
 	_cave_page.action_requested.connect(_on_dongfu_action)
 	_cave_page.enhance_entry_requested.connect(open_enhance_entry)
 	_fog_page = FogMapPage.new()
-	_fog_page.back_requested.connect(func() -> void: _show_page(PAGE_CULTIVATE))
+	_fog_page.loot_received.connect(_refresh_state_soft)
+	_fog_page.back_requested.connect(func() -> void: _show_page(PAGE_CAVE))
 	_fog_page.toast_requested.connect(func(text: String, ok: bool) -> void:
 		if ok:
 			_toast.say(text, true)
@@ -1425,7 +1427,7 @@ func _open_fog() -> void:
 	var result := await _get_fog()
 	_busy = false
 	if int(result.get("code", 0)) != 200 and not result.has("fog"):
-		_toast.say_neutral(PlayerApi.error_message(result) if not result.is_empty() else "秘境暂不可用")
+		_toast.say_neutral("秘境暂不可用" + ("：" + PlayerApi.error_message(result) if not result.is_empty() else ""))
 		return
 	_fog_page.bind_fog(result)
 	_show_page(PAGE_FOG)
@@ -1453,7 +1455,7 @@ func _refresh_state_soft() -> void:
 		return
 	var state := await PlayerApi.fetch_state()
 	if int(state.get("code", 0)) == 200 or state.has("playerId"):
-		_apply_action_state(state)
+		_apply_action_state({"state": state})
 
 func _on_page_requested(page: String) -> void:
 	if page == PAGE_FOG or page == "fog":

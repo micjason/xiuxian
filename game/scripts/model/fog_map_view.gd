@@ -18,11 +18,14 @@ static func from_payload(data: Dictionary) -> Dictionary:
 		"blocks": f.get("blocks", []),
 		"objects": f.get("objects", []),
 		"travel": int(f.get("travelPoints", 0)),
-		"travel_max": int(f.get("travelPointsMax", 20)),
+		"travel_max": int(f.get("travelPointsMax", 200)),
+		"explore_revealed": int(f.get("exploreRevealed", 0)),
+		"explore_total": int(f.get("exploreTotal", 0)),
+		"explore_full": bool(f.get("exploreFull", false)),
 		"chests_opened": int(collect.get("chestsOpened", 0)),
 		"chests_total": int(collect.get("chestsTotal", 3)),
 		"monsters_defeated": int(collect.get("monstersDefeated", 0)),
-		"monsters_total": int(collect.get("monstersTotal", 3)),
+		"monsters_total": int(collect.get("monstersTotal", 2)),
 	}
 
 

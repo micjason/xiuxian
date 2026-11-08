@@ -1,5 +1,9 @@
 import { requireNoCombat } from "../combat/journal-guard.js";
-import { runtimeConfigOf, configuredSkills, combatTraits } from "../combat/runtime-config.js";
+import {
+  runtimeConfigOf,
+  configuredSkills,
+  combatTraits,
+} from "../combat/runtime-config.js";
 /**
  * 迷雾秘境 P0：问心谷。移动/揭雾/箱/怪/事件/异空间战。
  * 库表 pos_c=x、pos_r=y；DTO 对外 x/y。
@@ -17,12 +21,22 @@ import {
 import type { Tx } from "../../db/tx.js";
 import { AppError } from "../../shared/errors.js";
 import type { ContentSnapshot } from "../content/validate.js";
-import { simulateBattle, toCombatSkills, type BattleResult } from "../combat/battle.js";
+import {
+  simulateBattle,
+  toCombatSkills,
+  type BattleResult,
+} from "../combat/battle.js";
 import { shanghaiDayKey } from "../dongfu/array-daily.js";
 import { addStack } from "../loop/bag.js";
-import { battleConfigOf, combatStats, openSkillSlotsFor } from "../loop/actions.js";
+import {
+  battleConfigOf,
+  combatStats,
+  openSkillSlotsFor,
+} from "../loop/actions.js";
 import {
   cellKey,
+  explorationOf,
+  isFogExit,
   fogMapOf,
   isBlocked,
   livingMonsterAt,
@@ -40,7 +54,8 @@ type World = ContentSnapshot & { version: number };
 
 export type FogObjectDto = {
   id: string;
-  kind: "chest" | "monster" | "event";
+  kind: "chest" | "monster" | "event" | "exit";
+  passed?: boolean;
   x: number;
   y: number;
   name?: string;
@@ -63,11 +78,22 @@ export type FogStateDto = {
   travelPoints: number;
   travelPointsMax: number;
   travelDay: string;
-  /** 顶栏收集：箱 n/3、怪 n/3 */
-  collect: { chestsOpened: number; chestsTotal: number; monstersDefeated: number; monstersTotal: number };
+  exploreRevealed: number;
+  exploreTotal: number;
+  exploreFull: boolean;
+  /** 顶栏收集：箱 n/3、普通怪 n/2（出口不计入） */
+  collect: {
+    chestsOpened: number;
+    chestsTotal: number;
+    monstersDefeated: number;
+    monstersTotal: number;
+  };
 };
 
-type ObjectProgress = Record<string, { opened?: boolean; defeated?: boolean; done?: boolean }>;
+type ObjectProgress = Record<
+  string,
+  { opened?: boolean; defeated?: boolean; done?: boolean }
+>;
 
 function fogOf(world: World): FogConfig {
   return requireFog(world.globals.fog);
@@ -95,7 +121,9 @@ function parseObjects(raw: unknown): ObjectProgress {
 
 function collectOf(map: FogMapConfig, objects: ObjectProgress) {
   const chests = map.objects.filter((o) => o.kind === "chest");
-  const monsters = map.objects.filter((o) => o.kind === "monster");
+  const monsters = map.objects.filter(
+    (o) => o.kind === "monster" && !isFogExit(o),
+  );
   return {
     chestsOpened: chests.filter((c) => objects[c.id]?.opened).length,
     chestsTotal: chests.length,
@@ -123,7 +151,9 @@ async function refreshTravel(
   const [row] = await tx
     .select()
     .from(playerFogRuns)
-    .where(and(eq(playerFogRuns.playerId, playerId), eq(playerFogRuns.mapId, mapId)))
+    .where(
+      and(eq(playerFogRuns.playerId, playerId), eq(playerFogRuns.mapId, mapId)),
+    )
     .limit(1);
 
   if (!row) {
@@ -135,7 +165,7 @@ async function refreshTravel(
       posR: map.spawn.y,
       posC: map.spawn.x,
       revealed: [...revealed],
-      objects: {},
+      objects: { __travel_budget_v2: { opened: true } },
       travelPoints: config.travelPointsMax,
       travelDay: day,
       updatedAt: now,
@@ -144,12 +174,13 @@ async function refreshTravel(
       posX: map.spawn.x,
       posY: map.spawn.y,
       revealed,
-      objects: {},
+      objects: { __travel_budget_v2: { opened: true } },
       travelPoints: config.travelPointsMax,
       travelDay: day,
     };
   }
 
+  const objects = parseObjects(row.objects);
   let travelPoints = row.travelPoints;
   let travelDay = row.travelDay ?? day;
   if (travelDay !== day) {
@@ -158,14 +189,42 @@ async function refreshTravel(
     await tx
       .update(playerFogRuns)
       .set({ travelPoints, travelDay, updatedAt: now })
-      .where(and(eq(playerFogRuns.playerId, playerId), eq(playerFogRuns.mapId, mapId)));
+      .where(
+        and(
+          eq(playerFogRuns.playerId, playerId),
+          eq(playerFogRuns.mapId, mapId),
+        ),
+      );
   }
 
+  // One-time budget upgrade for pre-exit runs; retain spent points and progress.
+  // Persist a reserved progress marker so reconnects never refill again.
+  if (
+    mapId === "fog_wenxin_valley" &&
+    config.travelPointsMax >= 200 &&
+    !objects.__travel_budget_v2?.opened
+  ) {
+    if (row.travelDay === day)
+      travelPoints = Math.min(
+        config.travelPointsMax,
+        travelPoints + config.travelPointsMax - 20,
+      );
+    objects.__travel_budget_v2 = { opened: true };
+    await tx
+      .update(playerFogRuns)
+      .set({ travelPoints, objects, updatedAt: now })
+      .where(
+        and(
+          eq(playerFogRuns.playerId, playerId),
+          eq(playerFogRuns.mapId, mapId),
+        ),
+      );
+  }
   return {
     posX: row.posC,
     posY: row.posR,
     revealed: parseRevealed(row.revealed),
-    objects: parseObjects(row.objects),
+    objects,
     travelPoints,
     travelDay,
   };
@@ -186,10 +245,24 @@ function toDto(
   const objects: FogObjectDto[] = map.objects.map((obj) => {
     const prog = run.objects[obj.id] ?? {};
     if (obj.kind === "chest") {
-      return { id: obj.id, kind: "chest", x: obj.x, y: obj.y, opened: prog.opened === true };
+      return {
+        id: obj.id,
+        kind: "chest",
+        x: obj.x,
+        y: obj.y,
+        opened: prog.opened === true,
+      };
     }
     if (obj.kind === "monster") {
-      return { id: obj.id, kind: "monster", x: obj.x, y: obj.y, name: obj.name, defeated: prog.defeated === true };
+      return {
+        id: obj.id,
+        kind: isFogExit(obj) ? "exit" : "monster",
+        x: obj.x,
+        y: obj.y,
+        name: obj.name,
+        defeated: prog.defeated === true,
+        ...(isFogExit(obj) ? { passed: prog.defeated === true } : {}),
+      };
     }
     return {
       id: obj.id,
@@ -198,7 +271,11 @@ function toDto(
       y: obj.y,
       title: obj.title,
       done: prog.done === true,
-      options: obj.options.map((o) => ({ id: o.id, label: o.label, effect: o.effect })),
+      options: obj.options.map((o) => ({
+        id: o.id,
+        label: o.label,
+        effect: o.effect,
+      })),
     };
   });
   return {
@@ -214,6 +291,7 @@ function toDto(
     travelPointsMax: config.travelPointsMax,
     travelDay: run.travelDay,
     collect: collectOf(map, run.objects),
+    ...explorationOf(map, run.revealed),
   };
 }
 
@@ -384,22 +462,36 @@ export async function interactFog(
   input: { objectId: string; optionId?: string },
   now: Date,
 ) {
-  await tx.select({ playerId: playerStates.playerId }).from(playerStates).where(eq(playerStates.playerId, playerId)).for("update");
+  await tx
+    .select({ playerId: playerStates.playerId })
+    .from(playerStates)
+    .where(eq(playerStates.playerId, playerId))
+    .for("update");
   await requireNoCombat(tx, playerId);
   const config = fogOf(world);
   const map = fogMapOf(config, mapId);
   const run = await refreshTravel(tx, playerId, mapId, config, now);
   const obj = map.objects.find((o) => o.id === input.objectId);
   if (!obj) throw new AppError("INVALID_INPUT", "没有这个物件");
-  if (!canReachObject(run, obj.x, obj.y)) throw new AppError("INVALID_INPUT", "请先走到附近");
-  if (!run.revealed.has(cellKey(obj.x, obj.y))) throw new AppError("INVALID_INPUT", "迷雾未散，看不清");
+  if (!canReachObject(run, obj.x, obj.y))
+    throw new AppError("INVALID_INPUT", "请先走到附近");
+  if (!run.revealed.has(cellKey(obj.x, obj.y)))
+    throw new AppError("INVALID_INPUT", "迷雾未散，看不清");
 
   if (obj.kind === "chest") {
     const prog = run.objects[obj.id] ?? {};
     if (prog.opened) throw new AppError("FOG_OBJECT_GONE", "宝箱已经打开过了");
-    const gained = await grantLoot(tx, world, playerId, obj.loot, "fog_chest", now, {
-      grantSkillBook: obj.grantSkillBook === true,
-    });
+    const gained = await grantLoot(
+      tx,
+      world,
+      playerId,
+      obj.loot,
+      "fog_chest",
+      now,
+      {
+        grantSkillBook: obj.grantSkillBook === true,
+      },
+    );
     run.objects[obj.id] = { ...prog, opened: true };
     await persistRun(tx, playerId, mapId, run, now);
     return { fog: toDto(config, map, run), gained, kind: "chest" as const };
@@ -421,7 +513,11 @@ export async function interactFog(
     if (opt.effect === "none") {
       run.objects[obj.id] = { ...prog, done: true };
       await persistRun(tx, playerId, mapId, run, now);
-      return { fog: toDto(config, map, run), gained: [], kind: "event_leave" as const };
+      return {
+        fog: toDto(config, map, run),
+        gained: [],
+        kind: "event_leave" as const,
+      };
     }
     // battle：返回需开战标记；真正结算走 battleFog with objectId=e_herb
     return {
@@ -432,6 +528,8 @@ export async function interactFog(
   }
 
   if (obj.kind === "monster") {
+    if (isFogExit(obj) && !explorationOf(map, run.revealed).exploreFull)
+      throw new AppError("INVALID_INPUT", "还要再探索一下才能走这个出口");
     const prog = run.objects[obj.id] ?? {};
     if (prog.defeated) throw new AppError("FOG_OBJECT_GONE", "已经击败过了");
     // 客户端先弹确认气泡；此接口仅用于校验可达。真正开战 POST battle。
@@ -454,16 +552,26 @@ export async function battleFog(
   now: Date,
   options: { preview?: boolean; resolvedBattle?: BattleResult } = {},
 ) {
-  await tx.select({ playerId: playerStates.playerId }).from(playerStates).where(eq(playerStates.playerId, playerId)).for("update");
+  await tx
+    .select({ playerId: playerStates.playerId })
+    .from(playerStates)
+    .where(eq(playerStates.playerId, playerId))
+    .for("update");
   if (!options.resolvedBattle) await requireNoCombat(tx, playerId);
   const config = fogOf(world);
   const map = fogMapOf(config, mapId);
   const run = await refreshTravel(tx, playerId, mapId, config, now);
   const obj = map.objects.find((o) => o.id === input.objectId);
   if (!obj) throw new AppError("INVALID_INPUT", "没有这个目标");
-  if (!canReachObject(run, obj.x, obj.y)) throw new AppError("INVALID_INPUT", "请先走到附近");
+  if (!canReachObject(run, obj.x, obj.y))
+    throw new AppError("INVALID_INPUT", "请先走到附近");
 
-  let monsterSide: { attack: number; defense: number; hp: number; interval: number };
+  let monsterSide: {
+    attack: number;
+    defense: number;
+    hp: number;
+    interval: number;
+  };
   let monsterName: string;
   let loot: FogLoot[];
   let skillBookSkillSlug: string | undefined;
@@ -471,10 +579,17 @@ export async function battleFog(
   let onWin: () => void;
 
   if (obj.kind === "monster") {
+    if (isFogExit(obj) && !explorationOf(map, run.revealed).exploreFull)
+      throw new AppError("INVALID_INPUT", "还要再探索一下才能走这个出口");
     const prog = run.objects[obj.id] ?? {};
     if (prog.defeated) throw new AppError("FOG_OBJECT_GONE", "已经击败过了");
     const m = obj as FogMonsterObject;
-    monsterSide = { attack: m.attack, defense: m.defense, hp: m.hp, interval: m.interval };
+    monsterSide = {
+      attack: m.attack,
+      defense: m.defense,
+      hp: m.hp,
+      interval: m.interval,
+    };
     monsterName = m.name;
     loot = m.loot;
     skillBookSkillSlug = m.skillBookSkillSlug;
@@ -486,7 +601,12 @@ export async function battleFog(
     if (prog.done) throw new AppError("FOG_OBJECT_GONE", "这件事已经过去了");
     const e = obj as FogEventObject;
     const enemy = e.battleEnemy;
-    monsterSide = { attack: enemy.attack, defense: enemy.defense, hp: enemy.hp, interval: enemy.interval };
+    monsterSide = {
+      attack: enemy.attack,
+      defense: enemy.defense,
+      hp: enemy.hp,
+      interval: enemy.interval,
+    };
     monsterName = enemy.name;
     loot = enemy.loot;
     onWin = () => {
@@ -502,18 +622,36 @@ export async function battleFog(
   const playerSide = { ...fighter.side, ...combatTraits(skills, runtime) };
   // Fog owns its enemy/loot/time limit, sharing only damage rules and playback.
   const timeLimitSeconds = map.timeLimitSeconds ?? runtime.fogTimeLimitSeconds;
-  const battle = options.resolvedBattle ?? simulateBattle(playerSide, monsterSide, { ...battleConfigOf(world), timeLimitSeconds, rage: runtime.rage }, skills);
+  const battle =
+    options.resolvedBattle ??
+    simulateBattle(
+      playerSide,
+      monsterSide,
+      { ...battleConfigOf(world), timeLimitSeconds, rage: runtime.rage },
+      skills,
+    );
 
-  let gained: { itemSlug: string; quantity: number; displayName: string }[] = [];
+  let gained: { itemSlug: string; quantity: number; displayName: string }[] =
+    [];
   if (battle.win && !options.preview) {
-    gained = await grantLoot(tx, world, playerId, loot, "fog_battle", now, { skillBookSkillSlug, grantSkillBook });
+    gained = await grantLoot(tx, world, playerId, loot, "fog_battle", now, {
+      skillBookSkillSlug,
+      grantSkillBook,
+    });
     onWin();
     await persistRun(tx, playerId, mapId, run, now);
   }
 
   return {
     fog: toDto(config, map, run),
-    playback: { player: playerSide, monster: { id: obj.id, name: monsterName, ...monsterSide }, timeLimitSeconds, rageMax: runtime.rage.max, speeds: runtime.speeds, canSkip: false },
+    playback: {
+      player: playerSide,
+      monster: { id: obj.id, name: monsterName, ...monsterSide },
+      timeLimitSeconds,
+      rageMax: runtime.rage.max,
+      speeds: runtime.speeds,
+      canSkip: false,
+    },
     win: battle.win,
     reason: battle.reason,
     durationSeconds: battle.durationSeconds,

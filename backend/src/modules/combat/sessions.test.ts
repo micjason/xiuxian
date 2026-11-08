@@ -36,6 +36,7 @@ describe("durable shared battle session orchestration (in-memory journal double)
     expect(a.combatId).toBe(b.combatId);
     expect(stage).toHaveBeenCalledTimes(1);
     expect(a.result).toBeNull();
+    expect(a.battle).toMatchObject({ ultCasts: [] });
   });
   it("recovers precomputed outcome and grants once even after repeated reconnect", async () => {
     const tx = fakeTx();
@@ -43,6 +44,8 @@ describe("durable shared battle session orchestration (in-memory journal double)
     const first = await recoverCombat(tx, "p", now, () => 0);
     const second = await recoverCombat(tx, "p", now, () => 0);
     expect(first?.result).toEqual(second?.result);
+    expect(first?.battle).toMatchObject({ ultCasts: [] });
+    expect(first?.result).toMatchObject({ battle: { ultCasts: [] } });
     expect(stage).toHaveBeenCalledTimes(2); // one preview, one grant; no second grant on reconnect
     expect(stage.mock.calls[1][6]).toMatchObject({ resolvedBattle: battle, resume: true });
   });
@@ -50,7 +53,7 @@ describe("durable shared battle session orchestration (in-memory journal double)
     const tx = fakeTx();
     const start = await startCombat(tx, world, "p", { source: "fog", mapId: "map", objectId: "event" }, now, () => 0);
     const done = await finishCombat(tx, "p", start.combatId, "retreat", now, () => 0);
-    expect(done.result).toMatchObject({ battle: { win: false, reason: "retreat" }, drops: [], fog: { pos: { x: 3, y: 9 }, revealed: ["3,9"] } });
+    expect(done.result).toMatchObject({ battle: { win: false, reason: "retreat", ultCasts: [] }, drops: [], fog: { pos: { x: 3, y: 9 }, revealed: ["3,9"] } });
     expect(fog).toHaveBeenCalledTimes(2);
     expect(stage).not.toHaveBeenCalled();
   });

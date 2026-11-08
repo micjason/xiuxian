@@ -81,7 +81,19 @@ func open_session(session: Dictionary, state: Dictionary, content: Dictionary, s
 	var playback: Dictionary = session.get("playback", {})
 	var mon: Dictionary = playback.get("monster", {})
 	var target: Dictionary = session.get("target", {})
-	var stage := {"slug": str(target.get("stageSlug", mon.get("id", "fog"))), "displayName": "异空间 · " + str(mon.get("name", "敌人")) if source == "fog" else str(_stage.get("displayName", "历练挑战")), "requiredRealmOrder": 0, "bosses": [mon]}
+	# Recover can open this page without a preceding open_stage: resolve the target
+	# from live content, never from the previously viewed stage (or realm zero).
+	var stage: Dictionary = {}
+	if source == "stage":
+		for raw in content.get("stages", []):
+			if typeof(raw) == TYPE_DICTIONARY and str(raw.get("slug", "")) == str(target.get("stageSlug", "")):
+				stage = raw.duplicate(true)
+				break
+		if stage.is_empty() and str(_stage.get("slug", "")) == str(target.get("stageSlug", "")):
+			stage = _stage.duplicate(true)
+	stage["slug"] = str(target.get("stageSlug", mon.get("id", "fog")))
+	stage["displayName"] = "异空间 · " + str(mon.get("name", "敌人")) if source == "fog" else str(stage.get("displayName", "历练挑战"))
+	stage["bosses"] = [mon]
 	# Base opens the confirmed visual layout only; replace its preview immediately with timeline playback.
 	super.open_stage(state, content, stage, {}, str(state.get("realmName", "")))
 	fight = BattleTimeline.new()
@@ -97,6 +109,7 @@ func open_session(session: Dictionary, state: Dictionary, content: Dictionary, s
 	_skip.visible = _can_skip
 	_statuses.text = ""
 	_controls.visible = false
+	UiKit.set_cta(_start_button, "开始挑战", "限时 %d 秒" % int(fight.time_limit))
 	if source == "fog":
 		(_boss_realm.get_parent() as Control).visible = false
 	_refresh_bars(false)

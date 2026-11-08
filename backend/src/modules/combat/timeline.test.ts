@@ -47,3 +47,20 @@ describe("authoritative complete timeline", () => {
     expect(result.log.filter(e => e.kind === "skill").map(e => [e.skillSlug, e.t])).toEqual([["s0",1],["s1",4],["s0",5]]);
   });
 });
+
+// Independent numeric premise of boss-time-limit e2e (no DB required).
+describe("default rage time-limit boundary", () => {
+  const player = { attack: 10, defense: 10, hp: 1000, interval: 1.5 };
+  const boss = { attack: 1, defense: 0, hp: 200, interval: 5 };
+  const run = (timeLimitSeconds: number) => simulateBattle(player, boss, {
+    timeLimitSeconds, defenseConstant: 1,
+    rage: { max: 100, onAttack: 20, onHit: 10, damageMultBp: 30000 },
+  });
+  it("wins at 21 with fourteen attacks and two rage strikes, not at 20", () => {
+    expect(run(20)).toMatchObject({ win: false, reason: "timeout", durationSeconds: 20 });
+    const battle = run(21);
+    expect(battle).toMatchObject({ win: true, reason: "win", durationSeconds: 21 });
+    expect(battle.log.filter(e => e.side === "player" && e.kind === "attack")).toHaveLength(14);
+    expect(battle.log.filter(e => e.kind === "ult").map(e => [e.t, e.damage])).toEqual([[7.5, 30], [15, 30]]);
+  });
+});

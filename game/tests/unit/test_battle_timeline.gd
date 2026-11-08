@@ -72,3 +72,31 @@ func test_stage_and_fog_share_one_standalone_page() -> void:
 	assert_true(page.fight is BattleTimeline)
 	assert_false((page.get("_controls") as Control).visible)
 	page.abort()
+
+func test_session_uses_target_realm_and_power_even_without_opening_stage_first() -> void:
+	var page := TimelineBattlePage.new()
+	add_child_autofree(page)
+	await get_tree().process_frame
+	var session: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://fixtures/combat_timeline.json"))
+	session["source"] = "stage"
+	session["target"] = {"stageSlug": "real_stage"}
+	var content := {"realms": [{"sortOrder": 7, "displayName": "炼气七层"}], "stages": [{"slug": "real_stage", "displayName": "青竹林·七", "requiredRealmOrder": 7, "recommendedPower": 12345}]}
+	page.open_session(session, {}, content, false)
+	assert_eq((page.get("_boss_realm") as Label).text, "炼气七层")
+	assert_true((page.get("_boss_power") as Label).text.contains("12,345"))
+	assert_eq((page.get("_title") as Label).text, "青竹林·七")
+	page.abort()
+
+func test_status_labels_only_show_remaining_seconds_not_effect_magnitude() -> void:
+	var page := TimelineBattlePage.new()
+	add_child_autofree(page)
+	await get_tree().process_frame
+	var session: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://fixtures/combat_timeline.json"))
+	page.open_session(session, {}, {}, false)
+	page.set("_shown_statuses", [{"kind": "attack_up", "side": "player", "valueBp": 2500, "expiresAt": 3.0}])
+	page.call("_refresh_statuses")
+	assert_eq((page.get("_statuses") as Label).text, "↑攻 3s")
+	page.fight.t = 3.0
+	page.call("_refresh_statuses")
+	assert_eq((page.get("_statuses") as Label).text, "")
+	page.abort()

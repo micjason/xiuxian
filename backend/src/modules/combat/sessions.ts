@@ -34,7 +34,11 @@ async function wonTarget(tx: Tx, playerId: string, target: Target): Promise<bool
   return Boolean(row);
 }
 function publicSession(j: Journal) {
-  return { combatId: j.id, source: j.target.source, target: j.target, startedAt: j.startedAt, battle: j.battle, playback: { ...j.playback, canSkip: j.canSkip }, result: j.result };
+  // Normalize at the public boundary, including old saved journals and fog.
+  // Automatic rage stays in log; the retired manual-ult field remains an array.
+  const battle = { ...j.battle, ultCasts: [] };
+  const result = j.result ? { ...j.result, battle: { ...(j.result.battle as BattleResult), ultCasts: [] } } : null;
+  return { combatId: j.id, source: j.target.source, target: j.target, startedAt: j.startedAt, battle, playback: { ...j.playback, canSkip: j.canSkip }, result };
 }
 async function save(tx: Tx, playerId: string, j: Journal) {
   await tx.update(idempotencyKeys).set({ response: j }).where(and(eq(idempotencyKeys.playerId, playerId), eq(idempotencyKeys.key, keyOf(j.id))));

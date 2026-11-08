@@ -643,8 +643,8 @@ func _show_event(o: Dictionary) -> void:
 		b.pressed.connect(func() -> void:
 			_event_panel.visible = false
 			if effect == "battle" or oid == "A":
-				_do_interact(str(o.get("id", "")), oid)
-				_do_battle(str(o.get("id", "")))
+				if await _do_interact(str(o.get("id", "")), oid):
+					_do_battle(str(o.get("id", "")))
 			else:
 				_do_interact(str(o.get("id", "")), oid)
 		)
@@ -685,7 +685,7 @@ func _do_move(x: int, y: int) -> void:
 	bind_fog(result)
 
 
-func _do_interact(object_id: String, option_id: String = "") -> void:
+func _do_interact(object_id: String, option_id: String = "") -> bool:
 	_set_busy(true)
 	var body := {"objectId": object_id}
 	if not option_id.is_empty():
@@ -694,7 +694,7 @@ func _do_interact(object_id: String, option_id: String = "") -> void:
 	_set_busy(false)
 	if int(result.get("code", 0)) != 200:
 		toast_requested.emit(PlayerApi.error_message(result), false)
-		return
+		return false
 	var gained: Array = result.get("gained", [])
 	if not gained.is_empty():
 		var parts: PackedStringArray = []
@@ -704,6 +704,7 @@ func _do_interact(object_id: String, option_id: String = "") -> void:
 		toast_requested.emit("获得 " + "、".join(parts), true)
 	bind_fog(result)
 
+	return true
 
 func _do_battle(object_id: String) -> void:
 	_set_busy(true)

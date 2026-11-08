@@ -26,7 +26,10 @@ const RULES: RulesInput = {
 };
 
 /**
- * 玩家攻击 10、出手间隔 1.5 秒（没有速度），首领防御 0、气血 200：每下 10 点，要 20 下 = 第 30 秒打死。
+ * 玩家攻击 10、出手间隔 1.5 秒，首领防御 0、气血 200。
+ * 旧版仅普攻要 30 秒；当前默认怒气在 7.5 / 15 秒各追加 30 点，
+ * 因此 14 次普攻 + 2 次强击 = 200 点，于第 21 秒结束。
+ * 测试仍验证后台时限的读写和胜负边界，另断言时间轴说明数值变化。
  * 首领攻击 1，打不死玩家，所以胜负只取决于时限。
  */
 async function seed(db: TestDb, timeLimitSeconds: number) {
@@ -85,7 +88,7 @@ async function challenge(db: TestDb) {
   });
   expect(response.statusCode).toBe(200);
   await app.close();
-  return response.json().battle as { win: boolean; reason: string; durationSeconds: number };
+  return response.json().battle as { win: boolean; reason: string; durationSeconds: number; log: { t: number; side: string; kind: string; damage: number }[] };
 }
 
 describe("boss time limit is an admin-configurable value", () => {
@@ -93,7 +96,7 @@ describe("boss time limit is an admin-configurable value", () => {
     expect(SCHEME_TIME_LIMIT_SECONDS).toBe(45);
   });
 
-  it("a 30 s fight is lost at the old 20 s limit", async () => {
+  it("the default-rage 21 s fight is lost at the old 20 s limit", async () => {
     await withDb(async (db) => {
       await seed(db, 20);
       await publishSnapshot(db, "limit 20", null, start);
@@ -110,8 +113,21 @@ describe("boss time limit is an admin-configurable value", () => {
       await publishSnapshot(db, "limit 45", null, start);
       const battle = await challenge(db);
       expect(battle.win).toBe(true);
-      expect(battle.durationSeconds).toBe(30);
+      expect(battle.durationSeconds).toBe(21);
+      const attacks = battle.log.filter((event) => event.side === "player" && event.kind === "attack");
+      const rage = battle.log.filter((event) => event.side === "player" && event.kind === "ult");
+      expect(attacks).toHaveLength(14);
+      expect(rage.map((event) => [event.t, event.damage])).toEqual([[7.5, 30], [15, 30]]);
+      expect([...attacks, ...rage].reduce((sum, event) => sum + event.damage, 0)).toBe(200);
       expect((await db.select().from(players)).length).toBe(1);
+    });
+  });
+
+  it("permits the lethal strike exactly at the configured 21 s limit", async () => {
+    await withDb(async (db) => {
+      await seed(db, 21);
+      await publishSnapshot(db, "limit boundary", null, start);
+      expect(await challenge(db)).toMatchObject({ win: true, reason: "win", durationSeconds: 21 });
     });
   });
 

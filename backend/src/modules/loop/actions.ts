@@ -1039,7 +1039,9 @@ async function fightStageBoss(tx: Tx, world: World, playerId: string, settled: F
   const runtime = runtimeConfigOf(world.globals.tuning?.battle);
   const skills = configuredSkills(toCombatSkills(settled.pieces.skills, world.skills, openSkillSlotsFor(world, settled.state.realmSlug)), runtime);
   const playerSide = { ...fighter, ...combatTraits(skills, runtime) };
-  const battle = fight.resolvedBattle ?? simulateBattle(playerSide, monsterSide, { ...battleConfigOf(world), rage: runtime.rage }, skills);
+  // Compatibility field for older clients; automatic rage casts live in log,
+  // not in the retired manual-ult command/result channel.
+  const battle = { ...(fight.resolvedBattle ?? simulateBattle(playerSide, monsterSide, { ...battleConfigOf(world), rage: runtime.rage }, skills)), ultCasts: [] };
   const playback = { player: playerSide, monster: { ...monsterSide, name: boss?.name ?? stage.bossName, artKey: boss?.artKey }, timeLimitSeconds: battleConfigOf(world).timeLimitSeconds, canSkip: runtime.skipAfterWin && Boolean(progress.firstClearedAt), rageMax: runtime.rage.max, speeds: runtime.speeds };
   if (fight.preview) return { battle, playback, drops: [] as { itemSlug: string; quantity: number; decomposed?: boolean; enhanceExp?: number; dropped?: boolean; freed?: { itemSlug: string; enhanceExp: number }[] }[], bagFull: false, reward: null };
   const drops: { itemSlug: string; quantity: number; decomposed?: boolean; enhanceExp?: number; dropped?: boolean; freed?: { itemSlug: string; enhanceExp: number }[] }[] = [];

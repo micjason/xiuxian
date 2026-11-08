@@ -30,7 +30,7 @@ const PAGE_BACKGROUNDS := {
 	PAGE_FOG_BATTLE: "battle",
 }
 ## 不在页签里的页面 → 高亮哪个页签。
-const TAB_OF := {PAGE_BATTLE: PAGE_ADVENTURE, PAGE_SKILL: PAGE_CULTIVATE, PAGE_FOG_BATTLE: PAGE_FOG, PAGE_FOG: PAGE_CULTIVATE}
+const TAB_OF := {PAGE_BATTLE: PAGE_ADVENTURE, PAGE_SKILL: PAGE_CULTIVATE, PAGE_FOG_BATTLE: PAGE_FOG, PAGE_FOG: PAGE_CAVE}
 ## 顶栏第二行（修为条）只在这些页显示（设计稿：修炼、功法）。
 const PAGES_WITH_CULTIVATION := [PAGE_CULTIVATE, PAGE_SKILL]
 ## 心跳：服务器 onlineGapSeconds（默认 15 秒）内有请求才算在线，所以间隔要比它短。
@@ -290,11 +290,12 @@ func _build_shell() -> void:
 	_bag_page.action_requested.connect(_on_page_action)
 	_skill_page = SkillPage.new()
 	_cave_page = CavePage.new()
+	_cave_page.fog_requested.connect(func() -> void: _show_page(PAGE_FOG))
 	_cave_page.back_requested.connect(func() -> void: _show_page(PAGE_CULTIVATE))
 	_cave_page.action_requested.connect(_on_dongfu_action)
 	_cave_page.enhance_entry_requested.connect(open_enhance_entry)
 	_fog_page = FogMapPage.new()
-	_fog_page.back_requested.connect(func() -> void: _show_page(PAGE_CULTIVATE))
+	_fog_page.back_requested.connect(func() -> void: _show_page(PAGE_CAVE))
 	_fog_page.toast_requested.connect(func(text: String, ok: bool) -> void:
 		if ok:
 			_toast.say(text, true)
@@ -460,6 +461,8 @@ func _show_page(page: String) -> void:
 	_apply_layout()
 	var page_node := _pages[page] as Control
 	_backdrop.set_sheet_anchor(page_node.call("sheet_anchor") if page_node.has_method("sheet_anchor") else null, float(page_node.call("sheet_pad")) if page_node.has_method("sheet_pad") else 52.0)
+	if page == PAGE_FOG and not _mock:
+		_ensure_fog_loaded()
 	if page == PAGE_BAG:
 		_bag_page.mark_visible_seen()
 		_update_dots()

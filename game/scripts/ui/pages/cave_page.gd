@@ -6,6 +6,7 @@ extends Control
 ## 数据来自 CaveView.build；写操作发 action_requested。服务器权威结算。
 
 signal back_requested
+signal fog_requested
 signal enhance_entry_requested
 signal action_requested(kind: String, payload: Dictionary)
 
@@ -30,6 +31,7 @@ const HS_PUPPET := Rect2(48, 520, 984, 200)
 const HS_GARDEN := Rect2(48, 760, 984, 200)
 const HS_ALCHEMY := Rect2(48, 1000, 984, 200)
 const HS_FORGE := Rect2(48, 1240, 984, 200)
+const HS_FOG := Rect2(48, 1480, 984, 200)
 const HS_ENHANCE := Rect2(48, 2200, 10, 10)  # 隐藏
 const HS_ARRAY := Rect2(48, 2210, 10, 10)  # 隐藏
 const HS_STONE := Rect2(40, 118, 300, 88)
@@ -458,7 +460,7 @@ func _array_shape_caption(shape: String, rot: int) -> String:
 func _render_overview() -> void:
 	_bg("dongfu_l0")
 	_render_resource_pills()
-	_chip("洞府 · 四入口", Rect2(48, 280, 600, 72), "HubTitle")
+	_chip("洞府 · 总览", Rect2(48, 280, 600, 72), "HubTitle")
 	_chip("本期无阵法 · 强化请走行囊", Rect2(48, 360, 700, 56), "HubNote")
 	var cards: Dictionary = {}
 	for row in _view.get("cards", []):
@@ -468,6 +470,8 @@ func _render_overview() -> void:
 	_hub_entry("garden", HS_GARDEN, cards.get("garden", {"name": "药园", "subtitle": "点种收菜"}))
 	_hub_entry("alchemy", HS_ALCHEMY, cards.get("alchemy", {"name": "炼丹", "subtitle": "摸索复炼"}))
 	_hub_entry("forge", HS_FORGE, cards.get("forge", {"name": "炼器", "subtitle": "图纸造装"}))
+	# 迷雾是独立玩法，不经过设施开放检查。
+	_hotspot("Enter_fog", HS_FOG, func() -> void: fog_requested.emit(), "迷雾秘境\n探索问心谷", "o")
 
 
 func _hub_entry(id: String, rect: Rect2, card: Dictionary) -> void:

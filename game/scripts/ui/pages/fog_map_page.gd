@@ -7,6 +7,7 @@ signal back_requested
 signal toast_requested(text: String, ok: bool)
 signal battle_requested(payload: Dictionary)
 signal busy_changed(busy: bool)
+signal loot_received
 
 const CELL := 108.0
 const GRID_PAD := Vector2(48, 200)
@@ -42,6 +43,7 @@ var _view: Dictionary = {}
 var _map_id := "fog_wenxin_valley"
 var _grid: Control
 var _map_host: Control
+var _hud_explore: Label
 var _hud_travel: Label
 var _hud_chest: Label
 var _hud_mon: Label
@@ -170,6 +172,13 @@ func _build_top_bar() -> void:
 	var mon_pack: Dictionary = _make_collect_pill("FogMonPill", "怪", "FogMonCollect")
 	row.add_child(mon_pack["pill"])
 	_hud_mon = mon_pack["label"] as Label
+	_hud_explore = Label.new()
+	_hud_explore.name = "FogExplore"
+	_hud_explore.position = Vector2(36, 158)
+	_hud_explore.add_theme_font_size_override("font_size", 28)
+	_hud_explore.add_theme_color_override("font_color", COL_BROWN)
+	_hud_explore.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_hud_explore)
 
 
 func _make_collect_pill(pill_name: String, prefix: String, label_name: String) -> Dictionary:
@@ -198,7 +207,7 @@ func _build_map_host() -> void:
 	_map_host = Control.new()
 	_map_host.name = "FogMapHost"
 	_map_host.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_map_host.offset_top = 160
+	_map_host.offset_top = 220
 	_map_host.offset_bottom = -160
 	_map_host.offset_left = 0
 	_map_host.offset_right = 0
@@ -288,6 +297,10 @@ func _build_confirm() -> void:
 	_confirm.z_index = 30
 	_confirm.set_anchors_preset(Control.PRESET_CENTER)
 	_confirm.custom_minimum_size = Vector2(640, 280)
+	_confirm.offset_left = -320
+	_confirm.offset_right = 320
+	_confirm.offset_top = -140
+	_confirm.offset_bottom = 140
 	var tex := _tex(TEX_PANEL)
 	if tex != null:
 		var sb := StyleBoxTexture.new()
@@ -354,6 +367,10 @@ func _build_event_panel() -> void:
 	_event_panel.z_index = 30
 	_event_panel.set_anchors_preset(Control.PRESET_CENTER)
 	_event_panel.custom_minimum_size = Vector2(680, 360)
+	_event_panel.offset_left = -340
+	_event_panel.offset_right = 340
+	_event_panel.offset_top = -180
+	_event_panel.offset_bottom = 180
 	var s := _style_cream(28, 4, COL_CREAM)
 	s.border_color = Color("C9A85A")
 	s.content_margin_left = 32
@@ -417,6 +434,7 @@ func bind_fog(payload: Dictionary) -> void:
 	_map_id = str(_view.get("map_id", _map_id))
 	if _title:
 		_title.text = str(_view.get("name", "问心谷"))
+	_hud_explore.text = "探索 %d/%d" % [int(_view.get("explore_revealed", 0)), int(_view.get("explore_total", 0))]
 	var travel := int(_view.get("travel", 0))
 	var travel_max := int(_view.get("travel_max", 20))
 	if _hud_travel:
@@ -532,6 +550,23 @@ func _rebuild_grid() -> void:
 		if not FogMapView.is_revealed(_view, ox, oy):
 			continue
 		var kind := str(o.get("kind", ""))
+		if kind == "exit" or str(o.get("id", "")) == "m_guard" or bool(o.get("isExit", false)):
+			var gate := PanelContainer.new()
+			gate.name = "Exit_%s" % str(o.get("id", ""))
+			gate.position = Vector2(ox * CELL + 3, oy * CELL + 2)
+			gate.size = Vector2(CELL - 6, CELL - 4)
+			gate.z_index = 5
+			gate.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			gate.add_theme_stylebox_override("panel", _style_cream(12, 4, COL_MINT))
+			var caption := Label.new()
+			caption.text = "谷口\n已通过" if bool(o.get("passed", o.get("defeated", false))) else "出口\n谷口"
+			caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			caption.add_theme_font_size_override("font_size", 26)
+			caption.add_theme_color_override("font_color", COL_BROWN)
+			caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			gate.add_child(caption)
+			_grid.add_child(gate)
+			continue
 		var icon := TextureRect.new()
 		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
@@ -583,6 +618,20 @@ func _on_cell(x: int, y: int) -> void:
 		var manh: int = absi(x - px) + absi(y - py)
 		if manh > 1:
 			toast_requested.emit("先走到旁边", false)
+			return
+		if kind == "exit" or str(o.get("id", "")) == "m_guard" or bool(o.get("isExit", false)):
+			if bool(o.get("passed", o.get("defeated", false))):
+				toast_requested.emit("已找到出口，谷口已通过", true)
+				return
+			if not bool(_view.get("explore_full", false)):
+				toast_requested.emit("还要再探索一下才能走这个出口", false)
+				# 门前可站立拨雾，不能战斗；否则岩石后的(4,0)永远无法揭开。
+				if manh == 1 and int(_view.get("travel", 0)) > 0 and not FogMapView.is_blocked(_view, x, y):
+					_do_move(x, y)
+				return
+			_confirm_obj = o
+			_confirm_label.text = "探索已满，挑战出口「谷口护卫」？获胜即可通过。"
+			_confirm.visible = true
 			return
 		if kind == "monster" and not bool(o.get("defeated", false)):
 			_confirm_obj = o
@@ -703,10 +752,17 @@ func _do_interact(object_id: String, option_id: String = "") -> bool:
 				parts.append("%s×%d" % [str(g.get("displayName", g.get("itemSlug", "?"))), int(g.get("quantity", 1))])
 		toast_requested.emit("获得 " + "、".join(parts), true)
 	bind_fog(result)
+	if not gained.is_empty():
+		loot_received.emit()
 
 	return true
 
 func _do_battle(object_id: String) -> void:
+	for obj in _view.get("objects", []):
+		if str(obj.get("id", "")) == object_id and (object_id == "m_guard" or str(obj.get("kind", "")) == "exit" or bool(obj.get("isExit", false))):
+			if not bool(_view.get("explore_full", false)):
+				toast_requested.emit("还要再探索一下才能走这个出口", false)
+				return
 	_set_busy(true)
 	var result: Dictionary = await PlayerApi.post_action("/api/v1/me/combat/start", {"source": "fog", "mapId": _map_id, "objectId": object_id})
 	_set_busy(false)

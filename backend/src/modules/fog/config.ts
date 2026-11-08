@@ -27,6 +27,7 @@ export type FogMonsterObject = {
   interval: number;
   loot: FogLoot[];
   skillBookSkillSlug?: string;
+  isExit?: boolean;
 };
 
 export type FogEventOption = {
@@ -86,7 +87,7 @@ const WENXIN_BLOCKS: { x: number; y: number }[] = [
 ];
 
 export const DEFAULT_FOG: FogConfig = {
-  travelPointsMax: 20,
+  travelPointsMax: 200,
   travelCostPerStep: 1,
   revealRadius: 1,
   initialReveal: 1,
@@ -168,7 +169,12 @@ export const DEFAULT_FOG: FogConfig = {
           y: 4,
           title: "仙草争执",
           options: [
-            { id: "A", label: "上前理论", effect: "battle", enemyId: "temp_herbalist" },
+            {
+              id: "A",
+              label: "上前理论",
+              effect: "battle",
+              enemyId: "temp_herbalist",
+            },
             { id: "B", label: "转身离开", effect: "none" },
           ],
           battleEnemy: {
@@ -245,7 +251,11 @@ function asObjects(raw: unknown): FogMapObject[] {
         hp: asInt(o.hp, 50, 1),
         interval: Math.max(0.2, Number(o.interval) || 1.5),
         loot: asLoot(o.loot),
-        skillBookSkillSlug: typeof o.skillBookSkillSlug === "string" ? o.skillBookSkillSlug : undefined,
+        isExit: o.isExit === true || id === "m_guard",
+        skillBookSkillSlug:
+          typeof o.skillBookSkillSlug === "string"
+            ? o.skillBookSkillSlug
+            : undefined,
       });
     } else if (kind === "event") {
       const optionsRaw = Array.isArray(o.options) ? o.options : [];
@@ -264,17 +274,34 @@ function asObjects(raw: unknown): FogMapObject[] {
       }
       if (options.length === 0) {
         options = [
-          { id: "A", label: typeof o.option_a === "string" ? o.option_a : "上前理论", effect: "battle", enemyId: "temp_herbalist" },
-          { id: "B", label: typeof o.option_b === "string" ? o.option_b : "转身离开", effect: "none" },
+          {
+            id: "A",
+            label: typeof o.option_a === "string" ? o.option_a : "上前理论",
+            effect: "battle",
+            enemyId: "temp_herbalist",
+          },
+          {
+            id: "B",
+            label: typeof o.option_b === "string" ? o.option_b : "转身离开",
+            effect: "none",
+          },
         ];
       }
-      const be = o.battleEnemy && typeof o.battleEnemy === "object" ? (o.battleEnemy as Record<string, unknown>) : null;
+      const be =
+        o.battleEnemy && typeof o.battleEnemy === "object"
+          ? (o.battleEnemy as Record<string, unknown>)
+          : null;
       out.push({
         id,
         kind: "event",
         x: pos.x,
         y: pos.y,
-        title: typeof o.title === "string" && o.title ? o.title : typeof o.name === "string" ? o.name : "事件",
+        title:
+          typeof o.title === "string" && o.title
+            ? o.title
+            : typeof o.name === "string"
+              ? o.name
+              : "事件",
         options,
         battleEnemy: be
           ? {
@@ -304,10 +331,19 @@ function asMap(raw: unknown): FogMapConfig | null {
   const m = raw as Record<string, unknown>;
   const id = typeof m.id === "string" ? m.id : "";
   if (!id) return null;
-  const spawnRaw = m.spawn && typeof m.spawn === "object" ? (m.spawn as Record<string, unknown>) : {};
+  const spawnRaw =
+    m.spawn && typeof m.spawn === "object"
+      ? (m.spawn as Record<string, unknown>)
+      : {};
   const spawnPos = xyOf(spawnRaw) ?? { x: 0, y: 0 };
   const blocks = Array.isArray(m.blocks)
-    ? m.blocks.map((b) => (b && typeof b === "object" ? xyOf(b as Record<string, unknown>) : null)).filter((b): b is { x: number; y: number } => !!b)
+    ? m.blocks
+        .map((b) =>
+          b && typeof b === "object"
+            ? xyOf(b as Record<string, unknown>)
+            : null,
+        )
+        .filter((b): b is { x: number; y: number } => !!b)
     : [];
   return {
     id,
@@ -322,7 +358,10 @@ function asMap(raw: unknown): FogMapConfig | null {
     spawn: spawnPos,
     blocks,
     objects: asObjects(m.objects),
-    timeLimitSeconds: m.timeLimitSeconds == null ? undefined : asInt(m.timeLimitSeconds, 45, 1, 600),
+    timeLimitSeconds:
+      m.timeLimitSeconds == null
+        ? undefined
+        : asInt(m.timeLimitSeconds, 45, 1, 600),
   };
 }
 
@@ -332,12 +371,39 @@ export function fogConfigFromInput(raw: unknown): FogConfig {
   const o = raw as Record<string, unknown>;
   const mapsRaw = Array.isArray(o.maps) ? o.maps : base.maps;
   const maps = mapsRaw.map(asMap).filter((m): m is FogMapConfig => !!m);
+  const storedBudget = asInt(
+    o.travelPointsMax ?? o.travel_points_initial,
+    base.travelPointsMax,
+    1,
+    999,
+  );
+  // Compatibility with globals already stored before the full-exploration exit.
+  const legacyWenxin =
+    maps.some((m) => m.id === "fog_wenxin_valley") && storedBudget === 20;
   return {
-    travelPointsMax: asInt(o.travelPointsMax ?? o.travel_points_initial, base.travelPointsMax, 1, 999),
-    travelCostPerStep: asInt(o.travelCostPerStep, base.travelCostPerStep, 1, 99),
-    revealRadius: asInt(o.revealRadius ?? o.revealRadiusManhattan, base.revealRadius, 0, 5),
-    initialReveal: asInt(o.initialReveal ?? o.initialRevealManhattan, base.initialReveal, 0, 5),
-    defaultMapId: typeof o.defaultMapId === "string" && o.defaultMapId ? o.defaultMapId : maps[0]?.id ?? base.defaultMapId,
+    travelPointsMax: legacyWenxin ? base.travelPointsMax : storedBudget,
+    travelCostPerStep: asInt(
+      o.travelCostPerStep,
+      base.travelCostPerStep,
+      1,
+      99,
+    ),
+    revealRadius: asInt(
+      o.revealRadius ?? o.revealRadiusManhattan,
+      base.revealRadius,
+      0,
+      5,
+    ),
+    initialReveal: asInt(
+      o.initialReveal ?? o.initialRevealManhattan,
+      base.initialReveal,
+      0,
+      5,
+    ),
+    defaultMapId:
+      typeof o.defaultMapId === "string" && o.defaultMapId
+        ? o.defaultMapId
+        : (maps[0]?.id ?? base.defaultMapId),
     maps: maps.length > 0 ? maps : structuredClone(base.maps),
   };
 }
@@ -395,10 +461,34 @@ export function livingMonsterAt(
   y: number,
 ): FogMonsterObject | null {
   for (const obj of map.objects) {
-    if (obj.kind !== "monster") continue;
+    if (obj.kind !== "monster" || isFogExit(obj)) continue;
     if (obj.x !== x || obj.y !== y) continue;
     if (objects[obj.id]?.defeated) continue;
     return obj;
   }
   return null;
+}
+
+/** Legacy databases have no isExit flag: the stable guard ID is sufficient. */
+export function isFogExit(obj: FogMapObject): boolean {
+  return (
+    obj.kind === "monster" && (obj.id === "m_guard" || obj.isExit === true)
+  );
+}
+/** Exploration = revealed in-bounds walkable cells / every in-bounds walkable cell.
+ * Blocks never contribute to numerator or denominator; duplicates/out-of-bounds are ignored. */
+export function explorationOf(map: FogMapConfig, revealed: Set<string>) {
+  let exploreRevealed = 0,
+    exploreTotal = 0;
+  for (let y = 0; y < map.rows; y++)
+    for (let x = 0; x < map.cols; x++) {
+      if (isBlocked(map, x, y)) continue;
+      exploreTotal++;
+      if (revealed.has(cellKey(x, y))) exploreRevealed++;
+    }
+  return {
+    exploreRevealed,
+    exploreTotal,
+    exploreFull: exploreTotal > 0 && exploreRevealed === exploreTotal,
+  };
 }

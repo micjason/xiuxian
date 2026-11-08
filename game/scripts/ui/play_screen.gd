@@ -295,6 +295,7 @@ func _build_shell() -> void:
 	_cave_page.action_requested.connect(_on_dongfu_action)
 	_cave_page.enhance_entry_requested.connect(open_enhance_entry)
 	_fog_page = FogMapPage.new()
+	_fog_page.loot_received.connect(_refresh_state_soft)
 	_fog_page.back_requested.connect(func() -> void: _show_page(PAGE_CAVE))
 	_fog_page.toast_requested.connect(func(text: String, ok: bool) -> void:
 		if ok:
@@ -1426,7 +1427,7 @@ func _open_fog() -> void:
 	var result := await _get_fog()
 	_busy = false
 	if int(result.get("code", 0)) != 200 and not result.has("fog"):
-		_toast.say_neutral(PlayerApi.error_message(result) if not result.is_empty() else "秘境暂不可用")
+		_toast.say_neutral("秘境暂不可用" + ("：" + PlayerApi.error_message(result) if not result.is_empty() else ""))
 		return
 	_fog_page.bind_fog(result)
 	_show_page(PAGE_FOG)
@@ -1454,7 +1455,7 @@ func _refresh_state_soft() -> void:
 		return
 	var state := await PlayerApi.fetch_state()
 	if int(state.get("code", 0)) == 200 or state.has("playerId"):
-		_apply_action_state(state)
+		_apply_action_state({"state": state})
 
 func _on_page_requested(page: String) -> void:
 	if page == PAGE_FOG or page == "fog":

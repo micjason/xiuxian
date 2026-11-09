@@ -431,4 +431,86 @@ describe("fog-step-v1 HTTP terminal protocol", () => {
         await f.app.close();
       }
     }));
+  it("serializes two first GETs without duplicate run creation", async () =>
+    withDb(async (db) => {
+      const f = await fixture(db);
+      try {
+        await db
+          .delete(playerFogRuns)
+          .where(eq(playerFogRuns.playerId, f.player.playerId));
+        const states = await Promise.all([f.get(), f.get()]);
+        for (const state of states) expect(state.fog.travelPoints).toBe(200);
+        expect(
+          (
+            await db
+              .select()
+              .from(playerFogRuns)
+              .where(eq(playerFogRuns.playerId, f.player.playerId))
+          ).length,
+        ).toBe(1);
+      } finally {
+        await f.app.close();
+      }
+    }));
+  it("legacy budget upgrade and explicit chest interaction retain each other's progress", async () =>
+    withDb(async (db) => {
+      const f = await fixture(db);
+      try {
+        await db
+          .update(playerFogRuns)
+          .set({
+            posC: 3,
+            posR: 9,
+            revealed: ["3,9", "4,9"],
+            objects: {},
+            travelPoints: 17,
+          })
+          .where(eq(playerFogRuns.playerId, f.player.playerId));
+        let release!: () => void;
+        let acquired!: () => void;
+        const locked = new Promise<void>((r) => {
+          acquired = r;
+        });
+        const gate = new Promise<void>((r) => {
+          release = r;
+        });
+        const holder = db.transaction(async (tx) => {
+          await tx
+            .select()
+            .from(playerStates)
+            .where(eq(playerStates.playerId, f.player.playerId))
+            .for("update");
+          acquired();
+          await gate;
+        });
+        await locked;
+        const reading = f.get();
+        const opening = f.app.inject({
+          method: "POST",
+          url: "/api/v1/me/fog/fog_wenxin_valley/interact",
+          headers: { ...f.headers, "idempotency-key": "budget-open-once" },
+          payload: { objectId: "c_near" },
+        });
+        release();
+        await holder;
+        await reading;
+        expect((await opening).statusCode).toBe(200);
+        const state = await f.get();
+        expect(state.fog.travelPoints).toBe(197);
+        expect(
+          state.fog.objects.find((o: { id: string }) => o.id === "c_near")
+            .opened,
+        ).toBe(true);
+        const [row] = await db
+          .select()
+          .from(playerFogRuns)
+          .where(eq(playerFogRuns.playerId, f.player.playerId));
+        expect(
+          (row!.objects as Record<string, { opened: boolean }>)
+            .__travel_budget_v2?.opened,
+        ).toBe(true);
+      } finally {
+        await f.app.close();
+      }
+    }));
 });

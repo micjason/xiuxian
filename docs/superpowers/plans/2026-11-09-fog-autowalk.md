@@ -48,3 +48,13 @@ Interfaces: map stop_route(), bind_fog(payload), injected transport Callable(met
 - See `docs/testing/fog-autowalk-handoff.md` for commands and all 20 evidence cases.
 - Full Godot was executed, not green: 366/389 pass, the same 23 failures as untouched baseline (338/361). Targeted 34/34 pass.
 - Independent review remains with the parent/owner; execution checkmarks are not release approval.
+
+## Restart and midnight correction (23:27 Beijing review)
+- [x] Reproduce node and actual process destruction with old delayed POST; preserve red logs.
+- [x] Durable fog-only journal keyed by server/player/map/body/stepId/endpoint, checksum+atomic rename+file/directory fsync. No token in journal. Unavailable durability, corruption, half writes and failed clearing all fail closed.
+- [x] Always persist before dispatch; persist terminal+current authority before releasing pending. Restore account slots before entrance GET/new movement; never replay move. Account switching retains old slot, no foreign reconcile.
+- [x] Actual separate Godot processes + HTTP barrier: cancellation tombstone rejects old POST, committed-loss accounts one step, process-generated stepIds unique.
+- [x] Add stale-day backward GET regression; travelDay only advances. Prove blocked requests with pg_blocking_pids before releasing both older barriers.
+- [x] Run direct vitest with explicit private restart database, targeted and full GUT, document exact new counts/remaining platform risks and fixture-only smoke distinction.
+
+Final correction evidence: backend 130 files / 517 passed (including 3 actual-process tests), targeted GUT 48/48, full GUT 380/403 with exactly the same 23 baseline failures. Standard resource import required before GUT; generated imports restored, no art changes. Android fsync/device behavior and independent final-SHA acceptance remain unverified. See updated handoff and restart-verification-summary.json.

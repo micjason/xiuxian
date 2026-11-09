@@ -72,6 +72,12 @@ var _route_snapshot: Array = []
 var _runner_running := false
 var _pending_step: Dictionary = {}
 var _step_token := ""
+var pending_store := FogPendingStore.new()
+var _step_identity: Dictionary = {}
+var identity_provider: Callable
+var _identity_session := ""
+var _identity_server := ""
+var _authenticated_player_id := ""
 var _confirm_epoch := -1
 var _confirm_action: Button
 
@@ -640,17 +646,83 @@ func _exit_tree() -> void:
 	stop_route()
 
 
+func _fetch_identity() -> Dictionary:
+	if identity_provider.is_valid(): return await identity_provider.call()
+	return await PlayerApi.fetch_account()
+
+
+func _ensure_identity() -> bool:
+	var session:=PlayerApi.token()
+	var server:=ServerAddress.current().sha256_text()
+	if not session.is_empty() and session==_identity_session and server==_identity_server and not _authenticated_player_id.is_empty(): return true
+	_authenticated_player_id=""
+	if session.is_empty():
+		toast_requested.emit("请先登录后再进入秘境",false)
+		return false
+	# Account metadata and token are saved separately by the existing login code.
+	# Never trust cached player_account.json to authorize another account's ledger.
+	var result:=await _fetch_identity()
+	if session!=PlayerApi.token() or server!=ServerAddress.current().sha256_text(): return false
+	if int(result.get("code",0))!=200 or not result.get("playerId") is String or str(result.playerId).is_empty():
+		toast_requested.emit("无法确认当前账号，请联网后重试；未决行走记录已保留",false)
+		return false
+	_identity_session=session;_identity_server=server;_authenticated_player_id=str(result.playerId)
+	return true
+
+
+func _identity(map: String) -> Dictionary:
+	var prefix := "/api/v1/me/fog/%s/" % map.uri_encode()
+	return {"server":ServerAddress.current().sha256_text(),"playerId":_authenticated_player_id if _identity_session==PlayerApi.token() and _identity_server==ServerAddress.current().sha256_text() else "","mapId":map,"movePath":prefix+"move","reconcilePath":prefix+"reconcile"}
+
+
+func _same_account(identity: Dictionary) -> bool:
+	var current:=_identity(str(identity.get("mapId",_map_id)))
+	return not str(current.playerId).is_empty() and identity.get("server")==current.server and identity.get("playerId")==current.playerId
+
+
+func _restore_pending() -> bool:
+	if not await _ensure_identity(): return false
+	var current:=_identity(_map_id)
+	if str(current.playerId).is_empty():
+		toast_requested.emit("账号身份未确认，请联网重新登录后再进入秘境",false)
+		return false
+	var journal:=pending_store.read_all()
+	if not bool(journal.get("ok",false)):
+		toast_requested.emit(pending_store.error,false)
+		return false
+	for record in journal.slots.values():
+		if record.pending and record.identity.playerId==current.playerId and record.identity.server!=current.server:
+			toast_requested.emit("另一服务器地址仍有未决行走，请返回原地址确认后再继续",false)
+			return false # Addresses may alias the same backend; never guess independence.
+	# Failed clearing can be visible but not durable. Validate, reconfirm, rewrite.
+	if not _pending_step.is_empty() and _same_account(_step_identity):
+		var record: Dictionary=journal.slots.get(pending_store.key(_step_identity),{})
+		if record.get("body")!=JSON.parse_string(JSON.stringify(_pending_step)) or record.get("identity")!=_step_identity:
+			toast_requested.emit("行走记录已变化，已锁定移动，请保留存档联系维护",false)
+			return false
+		_step_token=PlayerApi.token()
+		if not await _reconcile_pending(): return false
+		journal=pending_store.read_all()
+		if not bool(journal.get("ok",false)): return false
+	# Switching accounts never deletes a previous account's durable unresolved slot.
+	_pending_step={}
+	for record in journal.slots.values():
+		if record.pending and _same_account(record.identity):
+			_step_identity=record.identity.duplicate(true)
+			_pending_step=record.body.duplicate(true)
+			_step_token=PlayerApi.token()
+			if not await _reconcile_pending(): return false
+	return true
+
+
 func prepare_open() -> bool:
 	while _busy: await busy_changed
-	# An explicit new entrance waits for an old response, then resolves uncertainty.
 	while _runner_running: await route_idle
-	if not _pending_step.is_empty():
-		_runner_running = true
-		var ok := await _reconcile_pending()
-		_runner_running = false
-		route_idle.emit()
-		return ok
-	return true
+	_runner_running=true
+	var ok:=await _restore_pending()
+	_runner_running=false
+	route_idle.emit()
+	return ok
 
 
 func _on_cell(x: int, y: int) -> void:
@@ -677,19 +749,25 @@ func _request_fog(path: String, body: Dictionary) -> Dictionary:
 	return await ApiClient.request_json(HTTPClient.METHOD_POST,path,body,PlayerApi.token(),str(body.get("stepId","")))
 
 
+func _accept_terminal(result: Dictionary) -> bool:
+	if not pending_store.finish(_step_identity,_pending_step,result):
+		toast_requested.emit(pending_store.error,false)
+		return false
+	bind_fog(result)
+	_pending_step={}
+	return true
+
+
 func _reconcile_pending() -> bool:
-	if _step_token != PlayerApi.token():
-		_pending_step = {}
+	if _step_token!=PlayerApi.token() or not _same_account(_step_identity):
 		stop_route()
 		return false
-	var result := await _request_fog("/api/v1/me/fog/%s/reconcile" % _map_id.uri_encode(),_pending_step.duplicate(true))
-	if _step_token != PlayerApi.token(): return false
+	var result:=await _request_fog(str(_step_identity.reconcilePath),_pending_step.duplicate(true))
+	if _step_token!=PlayerApi.token() or not _same_account(_step_identity): return false
 	if not _is_terminal(result):
 		toast_requested.emit("上一步状态未确认，请联网后重试，暂不能继续行走",false)
 		return false
-	_pending_step = {}
-	bind_fog(result)
-	return true
+	return _accept_terminal(result)
 
 
 func _is_terminal(result: Dictionary) -> bool:
@@ -707,10 +785,9 @@ func _run_route() -> void:
 
 
 func _walk_route() -> void:
-	if not _pending_step.is_empty():
-		if not await _reconcile_pending():
-			stop_route()
-			return
+	if not await _restore_pending():
+		stop_route()
+		return
 	while _route_target != Vector2i(-1,-1) and is_visible_in_tree():
 		var epoch := _route_epoch
 		var plan := FogRoute.plan(_view,_route_target,_route_snapshot)
@@ -730,22 +807,28 @@ func _walk_route() -> void:
 			return
 		var next: Vector2i = path[0]
 		var from: Dictionary = _view.get("pos",{}).duplicate(true)
-		_pending_step = {"protocol":"fog-step-v1","stepId":"fog-%d-%d-%d" % [Time.get_ticks_usec(),randi(),randi()],"expectedRevision":str(_view.get("revision","")),"expectedFrom":from,"x":next.x,"y":next.y}
+		_pending_step = {"protocol":"fog-step-v1","stepId":"fog-"+Crypto.new().generate_random_bytes(24).hex_encode(),"expectedRevision":str(_view.get("revision","")),"expectedFrom":from,"x":next.x,"y":next.y}
 		_step_token = PlayerApi.token()
-		var result := await _request_fog("/api/v1/me/fog/%s/move" % _map_id.uri_encode(),_pending_step.duplicate(true))
-		if _step_token != PlayerApi.token():
-			_pending_step = {}
+		_step_identity=_identity(_map_id)
+		if not pending_store.begin(_step_identity,_pending_step):
+			_pending_step={} # This new body was never dispatched; durable older slots remain.
+			stop_route()
+			toast_requested.emit(pending_store.error,false)
+			return
+		var result := await _request_fog(str(_step_identity.movePath),_pending_step.duplicate(true))
+		if _step_token != PlayerApi.token() or not _same_account(_step_identity):
 			stop_route()
 			return
 		if not _is_terminal(result):
 			stop_route()
 			toast_requested.emit("网络中断，上一步可能已落地；再次选择前须确认状态",false)
 			return
-		_pending_step = {}
 		var status := str(result.get("step",{}).get("status",""))
 		var actual: Dictionary = result.get("fog",{}).get("pos",{})
 		var old_marker := _player_marker.position
-		bind_fog(result) # Commit authority BEFORE animating; never predict or roll back.
+		if not _accept_terminal(result):
+			stop_route()
+			return # No further request until terminal+authority are durably recorded.
 		if status != "committed" or int(actual.get("x",-1)) != next.x or int(actual.get("y",-1)) != next.y:
 			stop_route()
 			toast_requested.emit(str(result.get("step",{}).get("error","位置已变化，请重新选择目标")),false)

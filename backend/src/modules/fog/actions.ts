@@ -186,7 +186,9 @@ async function refreshTravel(
   const objects = parseObjects(row.objects);
   let travelPoints = row.travelPoints;
   let travelDay = row.travelDay ?? day;
-  if (travelDay !== day) {
+  // A caller may have sampled time before waiting on the player lock.
+  // A stale request must never rewind the budget day and refund a newer move.
+  if (travelDay < day) {
     travelPoints = config.travelPointsMax;
     travelDay = day;
     await tx

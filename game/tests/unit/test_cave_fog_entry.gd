@@ -1,4 +1,19 @@
 extends GutTest
+var saved_account: Dictionary
+var saved_account_exists: bool
+var saved_account_raw: String
+var saved_token: String
+func before_each() -> void:
+	saved_token=PlayerApi.token();PlayerApi.save_token("local-cave-fixture")
+	saved_account=PlayerApi.account();saved_account_exists=FileAccess.file_exists(PlayerApi.ACCOUNT_PATH)
+	saved_account_raw=FileAccess.get_file_as_string(PlayerApi.ACCOUNT_PATH) if saved_account_exists else ""
+	PlayerApi.save_account("cave-fixture","fog-cave-fixture")
+func after_each() -> void:
+	if saved_token.is_empty(): PlayerApi.clear_token()
+	else: PlayerApi.save_token(saved_token)
+	if saved_account_exists:
+		var account_file:=FileAccess.open(PlayerApi.ACCOUNT_PATH,FileAccess.WRITE);account_file.store_string(saved_account_raw);account_file.close()
+	elif FileAccess.file_exists(PlayerApi.ACCOUNT_PATH): DirAccess.remove_absolute(ProjectSettings.globalize_path(PlayerApi.ACCOUNT_PATH))
 
 func test_fog_entry_is_available_without_cave_facilities() -> void:
 	var page := CavePage.new()
@@ -48,7 +63,7 @@ func test_both_fog_entries_await_loading_before_showing_map() -> void:
 	assert_true(source.contains("func _ensure_fog_loaded()"), "保留旧函数本身")
 
 func test_exit_is_distinct_and_locked_until_exploration_full() -> void:
-	var page := FogMapPage.new()
+	var page: Control = load("res://tests/helpers/fog_authenticated_page.gd").new()
 	add_child_autofree(page)
 	var payload := {"fog": {"protocol":"fog-step-v1", "revision":"a".repeat(64), "rows": 3, "cols": 3, "pos": {"x": 1, "y": 2}, "revealed": ["1,1", "1,2"], "exploreRevealed": 2, "exploreTotal": 9, "exploreFull": false, "travelPoints": 0, "objects": [{"id": "m_guard", "kind": "exit", "x": 1, "y": 1, "name": "谷口护卫", "passed": false}]}}
 	page.bind_fog(payload)
@@ -76,7 +91,7 @@ func test_fog_loot_refresh_wraps_raw_state_for_action_renderer() -> void:
 	assert_true(refresh.contains('_apply_action_state({"state": state})'), "GET state是裸DTO，不能当action wrapper传入清空背包")
 
 func test_fog_confirm_and_event_dialogs_fit_phone_width() -> void:
-	var page := FogMapPage.new()
+	var page: Control = load("res://tests/helpers/fog_authenticated_page.gd").new()
 	page.size = Vector2(1000, 1900)
 	add_child_autofree(page)
 	for key in ["_confirm", "_event_panel"]:

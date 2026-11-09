@@ -643,7 +643,7 @@ func _exit_tree() -> void:
 func prepare_open() -> bool:
 	while _busy: await busy_changed
 	# An explicit new entrance waits for an old response, then resolves uncertainty.
-	if _runner_running: await route_idle
+	while _runner_running: await route_idle
 	if not _pending_step.is_empty():
 		_runner_running = true
 		var ok := await _reconcile_pending()

@@ -170,3 +170,12 @@ func test_reentry_waits_for_explicit_interaction_before_loading_state() -> void:
 	interaction_release.emit()
 	await get_tree().process_frame
 	assert_true(flag.done)
+
+func test_repeated_reentry_coalesces_uncertain_step_reconciliation() -> void:
+	lose_response=true;page.call("_on_cell",4,1)
+	var flags: Array=[{"done":false},{"done":false},{"done":false}]
+	for flag in flags: mark_prepared(flag)
+	await wait_done(0.3)
+	assert_eq(calls.size(),2,"one lost move plus exactly one terminal reconciliation")
+	assert_eq(max_requests,1)
+	for flag in flags: assert_true(flag.done)

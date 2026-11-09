@@ -513,4 +513,24 @@ describe("fog-step-v1 HTTP terminal protocol", () => {
         await f.app.close();
       }
     }));
+  it("rejects a malformed primitive move body without an internal server error", async () =>
+    withDb(async (db) => {
+      const f = await fixture(db);
+      try {
+        const result = await f.app.inject({
+          method: "POST",
+          url: "/api/v1/me/fog/fog_wenxin_valley/move",
+          headers: {
+            ...f.headers,
+            "content-type": "application/json",
+            "idempotency-key": "malformed-body01",
+          },
+          payload: JSON.stringify("bad"),
+        });
+        expect(result.statusCode).toBe(400);
+        expect((await f.get()).fog.travelPoints).toBe(200);
+      } finally {
+        await f.app.close();
+      }
+    }));
 });

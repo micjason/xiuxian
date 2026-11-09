@@ -42,7 +42,7 @@ export async function registerFogRoutes(app: FastifyInstance, deps: { db: Db; no
     const playerId = request.actor!.actorId;
     const mapId = (request.params as { mapId: string }).mapId;
     const body = (request.body ?? {}) as { x?: unknown; y?: unknown; r?: unknown; c?: unknown };
-    if ("protocol" in body) return fogStep(deps.db, playerId, mapId, body, deps.now());
+    if (typeof body === "object" && body !== null && "protocol" in body) return fogStep(deps.db, playerId, mapId, body, deps.now());
     const pos = xyBody(body);
     return withIdempotency(deps.db, playerId, idempotencyKey(request.headers["idempotency-key"]), "fog-move", deps.now(), (tx, world) =>
       moveFog(tx, world, playerId, mapId, pos, deps.now()),

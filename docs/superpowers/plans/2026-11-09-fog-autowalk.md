@@ -58,3 +58,6 @@ Interfaces: map stop_route(), bind_fog(payload), injected transport Callable(met
 - [x] Run direct vitest with explicit private restart database, targeted and full GUT, document exact new counts/remaining platform risks and fixture-only smoke distinction.
 
 Final correction evidence: backend 130 files / 517 passed (including 3 actual-process tests), targeted GUT 48/48, full GUT 380/403 with exactly the same 23 baseline failures. Standard resource import required before GUT; generated imports restored, no art changes. Android fsync/device behavior and independent final-SHA acceptance remain unverified. See updated handoff and restart-verification-summary.json.
+
+## Incident correction (documentation only, Nov10 00:15 Beijing UTC+8 request)
+The historical Task5 blanket full-private claim does not describe the later513 npm run: that run targeted shared5432/xiuxian_test and TRUNCATEd test tables. Earlier512 metadata names private55439 but has no saved preflight identity result and its output pathname was overwritten before this correction. The final517 direct run has an existing preflight SELECT line for xiuxian_fog_restart_test|55439. See docs/testing/fog-autowalk-test-db-incident-2026-11-09.md. Future runs require saved, asserted preflight identity before direct Vitest; never npm test. No new DB tests were executed for this correction.

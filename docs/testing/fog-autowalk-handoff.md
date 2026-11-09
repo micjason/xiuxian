@@ -13,8 +13,8 @@
 - 新前端没看到新协议明确停止提示，不降级到旧move。网络不明保留pending；下一次明确操作/重新进图先终态对账，期间不发新move。离页不发新的move或后台重试。
 - 改动仅fog模块；未重构loop/withIdempotency，旧接口既有泛用幂等行为不冒充已全面修复。
 
-## 20项实际验收矩阵
-以下“通过”指对应自动化层的断言通过；不是20项都做了安卓/手工实玩。HTTP测试是Fastify真实路由+独立PG，延迟用明确闩锁与玩家行锁；截图是PC Godot/Xvfb真实渲染、真实本地TCP API，程序调用实际点击处理器，不是安卓实拍。
+## 20项实际验收矩阵（旧513后端为共享库，非隔离证明）
+以下“通过”指对应自动化层的断言通过；不是20项都做了安卓/手工实玩。历史矩阵依附的旧513后端验证跑在共享5432/xiuxian_test，不能作为隔离证明；纯GUT/PC项本身不访问PG。修复版517另外在预先SELECT核验的55439独立库复跑，不能追溯更改旧运行事实。HTTP为Fastify真实路由，延迟用明确闩锁与玩家行锁；截图是PC Godot/Xvfb真实渲染、真实本地TCP API，程序调用实际点击处理器，不是安卓实拍。
 
 | # | 实际结果 | 实跑证据 |
 |---|---|---|
@@ -150,7 +150,7 @@ DATABASE_URL=postgres://box@127.0.0.1:55439/xiuxian_fog_restart_test FOG_RESTART
 
 ### 必须披露的测试库事故更正
 - 2026-11-09 **23:21:33–23:24:40 北京时间UTC+8**，此前513次全量复跑误用`DATABASE_URL=<私有> npm test`。package.json的test脚本又硬编码覆盖DSN，实际连接localhost5432的**共享测试库xiuxian_test**；withDb按既有逻辑TRUNCATE其public测试表。撤回先前“共享5432未连接”的说法。
-- 不是线上生产库，但是否影响其他工作使用该共享测试库未知；没有擅自读共享库、恢复或回滚其他人的数据。旧`backend-final-full.log`与原终端记录保留。更早512次运行是direct vitest/private55439，确实隔离，不能混为同一口径。
+- 不是线上生产库，但是否影响其他工作使用该共享测试库未知；没有擅自读共享库、恢复或回滚其他人的数据。旧`backend-final-full.log`与原终端记录保留。更早512元数据是direct vitest指向55439，但缺当次预先SELECT身份记录，且同路径原输出已被513重定向覆盖；不能当作同等级服务端隔离证明。
 - 本次修复所有数据库测试均direct vitest，只用新建独占55439/xiuxian_fog_restart_test；完整日志首行current_database/port核验。**不要再运行npm test脚本**。负责人需知悉这次越界事故。
 
 ### 新遗留边界
@@ -159,3 +159,6 @@ DATABASE_URL=postgres://box@127.0.0.1:55439/xiuxian_fog_restart_test FOG_RESTART
 - revision仍非单调；跨设备接管/另一设备遗留请求没有共享本地journal，未获得本轮“同一存档重启”取消保证，未宣称全局跨设备ABA栅栏。
 - 同一user://并行多个活进程写同journal、删除应用数据/卸载不在本轮保证范围；本轮验证的是旧进程已死后再重启。坏档/孤立tmp会冻结，需维护处理，不自动清档。
 - 修复版仍需负责人独立正常server.ts/自然账号复查后决定GO；本执行不做发布决定。
+
+## 独立事故记录（00:15要求，文档整理未跑DB）
+详见[具体事故记录](fog-autowalk-test-db-incident-2026-11-09.md)与`/workspace/.deploy/fog-autowalk/incident/evidence-index.json`：真实命令、毫秒窗口、4个直接TRUNCATE语句表名、23个CASCADE目标、动态public清理范围、直接证据/推断边界及未知影响。旧20条与旧513非隔离证明。最新517确有当次预先psql SELECT首行（不是Vitest同一连接）；后续每轮必须先保存并断言库名端口后direct vitest，严禁npm test。所有原日志及历史外部报告不修改，旁置更正文件。

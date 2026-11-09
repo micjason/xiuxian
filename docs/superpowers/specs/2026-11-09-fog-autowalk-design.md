@@ -84,3 +84,5 @@ C. 服务端接收整个route并自动调度——权威最强但要新增长任
 
 ## Restart safety correction (review 23:27 Beijing)
 ETag/from is not a cross-restart cancellation fence. Fog pending is a durable write-ahead journal, account identity comes from the current authenticated /me/account response (never separate account cache). Persist full original body and endpoint identity before POST; synchronize file+parent directory, atomic replace, verify bytes; unsupported durability fails closed. Terminal+current authority must be durably checkpointed before pending releases. Corruption/half write, unknown network outcome, failed clear, or same-player unresolved endpoint alias blocks new routes. Account switching retains prior slots. Fresh processes reconcile original stepId; never replay move or auto-resume a route. Budget day is monotonic even when now was sampled before waiting on the player lock.
+
+事故更正（11/10 00:15 北京时间UTC+8要求）：上述“绝不清共享库”是原安全约束，不是实际全程履约证明。旧513 npm跑批覆盖外层DSN并清理共享5432测试表；撤回历史全程隔离声明。详见docs/testing/fog-autowalk-test-db-incident-2026-11-09.md；原日志保留，本轮仅文档不连接数据库。

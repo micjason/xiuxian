@@ -50,7 +50,7 @@ func test_both_fog_entries_await_loading_before_showing_map() -> void:
 func test_exit_is_distinct_and_locked_until_exploration_full() -> void:
 	var page := FogMapPage.new()
 	add_child_autofree(page)
-	var payload := {"fog": {"rows": 3, "cols": 3, "pos": {"x": 1, "y": 2}, "revealed": ["1,1", "1,2"], "exploreRevealed": 2, "exploreTotal": 9, "exploreFull": false, "travelPoints": 0, "objects": [{"id": "m_guard", "kind": "exit", "x": 1, "y": 1, "name": "谷口护卫", "passed": false}]}}
+	var payload := {"fog": {"protocol":"fog-step-v1", "revision":"a".repeat(64), "rows": 3, "cols": 3, "pos": {"x": 1, "y": 2}, "revealed": ["1,1", "1,2"], "exploreRevealed": 2, "exploreTotal": 9, "exploreFull": false, "travelPoints": 0, "objects": [{"id": "m_guard", "kind": "exit", "x": 1, "y": 1, "name": "谷口护卫", "passed": false}]}}
 	page.bind_fog(payload)
 	await get_tree().process_frame
 	assert_not_null(page.find_child("Exit_m_guard", true, false), "出口不是普通狼图")

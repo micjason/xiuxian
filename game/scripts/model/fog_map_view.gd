@@ -9,6 +9,8 @@ static func from_payload(data: Dictionary) -> Dictionary:
 	var f := fog as Dictionary
 	var collect: Dictionary = f.get("collect", {}) if typeof(f.get("collect", {})) == TYPE_DICTIONARY else {}
 	return {
+		"protocol": str(f.get("protocol", "")),
+		"revision": str(f.get("revision", "")),
 		"map_id": str(f.get("mapId", "fog_wenxin_valley")),
 		"name": str(f.get("displayName", "问心谷")),
 		"rows": int(f.get("rows", 12)),

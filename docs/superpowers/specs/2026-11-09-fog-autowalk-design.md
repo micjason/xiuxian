@@ -1,0 +1,92 @@
+迷雾 #69 远点自动走路——只读调查与设计（已纳入负责人 11/9 22:39 校准，时间均北京时间 UTC+8）
+
+一、调查范围与已核实基线
+- 普通 git fetch origin dev2 成功；origin/dev2、本地 dev2 均为 2c6f24ac5707cb354bf825414b2627d72490fc69（release 0.18.29/69），其父提交为 #69 squash 49187b6d。两者差异仅 project.godot/export_presets 版本号。
+- 主仓 /workspace/xiuxian-ui 当前 tip-fog64@8515c576，跟踪文件干净；没有切分支或 reset。旧工作树 /workspace/xiuxian-ui-cave-fog 为 proto/cave-fog-entry@02fab49e，有 697 个既有跟踪改动（大量资源/导入），另有未跟踪依赖/uid；未修改它。不要从旧工作树直接续写。
+- 全部代码判断读取 origin/dev2 的 git 对象；只在 /workspace/.deploy/fog-readonly 保存所读文件副本及 static-checks.txt，八条源码断言通过。
+- 这是源码控制流调查，不是线上/GUI实玩；没有运行会清库的 backend withDb 测试，没有声称已取得运行截图。未 clone、未修改仓库文件、未提交/push/部署、未联系任何人、未用 CloudAgent。
+
+二、现状（路径相对仓库；行号均 origin/dev2）
+1) game/scripts/ui/pages/fog_map_page.gd:603-656：_on_cell 在 _busy 时直接丢弃点击；普通地格仅四向相邻可动。没有 revealed 限制，所以相邻未知格目前可尝试；远处物件只提示“先走到旁边”。邻近未开箱直接 interact；怪确认，事件选择。未满探索谷口有特例：可进入护卫格拨雾。
+2) 同文件:703-739：_do_move 先 busy，再 await POST；200 后才播放 0.20 秒走路 tween，再 bind_fog。没有失败预播回滚，但动画按请求 x/y，不校验返回 fog.pos；新设计须用权威返回坐标。非200直接解 busy，不同步状态；断网已落步时本地仍旧位置。busy在 bind_fog 前解除，也不宜作为新控制器唯一互斥。
+3) bind_fog:430-449 会整图重建并 snap 玩家。没有 route/session generation、请求账本、隐藏/退出取消逻辑。_exit_tree 也不存在。_confirm/_event_panel 非全屏模态，不能假设面板显示便阻止所有地图点击。
+4) game/scripts/ui/play_screen.gd:443-455 切页只设置 visible，节点常驻；仅 _exit_tree 无法覆盖返回洞府/页签切换。:299 返回直接 _show_page(cave)；:1425-1433 开图 GET 完后 bind+显示，无开图世代保护，多次开图或退出期间晚回 GET 也需门禁。FogMapPage.busy_changed 未接至 screen._busy；两者非同一锁。
+5) game/scripts/ui/player_api.gd:77-79 每次 post_action 新建随机幂等键，不支持指定同一个逻辑步骤的键。game/autoload/api_client.gd：独立 HTTPRequest，8秒超时，无自动重试、无全局串行；丢弃 completed[0] 网络结果，只保留HTTP code/JSON。超时不是服务端未执行的证明。
+6) backend/src/modules/fog/routes.ts:39-48 move 入参只 x/y（另支持 r/c），要求至少8字符幂等键；没有 expectedFrom/revision、原指令ID、请求体哈希或取消状态。
+7) backend/src/modules/fog/actions.ts:417-448：先锁 playerStates 行，requireNoCombat，再读/刷新进度；验证当前权威位置四向相邻、边界/地形、活普通怪、游历足够，事务内扣 travelCostPerStep 并 revealAround/persist。默认每步1，radius1。成功扣费与位置/揭雾原子。不会自动战斗/开箱。
+8) 服务端不要求目标已揭开；move只阻普通活怪，箱/事件可直接踩入，谷口护卫被 livingMonsterAt 特意排除（config.ts:457-476）。因此“已知范围/箱事件不穿行”仅前端约束，不是现有服务端安全保证。
+9) backend/src/modules/loop/actions.ts:804-828 withIdempotency 先无锁查缓存，再执行业务，最后插入幂等记录。主键(playerId,key)保证重复提交冲突时事务回滚，不应夸大为已会双扣；但并发同key未命中缓存时，第二个会在业务验证报错或最后插入冲突，不保证两边都重放同一成功结果。且缓存不比较 endpoint/body，同key异体会返回错误动作的旧响应。晚重放的旧DTO也不能覆盖更新后的视图。
+10) readFogState:404-414 没有玩家行锁，却调用 refreshTravel（:135-231）写首次建档/跨日补点/一次性旧预算升级。可与有锁move并发：GET读旧日，move先补点扣1提交，GET后写满点，导致退款；旧预算升级还可能覆盖objects。首次并发GET可能插入冲突。这是独立于自动走路的后端竞态。
+11) 已有 backend fog.test.ts覆盖单步扣1、零点、开箱、战斗、出口门槛/输赢、一次预算升级、事件和书入包；主要直接调用 action，未覆盖HTTP同key并发、乱序/断网、GET跨日并发或自动路线。GUT test_cave_fog_entry.gd覆盖入口/返回/出口弹框/背包刷新，没有路线和请求数断言。backend/src/test/db.ts 的 withDb 会 TRUNCATE 公共表，必须仅隔离测试库运行。
+
+三、三个方案与推荐
+A. 纯客户端“快照BFS+单步串行”——改动最小，不改move接口。可完整实现正常网络下的可达边界、路径、取消和交互门禁。断网不明时冻结，不能承诺只靠一次GET即可安全无缝恢复；跨设备/延迟旧请求无法作强保证。
+B. A + 轻量服务端单步安全协议（推荐完整交付目标）：不传整条路径，保留逐步验证扣费；补齐幂等临界区、GET锁、动作body绑定，按需求加 expected revision/from 和未决动作对账/取消墓碑。能给出断网恢复和多设备竞态的确定性保证。可单独评审后端增量，不必重构通用系统。
+C. 服务端接收整个route并自动调度——权威最强但要新增长任务、取消、断线和离页心跳协议；在途多步风险大，不适合本轮截止。
+建议：以A的路径/控制器作为客户端骨架；若验收要求“断网恢复后继续点且旧延迟请求绝不多走”，选B的最小必要后端补强，而不是把GET当作已解决不确定性的证据。
+
+四、推荐交互/路径设计（已按22:39校准）
+- 点击瞬间深拷贝 S=当前权威revealed ∩ 地图内范围；只有已揭开、已知可通行、经S内四向路径连通的目标可发指令。完全未知格包括相邻格一律拒绝，明确“迷雾未散，请先走到已揭开的边缘”；这有意收紧旧相邻未知行为。radius1从可达已揭边缘继续揭新雾，必须再点一次才用新格。
+- 不设3/5格：有限当前地图+快照可达分量就是界限。BFS求四向最少步数（每步相同代价；固定邻接顺序保证同长路径稳定）。算法输入必须用服务端blocks，不用美术 FogLevelTiles 判碰撞；隐藏物件DTO虽存在也不得用于未揭格导航。
+- 未完成箱/普通怪/事件视为不可穿越的物件格；已开箱/已败怪/已完成事件可通行。若有绕路，选合法最短绕路；若被物件完全截断，不可达就反馈原因，不偷走未知近路，不擅自走到随机障碍旁。
+- 点物件是“走到其已揭开、可通行、可达的四邻格中距离最短者”，若已同格可原地处理。只在最新指令仍有效、服务端已确认最后一步、动画停稳后，显示不发请求的确认/选择。自动到箱旁也不自动开箱；确认开箱才interact，确认怪才combat/start，事件选项才interact。取消/切目标/离页关闭旧提示并清理旧物件引用。不能复用 _on_cell 当每步驱动，否则它会顺路自动开箱。
+- 仅进入物件格才算阻路，不因擦过旁边的怪就中断；新的权威状态发现下一格已被占用则停车提示，不自动改走新揭雾。目标不可达/超界/地形阻挡明确反馈。
+- 点新目标先撤销旧路线“后续派发权”，清空旧队列；已有在途请求不能假装撤销。保存最后一个新目标及其点击时S；只允许一个move请求在途，等它确定终结并落步/动画完毕，再由最新权威位置在新指令自己的S里重算。新位置若不属于该S，不隐式扩S，停车要求重选。相同目标连点只去重，不重复起跑/扣费。
+- _busy 拆为 request_inflight / animating / modal / active_route，而非全部拦点击：在途/动画期间接受“替换目标”意图，但不派第二个请求；弹框或真实交互期间只允许取消，不发移动与交互并发。
+- 每次步骤先验证active、visibility、epoch、下一格仍在S、与最新位置相邻、未被当前已知物件阻挡；客户端只早停travel<=0（DTO没有每步cost，不能猜剩余可走步数），服务器按真实cost最终裁决。200先提交权威模型，按返回pos动画，不预演；动画完再派下一步。若返回pos不等于本步目标、地图/账号/内容身份变化，停步并对账，不带着旧队列跑。
+- route epoch决定是否续跑/弹框，step ledger决定权威响应是否需要接收；旧路线返回不能丢掉已确认位置和扣费，只不能继续旧路线。界面晚响应不得覆盖更晚权威状态：客户端串行move和对账GET，另外用revision或本地读请求epoch拒旧响应；切账号/地图响应隔离。
+- 离页（返回/页签/战斗/退出/账号切换）立即epoch++、active=false、清队列/提示/后续定时器；visibility_changed+显式page deactivate覆盖常驻节点，_exit_tree负责最终清理。已经发出的最多落一步且扣一次，隐藏后不能再POST；该步响应可记账不播放/不弹框。重新进入只加载新状态，不自动恢复旧路线。
+
+五、断网与取消的关键边界（不能以UI取消冒充服务端取消）
+- 超时/断网/5xx/非JSON属于“可能已执行”，不是失败回滚：立刻停路线，保留(stepId,key,body,expectedFrom)和不确定标记，禁止自动重试换新key。
+- 一次GET只能告诉你读时的位置；反例：旧POST仍在网络/服务端队列，GET先回旧位置，你按它发新POST，旧POST随后才落步。故“超时→GET→马上新路线”仍有并发/乱走窗口。这是对22:39简化恢复规则的必要技术补充。
+- 客户端最低安全降级：不明请求未解决前不派任何新移动；前台且用户明确选择“核对这一步”时可用原key原body重试/对账（只同一个逻辑步），确认响应后GET当前状态并仍保持路线已停止。离页/取消后不发送任何重试POST，避免把原本未到达的取消步骤重新执行。
+- 如要求取消后立即安全恢复，需要服务端只读/取消对账协议：在同一玩家锁下对 exact stepId/key 查询已提交结果；未执行则写cancelled墓碑，迟到POST查墓碑必须拒绝；已经落步则返回落步结果与当前状态。只有该终态确认后才能新指令。单纯GET“没有记录”不是终态；必须能阻止迟到原请求。
+- expected revision/from是并发防线（对两次同源移动只允许一个成功，冲突无扣费），但不是取消墓碑的替代，也不能单独证明旧请求已结束。原key重放可能返回历史DTO，需后续当前GET，不直接覆盖新状态。
+
+六、必须后端修/客户端足够范围
+客户端足够：正常单客户端快照BFS、路径预览/标记、未知拒绝、物件邻格终点、无自动交互、替换目标串行、动画后续跑、离页停止、异常立即停车。
+已有后端可复用：玩家行锁、逐步邻接/地形/怪/游历校验、事务扣费、战斗互斥；不需要一次性预扣整段费用。
+要满足严格可靠恢复必须补：
+(1) 幂等cache查询与业务执行放入同一玩家串行临界区，拿锁后重查；endpoint+规范化body/map身份绑定，异体重用key拒绝；失败不能半扣。
+(2) readFogState/refreshTravel所有写路径同玩家锁（含首次建档、跨日、旧预算升级），避免无锁GET写回过期余额/objects。
+(3) 对延迟/跨设备请求增加expected revision（或足够强的expected state），以及上节未决动作终态/取消墓碑；只有保守冻结而不恢复时可暂不加(3)，但须在验收中明确降级。
+(4) 若“不可穿未知/箱事件”要成为服务端契约而不仅UI规则，move需验证已揭开/物件策略，并显式保留下面谷口例外；不能说现有后端已经挡住。
+
+七、独立反例与验收测试（以下均是待执行方案，不是已通过）
+1. U形岩石：直线距离2、合法路径6；BFS得6而不是撞墙或硬截3/5。纯函数最短路径断言+绕障运行截图。
+2. 已揭开孤岛，中间一格未知：目标虽可见但不可达，POST=0，有解释。
+3. 远点目标未知，包括相邻未知：均POST=0；走到已揭边缘可正常揭下一圈，需下一次点击才用新格。
+4. 路上新揭出近路/远目标：原route不扩S、不改成扫图；请求序列全部属于起点快照。
+5. 一格宽走廊有活怪/事件/未开箱：不穿越，不自动交互；若绕路存在应走合法最短绕路；若目标就是物件停其最近合法邻格。
+6. 到箱旁的最后一步200后动画未完就取消/改目标：不弹旧确认，不调用interact；到怪旁同理无combat/start。
+7. 旁边有怪但路线不进入怪格：不误触发战斗/确认；已完成物件不再阻路。
+8. 同目标连续20点击：最多一条route，一个在途POST；实际步数=权威成功步数，余额差=成功步数×真实cost。
+9. 第1步POST延迟、点B再点C：不并发发B/C；第1步允许落一次，随后仅C从最新位置重算；旧route不能借晚响应续跑。
+10. 动画期间改目标：模型已权威更新，但动画停稳才续；旧tween结束不会启动旧队列。
+11. move服务端已commit但响应被代理丢弃：UI不回滚，不换key；不明态禁止续跑，安全对账后显示真实位置/余额且不会补扣。
+12. move在服务器还未执行，超时后GET先回旧状态：证明单GET不足；有墓碑时旧POST最终0落步，新路才开始；无协议时保守冻结，不宣称恢复安全。
+13. 同key同body并发两次：严格版两者返回同一次成功，DB仅落一步/扣一次；同key不同body或endpoint拒绝且不返回串动作DTO。
+14. 不同key来自同一revision并发/另一设备走一步：仅一次CAS成功，另一个冲突无扣，客户端停车对账，不抹回别人位置。
+15. 剩余游历1但路线5步：仅成功1步后停；cost改为2、余额1则0步；不用本地固定每步1预扣。
+16. 200但返回坐标不符/缓存历史DTO/较旧GET晚回：不按请求目标假演动画，不回滚较新权威状态，不再派下一步。
+17. 离页时POST在途：允许最多该一步落地；隐藏后POST计数不再增加，无弹框/自动回地图；重新进入不恢复旧route。
+18. 连点入口后返回洞府，旧开图GET晚回：不把用户拉回迷雾，不覆盖新会话；退出登录后旧账号响应不绑定新账号。
+19. 跨日GET与move并发、首次两个GET并发、旧预算升级与interact并发：无点数返还/重复建档错误/objects回退；在隔离DB用barrier控制事务顺序。
+20. 谷口特例：未知(4,0)不能点；护卫格(4,1)已揭开时必须有合法办法进入拨雾，否则探索永远差一格。见唯一待确认问题。
+测试层次：纯路径GUT/模型测试；可注入transport与时钟的控制器状态机（断言URL、key、请求数、模型/动画/弹框顺序）；隔离DB的HTTP路由并发测试（不要仅直调moveFog）；本地GUI实玩截图“点击远处前/中途/到达”，另留取消与断网代理日志及对应最终位置/余额。截图证明展示，不替代计费/网络断言。先确认设计再建新隔离工作树，基于2c6f24ac或当时最新dev2实现。
+
+八、唯一需要负责人确认的产品例外（其余22:39已明确）
+是否保留 #69 的“探索未满时，已揭开的谷口护卫格可作为纯移动地格进入拨雾、不触发战斗”例外？建议保留，并只在尚未满探索时允许明确点击已揭护卫格，移动仍逐步扣费；自动路线不顺带开战。
+理由不是竞品猜测：默认护卫在(4,1)，探索计数包含可通行(4,0)，其左右(3,0)/(5,0)是岩石；radius1条件下只能从(4,1)揭开(4,0)。若把“所有怪一律只停邻格”也施于谷口且不改地图/揭雾，形成“要探索满才能打护卫、要进护卫格才能探索满”的必现死锁。若不保留此例外，必须另行明确修改出口地形/揭雾/计数规则，不能静默删除旧兼容逻辑。
+
+批准增补（22:43 北京时间）：方案B；保留未满探索已揭谷口站格例外。协议fog-step-v1，版本以已持久化状态摘要标识（pos/revealed/objects/travel/day），防ABA及跨设备过期请求。复用idempotency_keys保存仅fog命名空间的step终态/取消墓碑，玩家锁内检查body绑定、前置摘要/坐标、执行单步和保存结果。GET同玩家锁；旧move保留接口兼容。新客户端无协议标识必须停步提示。对账POST只对一个step写终态，不派移动；离页不会派新move。取消不明请求后由下一次前台明确操作触发终态对账，未对账前禁止新move。18082已占用，使用空闲18083，不杀共享进程。测试使用独立PG实例端口55439和隔离数据库，绝不清共享库。
+
+## Restart safety correction (review 23:27 Beijing)
+ETag/from is not a cross-restart cancellation fence. Fog pending is a durable write-ahead journal, account identity comes from the current authenticated /me/account response (never separate account cache). Persist full original body and endpoint identity before POST; synchronize file+parent directory, atomic replace, verify bytes; unsupported durability fails closed. Terminal+current authority must be durably checkpointed before pending releases. Corruption/half write, unknown network outcome, failed clear, or same-player unresolved endpoint alias blocks new routes. Account switching retains prior slots. Fresh processes reconcile original stepId; never replay move or auto-resume a route. Budget day is monotonic even when now was sampled before waiting on the player lock.
+
+事故更正（11/10 00:15 北京时间UTC+8要求）：上述“绝不清共享库”是原安全约束，不是实际全程履约证明。旧513 npm跑批覆盖外层DSN并清理共享5432测试表；撤回历史全程隔离声明。详见docs/testing/fog-autowalk-test-db-incident-2026-11-09.md；原日志保留，本轮仅文档不连接数据库。
+
+### Android可靠落盘最小补强（11/10 00:39 北京时间UTC+8）
+实际官方API24模拟器原样运行发现toybox没有fsync：shell返回127；真实Godot应用UID10062进一步得到file=false、directory=false并停走。API35 shell具有fsync，故不能从新AOSP源码推断整个min24范围。保持既有journal/临时文件→fsync→rename→目录fsync/终态对账保证，不降为flush。
+方案比较：保留toybox不能覆盖已证实正常API24；新AAR插件可用但增加Gradle/打包成本；推荐使用Godot4.7官方已有JavaClassWrapper内建JNI，直接调用公开android.system.Os.open(O_RDONLY=0)→fsync→close（API21，低于min24），无需新插件/依赖/打包改动。每次调用检查get_exception，尤其fsync异常必须在close前保存，不能被成功close覆盖。文件、父目录都调用同一公开API。只替换FogPendingStore的Android同步实现；Linux及协议不动。PC模拟JNI异常顺序测试先红，官方Android应用UID实跑移动、强杀重启及真实API断开恢复后才宣称平台运行通过。模拟器不是ARM真机/物理掉电测试。

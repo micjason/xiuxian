@@ -57,6 +57,8 @@ var _timer: Timer
 var _selected_stage := ""
 var _selected_realm := ""
 var _busy := false
+var _navigation_epoch := 0
+var _fog_open_epoch := 0
 var _page := PAGE_CULTIVATE
 var _mock := false
 var _flags: ItemFlags
@@ -449,6 +451,9 @@ func _show_page(page: String) -> void:
 		return
 	if _break_open:
 		_close_breakthrough()
+	_navigation_epoch += 1
+	if _page == PAGE_FOG and page != PAGE_FOG and _fog_page != null:
+		_fog_page.stop_route()
 	_page = page
 	for key in _pages:
 		if key != PAGE_BREAKTHROUGH:
@@ -539,6 +544,9 @@ func _on_manual_update_check() -> void:
 
 ## 退出登录：作废并清掉令牌和账号记录，停心跳、清空本账号的界面数据，回到登录页（可以登录别的账号）。
 func logout() -> void:
+	_navigation_epoch += 1
+	_fog_open_epoch += 1
+	if _fog_page != null: _fog_page.stop_route()
 	var session_token := PlayerApi.token()
 	PlayerApi.forget_session()
 	_session += 1
@@ -1423,9 +1431,20 @@ func _skill_def(slug: String) -> Dictionary:
 # ───────── 迷雾秘境 ─────────
 
 func _open_fog() -> void:
+	_fog_open_epoch += 1
+	var open_epoch := _fog_open_epoch
+	var nav_epoch := _navigation_epoch
+	var session := PlayerApi.token()
 	_busy = true
+	var prepared: bool = await _fog_page.prepare_open()
+	if open_epoch != _fog_open_epoch: return
+	if not prepared or nav_epoch != _navigation_epoch or session != PlayerApi.token():
+		_busy = false
+		return
 	var result := await _get_fog()
+	if open_epoch != _fog_open_epoch: return
 	_busy = false
+	if nav_epoch != _navigation_epoch or session != PlayerApi.token(): return
 	if int(result.get("code", 0)) != 200 and not result.has("fog"):
 		_toast.say_neutral("秘境暂不可用" + ("：" + PlayerApi.error_message(result) if not result.is_empty() else ""))
 		return

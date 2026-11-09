@@ -8,6 +8,7 @@ signal toast_requested(text: String, ok: bool)
 signal battle_requested(payload: Dictionary)
 signal busy_changed(busy: bool)
 signal loot_received
+signal route_idle
 
 const CELL := 108.0
 const GRID_PAD := Vector2(48, 200)
@@ -63,11 +64,31 @@ var _walk_playing := false
 var _walk_frame := 0
 var _walk_accum := 0.0
 var _tex_cache: Dictionary = {}
+# One request ledger survives route cancellation; never erase an uncertain step.
+var transport: Callable
+var _route_epoch := 0
+var _route_target := Vector2i(-1,-1)
+var _route_snapshot: Array = []
+var _runner_running := false
+var _pending_step: Dictionary = {}
+var _step_token := ""
+var pending_store := FogPendingStore.new()
+var _step_identity: Dictionary = {}
+var identity_provider: Callable
+var _identity_session := ""
+var _identity_server := ""
+var _authenticated_player_id := ""
+var _confirm_epoch := -1
+var _confirm_action: Button
+
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	FogLevelTiles.ensure_loaded()
 	_build()
+	visibility_changed.connect(func() -> void:
+		if not is_visible_in_tree(): stop_route()
+	)
 
 
 func _process(delta: float) -> void:
@@ -332,9 +353,10 @@ func _build_confirm() -> void:
 	cancel.text = "取消"
 	cancel.custom_minimum_size = Vector2(220, 76)
 	_skin_btn(cancel, false)
-	cancel.pressed.connect(func() -> void: _confirm.visible = false; _confirm_obj = {})
+	cancel.pressed.connect(stop_route)
 	row.add_child(cancel)
 	var ok := Button.new()
+	_confirm_action = ok
 	ok.text = "开战"
 	ok.custom_minimum_size = Vector2(220, 76)
 	_skin_btn(ok, true)
@@ -423,8 +445,19 @@ func _build_back() -> void:
 	back.offset_right = 196
 	back.offset_bottom = -40
 	_skin_btn(back, false)
-	back.pressed.connect(func() -> void: back_requested.emit())
+	back.pressed.connect(func() -> void: stop_route(); back_requested.emit())
 	add_child(back)
+	var stop := Button.new()
+	stop.name = "FogStop"
+	stop.text = "停止行走"
+	stop.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	stop.offset_left = -256
+	stop.offset_right = -36
+	stop.offset_top = -120
+	stop.offset_bottom = -40
+	_skin_btn(stop, false)
+	stop.pressed.connect(stop_route)
+	add_child(stop)
 
 
 func bind_fog(payload: Dictionary) -> void:
@@ -600,72 +633,254 @@ func _snap_player() -> void:
 	_stop_walk_anim()
 
 
+func stop_route() -> void:
+	_route_epoch += 1
+	_route_target = Vector2i(-1,-1)
+	_route_snapshot = []
+	_confirm_obj = {}
+	if _confirm: _confirm.hide()
+	if _event_panel: _event_panel.hide()
+
+
+func _exit_tree() -> void:
+	stop_route()
+
+
+func _fetch_identity() -> Dictionary:
+	if identity_provider.is_valid(): return await identity_provider.call()
+	return await PlayerApi.fetch_account()
+
+
+func _ensure_identity() -> bool:
+	var session:=PlayerApi.token()
+	var server:=ServerAddress.current().sha256_text()
+	if not session.is_empty() and session==_identity_session and server==_identity_server and not _authenticated_player_id.is_empty(): return true
+	_authenticated_player_id=""
+	if session.is_empty():
+		toast_requested.emit("请先登录后再进入秘境",false)
+		return false
+	# Account metadata and token are saved separately by the existing login code.
+	# Never trust cached player_account.json to authorize another account's ledger.
+	var result:=await _fetch_identity()
+	if session!=PlayerApi.token() or server!=ServerAddress.current().sha256_text(): return false
+	if int(result.get("code",0))!=200 or not result.get("playerId") is String or str(result.playerId).is_empty():
+		toast_requested.emit("无法确认当前账号，请联网后重试；未决行走记录已保留",false)
+		return false
+	_identity_session=session;_identity_server=server;_authenticated_player_id=str(result.playerId)
+	return true
+
+
+func _identity(map: String) -> Dictionary:
+	var prefix := "/api/v1/me/fog/%s/" % map.uri_encode()
+	return {"server":ServerAddress.current().sha256_text(),"playerId":_authenticated_player_id if _identity_session==PlayerApi.token() and _identity_server==ServerAddress.current().sha256_text() else "","mapId":map,"movePath":prefix+"move","reconcilePath":prefix+"reconcile"}
+
+
+func _same_account(identity: Dictionary) -> bool:
+	var current:=_identity(str(identity.get("mapId",_map_id)))
+	return not str(current.playerId).is_empty() and identity.get("server")==current.server and identity.get("playerId")==current.playerId
+
+
+func _restore_pending() -> bool:
+	if not await _ensure_identity(): return false
+	var current:=_identity(_map_id)
+	if str(current.playerId).is_empty():
+		toast_requested.emit("账号身份未确认，请联网重新登录后再进入秘境",false)
+		return false
+	var journal:=pending_store.read_all()
+	if not bool(journal.get("ok",false)):
+		toast_requested.emit(pending_store.error,false)
+		return false
+	for record in journal.slots.values():
+		if record.pending and record.identity.playerId==current.playerId and record.identity.server!=current.server:
+			toast_requested.emit("另一服务器地址仍有未决行走，请返回原地址确认后再继续",false)
+			return false # Addresses may alias the same backend; never guess independence.
+	# Failed clearing can be visible but not durable. Validate, reconfirm, rewrite.
+	if not _pending_step.is_empty() and _same_account(_step_identity):
+		var record: Dictionary=journal.slots.get(pending_store.key(_step_identity),{})
+		if record.get("body")!=JSON.parse_string(JSON.stringify(_pending_step)) or record.get("identity")!=_step_identity:
+			toast_requested.emit("行走记录已变化，已锁定移动，请保留存档联系维护",false)
+			return false
+		_step_token=PlayerApi.token()
+		if not await _reconcile_pending(): return false
+		journal=pending_store.read_all()
+		if not bool(journal.get("ok",false)): return false
+	# Switching accounts never deletes a previous account's durable unresolved slot.
+	_pending_step={}
+	for record in journal.slots.values():
+		if record.pending and _same_account(record.identity):
+			_step_identity=record.identity.duplicate(true)
+			_pending_step=record.body.duplicate(true)
+			_step_token=PlayerApi.token()
+			if not await _reconcile_pending(): return false
+	return true
+
+
+func prepare_open() -> bool:
+	while _busy: await busy_changed
+	while _runner_running: await route_idle
+	_runner_running=true
+	var ok:=await _restore_pending()
+	_runner_running=false
+	route_idle.emit()
+	return ok
+
+
 func _on_cell(x: int, y: int) -> void:
-	if _busy:
+	if _busy or not is_visible_in_tree(): return
+	var target := Vector2i(x,y)
+	if target == _route_target: return
+	stop_route()
+	if str(_view.get("protocol","")) != "fog-step-v1":
+		toast_requested.emit("自动行走需要新版服务端，请更新后再试",false)
 		return
-	var pos: Dictionary = _view.get("pos", {}) if typeof(_view.get("pos", {})) == TYPE_DICTIONARY else {}
-	var px := int(pos.get("x", 0))
-	var py := int(pos.get("y", 0))
-	for obj in _view.get("objects", []):
-		if typeof(obj) != TYPE_DICTIONARY:
-			continue
-		var o := obj as Dictionary
-		if int(o.get("x", -1)) != x or int(o.get("y", -1)) != y:
-			continue
-		if not FogMapView.is_revealed(_view, x, y):
-			continue
-		var kind := str(o.get("kind", ""))
-		var manh: int = absi(x - px) + absi(y - py)
-		if manh > 1:
-			toast_requested.emit("先走到旁边", false)
-			return
-		if kind == "exit" or str(o.get("id", "")) == "m_guard" or bool(o.get("isExit", false)):
-			if bool(o.get("passed", o.get("defeated", false))):
-				toast_requested.emit("已找到出口，谷口已通过", true)
-				return
-			if not bool(_view.get("explore_full", false)):
-				toast_requested.emit("还要再探索一下才能走这个出口", false)
-				# 门前可站立拨雾，不能战斗；否则岩石后的(4,0)永远无法揭开。
-				if manh == 1 and int(_view.get("travel", 0)) > 0 and not FogMapView.is_blocked(_view, x, y):
-					_do_move(x, y)
-				return
-			_confirm_obj = o
-			_confirm_label.text = "探索已满，挑战出口「谷口护卫」？获胜即可通过。"
-			_confirm.visible = true
-			return
-		if kind == "monster" and not bool(o.get("defeated", false)):
-			_confirm_obj = o
-			_confirm_label.text = "遭遇「%s」，确认进入异空间开战？" % str(o.get("name", "怪"))
-			_confirm.visible = true
-			return
-		if kind == "chest" and not bool(o.get("opened", false)):
-			_do_interact(str(o.get("id", "")))
-			return
-		if kind == "event" and not bool(o.get("done", false)):
-			_show_event(o)
-			return
-	if abs(x - px) + abs(y - py) != 1:
+	var snapshot: Array = _view.get("revealed",[]).duplicate(true)
+	var plan := FogRoute.plan(_view,target,snapshot)
+	if not bool(plan.get("ok",false)):
+		toast_requested.emit(str(plan.get("error","目标不可达")),false)
 		return
-	if FogMapView.is_blocked(_view, x, y):
-		toast_requested.emit("此路不通", false)
+	_route_target = target
+	_route_snapshot = snapshot
+	_run_route()
+
+
+func _request_fog(path: String, body: Dictionary) -> Dictionary:
+	if transport.is_valid(): return await transport.call(path,body)
+	if not body.has("stepId"): return await PlayerApi.post_action(path,body)
+	return await ApiClient.request_json(HTTPClient.METHOD_POST,path,body,PlayerApi.token(),str(body.get("stepId","")))
+
+
+func _accept_terminal(result: Dictionary) -> bool:
+	if not pending_store.finish(_step_identity,_pending_step,result):
+		# A disk failure cannot undo a confirmed move. Show authority, but retain
+		# pending and freeze: only durable terminal reconciliation releases it.
+		if pending_store.valid_terminal(_step_identity,_pending_step,result):
+			bind_fog(result)
+			var prefix := "上一步已落地，" if result.step.status=="committed" else "上一步状态已确认，"
+			toast_requested.emit(prefix+"记录保存失败，不能继续；"+pending_store.error,false)
+		else:
+			toast_requested.emit(pending_store.error,false)
+		return false
+	bind_fog(result)
+	_pending_step={}
+	return true
+
+
+func _reconcile_pending() -> bool:
+	if _step_token!=PlayerApi.token() or not _same_account(_step_identity):
+		stop_route()
+		return false
+	var result:=await _request_fog(str(_step_identity.reconcilePath),_pending_step.duplicate(true))
+	if _step_token!=PlayerApi.token() or not _same_account(_step_identity): return false
+	if not _is_terminal(result):
+		toast_requested.emit("上一步状态未确认，请联网后重试，暂不能继续行走",false)
+		return false
+	return _accept_terminal(result)
+
+
+func _is_terminal(result: Dictionary) -> bool:
+	var step: Dictionary = result.get("step",{})
+	var fog: Dictionary = result.get("fog",{})
+	return int(result.get("code",0)) == 200 and str(fog.get("protocol","")) == "fog-step-v1" and str(step.get("id","")) == str(_pending_step.get("stepId","")) and str(step.get("status","")) in ["committed","cancelled","rejected"]
+
+
+func _run_route() -> void:
+	if _runner_running: return
+	_runner_running = true
+	await _walk_route()
+	_runner_running = false
+	route_idle.emit()
+
+
+func _walk_route() -> void:
+	if not await _restore_pending():
+		stop_route()
 		return
-	if int(_view.get("travel", 0)) <= 0:
-		_empty_banner.visible = true
-		toast_requested.emit("游历点已用尽，明日再来", false)
+	while _route_target != Vector2i(-1,-1) and is_visible_in_tree():
+		var epoch := _route_epoch
+		var plan := FogRoute.plan(_view,_route_target,_route_snapshot)
+		if not bool(plan.get("ok",false)):
+			toast_requested.emit(str(plan.get("error","目标不可达")),false)
+			stop_route()
+			return
+		var path: Array = plan.get("path",[])
+		if path.is_empty():
+			var obj: Dictionary = plan.get("object",{})
+			_route_target = Vector2i(-1,-1)
+			if not obj.is_empty() and epoch == _route_epoch: _prompt_object(obj,epoch)
+			return
+		if int(_view.get("travel",0)) <= 0:
+			toast_requested.emit("游历点已用尽，明日再来",false)
+			stop_route()
+			return
+		var next: Vector2i = path[0]
+		var from: Dictionary = _view.get("pos",{}).duplicate(true)
+		_pending_step = {"protocol":"fog-step-v1","stepId":"fog-"+Crypto.new().generate_random_bytes(24).hex_encode(),"expectedRevision":str(_view.get("revision","")),"expectedFrom":from,"x":next.x,"y":next.y}
+		_step_token = PlayerApi.token()
+		_step_identity=_identity(_map_id)
+		if not pending_store.begin(_step_identity,_pending_step):
+			_pending_step={} # This new body was never dispatched; durable older slots remain.
+			stop_route()
+			toast_requested.emit(pending_store.error,false)
+			return
+		var result := await _request_fog(str(_step_identity.movePath),_pending_step.duplicate(true))
+		if _step_token != PlayerApi.token() or not _same_account(_step_identity):
+			stop_route()
+			return
+		if not _is_terminal(result):
+			stop_route()
+			toast_requested.emit("网络中断，上一步可能已落地；再次选择前须确认状态",false)
+			return
+		var status := str(result.get("step",{}).get("status",""))
+		var actual: Dictionary = result.get("fog",{}).get("pos",{})
+		var old_marker := _player_marker.position
+		if not _accept_terminal(result):
+			stop_route()
+			return # No further request until terminal+authority are durably recorded.
+		if status != "committed" or int(actual.get("x",-1)) != next.x or int(actual.get("y",-1)) != next.y:
+			stop_route()
+			toast_requested.emit(str(result.get("step",{}).get("error","位置已变化，请重新选择目标")),false)
+			return
+		if not is_visible_in_tree(): return
+		_player_marker.position = old_marker
+		_start_walk_anim(next.x-int(from.get("x",0)),next.y-int(from.get("y",0)))
+		_walk_tween = create_tween()
+		_walk_tween.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		_walk_tween.tween_property(_player_marker,"position",Vector2(next.x*CELL+CELL*0.08,next.y*CELL+CELL*0.02),WALK_SEC)
+		await _walk_tween.finished
+		_stop_walk_anim()
+		if epoch == _route_epoch:
+			for remaining in path.slice(1):
+				if not FogRoute.passable(_view, remaining, _route_target):
+					stop_route()
+					toast_requested.emit("前方物件阻路，已停下，请确认后再走",false)
+					return
+		# Re-plan only inside the latest intent's original snapshot, never new fog.
+
+
+func _prompt_object(obj: Dictionary, epoch: int) -> void:
+	if epoch != _route_epoch or not is_visible_in_tree(): return
+	var kind := str(obj.get("kind",""))
+	if kind == "event":
+		_show_event(obj)
 		return
-	_do_move(x, y)
+	_confirm_obj = obj
+	_confirm_epoch = epoch
+	_confirm_action.text = "开箱" if kind == "chest" else "开战"
+	_confirm_label.text = "打开这个宝箱？" if kind == "chest" else ("探索已满，挑战出口「谷口护卫」？" if kind == "exit" else "遭遇「%s」，确认进入异空间开战？" % str(obj.get("name","妖物")))
+	_confirm.show()
 
 
 func _on_confirm_fight() -> void:
-	_confirm.visible = false
-	if _confirm_obj.is_empty():
-		return
-	var id := str(_confirm_obj.get("id", ""))
+	_confirm.hide()
+	if _confirm_obj.is_empty() or _confirm_epoch != _route_epoch or not is_visible_in_tree() or _busy: return
+	var obj := _confirm_obj
 	_confirm_obj = {}
-	_do_battle(id)
+	if str(obj.get("kind","")) == "chest": _do_interact(str(obj.get("id","")))
+	else: _do_battle(str(obj.get("id","")))
 
 
 func _show_event(o: Dictionary) -> void:
+	var epoch := _route_epoch
 	for c in _event_panel.get_children():
 		c.queue_free()
 	var v := VBoxContainer.new()
@@ -690,9 +905,10 @@ func _show_event(o: Dictionary) -> void:
 		var oid := str(od.get("id", ""))
 		var effect := str(od.get("effect", "none"))
 		b.pressed.connect(func() -> void:
+			if epoch != _route_epoch or not is_visible_in_tree() or _busy: return
 			_event_panel.visible = false
 			if effect == "battle" or oid == "A":
-				if await _do_interact(str(o.get("id", "")), oid):
+				if await _do_interact(str(o.get("id", "")), oid) and epoch == _route_epoch and is_visible_in_tree():
 					_do_battle(str(o.get("id", "")))
 			else:
 				_do_interact(str(o.get("id", "")), oid)
@@ -701,46 +917,19 @@ func _show_event(o: Dictionary) -> void:
 	_event_panel.visible = true
 
 
-func _do_move(x: int, y: int) -> void:
-	_set_busy(true)
-	var pos: Dictionary = _view.get("pos", {}) if typeof(_view.get("pos", {})) == TYPE_DICTIONARY else {}
-	var px := int(pos.get("x", 0))
-	var py := int(pos.get("y", 0))
-	var result: Dictionary = await PlayerApi.post_action("/api/v1/me/fog/%s/move" % _map_id.uri_encode(), {"x": x, "y": y})
-	if int(result.get("code", 0)) != 200:
-		_set_busy(false)
-		var msg: String = PlayerApi.error_message(result)
-		if msg.is_empty():
-			msg = "无法移动"
-		if "明日再来" in msg or str(result.get("error", "")) == "FOG_TRAVEL_EMPTY":
-			_empty_banner.visible = true
-		toast_requested.emit(msg, false)
-		return
-	# 落地走：抬脚循环 + 短 tween（禁止站姿平移）
-	_start_walk_anim(x - px, y - py)
-	var target := Vector2(x * CELL + CELL * 0.08, y * CELL + CELL * 0.02)
-	if _walk_tween:
-		_walk_tween.kill()
-	_walk_tween = create_tween()
-	_walk_tween.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	_walk_tween.tween_property(_player_marker, "position", target, WALK_SEC)
-	# 轻微垂直弹跳增强落脚感（非整图平移冒充）
-	var bounce := create_tween()
-	bounce.tween_property(_player_sprite, "position:y", CELL * 0.02 - 4.0, WALK_SEC * 0.45)
-	bounce.tween_property(_player_sprite, "position:y", CELL * 0.02, WALK_SEC * 0.55)
-	await _walk_tween.finished
-	_stop_walk_anim()
-	_set_busy(false)
-	bind_fog(result)
-
-
 func _do_interact(object_id: String, option_id: String = "") -> bool:
+	var session := PlayerApi.token()
+	var epoch := _route_epoch
 	_set_busy(true)
 	var body := {"objectId": object_id}
 	if not option_id.is_empty():
 		body["optionId"] = option_id
-	var result: Dictionary = await PlayerApi.post_action("/api/v1/me/fog/%s/interact" % _map_id.uri_encode(), body)
+	var result: Dictionary = await _request_fog("/api/v1/me/fog/%s/interact" % _map_id.uri_encode(), body)
 	_set_busy(false)
+	if session != PlayerApi.token(): return false
+	if epoch != _route_epoch or not is_visible_in_tree():
+		if result.has("fog"): bind_fog(result)
+		return false
 	if int(result.get("code", 0)) != 200:
 		toast_requested.emit(PlayerApi.error_message(result), false)
 		return false
@@ -758,14 +947,17 @@ func _do_interact(object_id: String, option_id: String = "") -> bool:
 	return true
 
 func _do_battle(object_id: String) -> void:
+	var session := PlayerApi.token()
+	var epoch := _route_epoch
 	for obj in _view.get("objects", []):
 		if str(obj.get("id", "")) == object_id and (object_id == "m_guard" or str(obj.get("kind", "")) == "exit" or bool(obj.get("isExit", false))):
 			if not bool(_view.get("explore_full", false)):
 				toast_requested.emit("还要再探索一下才能走这个出口", false)
 				return
 	_set_busy(true)
-	var result: Dictionary = await PlayerApi.post_action("/api/v1/me/combat/start", {"source": "fog", "mapId": _map_id, "objectId": object_id})
+	var result: Dictionary = await _request_fog("/api/v1/me/combat/start", {"source": "fog", "mapId": _map_id, "objectId": object_id})
 	_set_busy(false)
+	if session != PlayerApi.token() or epoch != _route_epoch or not is_visible_in_tree(): return
 	if int(result.get("code", 0)) != 200:
 		toast_requested.emit(PlayerApi.error_message(result), false)
 		return

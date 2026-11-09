@@ -751,7 +751,14 @@ func _request_fog(path: String, body: Dictionary) -> Dictionary:
 
 func _accept_terminal(result: Dictionary) -> bool:
 	if not pending_store.finish(_step_identity,_pending_step,result):
-		toast_requested.emit(pending_store.error,false)
+		# A disk failure cannot undo a confirmed move. Show authority, but retain
+		# pending and freeze: only durable terminal reconciliation releases it.
+		if pending_store.valid_terminal(_step_identity,_pending_step,result):
+			bind_fog(result)
+			var prefix := "上一步已落地，" if result.step.status=="committed" else "上一步状态已确认，"
+			toast_requested.emit(prefix+"记录保存失败，不能继续；"+pending_store.error,false)
+		else:
+			toast_requested.emit(pending_store.error,false)
 		return false
 	bind_fog(result)
 	_pending_step={}

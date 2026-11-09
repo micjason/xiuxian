@@ -28,10 +28,25 @@ func _sync(file_path: String) -> bool:
 				parent=parent.get_base_dir();paths.append(parent)
 		return FileAccess.file_exists(executable) and OS.execute(executable,paths,output,true)==0
 	if OS.get_name()=="Android":
-		var paths:=PackedStringArray(["fsync",file_path])
-		if DirAccess.dir_exists_absolute(file_path): paths.append(file_path.get_base_dir())
-		return FileAccess.file_exists("/system/bin/toybox") and OS.execute("/system/bin/toybox",paths,output,true)==0
+		# Built-in Godot JNI + public Android API21, not an optional vendor applet.
+		if not Engine.has_singleton("JavaClassWrapper"): return false
+		var bridge:=Engine.get_singleton("JavaClassWrapper")
+		if not _android_fsync(file_path,bridge): return false
+		return not DirAccess.dir_exists_absolute(file_path) or _android_fsync(file_path.get_base_dir(),bridge)
 	return false # Unsupported platforms must not silently fall back to fflush.
+
+func _android_fsync(file_path: String, bridge: Object) -> bool:
+	var os_class: Variant=bridge.call("wrap","android.system.Os")
+	if bridge.call("get_exception")!=null or os_class==null: return false
+	# Android O_RDONLY is 0. open supports both regular files and directories.
+	var descriptor: Variant=os_class.call("open",file_path,0,0)
+	if bridge.call("get_exception")!=null or descriptor==null: return false
+	os_class.call("fsync",descriptor)
+	# Capture BEFORE close: a successful JNI close replaces the last exception.
+	var synced: bool=bridge.call("get_exception")==null
+	os_class.call("close",descriptor)
+	var closed: bool=bridge.call("get_exception")==null
+	return synced and closed
 
 func _valid_identity(identity: Variant) -> bool:
 	if not identity is Dictionary: return false
@@ -124,6 +139,11 @@ func begin(identity: Dictionary, body: Dictionary) -> bool:
 	journal.slots[key(identity)]={"identity":identity.duplicate(true),"body":body.duplicate(true),"pending":true}
 	return _write(journal.slots)
 
+func valid_terminal(identity: Dictionary, body: Dictionary, result: Dictionary) -> bool:
+	var fog: Variant=result.get("fog")
+	var step: Variant=result.get("step")
+	return _valid_fog(fog) and step is Dictionary and fog.get("mapId")==identity.get("mapId") and step.get("id")==body.get("stepId") and step.get("status") in ["committed","cancelled","rejected"]
+
 func finish(identity: Dictionary, body: Dictionary, result: Dictionary) -> bool:
 	var journal:=read_all()
 	if not bool(journal.get("ok",false)): return false
@@ -133,7 +153,7 @@ func finish(identity: Dictionary, body: Dictionary, result: Dictionary) -> bool:
 		_fail("行走记录已变化，已停止移动");return false
 	var fog: Dictionary=result.get("fog",{})
 	var step: Dictionary=result.get("step",{})
-	if not _valid_fog(fog) or fog.get("mapId")!=identity.mapId or fog.get("protocol")!="fog-step-v1" or step.get("id")!=body.stepId or not step.get("status") in ["committed","cancelled","rejected"]:
+	if not valid_terminal(identity,body,result):
 		_fail("服务端行走终态不完整，已停止移动");return false
 	# One durable transition retains both the original body and current authority.
 	record.pending=false;record.terminal={"fog":fog.duplicate(true),"step":step.duplicate(true)}

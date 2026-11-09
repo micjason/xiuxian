@@ -2,8 +2,8 @@
 
 ## 边界
 - 基于 `origin/dev2@2c6f24ac`（含#69 `49187b6d`），独立 `/workspace/xiuxian-ui-fog-autowalk`，分支 `proto/fog-known-autowalk`。
-- 本地提交而已：未push、未合入、未部署、未打APK、未改latest/tip/版本；没有CloudAgent或任何对外消息。
-- 主仓当前分支和旧697改动工作树未动。本次修复只使用私有PG55439的独占`xiuxian_fog_restart_test`；但此前513次全量命令误用了`npm test`，脚本覆盖DSN并连接共享5432测试库，见下面事故更正，撤回“从未连接共享5432”的旧说法。
+- 本地提交而已：未push、未合入、未部署、未打正式APK、未改latest/tip/正式版本；Android专项仅在盒子构建/安装本地验证样包；没有CloudAgent或任何对外消息。
+- 主仓当前分支和旧697改动工作树未动。PC修复使用私有PG55439的独占`xiuxian_fog_restart_test`，Android专项另用该端口独占`xiuxian_fog_android_test`，每轮保存并断言身份预查；但此前513次全量命令误用了`npm test`，脚本覆盖DSN并连接共享5432测试库，见下面事故更正，撤回“从未连接共享5432”的旧说法。
 
 ## 协议与兼容
 - 新GET fog增加 `protocol: fog-step-v1` 和64位状态摘要 `revision`。该摘要是当前DTO的ETag，不是单调计数；持久化原stepId并完成终态对账才是本客户端重启取消保证；不是跨设备全局取消栅栏。
@@ -98,7 +98,7 @@ HOME=/workspace/.deploy/fog-autowalk/godot-home XIUXIAN_API_BASE=http://127.0.0.
 ### 最小实现范围
 - 新`FogPendingStore`只保存fog步骤，不保存路线、token或密码：服务端地址摘要、经当前session验证的playerId、地图、原始body/stepId/protocol、move/reconcile路径；每账号地图保留独立槽。
 - 原登录的token/account是两个独立文件，不能信任旧缓存playerId。每新页面/进程或token/地址变化，先GET `/me/account`核实实际actor，才读该账号未决槽；网络失败冻结。A→B不拿B token对账A；回A再对账，不丢A槽。
-- 写临时文件、flush、**文件fsync**、同目录原子rename、**目录fsync**、字节读回校验全部成功后才发move。Linux用GNU sync的文件参数（不作全机sync）；目录链同步到HOME。Android用系统toybox fsync并同步应用目录父项。没有持久化能力/返回非零即停止，不以flush冒充fsync。
+- 写临时文件、flush、**文件fsync**、同目录原子rename、**目录fsync**、字节读回校验全部成功后才发move。Linux用GNU sync的文件参数（不作全机sync）；目录链同步到HOME。Android旧toybox方案已在min24实测失败；现改内置JavaClassWrapper调用公开android.system.Os.open/fsync/close，同步应用目录父项，逐次检查异常；详见Android专项报告。没有持久化能力/返回非零即停止，不以flush冒充fsync。
 - 收到合法终态且完整当前权威fog后，将终态+权威状态与pending=false一次原子写盘成功，才释放内存pending。清理失败不继续；即使rename后文件“看似已清理”、目录fsync失败，也必须重新同stepId对账并可靠写盘。
 - 损坏JSON/校验和/身份路径异常/只有半写tmp，都冻结保留，不当成无pending。首次写盘失败留下孤立tmp可能需维护处理，不自动删除猜测。暂存记录不构成自动续路。
 - 地址别名可能对应同一后台：同一已验证playerId在另一个地址还有未决槽时，明确冻结，要求回原地址对账，绝不跨地址发送原body/凭据。
@@ -154,7 +154,7 @@ DATABASE_URL=postgres://box@127.0.0.1:55439/xiuxian_fog_restart_test FOG_RESTART
 - 本次修复所有数据库测试均direct vitest，只用新建独占55439/xiuxian_fog_restart_test；完整日志首行current_database/port核验。**不要再运行npm test脚本**。负责人需知悉这次越界事故。
 
 ### 新遗留边界
-- Android的toybox fsync调用未做真机实测，未知/不支持平台（含未实现的Windows/macOS）明确停走；不是静默退化到不可靠flush。上线前需负责人确认目标Android可用与耗时。
+- Android改公开Os原生同步，真实官方Android24软件模拟器普通应用UID已验证文件/目录同步与正常8步，重启/断网结果及无渲染验证限制见[Android专项报告](fog-autowalk-android-validation-2026-11-10.md)。不是ARM真机/正式产品包/硬件断电验收；Windows/macOS仍未实现，不静默退化到flush。
 - PC SIGKILL+文件恢复+本地监听关闭是真实进程/网络测试，但不是物理断电、磁盘损毁或安卓触摸实测。文件fsync不能超越硬件谎报写入成功的故障。
 - revision仍非单调；跨设备接管/另一设备遗留请求没有共享本地journal，未获得本轮“同一存档重启”取消保证，未宣称全局跨设备ABA栅栏。
 - 同一user://并行多个活进程写同journal、删除应用数据/卸载不在本轮保证范围；本轮验证的是旧进程已死后再重启。坏档/孤立tmp会冻结，需维护处理，不自动清档。
@@ -162,3 +162,13 @@ DATABASE_URL=postgres://box@127.0.0.1:55439/xiuxian_fog_restart_test FOG_RESTART
 
 ## 独立事故记录（00:15要求，文档整理未跑DB）
 详见[具体事故记录](fog-autowalk-test-db-incident-2026-11-09.md)与`/workspace/.deploy/fog-autowalk/incident/evidence-index.json`：真实命令、毫秒窗口、4个直接TRUNCATE语句表名、23个CASCADE目标、动态public清理范围、直接证据/推断边界及未知影响。旧20条与旧513非隔离证明。最新517确有当次预先psql SELECT首行（不是Vitest同一连接）；后续每轮必须先保存并断言库名端口后direct vitest，严禁npm test。所有原日志及历史外部报告不修改，旁置更正文件。
+
+## Android/HUD后续修复（11/10约01:00 北京时间 UTC+8）
+
+详见[Android专项报告](fog-autowalk-android-validation-2026-11-10.md)。当前针对性GUT为53/53、215断言，8孤儿及既有退出资源泄漏警告保留；前述48/48与517是7cde历史口径，未伪称本轮重跑全量。终态保存失败时展示合法服务端权威位置/余额，但保留pending冻结并明确提示已落地不能继续。原事故影响仍未知；所有原事故日志保留。
+
+负责人对7cde的独立PC最终复验只读引用：`/workspace/.deploy/fog_autowalk_owner_verify/final-7cde4b5e/REPORT.md`（SIGKILL27项、午夜锁6项、517/GUT48、正常server自然账号79/79）。不是本轮新跑，不覆盖Android样包/平台限制，也不抵消事故。
+
+Android实跑补充：min24 UID10062普通8步200→192；v2真实SIGKILL3120→3178，迟到旧POST cancelled/200零落步；v4已commit199后丢应答、SIGKILL2609，无API监听重启2668冻结，恢复后2723只reconcile终态committed/199，唯一账本1行、0新move。v4用同UID启动Android headless模式以绕过虚拟GPU；不得包装成渲染/真机验收。细节、失败尝试、官方样包差异见专项报告。
+
+最终提交前：标准导入后 `android-validation/gut-native-precommit-imported.log` 53/53、215断言、exit0。还原生成元数据后直接跑的52/53缺两张ctex入口engine错误日志保留，详见Android专项报告；未屏蔽失败或改无关资源。

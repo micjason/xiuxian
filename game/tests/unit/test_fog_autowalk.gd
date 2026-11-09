@@ -337,3 +337,18 @@ func test_corrupt_temporary_write_does_not_replace_another_accounts_pending_chec
 	page.call("_on_cell",1,1);await wait_done(0.2)
 	assert_eq(calls.size(),1,"corrupt write must not dispatch B's move")
 	assert_eq(FileAccess.get_file_as_bytes(journal_path),original,"preserve A's unresolved checkpoint before atomic replace")
+
+func test_committed_terminal_save_failure_updates_authority_hud_but_keeps_pending_frozen() -> void:
+	var messages: Array=[]
+	page.toast_requested.connect(func(message: String,_success: bool): messages.append(message))
+	fail_terminal_save=true
+	page.call("_on_cell",4,1);await wait_done(0.3)
+	assert_eq(calls.size(),1)
+	assert_eq(page.get("_view").get("pos"),{"x":1,"y":1},"confirmed server position must be visible even if journal clear fails")
+	assert_eq(page.get("_hud_travel").text,"19/200","show already-deducted authoritative balance")
+	assert_false(page.get("_pending_step").is_empty(),"displaying authority must not release unresolved durable checkpoint")
+	assert_true(str(messages).contains("已落地"))
+	assert_true(str(messages).contains("不能继续"))
+	page.call("_on_cell",0,1);await wait_done(0.3)
+	assert_eq(calls.size(),2);assert_true(calls[1].path.ends_with("reconcile"))
+	assert_eq(state.travelPoints,19)

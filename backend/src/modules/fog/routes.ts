@@ -1,3 +1,4 @@
+import { fogStep } from "./steps.js";
 import type { FastifyInstance } from "fastify";
 import { AppError } from "../../shared/errors.js";
 import type { Db } from "../operations/record.js";
@@ -41,10 +42,16 @@ export async function registerFogRoutes(app: FastifyInstance, deps: { db: Db; no
     const playerId = request.actor!.actorId;
     const mapId = (request.params as { mapId: string }).mapId;
     const body = (request.body ?? {}) as { x?: unknown; y?: unknown; r?: unknown; c?: unknown };
+    if ("protocol" in body) return fogStep(deps.db, playerId, mapId, body, deps.now());
     const pos = xyBody(body);
     return withIdempotency(deps.db, playerId, idempotencyKey(request.headers["idempotency-key"]), "fog-move", deps.now(), (tx, world) =>
       moveFog(tx, world, playerId, mapId, pos, deps.now()),
     );
+  });
+
+  app.post("/me/fog/:mapId/reconcile", async (request) => {
+    const mapId = (request.params as { mapId: string }).mapId;
+    return fogStep(deps.db, request.actor!.actorId, mapId, request.body, deps.now(), true);
   });
 
   app.post("/me/fog/:mapId/interact", async (request) => {

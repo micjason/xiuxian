@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { requireNoCombat } from "../combat/journal-guard.js";
 import {
   runtimeConfigOf,
@@ -67,6 +68,8 @@ export type FogObjectDto = {
 };
 
 export type FogStateDto = {
+  protocol: "fog-step-v1";
+  revision: string;
   mapId: string;
   displayName: string;
   rows: number;
@@ -278,13 +281,13 @@ function toDto(
       })),
     };
   });
-  return {
+  const dto = {
     mapId: map.id,
     displayName: map.displayName,
     rows: map.rows,
     cols: map.cols,
     pos: { x: run.posX, y: run.posY },
-    revealed: [...run.revealed],
+    revealed: [...run.revealed].sort(),
     blocks: map.blocks.map((b) => ({ x: b.x, y: b.y })),
     objects,
     travelPoints: run.travelPoints,
@@ -292,6 +295,11 @@ function toDto(
     travelDay: run.travelDay,
     collect: collectOf(map, run.objects),
     ...explorationOf(map, run.revealed),
+  };
+  return {
+    ...dto,
+    protocol: "fog-step-v1",
+    revision: createHash("sha256").update(JSON.stringify(dto)).digest("hex"),
   };
 }
 
@@ -402,6 +410,8 @@ async function playerFighter(tx: Tx, world: World, playerId: string) {
 }
 
 export async function readFogState(tx: Tx, world: World, playerId: string, mapId: string | undefined, now: Date) {
+  // GET may initialize/refill/upgrade a run: serialize it with move/interact.
+  await tx.select({ playerId: playerStates.playerId }).from(playerStates).where(eq(playerStates.playerId, playerId)).for("update");
   const config = fogOf(world);
   const id = mapId && mapId.length > 0 ? mapId : config.defaultMapId;
   let map: FogMapConfig;

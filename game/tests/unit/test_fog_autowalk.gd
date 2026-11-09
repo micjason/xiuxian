@@ -151,3 +151,22 @@ func test_monster_and_event_targets_only_prompt_after_arrival_never_auto_interac
 		assert_eq(state.pos,{"x":2,"y":1})
 		if kind=="monster": assert_true(page.get("_confirm").visible)
 		else: assert_true(page.get("_event_panel").visible)
+
+func mark_prepared(flag: Dictionary) -> void:
+	await page.call("prepare_open")
+	flag.done=true
+signal interaction_release
+func held_interaction_response(_path: String,_body: Dictionary) -> Dictionary:
+	calls.append({"path":"interact"})
+	await interaction_release
+	return {"code":200,"fog":state.duplicate(true)}
+func test_reentry_waits_for_explicit_interaction_before_loading_state() -> void:
+	page.set("transport",Callable(self,"held_interaction_response"))
+	page.call("_do_interact","c_test")
+	page.hide()
+	var flag := {"done":false}
+	mark_prepared(flag)
+	assert_false(flag.done,"entrance GET must not race outstanding interaction")
+	interaction_release.emit()
+	await get_tree().process_frame
+	assert_true(flag.done)

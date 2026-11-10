@@ -1,5 +1,14 @@
 # dev2 上线（成鹏的云服务器 101.132.74.32）
 
+## dev 和 dev2 怎么分工
+
+两边对齐时代码相同。区别在怎么运行，不要改成两套源码。
+
+- `dev`：本机开发。Godot 工程里的服务器地址保持 `http://127.0.0.1:8080`。后端读本机 `backend/.env`，数据库用本机 Docker 的 Postgres。后台用本地网页。不要在这条分支上跑 `tools/deploy/deploy.sh` 或 `tools/deploy/release_apk.sh`。
+- `dev2`：验证通过之后发安装包。`tools/deploy/release_apk.sh` 只在构建副本里把地址改成 `http://101.132.74.32:8090`，包名是 `com.micjason.xiuxian.dev2`。不要把这个地址写回仓库里的 `game/project.godot`，本机 Godot 也不要拿它连线上服务器。
+
+日常：在 `dev` 上改完并在本机验证，再合并进 `dev2`，然后发安装包。
+
 ## 现在线上有什么
 
 | 用途 | 地址 |

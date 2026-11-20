@@ -65,6 +65,13 @@ export const navTree: NavGroup[] = [
       { path: "/config/enhance", label: "装备强化", desc: "强化经验、等级上限、属性加成、突破节点、分解返还", keywords: "强化 经验 分解 上限 品质 成长 突破 材料" },
       { path: "/config/combat", label: "战斗公式与参数", desc: "伤害、出手、战力权重、行囊与离线参数、试炼模拟", keywords: "规则 公式 k 权重 人偶 战力 模拟 冷却" },
       {
+        path: "/config/animation",
+        label: "战斗动画",
+        desc: "上传角色视频或序列帧，指定动作，调预览参数，保存后立刻成为当前动画",
+        keywords: "动画 序列帧 抽帧 预览 待机 普攻 技能 剑气",
+        isNew: true,
+      },
+      {
         path: "/config/dongfu",
         label: "洞府",
         desc: "药园、炼丹、灵仆分配与设施升级（globals.dongfu）",

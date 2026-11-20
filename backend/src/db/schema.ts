@@ -853,7 +853,15 @@ export const playerActiveBuffs = pgTable(
   (table) => [index("player_active_buffs_player_idx").on(table.playerId)],
 );
 
-/** 迷雾秘境进度：位置、已开雾、箱/怪状态、游历点日限。 */
+/** 迷雾秘境进度：位置、已开雾、箱/怪状态、游历点日限。当前动画包单独一张表，开发阶段一份即生效。 */
+export const animationPacks = pgTable("animation_packs", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  subject: text("subject").notNull(),
+  manifest: jsonb("manifest").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const playerFogRuns = pgTable(
   "player_fog_runs",
   {

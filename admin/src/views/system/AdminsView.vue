@@ -10,7 +10,7 @@
       </el-descriptions>
       <div class="foot">
         <el-button @click="router.push('/system/audit')">查看操作日志</el-button>
-        <el-button type="danger" plain @click="logout">退出登录</el-button>
+        <el-button type="danger" plain @click="logoutAccount">退出登录</el-button>
       </div>
     </section>
   </div>
@@ -18,15 +18,14 @@
 
 <script setup lang="ts">
 import { useRouter } from "vue-router";
-import { adminName, clearSession } from "../../api";
+import { adminName, logout } from "../../api";
 import PageHeader from "../../components/PageHeader.vue";
 
 const router = useRouter();
 const name = adminName();
 
-function logout(): void {
-  clearSession();
-  void router.push("/login");
+function logoutAccount(): void {
+  void logout().then(() => router.push("/login"));
 }
 </script>
 

@@ -9,7 +9,8 @@ import { initializeProgress } from "../loop/actions.js";
 import { parseCredentials } from "./credentials.js";
 
 const PLAYER_SESSION_MS = 30 * 24 * 60 * 60 * 1000;
-const ADMIN_SESSION_MS = 12 * 60 * 60 * 1000;
+/** 后台登录保持到主动退出。这个期限只避免过期清理把还在用的会话删掉。 */
+const ADMIN_SESSION_MS = 10 * 365 * 24 * 60 * 60 * 1000;
 const SEEN_INTERVAL_MS = 60 * 60 * 1000;
 const ADMIN_ROLES = ["owner", "designer", "viewer"] as const;
 

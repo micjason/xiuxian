@@ -85,7 +85,7 @@ describe("auth", () => {
     });
   });
 
-  it("expires an admin session after twelve hours and keeps a player session", async () => {
+  it("keeps an admin session until logout", async () => {
     await withDb(async (db) => {
       await insertStartingRealm(db);
       const player = await registerPlayer(db, { username: "long_player", password: "correct-horse", now });
@@ -95,8 +95,10 @@ describe("auth", () => {
       if (!admin.ok) {
         return;
       }
-      const later = new Date(now.getTime() + 13 * 60 * 60 * 1000);
-      expect(await readSession(db, player.token, later)).not.toBeNull();
+      const later = new Date(now.getTime() + 400 * 24 * 60 * 60 * 1000);
+      expect(await readSession(db, player.token, new Date(now.getTime() + 13 * 60 * 60 * 1000))).not.toBeNull();
+      expect(await readSession(db, admin.token, later)).not.toBeNull();
+      await revokeSession(db, admin.token, later);
       expect(await readSession(db, admin.token, later)).toBeNull();
       const [row] = await db.select().from(admins).where(eq(admins.username, "short_admin")).limit(1);
       expect(row?.role).toBe("designer");

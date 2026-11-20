@@ -46,6 +46,18 @@ export function clearSession(): void {
   removeSaved(nameKey);
 }
 
+export async function logout(): Promise<void> {
+  const token = getToken();
+  if (token) {
+    try {
+      await fetch("/admin/auth/logout", { method: "POST", headers: { authorization: `Bearer ${token}` } });
+    } catch {
+      // 网络失败也清掉本机登录，避免退不出去。
+    }
+  }
+  clearSession();
+}
+
 export class ApiError extends Error {
   constructor(
     message: string,

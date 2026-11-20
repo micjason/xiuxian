@@ -393,6 +393,13 @@
       "when": 1801500000000,
       "tag": "0075_fog_p0",
       "breakpoints": true
+    },
+    {
+      "idx": 66,
+      "version": "7",
+      "when": 1801600000000,
+      "tag": "0076_animation_packs",
+      "breakpoints": true
     }
   ]
 }

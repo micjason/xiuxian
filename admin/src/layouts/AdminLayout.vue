@@ -82,7 +82,7 @@ import { useRoute, useRouter } from "vue-router";
 import TabsBar from "../components/TabsBar.vue";
 import { tailFor } from "../composables/crumbs";
 import { cachedNames, openTab, refreshingPath } from "../composables/tabs";
-import { adminName, clearSession } from "../api";
+import { adminName, logout } from "../api";
 import GlobalSearch from "../components/GlobalSearch.vue";
 import ConflictDialog from "../components/ConflictDialog.vue";
 import { draft, refreshDraftStatus } from "../composables/draftStatus";
@@ -163,8 +163,7 @@ function onCommand(command: string): void {
   } else if (command === "settings") {
     void router.push("/system/settings");
   } else {
-    clearSession();
-    void router.push("/login");
+    void logout().then(() => router.push("/login"));
   }
 }
 

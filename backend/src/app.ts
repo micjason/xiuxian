@@ -20,6 +20,7 @@ import { registerGmRoutes } from "./modules/tools/gm.js";
 import { registerLoopRoutes } from "./modules/loop/routes.js";
 import { registerDongfuRoutes } from "./modules/dongfu/routes.js";
 import { registerAnimationRoutes } from "./modules/animation/routes.js";
+import { registerBattlePreviewRoutes } from "./modules/battle-preview/routes.js";
 import { registerFogRoutes } from "./modules/fog/routes.js";
 import { registerSimRoutes } from "./modules/sim/routes.js";
 import { registerStaticSite } from "./plugins/static-site.js";
@@ -96,6 +97,7 @@ export async function buildApp(
   await registerDongfuRoutes(app, deps);
   await registerFogRoutes(app, deps);
   await registerAnimationRoutes(app, deps);
+  await registerBattlePreviewRoutes(app, deps);
   await registerSimRoutes(app, deps);
   if (process.env.ENABLE_GM_TOOLS === "true") {
     await registerGmRoutes(app, deps);
@@ -115,6 +117,7 @@ export async function buildApp(
     await registerDongfuRoutes(scope, deps);
     await registerFogRoutes(scope, deps);
     await registerAnimationRoutes(scope, deps);
+    await registerBattlePreviewRoutes(scope, deps);
     await registerSimRoutes(scope, deps);
     if (process.env.ENABLE_GM_TOOLS === "true") {
       await registerGmRoutes(scope, deps);

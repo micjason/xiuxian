@@ -1,6 +1,6 @@
 import { onBeforeUnmount, onMounted, watch, type Ref } from "vue";
 import { useRoute } from "vue-router";
-import { dirtyPaths, registerPage, tabFor, unregisterPage } from "./tabs";
+import { dirtyPaths, registerPage, tabFor, unregisterPage, type LeaveChoice } from "./tabs";
 
 /**
  * 页面级未保存守卫。
@@ -8,10 +8,14 @@ import { dirtyPaths, registerPage, tabFor, unregisterPage } from "./tabs";
  * - 标签标题后显示金点；关闭标签时确认（可传 save 支持「保存并关闭」）；
  * - 刷新 / 关闭浏览器前提醒。
  */
-export function useDirtyGuard(dirty: Ref<boolean>, save?: () => Promise<boolean>): void {
+export function useDirtyGuard(
+  dirty: Ref<boolean>,
+  save?: () => Promise<boolean>,
+  confirmLeave?: () => Promise<LeaveChoice>,
+): void {
   const path = useRoute().path;
   const key = tabFor(path) ?? path;
-  registerPage(key, { dirty: () => dirty.value, save });
+  registerPage(key, { dirty: () => dirty.value, save, confirmLeave });
   watch(
     dirty,
     (value) => {

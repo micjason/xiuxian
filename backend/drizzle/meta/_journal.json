@@ -400,6 +400,13 @@
       "when": 1801600000000,
       "tag": "0076_animation_packs",
       "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "7",
+      "when": 1801700000000,
+      "tag": "0077_battle_preview_drafts",
+      "breakpoints": true
     }
   ]
 }

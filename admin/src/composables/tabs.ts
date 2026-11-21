@@ -15,7 +15,12 @@ export const HOME_PATH = "/dashboard";
 const MAX_TABS = 15;
 const STORAGE_KEY = "xx-admin-tabs";
 
-type PageHooks = { dirty: () => boolean; save?: () => Promise<boolean> };
+export type LeaveChoice = "save" | "discard" | "stay";
+type PageHooks = {
+  dirty: () => boolean;
+  save?: () => Promise<boolean>;
+  confirmLeave?: () => Promise<LeaveChoice>;
+};
 
 function restore(): Tab[] {
   try {
@@ -83,6 +88,12 @@ async function confirmClose(tab: Tab): Promise<boolean> {
   const page = hooks.get(tab.path);
   if (!dirtyPaths.has(tab.path) && !page?.dirty()) {
     return true;
+  }
+  if (page?.confirmLeave) {
+    const choice = await page.confirmLeave();
+    if (choice === "stay") return false;
+    if (choice === "discard") return true;
+    return page.save ? page.save() : false;
   }
   try {
     await ElMessageBox.confirm(`「${tab.title}」有未保存的改动`, "关闭标签", {

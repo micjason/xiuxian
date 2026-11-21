@@ -39,7 +39,6 @@ export default tseslint.config(
         requestAnimationFrame: "readonly",
         cancelAnimationFrame: "readonly",
         HTMLCanvasElement: "readonly",
-        HTMLElement: "readonly",
         HTMLImageElement: "readonly",
         CanvasRenderingContext2D: "readonly",
         Headers: "readonly",

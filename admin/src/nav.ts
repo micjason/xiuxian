@@ -67,8 +67,8 @@ export const navTree: NavGroup[] = [
       {
         path: "/config/animation",
         label: "战斗动画",
-        desc: "上传角色视频或序列帧，指定动作，调预览参数，保存后立刻成为当前动画",
-        keywords: "动画 序列帧 抽帧 预览 待机 普攻 技能 剑气",
+        desc: "整理战斗画面草稿并预演普通一击。只存在后台草稿里，不会改到线上",
+        keywords: "动画 序列帧 抽帧 预览 草稿 待机 出招 受击",
         isNew: true,
       },
       {

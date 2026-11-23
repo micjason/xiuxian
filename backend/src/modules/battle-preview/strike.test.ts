@@ -1,4 +1,4 @@
-import { emptyDocument, poseAt, resolveStrike, visibleActionFrames, type BattlePreviewDocument, type PreviewFrame } from "./strike.js";
+import { clientPlayback, emptyDocument, poseAt, resolveStrike, visibleActionFrames, type BattlePreviewDocument, type PreviewFrame } from "./strike.js";
 import { describe, expect, it } from "vitest";
 
 const clipId = "11111111-1111-4111-8111-111111111111";
@@ -78,5 +78,14 @@ describe("battle preview strike", () => {
     const doc = sample();
     doc.demoNumber = "演示";
     expect(resolveStrike(doc).numberText).toBe("演示");
+  });
+
+  it("gives the game the visible body frames and leaves hidden frames out", () => {
+    const playback = clientPlayback(sample());
+    expect(playback.actions.idle).toHaveLength(1);
+    expect(playback.actions.attack).toHaveLength(2);
+    expect(playback.actions.hit).toHaveLength(1);
+    expect(playback.actions.projectile).toEqual([]);
+    expect(clientPlayback(null).actions.attack).toEqual([]);
   });
 });

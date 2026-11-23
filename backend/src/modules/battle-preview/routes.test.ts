@@ -142,6 +142,12 @@ describe("battle preview draft routes", () => {
       expect(saved.json().draft.demoNumber).toBe("123");
       expect(saved.json().draft.clips[0].frames[0]).toMatchObject({ hidden: true, durationMs: 120, action: "attack" });
       expect(saved.json().draft.clips[0].frames[1]).toMatchObject({ hidden: false, durationMs: 90, action: "idle" });
+      const playback = await app.inject({ method: "GET", url: "/api/v1/battle-preview/playback" });
+      expect(playback.statusCode).toBe(200);
+      expect(playback.json().actions.idle).toEqual([{ clipId: clip.id, name: "01.png", durationMs: 90 }]);
+      expect(playback.json().actions.attack).toEqual([]);
+      const frame = await app.inject({ method: "GET", url: `/api/v1/battle-preview/frames/${clip.id}/01.png` });
+      expect(frame.statusCode).toBe(200);
 
       const again = await app.inject({ method: "GET", url: "/admin/battle-preview/draft", headers });
       expect(again.json().draft.clips[0].frames.map((frame: { name: string }) => frame.name)).toEqual(["00.png", "01.png"]);

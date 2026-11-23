@@ -10,7 +10,7 @@ import { keyedPng } from "../animation/frames.js";
 import { assertUploadSize } from "../animation/store.js";
 import { parseDocument, parseKeepIds } from "./document.js";
 import { assertClipFiles, clipDirectory, frameFile, pruneClipDirectories, readDraft, writeDraft } from "./store.js";
-import { DEFAULT_FRAME_MS, type PreviewClip, type PreviewFrame } from "./strike.js";
+import { clientPlayback, DEFAULT_FRAME_MS, type PreviewClip, type PreviewFrame } from "./strike.js";
 
 type Upload = { filename: string; bytes: Buffer };
 
@@ -18,6 +18,23 @@ export async function registerBattlePreviewRoutes(app: FastifyInstance, deps: { 
   app.get("/admin/battle-preview/draft", async () => {
     const row = await readDraft(deps.db);
     return { draft: row?.document ?? null, updatedAt: row?.updatedAt ?? null };
+  });
+
+  app.get("/battle-preview/playback", async () => {
+    const row = await readDraft(deps.db);
+    return clientPlayback(row?.document ?? null);
+  });
+
+  app.get("/battle-preview/frames/:clipId/:name", async (request, reply) => {
+    const { clipId, name } = request.params as { clipId: string; name: string };
+    const file = frameFile(clipId, name);
+    try {
+      await access(file);
+    } catch {
+      throw new AppError("NOT_FOUND", "这张帧不在");
+    }
+    reply.type("image/png");
+    return reply.send(createReadStream(file));
   });
 
   app.put("/admin/battle-preview/draft", async (request) => {

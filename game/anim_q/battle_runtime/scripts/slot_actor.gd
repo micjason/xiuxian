@@ -16,6 +16,12 @@ var hit_time := -1.0
 var skill_delay := 1.21
 var shown_slot := "idle"
 var _factor := 1.0
+var _draft := {}
+var _replace_body := false
+var _draft_body: Sprite2D
+var _draft_projectile: Sprite2D
+var _draft_impact: Sprite2D
+var _draft_error: Label
 
 func _ready() -> void:
 	# Fallback intro/reset can re-show its rigs. Suppress bodies after their update,
@@ -126,10 +132,19 @@ func _advance(delta: float) -> void:
 	action_time += delta
 	if hit_time >= 0.0:
 		hit_time += delta
-		blast.frame = mini(int(hit_time / 0.36 * 6), 5)
-		if hit_time >= 0.36:
+		var limit := _hit_limit()
+		if _draft_list("impact").is_empty():
+			blast.frame = mini(int(hit_time / 0.36 * 6), 5)
+			if _draft_impact != null:
+				_draft_impact.hide()
+		else:
+			blast.hide()
+			_show_draft_sprite(_draft_impact, _frame_at("impact", hit_time, false), 180.0, Vector2(0, -80))
+		if hit_time >= limit:
 			hit_time = -1.0
 			blast.hide()
+			if _draft_impact != null:
+				_draft_impact.hide()
 	var wanted := "idle"
 	match action:
 		"attack":
@@ -150,4 +165,158 @@ func _advance(delta: float) -> void:
 		var gap := arena.size.x * 0.5 / maxf(_factor, 0.01) if is_instance_valid(arena) else 540.0
 		sword.position = Vector2(65, -100).lerp(Vector2(gap - 15, -100), travel)
 		sword.frame = mini(int(progress * 7), 6)
+	_present_saved_body()
+	_present_saved_projectile()
 	_suppress_placeholders()
+
+
+func apply_saved_playback(payload: Dictionary, replace_body: bool) -> void:
+	_draft = payload
+	_replace_body = replace_body
+	_ensure_draft_nodes()
+
+
+func _ensure_draft_nodes() -> void:
+	if _draft_body == null:
+		_draft_body = Sprite2D.new()
+		_draft_body.name = "SavedBody"
+		_draft_body.z_index = 5
+		add_child(_draft_body)
+		_draft_body.hide()
+	if _draft_projectile == null:
+		_draft_projectile = Sprite2D.new()
+		_draft_projectile.name = "SavedProjectile"
+		_draft_projectile.z_index = 6
+		add_child(_draft_projectile)
+		_draft_projectile.hide()
+	if _draft_impact == null:
+		_draft_impact = Sprite2D.new()
+		_draft_impact.name = "SavedImpact"
+		_draft_impact.z_index = 7
+		add_child(_draft_impact)
+		_draft_impact.hide()
+	if _draft_error == null:
+		_draft_error = Label.new()
+		_draft_error.name = "SavedPlaybackError"
+		_draft_error.text = "这一下的画面没载入"
+		_draft_error.position = Vector2(-80, -160)
+		_draft_error.z_index = 8
+		add_child(_draft_error)
+		_draft_error.hide()
+
+
+func _draft_list(action_name: String) -> Array:
+	var actions: Dictionary = _draft.get("actions", {})
+	var value: Variant = actions.get(action_name, [])
+	return value if value is Array else []
+
+
+func _draft_failed(action_name: String) -> bool:
+	var failed: Dictionary = _draft.get("failed", {})
+	return bool(failed.get(action_name, false))
+
+
+func _duration_sec(action_name: String) -> float:
+	var total := 0.0
+	for frame in _draft_list(action_name):
+		total += float(frame.get("duration_ms", 83))
+	return total / 1000.0
+
+
+func _hit_limit() -> float:
+	var limit := 0.36
+	if _replace_body and not _draft_list("hit").is_empty():
+		limit = maxf(0.05, _duration_sec("hit"))
+	if not _draft_list("impact").is_empty():
+		limit = maxf(limit, _duration_sec("impact"))
+	return limit
+
+
+func _frame_at(action_name: String, time_sec: float, loop_frames: bool) -> Dictionary:
+	var frames := _draft_list(action_name)
+	if frames.is_empty():
+		return {}
+	var elapsed := maxf(time_sec, 0.0) * 1000.0
+	var total := 0.0
+	for frame in frames:
+		total += float(frame.get("duration_ms", 83))
+	if total <= 0.0:
+		return frames[0]
+	if loop_frames:
+		elapsed = fmod(elapsed, total)
+	var cursor := 0.0
+	for frame in frames:
+		cursor += float(frame.get("duration_ms", 83))
+		if elapsed < cursor:
+			return frame
+	return frames[frames.size() - 1]
+
+
+func _show_draft_sprite(sprite: Sprite2D, frame: Dictionary, height: float, at: Vector2) -> void:
+	var texture: Texture2D = frame.get("texture")
+	if sprite == null or texture == null:
+		if sprite != null:
+			sprite.hide()
+		return
+	sprite.texture = texture
+	sprite.centered = false
+	sprite.position = at
+	var tex_h := maxf(texture.get_height(), 1.0)
+	sprite.scale = Vector2(height / tex_h, height / tex_h)
+	sprite.offset = Vector2(-texture.get_width() / 2.0, -tex_h)
+	sprite.show()
+
+
+func _present_saved_body() -> void:
+	if _draft_body == null:
+		return
+	var pose := ""
+	if hit_time >= 0.0:
+		pose = "hit"
+	elif action == "attack":
+		pose = "attack"
+	elif action == "idle":
+		pose = "idle"
+	if pose != "" and _replace_body and _draft_failed(pose):
+		fighter.visible = false
+		_draft_body.hide()
+		_draft_error.show()
+		return
+	if pose != "" and _replace_body and not _draft_list(pose).is_empty():
+		fighter.visible = false
+		if _draft_error != null:
+			_draft_error.hide()
+		var time := hit_time if pose == "hit" else action_time
+		_show_draft_sprite(_draft_body, _frame_at(pose, time, pose == "idle"), 280.0, Vector2.ZERO)
+		return
+	fighter.visible = true
+	_draft_body.hide()
+	if _draft_error != null:
+		_draft_error.hide()
+
+
+func _present_saved_projectile() -> void:
+	if _draft_projectile == null:
+		return
+	var frames := _draft_list("projectile")
+	if actor_side != "player" or action != "attack" or frames.is_empty() or _draft_failed("projectile"):
+		_draft_projectile.hide()
+		return
+	var start := _offset_before_frame("attack", int(_draft.get("projectileFrame", 1)))
+	var duration := _duration_sec("projectile")
+	if action_time < start or action_time >= start + duration:
+		_draft_projectile.hide()
+		return
+	var progress := clampf((action_time - start) / maxf(duration, 0.001), 0.0, 1.0)
+	var gap := arena.size.x * 0.5 / maxf(_factor, 0.01) if is_instance_valid(arena) else 540.0
+	var at := Vector2(40, -140).lerp(Vector2(gap - 40, -140), progress)
+	_show_draft_sprite(_draft_projectile, _frame_at("projectile", action_time - start, false), 140.0, at)
+
+
+func _offset_before_frame(action_name: String, frame_number: int) -> float:
+	var frames := _draft_list(action_name)
+	var count := mini(maxi(frame_number - 1, 0), frames.size())
+	var ms := 0.0
+	for i in count:
+		ms += float(frames[i].get("duration_ms", 83))
+	return ms / 1000.0

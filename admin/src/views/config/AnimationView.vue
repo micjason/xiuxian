@@ -1,5 +1,5 @@
 <template>
-  <div class="page">
+  <div class="page" :class="{ 'is-preview': mode === 'preview' }">
     <header class="toolbar">
       <h1>战斗预览</h1>
       <el-radio-group v-model="mode" class="modes">
@@ -32,7 +32,7 @@
     </div>
 
     <template v-else-if="loaded">
-      <div class="workspace">
+      <div v-show="mode === 'organize'" class="workspace">
         <aside v-show="mode === 'organize'" class="col">
           <el-button type="primary" class="wide" :disabled="uploadPhase === 'running'" data-testid="upload-open" @click="openUpload">上传素材</el-button>
           <h2>素材列表</h2>
@@ -44,19 +44,20 @@
             :class="{ on: clip.id === selectedClipId }"
             @click="selectClip(clip.id)"
           >
-            <strong>{{ clip.name }}</strong>
+            <div class="clip-head">
+              <strong>{{ clip.name }}</strong>
+              <button type="button" class="danger-text" @click.stop="deleteClip(clip)">删除</button>
+            </div>
             <span>已抽 {{ clip.frames.length }} 帧</span>
-            <em v-if="clip.id === doc.characterClipId">当前角色</em>
-            <em v-if="clip.id === doc.opponentClipId && clip.id !== doc.characterClipId">演示对手</em>
-            <span class="row-actions">
-              <button type="button" @click.stop="doc.characterClipId = clip.id">设为当前角色</button>
-              <button type="button" @click.stop="doc.opponentClipId = clip.id">设为演示对手</button>
-              <button type="button" @click.stop="deleteClip(clip)">删除素材</button>
-            </span>
+            <div class="role-tags">
+              <button type="button" class="role" :class="{ on: clip.id === doc.characterClipId }" @click.stop="setCharacter(clip.id)">
+                {{ clip.id === doc.characterClipId ? "当前角色" : "设为当前角色" }}
+              </button>
+              <button type="button" class="role" :class="{ on: clip.id === doc.opponentClipId }" @click.stop="setOpponent(clip.id)">
+                {{ clip.id === doc.opponentClipId ? "演示对手" : "设为演示对手" }}
+              </button>
+            </div>
           </div>
-          <button v-if="doc.opponentClipId && doc.opponentClipId !== doc.characterClipId" type="button" class="textish" @click="useSameOpponent">
-            对手改回同一套
-          </button>
           <h2>动作</h2>
           <button v-for="action in actionIds" :key="action" type="button" class="action-row" @click="previewAction(action)">
             <span>{{ actionLabel[action] }}</span>
@@ -64,27 +65,7 @@
           </button>
         </aside>
 
-        <aside v-show="mode === 'preview'" class="col">
-          <h2>这一击</h2>
-          <p class="hint">谁出招</p>
-          <el-radio-group v-model="doc.attackerSide" class="stack">
-            <el-radio value="left">左边打右边</el-radio>
-            <el-radio value="right">右边打左边</el-radio>
-          </el-radio-group>
-          <p class="hint">{{ characterPlace }}</p>
-          <el-radio-group v-model="doc.characterSide" class="stack">
-            <el-radio value="left">当前角色站左</el-radio>
-            <el-radio value="right">当前角色站右</el-radio>
-          </el-radio-group>
-          <p class="hint">{{ opponentPlace }}</p>
-          <h2>这次用到的动作</h2>
-          <p v-for="item in readiness" :key="item.label" class="ready">
-            <span>{{ item.label }}</span>
-            <em :class="{ lack: item.lack }">{{ item.text }}</em>
-          </p>
-        </aside>
-
-        <section v-show="mode === 'organize'" class="col-main">
+        <section class="col-main">
           <div class="panel-title">
             <strong>画面检查（不是游戏屏幕）</strong>
             <el-switch v-model="onion" :disabled="visibleCount < 2" active-text="洋葱皮" />
@@ -99,58 +80,77 @@
           </template>
         </section>
 
-        <section v-show="mode === 'preview'" class="col-main">
-          <div class="panel-title">
-            <strong>游戏画面预览（竖屏实际比例 · 1080×2340）</strong>
-            <el-switch v-model="showPhone" active-text="显示手机框" />
-            <el-switch v-model="showMarks" active-text="显示对拍标记" />
-          </div>
-          <div v-if="doc.clips.length === 0" class="empty">
-            <p>还不能预演。请先在「素材整理」里指定出招和受击。</p>
-            <el-button type="primary" @click="mode = 'organize'">去素材整理</el-button>
-          </div>
-          <div v-else class="stage-center">
-            <div class="phone" :class="{ bare: !showPhone }">
-              <canvas ref="stageCanvas" width="1080" height="2340" data-testid="stage-canvas"></canvas>
-            </div>
-          </div>
-          <p class="hint">
-            手机框居中留边，不拉成横图。比例用游戏画布 1080×2340。左右脚底在画面宽的 23% 和 77%、高度 1280。画面按上传的朝向摆，不会自动翻面。
-          </p>
-        </section>
-
-        <aside v-show="mode === 'organize'" class="col">
-          <h2>当前帧</h2>
-          <p v-if="shownFrame" class="hint">第 {{ shownPosition }} / {{ selectedClip?.frames.length ?? 0 }} 帧</p>
-          <p v-else class="hint">还没有选中的帧</p>
+        <aside class="col">
+          <h2>所选帧</h2>
+          <p class="hint">{{ selectionText }}</p>
           <label class="field">所属动作</label>
-          <el-select :model-value="shownFrame?.action ?? ''" :disabled="!shownFrame" @change="assignChoice">
+          <el-select :model-value="selectionAction" :disabled="selectionCount === 0" @change="assignChoice">
             <el-option value="" label="未分配" />
             <el-option v-for="action in actionIds" :key="action" :value="action" :label="actionLabel[action]" />
           </el-select>
           <div class="quick">
-            <el-button size="small" :disabled="!shownFrame" @click="assign('idle')">设为待机</el-button>
-            <el-button size="small" :disabled="!shownFrame" @click="assign('attack')">设为出招</el-button>
-            <el-button size="small" :disabled="!shownFrame" @click="assign('hit')">设为受击</el-button>
+            <el-button size="small" :disabled="selectionCount === 0" @click="assign('idle')">设为待机</el-button>
+            <el-button size="small" :disabled="selectionCount === 0" @click="assign('attack')">设为出招</el-button>
+            <el-button size="small" :disabled="selectionCount === 0" @click="assign('hit')">设为受击</el-button>
           </div>
-          <el-button size="small" :disabled="!shownFrame || !shownFrame.action" @click="assign(null)">取消分配</el-button>
+          <el-button size="small" :disabled="selectionCount === 0" @click="assign(null)">取消分配</el-button>
           <label class="field">帧时长</label>
           <div class="duration">
-            <el-input-number :model-value="shownFrame?.durationMs" :min="30" :max="400" :step="1" :disabled="!shownFrame" @change="setDuration" />
+            <el-input-number :model-value="selectionDuration" :min="30" :max="400" :step="1" :disabled="selectionCount === 0" @change="setDuration" />
             <span>毫秒</span>
           </div>
-          <p class="hint">沿用现有页的毫秒/帧，范围 30 到 400。新抽出的帧用现有的 83，不另设默认值。</p>
-          <el-switch :model-value="shownFrame?.hidden ?? false" :disabled="!shownFrame" active-text="隐藏此帧" @change="setHidden" />
-          <p class="hint">预览时跳过，仍留在胶片上。</p>
+          <p class="hint">时长和动作都会作用到当前选中的全部帧。范围 30 到 400。新抽出的帧是 83。</p>
+          <el-switch :model-value="selectionHidden" :disabled="selectionCount === 0" :active-text="selectionCount > 1 ? `隐藏所选 ${selectionCount} 帧` : '隐藏此帧'" @change="setHidden" />
+          <p class="hint">隐藏后播放会跳过，帧还留在胶片上。</p>
         </aside>
+      </div>
 
-        <aside v-show="mode === 'preview'" class="col">
-          <h2>预演：普通一击</h2>
-          <p class="hint">本轮仅此项</p>
-          <label class="field">演示数字</label>
-          <el-input v-model="doc.demoNumber" maxlength="8" data-testid="demo-number" />
-          <p class="hint">只看位置和出现时机，不是真实伤害。不参与任何结算。</p>
-          <h2>事件列表</h2>
+      <div v-show="mode === 'preview'" class="preview-layout">
+        <div v-if="doc.clips.length === 0" class="empty">
+          <p>还不能预演。请先在「素材整理」里指定出招和受击。</p>
+          <el-button type="primary" @click="mode = 'organize'">去素材整理</el-button>
+        </div>
+        <div v-else class="stage-center">
+          <div class="phone" :class="{ bare: !showPhone }">
+            <canvas ref="stageCanvas" width="1080" height="2340" data-testid="stage-canvas"></canvas>
+          </div>
+        </div>
+        <aside class="preview-side">
+          <div class="transport">
+            <el-button @click="restartStrike">重新开始</el-button>
+            <el-button :disabled="beatAtStart" @click="stepBeat(-1)">上一拍</el-button>
+            <el-button type="primary" :disabled="doc.clips.length === 0" @click="strikePlaying = !strikePlaying">{{ strikePlaying ? "暂停" : "播放" }}</el-button>
+            <el-button :disabled="beatAtEnd" @click="stepBeat(1)">下一拍</el-button>
+            <el-switch v-model="strikeLoop" active-text="循环" />
+          </div>
+          <p class="hint">对齐到「{{ currentEventLabel }}」</p>
+          <div>
+            <p class="hint">谁出招</p>
+            <el-radio-group v-model="doc.attackerSide" class="stack">
+              <el-radio value="left">左边打右边</el-radio>
+              <el-radio value="right">右边打左边</el-radio>
+            </el-radio-group>
+          </div>
+          <div>
+            <p class="hint">{{ characterPlace }}</p>
+            <el-radio-group v-model="doc.characterSide" class="stack">
+              <el-radio value="left">当前角色站左</el-radio>
+              <el-radio value="right">当前角色站右</el-radio>
+            </el-radio-group>
+          </div>
+          <div>
+            <p class="hint">演示数字</p>
+            <el-input v-model="doc.demoNumber" maxlength="8" data-testid="demo-number" />
+            <p class="hint">{{ opponentPlace }}</p>
+          </div>
+          <div class="ready-inline">
+            <p v-for="item in readiness" :key="item.label" class="ready">
+              <span>{{ item.label }}</span>
+              <em :class="{ lack: item.lack }">{{ item.text }}</em>
+            </p>
+          </div>
+          <el-switch v-model="showPhone" active-text="显示手机框" />
+          <el-switch v-model="showMarks" active-text="显示对拍标记" />
           <button
             v-for="event in plan.events"
             :key="event.id"
@@ -180,6 +180,48 @@
               <span>毫秒</span>
             </div>
           </div>
+          <div class="timeline" data-testid="strike-timeline">
+            <div class="band">
+              <span>攻击方</span>
+              <div ref="timeTrack" class="track" @pointerdown="scrub">
+                <button
+                  v-for="(block, index) in attackerBands"
+                  :key="`a-${index}`"
+                  type="button"
+                  class="block"
+                  :class="block.tone"
+                  :style="bandStyle(block)"
+                  @pointerdown.stop="block.tone === 'attack' ? beginDrag('attackStart', $event) : undefined"
+                >
+                  {{ block.label }}
+                </button>
+                <i class="head" :style="{ left: headLeft }"></i>
+              </div>
+            </div>
+            <div class="band">
+              <span>受击方</span>
+              <div class="track">
+                <button v-for="(block, index) in defenderBands" :key="`d-${index}`" type="button" class="block" :class="block.tone" :style="bandStyle(block)">
+                  {{ block.label }}
+                </button>
+                <i class="head" :style="{ left: headLeft }"></i>
+              </div>
+            </div>
+            <div class="markers">
+              <button
+                v-for="event in markerEvents"
+                :key="event.id"
+                type="button"
+                class="marker"
+                :class="{ skip: event.skipped, on: event.id === selectedEvent }"
+                :style="{ left: markerLeft(event.timeMs) }"
+                @pointerdown.stop="beginDrag(event.id, $event)"
+                @click.stop="jumpTo(event.id)"
+              >
+                {{ markerWord(event.id) }}
+              </button>
+            </div>
+          </div>
         </aside>
       </div>
 
@@ -192,6 +234,18 @@
           <el-switch v-model="loop" active-text="循环" />
           <span class="hint">{{ organizeStatus }}</span>
         </div>
+        <div v-if="selectedClip" class="batch">
+          <span class="hint">已选 {{ selectionCount }} 帧。单击选择，按住 Shift 再点另一帧则选中中间整段。</span>
+          <el-button size="small" @click="selectAll">全选</el-button>
+          <el-button size="small" @click="selectUnassigned">选中未分配</el-button>
+          <el-button size="small" :disabled="selectionCount === 0" @click="clearSelection">取消选择</el-button>
+          <el-button v-for="action in actionIds" :key="action" size="small" :disabled="selectionCount === 0" @click="assign(action)">
+            把所选设为{{ actionLabel[action] }}
+          </el-button>
+          <el-button size="small" :disabled="selectionCount === 0" @click="assign(null)">取消分配</el-button>
+          <el-button size="small" :disabled="selectionCount === 0" @click="setHidden(true)">隐藏所选</el-button>
+          <el-button size="small" :disabled="selectionCount === 0" @click="setHidden(false)">显示所选</el-button>
+        </div>
         <div v-if="selectedClip" class="film">
           <button
             v-for="(frame, index) in selectedClip.frames"
@@ -201,71 +255,16 @@
             :class="{ on: frame.id === shownFrame?.id, picked: selectedFrameIds.includes(frame.id), hidden: frame.hidden }"
             @pointerdown="onFramePointerDown(index, $event)"
             @pointerenter="onFramePointerEnter(index)"
-            @dragover.prevent
-            @drop="dropOn(index)"
           >
             <img v-if="thumbs[frame.id]" :src="thumbs[frame.id]" alt="" />
             <span class="idx">{{ index + 1 }}</span>
             <em v-if="frame.hidden">隐藏</em>
             <em v-else-if="frame.action" :class="`tone-${frame.action}`">{{ actionLabel[frame.action] }}</em>
             <em v-else>未分配</em>
-            <span data-drag draggable="true" @dragstart="dragFrom = index">拖</span>
           </button>
         </div>
       </footer>
 
-      <footer v-show="mode === 'preview'" class="dock">
-        <div class="transport">
-          <el-button @click="restartStrike">重新开始</el-button>
-          <el-button :disabled="beatAtStart" @click="stepBeat(-1)">上一拍</el-button>
-          <el-button type="primary" :disabled="doc.clips.length === 0" @click="strikePlaying = !strikePlaying">{{ strikePlaying ? "暂停" : "播放" }}</el-button>
-          <el-button :disabled="beatAtEnd" @click="stepBeat(1)">下一拍</el-button>
-          <el-switch v-model="strikeLoop" active-text="循环" />
-          <span class="hint">对齐到「{{ currentEventLabel }}」</span>
-        </div>
-        <div class="timeline" data-testid="strike-timeline">
-          <div class="band">
-            <span>攻击方</span>
-            <div ref="timeTrack" class="track" @pointerdown="scrub">
-              <button
-                v-for="(block, index) in attackerBands"
-                :key="`a-${index}`"
-                type="button"
-                class="block"
-                :class="block.tone"
-                :style="bandStyle(block)"
-                @pointerdown.stop="block.tone === 'attack' ? beginDrag('attackStart', $event) : undefined"
-              >
-                {{ block.label }}
-              </button>
-              <i class="head" :style="{ left: headLeft }"></i>
-            </div>
-          </div>
-          <div class="band">
-            <span>受击方</span>
-            <div class="track">
-              <button v-for="(block, index) in defenderBands" :key="`d-${index}`" type="button" class="block" :class="block.tone" :style="bandStyle(block)">
-                {{ block.label }}
-              </button>
-              <i class="head" :style="{ left: headLeft }"></i>
-            </div>
-          </div>
-          <div class="markers">
-            <button
-              v-for="event in markerEvents"
-              :key="event.id"
-              type="button"
-              class="marker"
-              :class="{ skip: event.skipped, on: event.id === selectedEvent }"
-              :style="{ left: markerLeft(event.timeMs) }"
-              @pointerdown.stop="beginDrag(event.id, $event)"
-              @click.stop="jumpTo(event.id)"
-            >
-              {{ markerWord(event.id) }}
-            </button>
-          </div>
-        </div>
-      </footer>
     </template>
 
     <el-dialog v-model="uploadOpen" title="上传素材" width="460px" :close-on-click-modal="false" :before-close="onUploadBeforeClose">
@@ -383,7 +382,6 @@ let raf = 0;
 let lastTick = 0;
 let organizeElapsed = 0;
 let strikeOrigin = 0;
-let dragFrom: number | null = null;
 let ranging = false;
 let leaveResolver: ((choice: LeaveChoice) => void) | null = null;
 
@@ -503,8 +501,14 @@ function selectClip(id: string): void {
   playing.value = false;
 }
 
-function useSameOpponent(): void {
-  doc.value.opponentClipId = doc.value.characterClipId;
+function setCharacter(id: string): void {
+  doc.value.characterClipId = id;
+  ElMessage.success(id === doc.value.opponentClipId ? "这套素材同时是当前角色和演示对手" : "已标为当前角色");
+}
+
+function setOpponent(id: string): void {
+  doc.value.opponentClipId = id;
+  ElMessage.success(id === doc.value.characterClipId ? "这套素材同时是当前角色和演示对手" : "已标为演示对手");
 }
 
 function previewAction(action: ActionId): void {
@@ -519,18 +523,53 @@ function previewAction(action: ActionId): void {
   playing.value = true;
 }
 
+const selectionCount = computed(() => selectedFrameIds.value.length);
+const selectedFrames = computed(() => selectedClip.value?.frames.filter((frame) => selectedFrameIds.value.includes(frame.id)) ?? []);
+const selectionText = computed(() => {
+  if (!selectedClip.value) return "先上传一套素材";
+  if (selectionCount.value === 0) return "还没有选中帧。单击一帧，或按住 Shift 选中一整段。";
+  return `已选 ${selectionCount.value} 帧，下面的动作、时长和隐藏都会作用到这些帧。`;
+});
+const selectionAction = computed(() => {
+  const frames = selectedFrames.value;
+  if (frames.length === 0) return "";
+  const first = frames[0]?.action ?? "";
+  return frames.every((frame) => (frame.action ?? "") === first) ? first : "";
+});
+const selectionDuration = computed(() => {
+  const frames = selectedFrames.value;
+  if (frames.length === 0) return 83;
+  const first = frames[0]?.durationMs ?? 83;
+  return frames.every((frame) => frame.durationMs === first) ? first : first;
+});
+const selectionHidden = computed(() => selectedFrames.value.length > 0 && selectedFrames.value.every((frame) => frame.hidden));
+
+function selectAll(): void {
+  selectedFrameIds.value = selectedClip.value?.frames.map((frame) => frame.id) ?? [];
+}
+
+function selectUnassigned(): void {
+  selectedFrameIds.value = selectedClip.value?.frames.filter((frame) => !frame.action).map((frame) => frame.id) ?? [];
+}
+
+function clearSelection(): void {
+  selectedFrameIds.value = [];
+}
+
 function assign(action: ActionId | null): void {
   const clip = selectedClip.value;
-  if (!clip) return;
+  if (!clip || selectedFrameIds.value.length === 0) return;
   const ids = new Set(selectedFrameIds.value);
-  if (ids.size === 0 && shownFrame.value) ids.add(shownFrame.value.id);
   let replaced = 0;
+  let count = 0;
   for (const frame of clip.frames) {
     if (!ids.has(frame.id)) continue;
+    count += 1;
     if (frame.action && action && frame.action !== action) replaced += 1;
     frame.action = action;
   }
-  if (replaced > 0) ElMessage.info(`有 ${replaced} 帧原来属于别的动作，已改成现在这个。一帧只能属于一个动作。`);
+  const label = action ? actionLabel[action] : "未分配";
+  ElMessage.success(replaced > 0 ? `已把 ${count} 帧改成${label}，其中 ${replaced} 帧原来是别的动作` : `已把 ${count} 帧设为${label}`);
 }
 
 function assignChoice(value: string): void {
@@ -543,7 +582,7 @@ function setDuration(value: number | undefined): void {
   const ms = Math.round(value);
   if (ms < 30 || ms > 400) return;
   const ids = new Set(selectedFrameIds.value);
-  if (ids.size === 0 && shownFrame.value) ids.add(shownFrame.value.id);
+  if (ids.size === 0) return;
   for (const frame of clip.frames) {
     if (ids.has(frame.id)) frame.durationMs = ms;
   }
@@ -554,7 +593,7 @@ function setHidden(value: string | number | boolean): void {
   const clip = selectedClip.value;
   if (!clip) return;
   const ids = new Set(selectedFrameIds.value);
-  if (ids.size === 0 && shownFrame.value) ids.add(shownFrame.value.id);
+  if (ids.size === 0) return;
   for (const frame of clip.frames) {
     if (ids.has(frame.id)) frame.hidden = hidden;
   }
@@ -590,8 +629,7 @@ function focusFrame(index: number, extend: boolean): void {
 }
 
 function onFramePointerDown(index: number, event: PointerEvent): void {
-  if ((event.target as HTMLElement).closest("[data-drag]")) return;
-  ranging = true;
+  ranging = !event.shiftKey;
   focusFrame(index, event.shiftKey);
 }
 
@@ -600,19 +638,6 @@ function onFramePointerEnter(index: number): void {
   const start = Math.min(anchorIndex.value, index);
   const end = Math.max(anchorIndex.value, index);
   selectedFrameIds.value = selectedClip.value.frames.slice(start, end + 1).map((frame) => frame.id);
-}
-
-function dropOn(index: number): void {
-  const clip = selectedClip.value;
-  const from = dragFrom;
-  dragFrom = null;
-  if (!clip || from == null || from === index) return;
-  const frames = [...clip.frames];
-  const [item] = frames.splice(from, 1);
-  if (!item) return;
-  frames.splice(index, 0, item);
-  clip.frames = frames;
-  pinnedHiddenId.value = null;
 }
 
 function onSlide(): void {
@@ -1179,6 +1204,10 @@ onUnmounted(() => {
   min-height: 680px;
   min-width: 960px;
 }
+.page.is-preview {
+  height: calc(100vh - 132px);
+  overflow: hidden;
+}
 .toolbar,
 .transport,
 .panel-title,
@@ -1269,6 +1298,37 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: flex-start;
 }
+.clip-head {
+  display: flex;
+  width: 100%;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+.role-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.role {
+  border: 1px solid var(--el-border-color);
+  background: transparent;
+  border-radius: 999px;
+  padding: 2px 8px;
+  cursor: pointer;
+}
+.role.on {
+  border-color: var(--el-color-primary);
+  background: var(--el-color-primary-light-9);
+  color: var(--el-color-primary);
+  font-weight: 600;
+}
+.danger-text {
+  border: 0;
+  background: transparent;
+  color: var(--el-color-danger);
+  cursor: pointer;
+}
 .clip-row.on,
 .event-row.on {
   border-color: var(--el-color-primary);
@@ -1301,14 +1361,57 @@ onUnmounted(() => {
   aspect-ratio: 2 / 1;
   align-self: center;
 }
+.preview-layout {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: row;
+  gap: 12px;
+  margin-top: 8px;
+}
+.preview-side {
+  width: 420px;
+  flex: none;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 8px;
+  background: var(--el-bg-color);
+  border: 1px solid var(--el-border-color);
+  border-radius: 8px;
+}
+.preview-bar,
+.preview-events,
+.batch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  align-items: flex-end;
+}
+.ready-inline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  align-items: center;
+}
 .stage-center {
   flex: 1;
   min-height: 0;
   display: flex;
   justify-content: center;
-  align-items: center;
+  align-items: flex-start;
   background: #efe8dc;
   border-radius: 8px;
+  padding: 12px 0;
+}
+.preview-layout .stage-center {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  align-items: center;
 }
 .phone {
   height: 96%;
@@ -1318,6 +1421,11 @@ onUnmounted(() => {
   border-radius: 28px;
   overflow: hidden;
   background: #163024;
+}
+.preview-layout .phone {
+  height: calc(100vh - 220px);
+  max-height: 100%;
+  width: auto;
 }
 .phone.bare {
   border-color: transparent;
@@ -1369,7 +1477,8 @@ onUnmounted(() => {
   border-color: var(--el-color-primary);
 }
 .cell.picked {
-  outline: 2px solid var(--el-color-primary-light-5);
+  outline: 3px solid var(--el-color-primary);
+  background: var(--el-color-primary-light-9);
 }
 .cell.hidden {
   opacity: 0.4;

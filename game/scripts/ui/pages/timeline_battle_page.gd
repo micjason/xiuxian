@@ -57,6 +57,15 @@ func _ready() -> void:
 	if spacer != null:
 		spacer.visible = false
 	_load_speed()
+	_load_saved_playback()
+
+
+func _load_saved_playback() -> void:
+	var playback: Object = load("res://scripts/battle/draft_playback.gd")
+	var payload: Dictionary = await playback.load_current()
+	if not is_inside_tree() or payload.is_empty():
+		return
+	_slots.apply_saved_playback(payload)
 
 func open_stage(state: Dictionary, content: Dictionary, stage: Dictionary, gate: Dictionary, realm: String) -> void:
 	_generation += 1

@@ -27,3 +27,19 @@ func request_json(method: int, path: String, body: Dictionary = {}, session_toke
 	var data: Dictionary = parser.data
 	data["code"] = code
 	return data
+
+
+func request_bytes(path: String) -> Dictionary:
+	var http := HTTPRequest.new()
+	http.timeout = 8.0
+	add_child(http)
+	var headers := PackedStringArray(["User-Agent: xiuxian"])
+	var url := "%s%s" % [AppEnv.api_base_url(), path]
+	if http.request(url, headers, HTTPClient.METHOD_GET) != OK:
+		http.queue_free()
+		return {"code": 0, "bytes": PackedByteArray()}
+	var completed: Array = await http.request_completed
+	var code := int(completed[1])
+	var raw := PackedByteArray(completed[3])
+	http.queue_free()
+	return {"code": code, "bytes": raw}

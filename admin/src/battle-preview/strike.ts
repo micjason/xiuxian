@@ -93,6 +93,47 @@ export function effectFrames(doc: BattlePreviewDocument, action: "projectile" | 
   return frames;
 }
 
+export type ClientFrame = { clipId: string; name: string; durationMs: number };
+
+/** 游戏历练读取的画面。隐藏帧不在里面。空数组表示这一下继续用游戏里原来的演法。 */
+export function clientPlayback(doc: BattlePreviewDocument | null): {
+  projectileFrame: number;
+  hitFrame: number;
+  hitMode: HitMode;
+  actions: Record<"idle" | "attack" | "hit" | "projectile" | "impact", ClientFrame[]>;
+} {
+  const actions = {
+    idle: [] as ClientFrame[],
+    attack: [] as ClientFrame[],
+    hit: [] as ClientFrame[],
+    projectile: [] as ClientFrame[],
+    impact: [] as ClientFrame[],
+  };
+  if (!doc) {
+    return { projectileFrame: 1, hitFrame: 1, hitMode: "attackFrame", actions };
+  }
+  const character = clipById(doc, doc.characterClipId);
+  if (character) {
+    for (const action of ["idle", "attack", "hit"] as const) {
+      actions[action] = visibleActionFrames(character, action).map((frame) => ({
+        clipId: character.id,
+        name: frame.name,
+        durationMs: frame.durationMs,
+      }));
+    }
+  }
+  for (const action of ["projectile", "impact"] as const) {
+    for (const clip of doc.clips) {
+      for (const frame of clip.frames) {
+        if (!frame.hidden && frame.action === action) {
+          actions[action].push({ clipId: clip.id, name: frame.name, durationMs: frame.durationMs });
+        }
+      }
+    }
+  }
+  return { projectileFrame: doc.projectileFrame, hitFrame: doc.hitFrame, hitMode: doc.hitMode, actions };
+}
+
 export function sideClipId(doc: BattlePreviewDocument, side: Side): string | null {
   if (side === doc.characterSide) return doc.characterClipId;
   if (doc.opponentClipId && doc.opponentClipId === doc.characterClipId) return doc.characterClipId;

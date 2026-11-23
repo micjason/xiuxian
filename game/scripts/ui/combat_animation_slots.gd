@@ -105,3 +105,10 @@ func play_slot(side: String, slot: String, event: Dictionary = {}) -> void:
 			fx.get("hero_rig").call("play_hit", false)
 	elif slot in ["win", "lose"] and side == "player":
 		fx.call("play_result", slot == "win", str(event.get("reason", "")))
+
+
+func apply_saved_playback(payload: Dictionary) -> void:
+	for side in ["player", "boss"]:
+		var actor: Node = _actors.get(side)
+		if is_instance_valid(actor) and actor.has_method("apply_saved_playback"):
+			actor.call("apply_saved_playback", payload, side == "player")
